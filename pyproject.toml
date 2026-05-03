@@ -1,0 +1,39 @@
+[project]
+name = "chess-engine-4"
+version = "0.1.0"
+description = "Lc0-compatible chess neural network training code."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "GPL-3.0-only" }
+dependencies = [
+    "numpy>=2.2",
+    "torch>=2.9",
+]
+
+[project.scripts]
+train = "chess_engine_4.training.cli:train"
+inspect-data = "chess_engine_4.training.cli:inspect_data"
+sample-batch = "chess_engine_4.training.cli:sample_batch"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
