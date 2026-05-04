@@ -18,8 +18,14 @@ uv sync --dev
 
 ## Data
 
-The simplified Leela reader expects plain `.tar` files whose members contain
-packed LCZero v5/v6 binary records. Members may also be gzip-compressed.
+The Leela reader expects plain `.tar` files whose members contain gzip-compressed
+LCZero v6 binary chunks. Each dataset item is already a PyTorch training batch
+with LCZero-shaped tensors:
+
+- `planes`: `[batch, 112, 8, 8]`
+- `policy`: `[batch, 1858]`, preserving `-1` illegal-move sentinels
+- `value`: `[batch, 6, 3]` for result, best, played, orig, root, and
+  short-term targets
 
 Set the data path with:
 
