@@ -22,16 +22,21 @@ The neural net is trained on lc0 t80 data. Set the data path in `.env`.
 configured in `.env`.
 
 ```sh
-uv run train --batch-size 1024 --steps 1000
+uv run train --config configs/d192.toml
 ```
 
 For local dry runs without W&B:
 
 ```sh
-uv run train --no-wandb --batch-size 4 --steps 1 --d-model 32 --depth 1
+uv run train --config configs/d192.toml --no-wandb --batch-size 4 --steps 1 --device cpu
 ```
 
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
+
+Training runs are defined by TOML files under `configs/`. Environment variables
+own local paths and W&B configuration; the CLI is for invocation-time overrides
+such as the config path, step count, batch size, device, W&B on/off, and W&B run
+name.
 
 Modal integration will be added after the local project shape is stable.

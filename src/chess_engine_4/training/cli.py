@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import time
 from itertools import islice
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -13,63 +14,57 @@ from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
     LeelaTarDataset,
 )
-from chess_engine_4.model import MlpChessNet, MlpChessNetConfig
-from chess_engine_4.training.losses import LossWeights, lczero_loss
+from chess_engine_4.model import MlpChessNet
+from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
+from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
+_DEFAULT_CONFIG_PATH = Path("configs/d192.toml")
 
 
 def train() -> None:
     parser = argparse.ArgumentParser(description="Train the MLP-only chess network.")
+    parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--data", default=None, help=_DATA_HELP)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--steps", type=int, default=10)
-    parser.add_argument("--d-model", type=int, default=512)
-    parser.add_argument("--depth", type=int, default=4)
-    parser.add_argument("--mlp-ratio", type=float, default=4.0)
-    parser.add_argument("--rms-norm-eps", type=float, default=1e-6)
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--weight-decay", type=float, default=0.01)
-    parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"])
-    parser.add_argument("--policy-loss-weight", type=float, default=1.0)
-    parser.add_argument("--value-loss-weight", type=float, default=1.0)
-    parser.add_argument("--moves-left-loss-weight", type=float, default=1.0)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--steps", type=int, default=None)
+    parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
     args = parser.parse_args()
 
-    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
-    device = _resolve_device(args.device)
-    model = MlpChessNet(
-        MlpChessNetConfig(
-            d_model=args.d_model,
-            depth=args.depth,
-            mlp_ratio=args.mlp_ratio,
-            rms_norm_eps=args.rms_norm_eps,
-        )
-    ).to(device)
+    config = with_overrides(
+        load_training_config(args.config),
+        steps=args.steps,
+        batch_size=args.batch_size,
+        device=args.device,
+    )
+    _seed_everything(config.run.seed)
+
+    dataset = LeelaTarDataset(
+        args.data,
+        batch_size=config.data.batch_size,
+        max_records=config.data.max_records,
+    )
+    device = _resolve_device(config.run.device)
+    model = MlpChessNet(config.model).to(device)
     optimizer = torch.optim.AdamW(
-        _adamw_parameter_groups(model, weight_decay=args.weight_decay),
-        lr=args.lr,
+        _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
+        lr=config.optimizer.lr,
     )
-    weights = LossWeights(
-        policy=args.policy_loss_weight,
-        value=args.value_loss_weight,
-        moves_left=args.moves_left_loss_weight,
-    )
-    wandb_run = _init_wandb(args, model, device) if args.wandb else None
+    wandb_run = _init_wandb(config, args.wandb_name, model, device) if args.wandb else None
 
     model.train()
     start = time.perf_counter()
     seen = 0
-    for step, (planes, policy, value) in enumerate(islice(dataset, args.steps), start=1):
+    for step, (planes, policy, value) in enumerate(islice(dataset, config.run.steps), start=1):
         planes = planes.to(device)
         policy = policy.to(device)
         value = value.to(device)
 
         optimizer.zero_grad(set_to_none=True)
         output = model(planes)
-        loss = lczero_loss(output, policy, value, weights=weights)
+        loss = lczero_loss(output, policy, value, weights=config.loss)
         loss.total.backward()
         grad_norm = _gradient_norm(model)
         optimizer.step()
@@ -84,19 +79,21 @@ def train() -> None:
             grad_norm=grad_norm,
             samples_seen=seen,
             elapsed=elapsed,
-            lr=args.lr,
+            lr=config.optimizer.lr,
         )
-        if wandb_run is not None:
+        should_log = step == 1 or step % config.run.log_every == 0 or step == config.run.steps
+        if wandb_run is not None and should_log:
             wandb_run.log(metrics, step=step)
-        print(
-            f"step={step} "
-            f"loss={loss.total.item():.4f} "
-            f"policy={loss.policy.item():.4f} "
-            f"value={loss.value.item():.4f} "
-            f"mlh={loss.moves_left.item():.4f} "
-            f"grad_norm={grad_norm:.2f} "
-            f"samples_per_sec={seen / elapsed:.1f}"
-        )
+        if should_log:
+            print(
+                f"step={step} "
+                f"loss={loss.total.item():.4f} "
+                f"policy={loss.policy.item():.4f} "
+                f"value={loss.value.item():.4f} "
+                f"mlh={loss.moves_left.item():.4f} "
+                f"grad_norm={grad_norm:.2f} "
+                f"samples_per_sec={seen / elapsed:.1f}"
+            )
     if wandb_run is not None:
         wandb_run.finish()
 
@@ -155,6 +152,12 @@ def _resolve_device(requested: str) -> torch.device:
     return device
 
 
+def _seed_everything(seed: int) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
 def _adamw_parameter_groups(
     model: torch.nn.Module,
     *,
@@ -176,30 +179,35 @@ def _adamw_parameter_groups(
 
 
 def _init_wandb(
-    args: argparse.Namespace,
+    config: TrainingConfig,
+    run_name: str | None,
     model: torch.nn.Module,
     device: torch.device,
 ) -> Any:
     import wandb
 
-    config = {
-        "batch_size": args.batch_size,
-        "steps": args.steps,
+    wandb_config = {
+        "run_name": config.run.name,
+        "seed": config.run.seed,
+        "steps": config.run.steps,
+        "log_every": config.run.log_every,
+        "batch_size": config.data.batch_size,
+        "max_records": config.data.max_records,
         "device": str(device),
-        "d_model": args.d_model,
-        "depth": args.depth,
-        "mlp_ratio": args.mlp_ratio,
-        "rms_norm_eps": args.rms_norm_eps,
-        "lr": args.lr,
-        "weight_decay": args.weight_decay,
-        "policy_loss_weight": args.policy_loss_weight,
-        "value_loss_weight": args.value_loss_weight,
-        "moves_left_loss_weight": args.moves_left_loss_weight,
+        "d_model": config.model.d_model,
+        "depth": config.model.depth,
+        "mlp_ratio": config.model.mlp_ratio,
+        "rms_norm_eps": config.model.rms_norm_eps,
+        "lr": config.optimizer.lr,
+        "weight_decay": config.optimizer.weight_decay,
+        "policy_loss_weight": config.loss.policy,
+        "value_loss_weight": config.loss.value,
+        "moves_left_loss_weight": config.loss.moves_left,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
     return wandb.init(
-        name=args.wandb_name,
-        config=config,
+        name=run_name or config.run.name,
+        config=wandb_config,
     )
 
 
