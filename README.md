@@ -31,6 +31,12 @@ For local dry runs without W&B:
 uv run train --config configs/d192x3.toml --no-wandb --batch-size 4 --steps 1 --device cpu
 ```
 
+To launch the same training loop on Modal:
+
+```sh
+uv run train-modal --config configs/d192x3.toml --gpu l4
+```
+
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
 
@@ -39,4 +45,6 @@ own local paths and W&B configuration; the CLI is for invocation-time overrides
 such as the config path, step count, batch size, device, W&B on/off, and W&B run
 name.
 
-Modal integration will be added after the local project shape is stable.
+Modal uses the `chess-engine-4-training-data` Volume mounted at
+`/data/training_data` and the `chess-engine-4-wandb` Secret for W&B environment
+variables.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from dataclasses import dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,17 @@ _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_EN
 _DEFAULT_CONFIG_PATH = Path("configs/d192x3.toml")
 
 
+@dataclass(frozen=True, slots=True)
+class TrainOptions:
+    config: Path = _DEFAULT_CONFIG_PATH
+    data: str | None = None
+    batch_size: int | None = None
+    steps: int | None = None
+    device: str | None = None
+    wandb: bool = True
+    wandb_name: str | None = None
+
+
 def train() -> None:
     parser = argparse.ArgumentParser(description="Train the MLP-only chess network.")
     parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
@@ -33,16 +45,30 @@ def train() -> None:
     parser.add_argument("--wandb-name", default=None)
     args = parser.parse_args()
 
+    run_training(
+        TrainOptions(
+            config=args.config,
+            data=args.data,
+            batch_size=args.batch_size,
+            steps=args.steps,
+            device=args.device,
+            wandb=args.wandb,
+            wandb_name=args.wandb_name,
+        )
+    )
+
+
+def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     config = with_overrides(
-        load_training_config(args.config),
-        steps=args.steps,
-        batch_size=args.batch_size,
-        device=args.device,
+        load_training_config(options.config),
+        steps=options.steps,
+        batch_size=options.batch_size,
+        device=options.device,
     )
     _seed_everything(config.run.seed)
 
     dataset = LeelaTarDataset(
-        args.data,
+        options.data,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
     )
@@ -52,11 +78,12 @@ def train() -> None:
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
     )
-    wandb_run = _init_wandb(config, args.wandb_name, model, device) if args.wandb else None
+    wandb_run = _init_wandb(config, options.wandb_name, model, device) if options.wandb else None
 
     model.train()
     start = time.perf_counter()
     seen = 0
+    last_metrics: dict[str, float | int] = {}
     for step, (planes, policy, value) in enumerate(islice(dataset, config.run.steps), start=1):
         planes = planes.to(device)
         policy = policy.to(device)
@@ -94,8 +121,16 @@ def train() -> None:
                 f"grad_norm={grad_norm:.2f} "
                 f"samples_per_sec={seen / elapsed:.1f}"
             )
+        last_metrics = metrics
     if wandb_run is not None:
         wandb_run.finish()
+    return {
+        "run_name": config.run.name,
+        "steps": step if seen > 0 else 0,
+        "samples_seen": seen,
+        "final_loss": float(last_metrics.get("loss/total", 0.0)),
+        "device": str(device),
+    }
 
 
 def inspect_data() -> None:

@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "GPL-3.0-only" }
 dependencies = [
+    "modal>=1.4.2",
     "numpy>=2.2",
     "python-dotenv>=1.2.2",
     "torch>=2.9",
@@ -14,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 train = "chess_engine_4.training.cli:train"
+train-modal = "chess_engine_4.modal_train:train_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 sample-batch = "chess_engine_4.training.cli:sample_batch"
 
