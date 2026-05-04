@@ -1,5 +1,5 @@
 [run]
-name = "d192"
+name = "d192x3"
 seed = 1
 steps = 10000
 log_every = 10

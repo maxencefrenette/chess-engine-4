@@ -19,7 +19,7 @@ from chess_engine_4.training.config import TrainingConfig, load_training_config,
 from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/d192.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/d192x3.toml")
 
 
 def train() -> None:

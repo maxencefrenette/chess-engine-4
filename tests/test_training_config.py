@@ -58,7 +58,7 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/d192.toml")
+    config = load_training_config("configs/d192x3.toml")
 
     overridden = with_overrides(config, steps=3, batch_size=4, device="cpu")
 
@@ -70,8 +70,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.loss == config.loss
 
 
-def test_d192_config_builds_about_one_million_trunk_parameters() -> None:
-    config = load_training_config("configs/d192.toml")
+def test_d192x3_config_builds_about_one_million_trunk_parameters() -> None:
+    config = load_training_config("configs/d192x3.toml")
     model = MlpChessNet(config.model)
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())

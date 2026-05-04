@@ -13,7 +13,7 @@ from chess_engine_4.training.losses import LossWeights
 
 @dataclass(frozen=True, slots=True)
 class RunConfig:
-    name: str = "d192"
+    name: str = "d192x3"
     seed: int = 1
     steps: int = 10_000
     log_every: int = 10
