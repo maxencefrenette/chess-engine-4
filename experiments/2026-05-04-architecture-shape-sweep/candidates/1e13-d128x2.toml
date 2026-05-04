@@ -1,5 +1,5 @@
 [run]
-name = "1e13"
+name = "1e13-d128x2"
 seed = 1
 flops_target = 1e13
 log_every = 10

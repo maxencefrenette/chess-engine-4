@@ -1,7 +1,7 @@
 [run]
-name = "1e13"
+name = "1e14-d160x3"
 seed = 1
-flops_target = 1e13
+flops_target = 1e14
 log_every = 10
 device = "auto"
 
@@ -9,8 +9,8 @@ device = "auto"
 batch_size = 1024
 
 [model]
-d_model = 128
-depth = 2
+d_model = 160
+depth = 3
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 
