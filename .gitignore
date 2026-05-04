@@ -222,3 +222,4 @@ __marimo__/
 checkpoints/
 runs/
 /data/
+wandb/

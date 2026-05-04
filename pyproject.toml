@@ -9,6 +9,7 @@ dependencies = [
     "numpy>=2.2",
     "python-dotenv>=1.2.2",
     "torch>=2.9",
+    "wandb>=0.26.1",
 ]
 
 [project.scripts]
