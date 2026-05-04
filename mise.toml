@@ -2,13 +2,6 @@
 python = "3.14"
 uv = "latest"
 
-[env]
-_.python.venv = { path = ".venv", create = true }
-
-[tasks.train]
-description = "Run the local training entrypoint."
-run = "uv run train"
-
 [tasks.test]
 description = "Run the test suite."
 run = "uv run pytest"
