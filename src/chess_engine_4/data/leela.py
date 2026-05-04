@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from dotenv import load_dotenv
 from torch.utils.data import IterableDataset, get_worker_info
 
 DEFAULT_DATA_ENV_VAR = "CHESS_ENGINE_4_DATA_PATH"
@@ -146,6 +147,8 @@ def resolve_data_paths(
     env_var: str = DEFAULT_DATA_ENV_VAR,
 ) -> list[Path]:
     """Resolve explicit paths or the configured environment variable into tar files."""
+
+    load_dotenv(dotenv_path=Path.cwd() / ".env")
 
     raw_paths: list[str]
     if paths is None:

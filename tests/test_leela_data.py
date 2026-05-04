@@ -13,6 +13,7 @@ from chess_engine_4.data.leela import (
     V6_RECORD_SIZE,
     LeelaTarDataset,
     parse_frame_chunk,
+    resolve_data_paths,
     tensors_from_frames,
 )
 
@@ -67,6 +68,19 @@ def test_leela_tar_dataset_yields_tensor_batches_from_gzip_members(tmp_path: Pat
     assert len(batches) == 2
     assert tuple(batches[0][0].shape) == (2, 112, 8, 8)
     assert tuple(batches[1][0].shape) == (1, 112, 8, 8)
+
+
+def test_resolve_data_paths_loads_dotenv(tmp_path: Path, monkeypatch) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    tar_path = data_dir / "training.tar"
+    tar_path.touch()
+    env_path = tmp_path / ".env"
+    env_path.write_text(f"CHESS_ENGINE_4_DATA_PATH={data_dir}\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CHESS_ENGINE_4_DATA_PATH", raising=False)
+
+    assert resolve_data_paths(None) == [tar_path]
 
 
 def _records(count: int) -> bytes:
