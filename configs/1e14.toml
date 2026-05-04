@@ -1,7 +1,7 @@
 [run]
-name = "d192x4"
+name = "1e14"
 seed = 1
-steps = 10000
+flops_target = 1e14
 log_every = 10
 device = "auto"
 

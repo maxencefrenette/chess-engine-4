@@ -17,10 +17,14 @@ from chess_engine_4.data.leela import (
 )
 from chess_engine_4.model import MlpChessNet
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
+from chess_engine_4.training.flops import (
+    measure_training_flops_per_sample,
+    steps_for_flops_target,
+)
 from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/d192x3.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/1e14.toml")
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +32,7 @@ class TrainOptions:
     config: Path = _DEFAULT_CONFIG_PATH
     data: str | None = None
     batch_size: int | None = None
-    steps: int | None = None
+    flops_target: float | None = None
     device: str | None = None
     wandb: bool = True
     wandb_name: str | None = None
@@ -39,7 +43,7 @@ def train() -> None:
     parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--data", default=None, help=_DATA_HELP)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--steps", type=int, default=None)
+    parser.add_argument("--flops-target", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
@@ -50,7 +54,7 @@ def train() -> None:
             config=args.config,
             data=args.data,
             batch_size=args.batch_size,
-            steps=args.steps,
+            flops_target=args.flops_target,
             device=args.device,
             wandb=args.wandb,
             wandb_name=args.wandb_name,
@@ -61,11 +65,23 @@ def train() -> None:
 def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     config = with_overrides(
         load_training_config(options.config),
-        steps=options.steps,
+        flops_target=options.flops_target,
         batch_size=options.batch_size,
         device=options.device,
     )
     _seed_everything(config.run.seed)
+
+    with torch.device("meta"):
+        flops_model = MlpChessNet(config.model)
+    flops_per_sample = measure_training_flops_per_sample(
+        flops_model,
+        batch_size=config.data.batch_size,
+    )
+    steps = steps_for_flops_target(
+        flops_target=config.run.flops_target,
+        flops_per_sample=flops_per_sample,
+        batch_size=config.data.batch_size,
+    )
 
     dataset = LeelaTarDataset(
         options.data,
@@ -78,13 +94,24 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
     )
-    wandb_run = _init_wandb(config, options.wandb_name, model, device) if options.wandb else None
+    wandb_run = (
+        _init_wandb(
+            config,
+            options.wandb_name,
+            model,
+            device,
+            steps=steps,
+            flops_per_sample=flops_per_sample,
+        )
+        if options.wandb
+        else None
+    )
 
     model.train()
     start = time.perf_counter()
     seen = 0
     last_metrics: dict[str, float | int] = {}
-    for step, (planes, policy, value) in enumerate(islice(dataset, config.run.steps), start=1):
+    for step, (planes, policy, value) in enumerate(islice(dataset, steps), start=1):
         planes = planes.to(device)
         policy = policy.to(device)
         value = value.to(device)
@@ -108,7 +135,11 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
             elapsed=elapsed,
             lr=config.optimizer.lr,
         )
-        should_log = step == 1 or step % config.run.log_every == 0 or step == config.run.steps
+        estimated_flops_seen = seen * flops_per_sample
+        metrics["perf/measured_flops_per_sample"] = flops_per_sample
+        metrics["perf/estimated_flops_seen"] = estimated_flops_seen
+        metrics["perf/flops_target"] = config.run.flops_target
+        should_log = step == 1 or step % config.run.log_every == 0 or step == steps
         if wandb_run is not None and should_log:
             wandb_run.log(metrics, step=step)
         if should_log:
@@ -119,6 +150,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                 f"value={loss.value.item():.4f} "
                 f"mlh={loss.moves_left.item():.4f} "
                 f"grad_norm={grad_norm:.2f} "
+                f"flops_seen={estimated_flops_seen:.3e} "
                 f"samples_per_sec={seen / elapsed:.1f}"
             )
         last_metrics = metrics
@@ -129,6 +161,9 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "steps": step if seen > 0 else 0,
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss/total", 0.0)),
+        "flops_target": config.run.flops_target,
+        "estimated_flops_seen": int(last_metrics.get("perf/estimated_flops_seen", 0)),
+        "measured_flops_per_sample": flops_per_sample,
         "device": str(device),
     }
 
@@ -218,13 +253,18 @@ def _init_wandb(
     run_name: str | None,
     model: torch.nn.Module,
     device: torch.device,
+    *,
+    steps: int,
+    flops_per_sample: int,
 ) -> Any:
     import wandb
 
     wandb_config = {
         "run_name": config.run.name,
         "seed": config.run.seed,
-        "steps": config.run.steps,
+        "flops_target": config.run.flops_target,
+        "computed_steps": steps,
+        "measured_flops_per_sample": flops_per_sample,
         "log_every": config.run.log_every,
         "batch_size": config.data.batch_size,
         "max_records": config.data.max_records,

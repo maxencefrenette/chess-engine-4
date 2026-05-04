@@ -14,7 +14,7 @@ APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
 WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
-REMOTE_CONFIG_PATH = Path("configs/d192x3.toml")
+REMOTE_CONFIG_PATH = Path("configs/1e14.toml")
 
 GPU_CHOICES = {
     "any": "any",
@@ -49,7 +49,7 @@ def train_modal() -> None:
     parser = argparse.ArgumentParser(description="Train the MLP-only chess network on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--steps", type=int, default=None)
+    parser.add_argument("--flops-target", type=float, default=None)
     parser.add_argument("--gpu", default="l4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-project", default=os.environ.get("WANDB_PROJECT"))
@@ -61,7 +61,7 @@ def train_modal() -> None:
     payload = {
         "config": str(args.config),
         "batch_size": args.batch_size,
-        "steps": args.steps,
+        "flops_target": args.flops_target,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
         "wandb_entity": args.wandb_entity,
@@ -76,6 +76,7 @@ def train_modal() -> None:
         f"modal_run_complete run={result['run_name']} "
         f"steps={result['steps']} "
         f"samples_seen={result['samples_seen']} "
+        f"flops_seen={result['estimated_flops_seen']:.3e} "
         f"final_loss={result['final_loss']:.4f} "
         f"device={result['device']}"
     )
@@ -100,7 +101,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             config=Path(payload["config"]),
             data=REMOTE_DATA_PATH,
             batch_size=payload["batch_size"],
-            steps=payload["steps"],
+            flops_target=payload["flops_target"],
             device="cuda",
             wandb=payload["wandb"],
             wandb_name=payload["wandb_name"],

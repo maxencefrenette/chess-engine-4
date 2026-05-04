@@ -14,7 +14,7 @@ def test_load_training_config_reads_sections(tmp_path: Path) -> None:
         """
 [run]
 name = "audit"
-steps = 25
+flops_target = 1e12
 
 [data]
 batch_size = 8
@@ -35,7 +35,7 @@ moves_left = 0.5
     config = load_training_config(config_path)
 
     assert config.run.name == "audit"
-    assert config.run.steps == 25
+    assert config.run.flops_target == 1e12
     assert config.data.batch_size == 8
     assert config.data.max_records == 128
     assert config.model.d_model == 64
@@ -58,11 +58,11 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/d192x3.toml")
+    config = load_training_config("configs/1e14.toml")
 
-    overridden = with_overrides(config, steps=3, batch_size=4, device="cpu")
+    overridden = with_overrides(config, flops_target=1e11, batch_size=4, device="cpu")
 
-    assert overridden.run.steps == 3
+    assert overridden.run.flops_target == 1e11
     assert overridden.data.batch_size == 4
     assert overridden.run.device == "cpu"
     assert overridden.model == config.model
@@ -70,8 +70,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.loss == config.loss
 
 
-def test_d192x3_config_builds_about_one_million_trunk_parameters() -> None:
-    config = load_training_config("configs/d192x3.toml")
+def test_d192x4_config_builds_expected_model_size() -> None:
+    config = load_training_config("configs/1e14.toml")
     model = MlpChessNet(config.model)
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
@@ -79,5 +79,5 @@ def test_d192x3_config_builds_about_one_million_trunk_parameters() -> None:
         parameter.numel() for block in model.blocks for parameter in block.parameters()
     )
 
-    assert 1_000_000 <= trunk_parameter_count <= 1_500_000
-    assert 2_750_000 <= parameter_count <= 3_250_000
+    assert 1_700_000 <= trunk_parameter_count <= 1_850_000
+    assert 3_400_000 <= parameter_count <= 3_600_000

@@ -1,7 +1,7 @@
 [run]
-name = "d192x3"
+name = "1e13"
 seed = 1
-steps = 10000
+flops_target = 1e13
 log_every = 10
 device = "auto"
 
@@ -10,7 +10,7 @@ batch_size = 1024
 
 [model]
 d_model = 192
-depth = 3
+depth = 4
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 
