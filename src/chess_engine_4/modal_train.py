@@ -50,7 +50,9 @@ def train_modal() -> None:
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--flops-target", type=float, default=None)
-    parser.add_argument("--gpu", default="l4", choices=sorted(GPU_CHOICES))
+    parser.add_argument("--d-model", type=int, default=None)
+    parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--gpu", default="t4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-project", default=os.environ.get("WANDB_PROJECT"))
     parser.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY"))
@@ -62,6 +64,8 @@ def train_modal() -> None:
         "config": str(args.config),
         "batch_size": args.batch_size,
         "flops_target": args.flops_target,
+        "d_model": args.d_model,
+        "depth": args.depth,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
         "wandb_entity": args.wandb_entity,
@@ -78,6 +82,7 @@ def train_modal() -> None:
         f"samples_seen={result['samples_seen']} "
         f"flops_seen={result['estimated_flops_seen']:.3e} "
         f"final_loss={result['final_loss']:.4f} "
+        f"final_loss_ema={result['final_loss_ema']:.4f} "
         f"device={result['device']}"
     )
 
@@ -102,6 +107,8 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             data=REMOTE_DATA_PATH,
             batch_size=payload["batch_size"],
             flops_target=payload["flops_target"],
+            d_model=payload["d_model"],
+            depth=payload["depth"],
             device="cuda",
             wandb=payload["wandb"],
             wandb_name=payload["wandb_name"],

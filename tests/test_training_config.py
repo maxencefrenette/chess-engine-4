@@ -60,12 +60,20 @@ width = 64
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     config = load_training_config("configs/1e14.toml")
 
-    overridden = with_overrides(config, flops_target=1e11, batch_size=4, device="cpu")
+    overridden = with_overrides(
+        config,
+        flops_target=1e11,
+        batch_size=4,
+        d_model=64,
+        depth=2,
+        device="cpu",
+    )
 
     assert overridden.run.flops_target == 1e11
     assert overridden.data.batch_size == 4
+    assert overridden.model.d_model == 64
+    assert overridden.model.depth == 2
     assert overridden.run.device == "cpu"
-    assert overridden.model == config.model
     assert overridden.optimizer == config.optimizer
     assert overridden.loss == config.loss
 

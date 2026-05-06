@@ -66,12 +66,18 @@ def with_overrides(
     *,
     flops_target: float | None = None,
     batch_size: int | None = None,
+    d_model: int | None = None,
+    depth: int | None = None,
     device: str | None = None,
 ) -> TrainingConfig:
     if flops_target is not None:
         config = replace(config, run=replace(config.run, flops_target=flops_target))
     if batch_size is not None:
         config = replace(config, data=replace(config.data, batch_size=batch_size))
+    if d_model is not None:
+        config = replace(config, model=replace(config.model, d_model=d_model))
+    if depth is not None:
+        config = replace(config, model=replace(config.model, depth=depth))
     if device is not None:
         config = replace(config, run=replace(config.run, device=device))
     return config

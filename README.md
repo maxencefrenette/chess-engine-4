@@ -34,7 +34,7 @@ uv run train --config configs/1e14.toml --no-wandb --batch-size 4 --flops-target
 To launch the same training loop on Modal:
 
 ```sh
-uv run train-modal --config configs/1e14.toml --gpu l4
+uv run train-modal --config configs/1e14.toml
 ```
 
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
@@ -44,7 +44,8 @@ Training runs are defined by TOML files under `configs/`. The training budget is
 `flops_target`; the trainer measures FLOPs per sample with PyTorch and computes
 the step count from that budget. Environment variables own local paths and W&B
 configuration; the CLI is for invocation-time overrides such as the config path,
-FLOPs target, batch size, device, W&B on/off, and W&B run name.
+FLOPs target, batch size, model width/depth, device, W&B on/off, and W&B run
+name.
 
 Modal uses the `chess-engine-4-training-data` Volume mounted at
 `/data/training_data` and the `chess-engine-4-wandb` Secret for W&B environment

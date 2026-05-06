@@ -1,0 +1,71 @@
+"""Sync LCZero training tar files directly into the Modal training-data Volume."""
+
+from __future__ import annotations
+
+import argparse
+
+import modal
+
+APP_NAME = "chess-engine-4-data-sync"
+DATA_VOLUME_NAME = "chess-engine-4-training-data"
+REMOTE_DATA_PATH = "/data/training_data"
+BASE_URL = "https://data.lczero.org/files/training_data/test80"
+
+app = modal.App(APP_NAME)
+volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
+
+
+@app.function(
+    image=modal.Image.debian_slim(python_version="3.14"),
+    volumes={REMOTE_DATA_PATH: volume},
+    timeout=8 * 60 * 60,
+)
+def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
+    import os
+    import shutil
+    import urllib.request
+
+    os.makedirs(REMOTE_DATA_PATH, exist_ok=True)
+    names = [f"training-run1-test80-{day}-{hour:02d}17.tar" for hour in range(24)]
+    if limit is not None:
+        names = names[:limit]
+
+    results: list[tuple[str, str, int]] = []
+    for name in names:
+        path = os.path.join(REMOTE_DATA_PATH, name)
+        if os.path.exists(path) and os.path.getsize(path) > 1024 * 1024:
+            results.append((name, "exists", os.path.getsize(path)))
+            continue
+
+        tmp_path = f"{path}.tmp"
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        url = f"{BASE_URL}/{name}"
+        print(f"downloading {url}", flush=True)
+        request = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 chess-engine-4-data-sync"},
+        )
+        with urllib.request.urlopen(request) as response, open(tmp_path, "wb") as handle:
+            shutil.copyfileobj(response, handle, length=1024 * 1024)
+        os.replace(tmp_path, path)
+        results.append((name, "downloaded", os.path.getsize(path)))
+
+    volume.commit()
+    return results
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--day", default="20240401")
+    parser.add_argument("--limit", type=int, default=24)
+    args = parser.parse_args()
+
+    with app.run():
+        rows = sync_day.remote(args.day, args.limit)
+    for name, status, size in rows:
+        print(f"{status} {size} {name}")
+
+
+if __name__ == "__main__":
+    main()
