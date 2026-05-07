@@ -1,6 +1,6 @@
 # Experiments
 
-This directory contains short, human-written experiment notes.
+This directory contains short experiment notes.
 
 Keep these logs small. They should record the context needed to interpret a run
 later: commit, config, command, data source, W&B URL, headline metrics, and any
