@@ -1,0 +1,47 @@
+[runs.1e13]
+source_experiment = "experiments/2026-05-06-lr-batch-sweep"
+run_name = "lrbs-1e13-b192-lr1e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ilkvziij"
+flops = 1.0000697933952e13
+d_model = 64
+depth = 2
+batch_size = 192
+lr = 1e-3
+params = 678342
+non_embedding_params = 98432
+samples_seen = 2320704
+loss_ema = 4.842133453085819
+policy_top1 = 0.2916666865348816
+runtime_sec = 149.77887032
+
+[runs.1e14]
+source_experiment = "experiments/2026-05-06-lr-batch-sweep"
+run_name = "lrbs-1e14-b256-lr1e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/2zlyjs55"
+flops = 1.00002199621632e14
+d_model = 160
+depth = 3
+batch_size = 256
+lr = 1e-3
+params = 2369062
+non_embedding_params = 922080
+samples_seen = 6748672
+loss_ema = 4.62199835455175
+policy_top1 = 0.2734375
+runtime_sec = 418.837423433
+
+[runs.1e15]
+source_experiment = "experiments/2026-05-06-lr-batch-sweep"
+run_name = "lrbs-1e15-b768-lr3e-4"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ezazcin8"
+flops = 1.000001987516928e15
+d_model = 384
+depth = 6
+batch_size = 768
+lr = 3e-4
+params = 14089286
+non_embedding_params = 10619136
+samples_seen = 11626752
+loss_ema = 4.5422237626940305
+policy_top1 = 0.2942708432674408
+runtime_sec = 679.827388238

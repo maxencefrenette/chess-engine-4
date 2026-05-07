@@ -220,6 +220,7 @@ __marimo__/
 # Chess Engine 4
 .DS_Store
 checkpoints/
+reports/
 runs/
 /data/
 wandb/

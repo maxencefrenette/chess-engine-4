@@ -37,6 +37,16 @@ To launch the same training loop on Modal:
 uv run train-modal --config configs/1e14.toml
 ```
 
+To fit scaling laws and extrapolate the next FLOPs budget from the current best
+W&B runs:
+
+```sh
+uv run scaling-laws --target-flops 1e16
+```
+
+This also writes a Markdown report and SVG charts under `reports/scaling-laws/`,
+which is ignored by git.
+
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
 
