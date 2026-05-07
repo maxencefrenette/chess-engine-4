@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import html
 import math
 import tomllib
 from collections.abc import Iterable
@@ -569,172 +568,48 @@ def write_svg_chart(
     y_log: bool,
     series: list[Series],
 ) -> None:
-    width = 920
-    height = 560
-    left = 92
-    right = 28
-    top = 58
-    bottom = 82
-    plot_width = width - left - right
-    plot_height = height - top - bottom
-    all_points = [point for item in series for point in item.points]
-    x_min, x_max = padded_domain([x for x, _ in all_points], log_scale=x_log)
-    y_min, y_max = padded_domain([y for _, y in all_points], log_scale=y_log)
+    import matplotlib
 
-    def scale_x(value: float) -> float:
-        return left + normalize(value, x_min, x_max, log_scale=x_log) * plot_width
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
 
-    def scale_y(value: float) -> float:
-        return top + (1 - normalize(value, y_min, y_max, log_scale=y_log)) * plot_height
-
-    parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}">',
-        "<style>"
-        "text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#1f2933}"
-        ".title{font-size:22px;font-weight:700}"
-        ".label{font-size:13px;font-weight:600}"
-        ".tick{font-size:11px;fill:#52606d}"
-        ".grid{stroke:#e4e7eb;stroke-width:1}"
-        ".axis{stroke:#9aa5b1;stroke-width:1.2}"
-        "</style>",
-        '<rect width="100%" height="100%" fill="#ffffff"/>',
-        f'<text class="title" x="{left}" y="34">{html.escape(title)}</text>',
-    ]
-
-    for tick in ticks(x_min, x_max, log_scale=x_log):
-        x = scale_x(tick)
-        parts.append(
-            f'<line class="grid" x1="{x:.2f}" y1="{top}" '
-            f'x2="{x:.2f}" y2="{top + plot_height}"/>'
-        )
-        parts.append(
-            f'<text class="tick" x="{x:.2f}" y="{top + plot_height + 22}" '
-            f'text-anchor="middle">{html.escape(format_axis_number(tick))}</text>'
-        )
-    for tick in ticks(y_min, y_max, log_scale=y_log):
-        y = scale_y(tick)
-        parts.append(
-            f'<line class="grid" x1="{left}" y1="{y:.2f}" '
-            f'x2="{left + plot_width}" y2="{y:.2f}"/>'
-        )
-        parts.append(
-            f'<text class="tick" x="{left - 10}" y="{y + 4:.2f}" text-anchor="end">'
-            f"{html.escape(format_axis_number(tick))}</text>"
-        )
-
-    parts.extend(
-        [
-            f'<line class="axis" x1="{left}" y1="{top + plot_height}" '
-            f'x2="{left + plot_width}" y2="{top + plot_height}"/>',
-            f'<line class="axis" x1="{left}" y1="{top}" x2="{left}" '
-            f'y2="{top + plot_height}"/>',
-            f'<text class="label" x="{left + plot_width / 2}" y="{height - 24}" '
-            f'text-anchor="middle">{html.escape(x_label)}</text>',
-            f'<text class="label" x="20" y="{top + plot_height / 2}" text-anchor="middle" '
-            f'transform="rotate(-90 20 {top + plot_height / 2})">{html.escape(y_label)}</text>',
-        ]
-    )
-
-    legend_x = left + plot_width - 210
-    legend_y = top + 10
-    for index, item in enumerate(series):
-        y = legend_y + index * 22
-        dash = ' stroke-dasharray="7 5"' if item.dashed else ""
-        parts.append(
-            f'<line x1="{legend_x}" y1="{y}" x2="{legend_x + 28}" y2="{y}" '
-            f'stroke="{item.color}" stroke-width="3"{dash}/>'
-        )
-        parts.append(
-            f'<text class="tick" x="{legend_x + 36}" y="{y + 4}">'
-            f"{html.escape(item.label)}</text>"
-        )
-
+    figure, axis = plt.subplots(figsize=(9.2, 5.6), layout="constrained")
     for item in series:
-        points = [(scale_x(x), scale_y(y)) for x, y in item.points]
-        if item.line and len(points) > 1:
-            dash = ' stroke-dasharray="7 5"' if item.dashed else ""
-            path_points = " ".join(
-                ("M" if index == 0 else "L") + f"{x:.2f},{y:.2f}"
-                for index, (x, y) in enumerate(points)
-            )
-            parts.append(
-                f'<path d="{path_points}" fill="none" stroke="{item.color}" '
-                f'stroke-width="1.4"{dash}/>'
+        x_values = [x for x, _ in item.points]
+        y_values = [y for _, y in item.points]
+        if item.line:
+            axis.plot(
+                x_values,
+                y_values,
+                color=item.color,
+                linewidth=1.4,
+                linestyle="--" if item.dashed else "-",
+                label=item.label,
             )
         if item.markers:
-            for x, y in points:
-                parts.append(
-                    f'<circle cx="{x:.2f}" cy="{y:.2f}" r="5.2" fill="{item.color}"/>'
-                )
+            axis.scatter(
+                x_values,
+                y_values,
+                color=item.color,
+                s=52,
+                zorder=3,
+                label=item.label if not item.line else None,
+            )
 
-    parts.append("</svg>")
-    path.write_text("\n".join(parts) + "\n", encoding="utf-8")
-
-
-def normalize(value: float, minimum: float, maximum: float, *, log_scale: bool) -> float:
-    if log_scale:
-        value = math.log10(value)
-        minimum = math.log10(minimum)
-        maximum = math.log10(maximum)
-    return (value - minimum) / (maximum - minimum)
-
-
-def padded_domain(values: list[float], *, log_scale: bool) -> tuple[float, float]:
-    minimum = min(values)
-    maximum = max(values)
-    if minimum <= 0:
-        raise ValueError("Chart values must be positive.")
-    if minimum == maximum:
-        return minimum * 0.9, maximum * 1.1
-    if log_scale:
-        log_min = math.log10(minimum)
-        log_max = math.log10(maximum)
-        padding = (log_max - log_min) * 0.08
-        return 10 ** (log_min - padding), 10 ** (log_max + padding)
-    padding = (maximum - minimum) * 0.12
-    return minimum - padding, maximum + padding
-
-
-def ticks(minimum: float, maximum: float, *, log_scale: bool) -> list[float]:
-    if log_scale:
-        start = math.floor(math.log10(minimum))
-        stop = math.ceil(math.log10(maximum))
-        return [10**exponent for exponent in range(start, stop + 1)]
-    step = nice_step((maximum - minimum) / 5)
-    start = math.ceil(minimum / step) * step
-    values: list[float] = []
-    value = start
-    while value <= maximum:
-        values.append(value)
-        value += step
-    return values
-
-
-def nice_step(raw_step: float) -> float:
-    exponent = math.floor(math.log10(raw_step))
-    fraction = raw_step / 10**exponent
-    if fraction <= 1:
-        nice_fraction = 1
-    elif fraction <= 2:
-        nice_fraction = 2
-    elif fraction <= 5:
-        nice_fraction = 5
-    else:
-        nice_fraction = 10
-    return nice_fraction * 10**exponent
-
-
-def format_axis_number(value: float) -> str:
-    if value == 0:
-        return "0"
-    if abs(value) >= 10_000 or abs(value) < 0.01:
-        return f"{value:.0e}".replace("+", "")
-    if abs(value) >= 100:
-        return f"{value:.0f}"
-    if abs(value) >= 1:
-        return f"{value:.2g}"
-    return f"{value:.1g}"
+    if x_log:
+        axis.set_xscale("log")
+    if y_log:
+        axis.set_yscale("log")
+    axis.set_title(title, loc="left", fontweight="bold")
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    axis.grid(True, which="major", color="#e4e7eb", linewidth=0.8)
+    axis.grid(True, which="minor", color="#f1f3f5", linewidth=0.5, alpha=0.7)
+    axis.legend(loc="best", frameon=False)
+    for spine in ("top", "right"):
+        axis.spines[spine].set_visible(False)
+    figure.savefig(path, format="svg")
+    plt.close(figure)
 
 
 def format_report(
