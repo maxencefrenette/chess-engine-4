@@ -37,8 +37,8 @@ class SweepResult:
     params: int
     non_embedding_params: int
     samples_seen: int
-    loss_ema: float
-    policy_top1: float
+    loss_tail_mean: float
+    policy_top1_tail_mean: float
     runtime_sec: float
     wandb_url: str
 
@@ -72,7 +72,7 @@ class LossPowerLaw:
 @dataclass(frozen=True, slots=True)
 class ScalingLaws:
     loss: LossPowerLaw
-    policy_top1: float
+    policy_top1_tail_mean: float
     d_model: PowerLaw
     depth: PowerLaw
     non_embedding_params: PowerLaw
@@ -163,8 +163,10 @@ def read_best_runs(path: Path) -> list[SweepResult]:
             params=int(row["params"]),
             non_embedding_params=int(row["non_embedding_params"]),
             samples_seen=int(row["samples_seen"]),
-            loss_ema=float(row["loss_ema"]),
-            policy_top1=float(row["policy_top1"]),
+            loss_tail_mean=float(row.get("loss_tail_mean", row.get("loss_ema"))),
+            policy_top1_tail_mean=float(
+                row.get("policy_top1_tail_mean", row.get("policy_top1"))
+            ),
             runtime_sec=float(row["runtime_sec"]),
             wandb_url=str(row["wandb_url"]),
         )
@@ -179,7 +181,7 @@ def best_results_by_budget(results: Iterable[SweepResult]) -> list[SweepResult]:
     best: dict[str, SweepResult] = {}
     for result in results:
         previous = best.get(result.budget)
-        if previous is None or result.loss_ema < previous.loss_ema:
+        if previous is None or result.loss_tail_mean < previous.loss_tail_mean:
             best[result.budget] = result
     return sorted(best.values(), key=lambda result: result.flops)
 
@@ -188,8 +190,9 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     if len(best_results) < 2:
         raise ValueError("At least two best-run points are required for extrapolation.")
     return ScalingLaws(
-        loss=fit_loss_power_law((r.flops, r.loss_ema) for r in best_results),
-        policy_top1=sum(r.policy_top1 for r in best_results) / len(best_results),
+        loss=fit_loss_power_law((r.flops, r.loss_tail_mean) for r in best_results),
+        policy_top1_tail_mean=sum(r.policy_top1_tail_mean for r in best_results)
+        / len(best_results),
         d_model=fit_power_law((r.flops, r.d_model) for r in best_results),
         depth=fit_power_law((r.flops, r.depth) for r in best_results),
         non_embedding_params=fit_power_law(
@@ -384,13 +387,13 @@ def write_scaling_charts(
         output_dir / "loss.svg",
         title="Loss fit",
         x_label="Training FLOPs",
-        y_label="Loss EMA",
+        y_label="Tail loss",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "observed best",
-                [(result.flops, result.loss_ema) for result in best_results],
+                [(result.flops, result.loss_tail_mean) for result in best_results],
                 "#1f77b4",
                 line=False,
             ),
@@ -419,7 +422,7 @@ def write_scaling_charts(
         series=[
             Series(
                 "observed best",
-                [(result.flops, result.policy_top1) for result in best_results],
+                [(result.flops, result.policy_top1_tail_mean) for result in best_results],
                 "#1f77b4",
                 line=False,
             ),
@@ -628,16 +631,17 @@ def format_report(
         "the true scaling law is identified. With only three FLOPs budgets, the fitted "
         "curves are useful for choosing the next run and fragile as forecasts.",
         "",
-        "## Best Observed EMA Points",
+        "## Best Observed Tail Points",
         "",
-        "| Budget | FLOPs | Model | Batch | LR | Samples | Loss EMA | Policy Top-1 | W&B |",
+        "| Budget | FLOPs | Model | Batch | LR | Samples | Tail Loss | Tail Policy Top-1 | W&B |",
         "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for result in best_results:
         lines.append(
             f"| `{result.budget}` | {result.flops:.1e} | d{result.d_model}x{result.depth} | "
             f"{result.batch_size} | {result.lr:g} | {result.samples_seen:,} | "
-            f"{result.loss_ema:.4f} | {result.policy_top1:.4f} | {result.wandb_url} |"
+            f"{result.loss_tail_mean:.4f} | {result.policy_top1_tail_mean:.4f} | "
+            f"{result.wandb_url} |"
         )
 
     command = (
@@ -649,14 +653,14 @@ def format_report(
     lines.extend(
         [
             "",
-            "## Loss Fit",
+            "## Tail Loss Fit",
             "",
             "Fitted form:",
             "",
             f"```text\n{laws.loss.format()}\n```",
             "",
-            f"- RMSE on the observed EMA points: `{laws.loss.rmse:.4f}`",
-            f"- Predicted loss EMA at `{suggestion.flops_target:.0e}` FLOPs: "
+            f"- RMSE on the observed tail-loss points: `{laws.loss.rmse:.4f}`",
+            f"- Predicted tail loss at `{suggestion.flops_target:.0e}` FLOPs: "
             f"`{laws.loss.predict(suggestion.flops_target):.4f}`",
             "",
         ]

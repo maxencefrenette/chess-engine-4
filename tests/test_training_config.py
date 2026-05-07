@@ -89,5 +89,5 @@ def test_1e14_config_builds_expected_model_size() -> None:
         parameter.numel() for block in model.blocks for parameter in block.parameters()
     )
 
-    assert 900_000 <= trunk_parameter_count <= 1_000_000
-    assert 2_300_000 <= parameter_count <= 2_400_000
+    assert trunk_parameter_count == 221_376
+    assert parameter_count == 1_090_310

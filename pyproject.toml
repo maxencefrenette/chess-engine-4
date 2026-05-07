@@ -20,6 +20,7 @@ train-modal = "chess_engine_4.modal_train:train_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 sample-batch = "chess_engine_4.training.cli:sample_batch"
 scaling-laws = "chess_engine_4.training.scaling_laws:scaling_laws"
+wandb-tail-metrics = "chess_engine_4.training.wandb_metrics:wandb_tail_metrics"
 
 [dependency-groups]
 dev = [

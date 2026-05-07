@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 import time
 from dataclasses import dataclass
 from itertools import islice
@@ -26,7 +25,6 @@ from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _DEFAULT_CONFIG_PATH = Path("configs/1e14.toml")
-_LOSS_EMA_HALF_LIFE_FRACTION = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,11 +122,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     model.train()
     start = time.perf_counter()
     seen = 0
-    total_loss_ema: float | None = None
-    ema_half_life_flops = config.run.flops_target * _LOSS_EMA_HALF_LIFE_FRACTION
-    ema_decay = math.exp(
-        -math.log(2.0) * (config.data.batch_size * flops_per_sample) / ema_half_life_flops
-    )
     last_metrics: dict[str, float | int] = {}
     for step, (planes, policy, value) in enumerate(islice(dataset, steps), start=1):
         planes = planes.to(device)
@@ -141,11 +134,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         loss.total.backward()
         grad_norm = _gradient_norm(model)
         optimizer.step()
-        total_loss_value = loss.total.item()
-        if total_loss_ema is None:
-            total_loss_ema = total_loss_value
-        else:
-            total_loss_ema = ema_decay * total_loss_ema + (1.0 - ema_decay) * total_loss_value
 
         seen += planes.shape[0]
         elapsed = time.perf_counter() - start
@@ -163,8 +151,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         metrics["perf/measured_flops_per_sample"] = flops_per_sample
         metrics["perf/estimated_flops_seen"] = estimated_flops_seen
         metrics["perf/flops_target"] = config.run.flops_target
-        metrics["loss/total_ema"] = total_loss_ema
-        metrics["loss/total_ema_half_life_flops"] = ema_half_life_flops
         should_log = step == 1 or step % config.run.log_every == 0 or step == steps
         if wandb_run is not None and should_log:
             wandb_run.log(metrics, step=step)
@@ -187,7 +173,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "steps": step if seen > 0 else 0,
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss/total", 0.0)),
-        "final_loss_ema": float(last_metrics.get("loss/total_ema", 0.0)),
         "flops_target": config.run.flops_target,
         "estimated_flops_seen": int(last_metrics.get("perf/estimated_flops_seen", 0)),
         "measured_flops_per_sample": flops_per_sample,

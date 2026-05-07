@@ -84,7 +84,6 @@ def train_modal() -> None:
         f"samples_seen={result['samples_seen']} "
         f"flops_seen={result['estimated_flops_seen']:.3e} "
         f"final_loss={result['final_loss']:.4f} "
-        f"final_loss_ema={result['final_loss_ema']:.4f} "
         f"device={result['device']}"
     )
 
