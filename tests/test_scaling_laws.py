@@ -26,7 +26,7 @@ def test_read_best_runs_and_extrapolate() -> None:
     assert suggestion.depth >= 2
     assert suggestion.batch_size in {1024, 1536, 2048}
     assert suggestion.lr in {0.00015, 0.0002, 0.0003}
-    assert suggestion.actual_non_embedding_params > best_runs[-1].non_embedding_params
+    assert suggestion.actual_params > best_runs[-1].params
 
 
 def test_parameter_count_formulas_match_current_baselines() -> None:

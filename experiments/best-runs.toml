@@ -1,5 +1,5 @@
 [runs.1e13]
-source_experiment = "experiments/2026-05-07-shape-retune"
+source_experiment = "experiments/2026-05-07.01-shape-retune"
 run_name = "shape2-1e13-d48x1"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fn34qq8s"
 flops = 1.000039744512e13
@@ -15,23 +15,23 @@ policy_top1_tail_mean = 0.2202083384990692
 runtime_sec = 207.916145263
 
 [runs.1e14]
-source_experiment = "experiments/2026-05-07-shape-retune"
-run_name = "shape2-1e14-d96x2"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q6724yl8"
-flops = 1.000013943808e14
-d_model = 96
-depth = 2
-batch_size = 256
-lr = 1e-3
-params = 1090310
-non_embedding_params = 221376
-samples_seen = 14489600
-loss_tail_mean = 4.506518130302429
-policy_top1_tail_mean = 0.2866796875
-runtime_sec = 830.9
+source_experiment = "experiments/2026-05-07.02-shape-down-batch"
+run_name = "shape4-1e14-d64x5-b512-lr7e-4"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q4jwdjdy"
+flops = 1.00002162032640e14
+d_model = 64
+depth = 5
+batch_size = 512
+lr = 7.071067811865475e-4
+params = 825990
+non_embedding_params = 246080
+samples_seen = 19235328
+loss_tail_mean = 4.491282234191894
+policy_top1_tail_mean = 0.2871875
+runtime_sec = 962.05167082
 
 [runs.1e15]
-source_experiment = "experiments/2026-05-07-shape-retune"
+source_experiment = "experiments/2026-05-07.01-shape-retune"
 run_name = "shape2-1e15-d192x4"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/hbfybm6d"
 flops = 1.000012524295680e15

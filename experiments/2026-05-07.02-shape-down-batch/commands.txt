@@ -1,0 +1,6 @@
+uv run train-modal --config configs/1e14.toml --d-model 80 --depth 2 --batch-size 512 --lr 7.071067811865475e-4 --gpu t4 --wandb-name shape4-1e14-d80x2-b512-lr7e-4
+uv run train-modal --config configs/1e14.toml --d-model 96 --depth 1 --batch-size 512 --lr 7.071067811865475e-4 --gpu t4 --wandb-name shape4-1e14-d96x1-b512-lr7e-4
+uv run train-modal --config configs/1e14.toml --d-model 64 --depth 5 --batch-size 512 --lr 7.071067811865475e-4 --gpu t4 --wandb-name shape4-1e14-d64x5-b512-lr7e-4
+uv run train-modal --config configs/1e15.toml --d-model 160 --depth 4 --batch-size 1536 --lr 2.1213203435596424e-4 --gpu t4 --wandb-name shape4-1e15-d160x4-b1536-lr2e-4
+uv run train-modal --config configs/1e15.toml --d-model 192 --depth 2 --batch-size 1536 --lr 2.1213203435596424e-4 --gpu t4 --wandb-name shape4-1e15-d192x2-b1536-lr2e-4
+uv run train-modal --config configs/1e15.toml --d-model 144 --depth 6 --batch-size 1536 --lr 2.1213203435596424e-4 --gpu t4 --wandb-name shape4-1e15-d144x6-b1536-lr2e-4

@@ -75,7 +75,7 @@ class ScalingLaws:
     policy_top1_tail_mean: float
     d_model: PowerLaw
     depth: PowerLaw
-    non_embedding_params: PowerLaw
+    params: PowerLaw
     samples: PowerLaw
     batch_size: PowerLaw
     lr: PowerLaw
@@ -89,9 +89,8 @@ class HparamSuggestion:
     depth: int
     batch_size: int
     lr: float
-    target_non_embedding_params: int
-    actual_non_embedding_params: int
-    total_params: int
+    target_params: int
+    actual_params: int
     samples_seen: int
     runtime_sec: float
 
@@ -195,9 +194,7 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
         / len(best_results),
         d_model=fit_power_law((r.flops, r.d_model) for r in best_results),
         depth=fit_power_law((r.flops, r.depth) for r in best_results),
-        non_embedding_params=fit_power_law(
-            (r.flops, r.non_embedding_params) for r in best_results
-        ),
+        params=fit_power_law((r.flops, r.params) for r in best_results),
         samples=fit_power_law((r.flops, r.samples_seen) for r in best_results),
         batch_size=fit_power_law((r.flops, r.batch_size) for r in best_results),
         lr=fit_power_law((r.flops, r.lr) for r in best_results),
@@ -209,9 +206,9 @@ def extrapolate(laws: ScalingLaws, flops_target: float) -> HparamSuggestion:
     if flops_target <= 0:
         raise ValueError("target FLOPs must be positive.")
 
-    target_non_embedding_params = round(laws.non_embedding_params.predict(flops_target))
-    d_model, depth, actual_non_embedding_params = closest_architecture(
-        target_non_embedding_params=target_non_embedding_params,
+    target_params = round(laws.params.predict(flops_target))
+    d_model, depth, actual_params = closest_architecture(
+        target_params=target_params,
         target_d_model=laws.d_model.predict(flops_target),
         target_depth=laws.depth.predict(flops_target),
     )
@@ -221,9 +218,8 @@ def extrapolate(laws: ScalingLaws, flops_target: float) -> HparamSuggestion:
         depth=depth,
         batch_size=round_to_batch_ladder(laws.batch_size.predict(flops_target)),
         lr=round_to_lr_ladder(laws.lr.predict(flops_target)),
-        target_non_embedding_params=target_non_embedding_params,
-        actual_non_embedding_params=actual_non_embedding_params,
-        total_params=parameter_count(d_model=d_model, depth=depth),
+        target_params=target_params,
+        actual_params=actual_params,
         samples_seen=round_to_int(laws.samples.predict(flops_target)),
         runtime_sec=laws.runtime_sec.predict(flops_target),
     )
@@ -277,15 +273,15 @@ def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
 
 def closest_architecture(
     *,
-    target_non_embedding_params: int,
+    target_params: int,
     target_d_model: float | None = None,
     target_depth: float | None = None,
 ) -> tuple[int, int, int]:
     candidates: list[tuple[float, int, int, int]] = []
     for d_model in range(64, 2049, 64):
         for depth in range(2, 25):
-            params = non_embedding_parameter_count(d_model=d_model, depth=depth)
-            distance = abs(math.log(params / target_non_embedding_params))
+            params = parameter_count(d_model=d_model, depth=depth)
+            distance = abs(math.log(params / target_params))
             if target_d_model is not None:
                 distance += 0.5 * abs(math.log(d_model / target_d_model))
             if target_depth is not None:
@@ -433,19 +429,19 @@ def write_scaling_charts(
         output_dir / "model_size.svg",
         title="Model size fit",
         x_label="Training FLOPs",
-        y_label="Non-embedding parameters",
+        y_label="Total parameters",
         x_log=True,
         y_log=True,
         series=[
             Series(
-                "N observed",
-                [(result.flops, result.non_embedding_params) for result in best_results],
+                "params observed",
+                [(result.flops, result.params) for result in best_results],
                 "#9467bd",
                 line=False,
             ),
             Series(
-                "N fit",
-                [(flops, laws.non_embedding_params.predict(flops)) for flops in curve_flops],
+                "params fit",
+                [(flops, laws.params.predict(flops)) for flops in curve_flops],
                 "#9467bd",
                 markers=False,
                 dashed=True,
@@ -681,16 +677,16 @@ def format_report(
             "",
             f"```text\n{laws.depth.format('depth')}\n```",
             "",
-            f"```text\n{laws.non_embedding_params.format('N_non_embedding')}\n```",
+            f"```text\n{laws.params.format('params')}\n```",
             "",
             f"```text\n{laws.samples.format('D_samples')}\n```",
             "",
             f"- Width exponent: `{laws.d_model.slope:.4f}`",
             f"- Depth exponent: `{laws.depth.slope:.4f}`",
-            f"- Model-size exponent: `{laws.non_embedding_params.slope:.4f}`",
+            f"- Model-size exponent: `{laws.params.slope:.4f}`",
             f"- Data-size exponent: `{laws.samples.slope:.4f}`",
             f"- Predicted sample/parameter ratio at target: "
-            f"`{suggestion.samples_seen / suggestion.actual_non_embedding_params:.4f}`",
+            f"`{suggestion.samples_seen / suggestion.actual_params:.4f}`",
             "",
             "## Training Hyperparameter Fits",
             "",
@@ -706,9 +702,8 @@ def format_report(
             f"- Model: `d{suggestion.d_model}x{suggestion.depth}`",
             f"- Batch size: `{suggestion.batch_size}`",
             f"- LR: `{suggestion.lr:g}`",
-            f"- Target non-embedding params: `{suggestion.target_non_embedding_params:,}`",
-            f"- Actual non-embedding params: `{suggestion.actual_non_embedding_params:,}`",
-            f"- Total params: `{suggestion.total_params:,}`",
+            f"- Target params: `{suggestion.target_params:,}`",
+            f"- Actual params: `{suggestion.actual_params:,}`",
             f"- Estimated samples: `{suggestion.samples_seen:,}`",
             f"- Estimated runtime from prior runs: `{suggestion.runtime_sec / 3600:.2f}h`",
             "",
