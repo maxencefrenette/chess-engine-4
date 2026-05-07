@@ -52,6 +52,7 @@ def train_modal() -> None:
     parser.add_argument("--flops-target", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--gpu", default="t4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-project", default=os.environ.get("WANDB_PROJECT"))
@@ -66,6 +67,7 @@ def train_modal() -> None:
         "flops_target": args.flops_target,
         "d_model": args.d_model,
         "depth": args.depth,
+        "lr": args.lr,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
         "wandb_entity": args.wandb_entity,
@@ -109,6 +111,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             flops_target=payload["flops_target"],
             d_model=payload["d_model"],
             depth=payload["depth"],
+            lr=payload["lr"],
             device="cuda",
             wandb=payload["wandb"],
             wandb_name=payload["wandb_name"],

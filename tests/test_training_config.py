@@ -66,6 +66,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         batch_size=4,
         d_model=64,
         depth=2,
+        lr=0.001,
         device="cpu",
     )
 
@@ -73,8 +74,9 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.data.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
+    assert overridden.optimizer.lr == 0.001
     assert overridden.run.device == "cpu"
-    assert overridden.optimizer == config.optimizer
+    assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
 
 

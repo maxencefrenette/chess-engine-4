@@ -37,6 +37,7 @@ class TrainOptions:
     flops_target: float | None = None
     d_model: int | None = None
     depth: int | None = None
+    lr: float | None = None
     device: str | None = None
     wandb: bool = True
     wandb_name: str | None = None
@@ -50,6 +51,7 @@ def train() -> None:
     parser.add_argument("--flops-target", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
@@ -63,6 +65,7 @@ def train() -> None:
             flops_target=args.flops_target,
             d_model=args.d_model,
             depth=args.depth,
+            lr=args.lr,
             device=args.device,
             wandb=args.wandb,
             wandb_name=args.wandb_name,
@@ -77,6 +80,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
+        lr=options.lr,
         device=options.device,
     )
     _seed_everything(config.run.seed)

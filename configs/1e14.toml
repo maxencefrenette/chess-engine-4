@@ -6,7 +6,7 @@ log_every = 10
 device = "auto"
 
 [data]
-batch_size = 1024
+batch_size = 256
 
 [model]
 d_model = 160
@@ -15,7 +15,7 @@ mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 
 [optimizer]
-lr = 3e-4
+lr = 1e-3
 weight_decay = 0.01
 
 [loss]

@@ -68,6 +68,7 @@ def with_overrides(
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
+    lr: float | None = None,
     device: str | None = None,
 ) -> TrainingConfig:
     if flops_target is not None:
@@ -78,6 +79,8 @@ def with_overrides(
         config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
         config = replace(config, model=replace(config.model, depth=depth))
+    if lr is not None:
+        config = replace(config, optimizer=replace(config.optimizer, lr=lr))
     if device is not None:
         config = replace(config, run=replace(config.run, device=device))
     return config
