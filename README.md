@@ -37,16 +37,6 @@ To launch the same training loop on Modal:
 uv run train-modal --config configs/1e14.toml
 ```
 
-To fit scaling laws and extrapolate the next FLOPs budget from the current best
-W&B runs:
-
-```sh
-uv run scaling-laws --target-flops 1e16
-```
-
-This also writes a Markdown report and SVG charts under `reports/scaling-laws/`,
-which is ignored by git.
-
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
 
@@ -57,6 +47,17 @@ configuration; the CLI is for invocation-time overrides such as the config path,
 FLOPs target, batch size, model width/depth, device, W&B on/off, and W&B run
 name.
 
-Modal uses the `chess-engine-4-training-data` Volume mounted at
-`/data/training_data` and the `chess-engine-4-wandb` Secret for W&B environment
-variables.
+# Methodology
+
+Hyperparameters are swept at smaller FLOPs budgets, and the best runs are used to fit scaling laws in order to extrapolate the best hyperparameters for the next FLOPs budget. Due to some FLOPs budget being quite small and noisy, all end-of-run metrics are averaged over the last 100 steps of training.
+
+# Scaling Laws
+
+To fit scaling laws and extrapolate the next FLOPs budget from the current best
+W&B runs:
+
+```sh
+uv run scaling-laws --target-flops 1e16
+```
+
+This also writes a Markdown report and SVG charts under `reports/scaling-laws/`.
