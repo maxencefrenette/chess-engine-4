@@ -84,7 +84,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.loss == config.loss
 
 
-def test_1e14_config_builds_expected_model_size() -> None:
+def test_1e15_config_builds_expected_model_size() -> None:
     config = load_training_config("configs/1e15.toml")
     model = MlpChessNet(config.model)
 
@@ -93,5 +93,5 @@ def test_1e14_config_builds_expected_model_size() -> None:
         parameter.numel() for block in model.blocks for parameter in block.parameters()
     )
 
-    assert trunk_parameter_count == 246_080
-    assert parameter_count == 825_990
+    assert trunk_parameter_count == 230_640
+    assert parameter_count == 955_062

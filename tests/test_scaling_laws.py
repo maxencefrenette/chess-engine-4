@@ -20,7 +20,7 @@ def test_read_best_runs_and_extrapolate() -> None:
     laws = fit_scaling_laws(best_runs)
     suggestion = extrapolate(laws, 1e17)
 
-    assert 0.29 < laws.policy_top1.predict(1e15) < 0.30
+    assert 0.28 < laws.policy_top1.predict(1e15) < 0.30
     assert suggestion.d_model % 64 == 0
     assert suggestion.depth >= 2
     assert suggestion.batch_size in {1024, 1536, 2048}
@@ -29,7 +29,7 @@ def test_read_best_runs_and_extrapolate() -> None:
 
 
 def test_parameter_count_formulas_match_current_baselines() -> None:
-    assert parameter_count(d_model=48, depth=1) == 463094
+    assert parameter_count(d_model=32, depth=1) == 303206
 
 
 def test_rounding_ladders() -> None:

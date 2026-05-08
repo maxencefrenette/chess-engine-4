@@ -10,7 +10,7 @@ device = "auto"
 batch_size = 192
 
 [model]
-d_model = 48
+d_model = 32
 depth = 1
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
