@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from itertools import islice
 from pathlib import Path
 from typing import Any
@@ -41,6 +41,8 @@ class TrainOptions:
     device: str | None = None
     wandb: bool = True
     wandb_name: str | None = None
+    checkpoint_dir: Path | None = None
+    checkpoint_every: int | None = None
 
 
 def train() -> None:
@@ -56,6 +58,8 @@ def train() -> None:
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
+    parser.add_argument("--checkpoint-dir", type=Path, default=None)
+    parser.add_argument("--checkpoint-every", type=int, default=None)
     args = parser.parse_args()
 
     run_training(
@@ -71,6 +75,8 @@ def train() -> None:
             device=args.device,
             wandb=args.wandb,
             wandb_name=args.wandb_name,
+            checkpoint_dir=args.checkpoint_dir,
+            checkpoint_every=args.checkpoint_every,
         )
     )
 
@@ -128,7 +134,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     model.train()
     start = time.perf_counter()
     seen = 0
+    completed_steps = 0
     last_metrics: dict[str, float | int] = {}
+    checkpoint_paths: list[Path] = []
+    final_checkpoint_saved = False
     for step, (planes, policy, value) in enumerate(islice(dataset, steps), start=1):
         planes = planes.to(device)
         policy = policy.to(device)
@@ -142,6 +151,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         optimizer.step()
 
         seen += planes.shape[0]
+        completed_steps = step
         elapsed = time.perf_counter() - start
         metrics = _training_metrics(
             output=output,
@@ -178,11 +188,42 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                 f"samples_per_sec={seen / elapsed:.1f}"
             )
         last_metrics = metrics
+        if _should_save_checkpoint(options.checkpoint_dir, options.checkpoint_every, step, steps):
+            final_checkpoint_saved = step == steps
+            checkpoint_paths.append(
+                _save_checkpoint(
+                    checkpoint_dir=options.checkpoint_dir,
+                    run_name=options.wandb_name or config.run.name,
+                    config=config,
+                    model=model,
+                    optimizer=optimizer,
+                    step=step,
+                    samples_seen=seen,
+                    flops_per_sample=flops_per_sample,
+                    metrics=metrics,
+                    final=step == steps,
+                )
+            )
+    if options.checkpoint_dir is not None and completed_steps > 0 and not final_checkpoint_saved:
+        checkpoint_paths.append(
+            _save_checkpoint(
+                checkpoint_dir=options.checkpoint_dir,
+                run_name=options.wandb_name or config.run.name,
+                config=config,
+                model=model,
+                optimizer=optimizer,
+                step=completed_steps,
+                samples_seen=seen,
+                flops_per_sample=flops_per_sample,
+                metrics=last_metrics,
+                final=True,
+            )
+        )
     if wandb_run is not None:
         wandb_run.finish()
     return {
         "run_name": config.run.name,
-        "steps": step if seen > 0 else 0,
+        "steps": completed_steps,
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss/total", 0.0)),
         "compute_budget": config.run.compute_budget,
@@ -191,6 +232,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "step_penalty_k": config.run.step_penalty_k,
         "flops_per_sample": flops_per_sample,
         "device": str(device),
+        "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
 
 
@@ -252,6 +294,61 @@ def _seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def _should_save_checkpoint(
+    checkpoint_dir: Path | None,
+    checkpoint_every: int | None,
+    step: int,
+    total_steps: int,
+) -> bool:
+    if checkpoint_dir is None:
+        return False
+    if checkpoint_every is not None and checkpoint_every <= 0:
+        raise ValueError("checkpoint_every must be positive.")
+    if step == total_steps:
+        return True
+    return checkpoint_every is not None and step % checkpoint_every == 0
+
+
+def _save_checkpoint(
+    *,
+    checkpoint_dir: Path | None,
+    run_name: str,
+    config: TrainingConfig,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    step: int,
+    samples_seen: int,
+    flops_per_sample: int,
+    metrics: dict[str, float | int],
+    final: bool,
+) -> Path:
+    if checkpoint_dir is None:
+        raise ValueError("checkpoint_dir is required.")
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    suffix = "final" if final else f"step{step:08d}"
+    path = checkpoint_dir / f"{_checkpoint_name(run_name)}-{suffix}.pt"
+    torch.save(
+        {
+            "format_version": 1,
+            "run_name": run_name,
+            "step": step,
+            "samples_seen": samples_seen,
+            "flops_per_sample": flops_per_sample,
+            "config": asdict(config),
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "metrics": metrics,
+        },
+        path,
+    )
+    return path
+
+
+def _checkpoint_name(run_name: str) -> str:
+    safe = "".join(char if char.isalnum() or char in "._-" else "-" for char in run_name)
+    return safe.strip(".-_") or "checkpoint"
 
 
 def _adamw_parameter_groups(

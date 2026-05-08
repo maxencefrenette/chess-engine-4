@@ -12,8 +12,11 @@ from dotenv import load_dotenv
 
 APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
+ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
+REMOTE_ARTIFACT_PATH = "/artifacts"
+REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 REMOTE_CONFIG_PATH = Path("configs/1e15.toml")
 
 GPU_CHOICES = {
@@ -31,6 +34,7 @@ GPU_CHOICES = {
 
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
+artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME, create_if_missing=True)
 wandb_secret = modal.Secret.from_name(WANDB_SECRET_NAME)
 
 image = (
@@ -60,6 +64,9 @@ def train_modal() -> None:
     parser.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY"))
     parser.add_argument("--wandb-mode", default=os.environ.get("WANDB_MODE"))
     parser.add_argument("--wandb-name", default=None)
+    parser.add_argument("--save-checkpoints", action="store_true")
+    parser.add_argument("--checkpoint-dir", type=Path, default=REMOTE_CHECKPOINT_PATH)
+    parser.add_argument("--checkpoint-every", type=int, default=None)
     args = parser.parse_args()
 
     payload = {
@@ -75,6 +82,8 @@ def train_modal() -> None:
         "wandb_entity": args.wandb_entity,
         "wandb_mode": args.wandb_mode,
         "wandb_name": args.wandb_name,
+        "checkpoint_dir": str(args.checkpoint_dir) if args.save_checkpoints else None,
+        "checkpoint_every": args.checkpoint_every,
     }
 
     train_function = _remote_function_for_gpu(args.gpu)
@@ -88,7 +97,8 @@ def train_modal() -> None:
         f"compute_seen={result['compute_seen']:.3e} "
         f"step_penalty_k={result['step_penalty_k']:.3f} "
         f"final_loss={result['final_loss']:.4f} "
-        f"device={result['device']}"
+        f"device={result['device']} "
+        f"checkpoint_path={result['checkpoint_path']}"
     )
 
 
@@ -106,7 +116,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         if value:
             os.environ[env_key] = value
 
-    return run_training(
+    result = run_training(
         TrainOptions(
             config=Path(payload["config"]),
             data=REMOTE_DATA_PATH,
@@ -119,14 +129,21 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             device="cuda",
             wandb=payload["wandb"],
             wandb_name=payload["wandb_name"],
+            checkpoint_dir=(
+                Path(payload["checkpoint_dir"]) if payload.get("checkpoint_dir") else None
+            ),
+            checkpoint_every=payload["checkpoint_every"],
         )
     )
+    if result["checkpoint_path"]:
+        artifact_volume.commit()
+    return result
 
 
 @app.function(
     image=image,
     gpu="any",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -137,7 +154,7 @@ def _train_any(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="T4",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -148,7 +165,7 @@ def _train_t4(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="L4",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -159,7 +176,7 @@ def _train_l4(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A10G",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -170,7 +187,7 @@ def _train_a10g(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A100-40GB",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -181,7 +198,7 @@ def _train_a100_40gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A100-80GB",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -192,7 +209,7 @@ def _train_a100_80gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="L40S",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -203,7 +220,7 @@ def _train_l40s(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="H100",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -214,7 +231,7 @@ def _train_h100(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="H200",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
@@ -225,7 +242,7 @@ def _train_h200(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="B200",
-    volumes={REMOTE_DATA_PATH: data_volume},
+    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )

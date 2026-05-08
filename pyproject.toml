@@ -9,6 +9,8 @@ dependencies = [
     "matplotlib>=3.10.9",
     "modal>=1.4.2",
     "numpy>=2.2",
+    "onnx>=1.21.0",
+    "onnxscript>=0.7.0",
     "python-dotenv>=1.2.2",
     "torch>=2.9",
     "wandb>=0.26.1",
@@ -17,10 +19,13 @@ dependencies = [
 [project.scripts]
 train = "chess_engine_4.training.cli:train"
 train-modal = "chess_engine_4.modal_train:train_modal"
+eval-modal = "chess_engine_4.modal_eval:eval_modal"
+prepare-lc0-modal = "chess_engine_4.modal_eval:prepare_lc0_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 sample-batch = "chess_engine_4.training.cli:sample_batch"
 scaling-laws = "chess_engine_4.training.scaling_laws:scaling_laws"
 wandb-tail-metrics = "chess_engine_4.training.wandb_metrics:wandb_tail_metrics"
+checkpoint2leela = "chess_engine_4.training.checkpoint2leela:checkpoint2leela"
 
 [dependency-groups]
 dev = [

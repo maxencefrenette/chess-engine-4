@@ -46,11 +46,41 @@ For local dry runs without W&B:
 uv run train --config configs/1e15.toml --no-wandb --batch-size 4 --compute-budget 1e9 --device cpu
 ```
 
+To save a final local checkpoint:
+
+```sh
+uv run train --config configs/1e15.toml --checkpoint-dir checkpoints
+```
+
 To launch the same training loop on Modal:
 
 ```sh
 uv run train-modal --config configs/1e15.toml
 ```
+
+To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
+
+```sh
+uv run train-modal --config configs/1e15.toml --save-checkpoints
+```
+
+To convert a saved checkpoint into an lc0 ONNX weights file:
+
+```sh
+uv run checkpoint2leela checkpoints/run-final.pt --output artifacts/leela/run.pb.gz
+```
+
+To run a small lc0-vs-BT4 match on Modal with fastchess:
+
+```sh
+uv run prepare-lc0-modal
+uv run eval-modal artifacts/leela/run.pb.gz --gpu l4 --nodes 64 --games 2 --rounds 1
+```
+
+`prepare-lc0-modal` builds the Linux CUDA/ONNX lc0 binary once on Modal and
+caches it under `/artifacts/bin/lc0`. The eval command uploads the candidate
+weights, downloads the prebuilt fastchess release into the Modal image, uses the
+cached lc0 binary, and writes PGNs under `/artifacts/evals/<name>/games.pgn`.
 
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
