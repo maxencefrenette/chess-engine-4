@@ -17,10 +17,10 @@ CHARTS = [
     ("Loss fit", "loss.svg"),
     ("Policy top-1", "policy_top1.svg"),
     ("Model size fit", "model_size.svg"),
+    ("Datapoints per parameter", "datapoints_per_parameter.svg"),
     ("Data samples fit", "data_samples.svg"),
     ("Batch size fit", "batch_size.svg"),
     ("Learning rate fit", "learning_rate.svg"),
-    ("Runtime fit", "runtime.svg"),
 ]
 
 
@@ -55,6 +55,18 @@ class PowerLaw:
 
 
 @dataclass(frozen=True, slots=True)
+class LinearLaw:
+    intercept: float
+    slope: float
+
+    def predict(self, x: float) -> float:
+        return self.intercept + self.slope * math.log10(x)
+
+    def format(self, variable: str, input_variable: str = "log10(C)") -> str:
+        return f"{variable} = {self.intercept:.4g} + {self.slope:.4g} * {input_variable}"
+
+
+@dataclass(frozen=True, slots=True)
 class LossPowerLaw:
     floor: float
     coefficient: float
@@ -71,14 +83,14 @@ class LossPowerLaw:
 @dataclass(frozen=True, slots=True)
 class ScalingLaws:
     loss: LossPowerLaw
-    policy_top1: float
+    policy_top1: LinearLaw
     d_model: PowerLaw
     depth: PowerLaw
     params: PowerLaw
+    datapoints_per_parameter: LinearLaw
     samples: PowerLaw
     batch_size: PowerLaw
     lr: PowerLaw
-    runtime_sec: PowerLaw
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +103,6 @@ class HparamSuggestion:
     target_params: int
     actual_params: int
     samples_seen: int
-    runtime_sec: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,14 +197,16 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
         raise ValueError("At least two best-run points are required for extrapolation.")
     return ScalingLaws(
         loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
-        policy_top1=sum(r.policy_top1 for r in best_results) / len(best_results),
+        policy_top1=fit_linear_law((r.compute, r.policy_top1) for r in best_results),
         d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
         depth=fit_power_law((r.compute, r.depth) for r in best_results),
         params=fit_power_law((r.compute, r.params) for r in best_results),
+        datapoints_per_parameter=fit_linear_law(
+            (r.compute, r.samples_seen / r.params) for r in best_results
+        ),
         samples=fit_power_law((r.compute, r.samples_seen) for r in best_results),
         batch_size=fit_power_law((r.compute, r.batch_size) for r in best_results),
         lr=fit_power_law((r.compute, r.lr) for r in best_results),
-        runtime_sec=fit_power_law((r.compute, r.runtime_sec) for r in best_results),
     )
 
 
@@ -216,7 +229,6 @@ def extrapolate(laws: ScalingLaws, compute_budget: float) -> HparamSuggestion:
         target_params=target_params,
         actual_params=actual_params,
         samples_seen=round_to_int(laws.samples.predict(compute_budget)),
-        runtime_sec=laws.runtime_sec.predict(compute_budget),
     )
 
 
@@ -231,6 +243,19 @@ def fit_power_law(points: Iterable[tuple[float, float]]) -> PowerLaw:
     slope = covariance / variance_x
     intercept = mean_y - slope * mean_x
     return PowerLaw(intercept=intercept, slope=slope)
+
+
+def fit_linear_law(points: Iterable[tuple[float, float]]) -> LinearLaw:
+    values = [(math.log10(x), y) for x, y in points]
+    mean_x = sum(x for x, _ in values) / len(values)
+    mean_y = sum(y for _, y in values) / len(values)
+    variance_x = sum((x - mean_x) ** 2 for x, _ in values)
+    if variance_x == 0:
+        raise ValueError("Cannot fit a linear law with identical x values.")
+    covariance = sum((x - mean_x) * (y - mean_y) for x, y in values)
+    slope = covariance / variance_x
+    intercept = mean_y - slope * mean_x
+    return LinearLaw(intercept=intercept, slope=slope)
 
 
 def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
@@ -373,9 +398,10 @@ def write_scaling_charts(
         output_dir / "loss.svg",
         title="Loss fit",
         x_label="Training compute",
-        y_label="Tail loss",
+        y_label="Loss",
         x_log=True,
         y_log=True,
+        plain_y_ticks=True,
         series=[
             Series(
                 "observed best",
@@ -412,6 +438,13 @@ def write_scaling_charts(
                 "#1f77b4",
                 line=False,
             ),
+            Series(
+                "fit",
+                [(compute, laws.policy_top1.predict(compute)) for compute in curve_compute],
+                "#1f77b4",
+                markers=False,
+                dashed=True,
+            ),
         ],
     )
 
@@ -433,6 +466,36 @@ def write_scaling_charts(
                 "params fit",
                 [(compute, laws.params.predict(compute)) for compute in curve_compute],
                 "#9467bd",
+                markers=False,
+                dashed=True,
+            ),
+        ],
+    )
+
+    write_svg_chart(
+        output_dir / "datapoints_per_parameter.svg",
+        title="Datapoints per parameter",
+        x_label="Training compute",
+        y_label="Datapoints per parameter",
+        x_log=True,
+        y_log=False,
+        series=[
+            Series(
+                "observed best",
+                [
+                    (result.compute, result.samples_seen / result.params)
+                    for result in best_results
+                ],
+                "#8c564b",
+                line=False,
+            ),
+            Series(
+                "fit",
+                [
+                    (compute, laws.datapoints_per_parameter.predict(compute))
+                    for compute in curve_compute
+                ],
+                "#8c564b",
                 markers=False,
                 dashed=True,
             ),
@@ -513,30 +576,6 @@ def write_scaling_charts(
         ],
     )
 
-    write_svg_chart(
-        output_dir / "runtime.svg",
-        title="Runtime fit",
-        x_label="Training compute",
-        y_label="Runtime seconds",
-        x_log=True,
-        y_log=True,
-        series=[
-            Series(
-                "runtime observed",
-                [(result.compute, result.runtime_sec) for result in best_results],
-                "#2ca02c",
-                line=False,
-            ),
-            Series(
-                "runtime fit",
-                [(compute, laws.runtime_sec.predict(compute)) for compute in curve_compute],
-                "#2ca02c",
-                markers=False,
-                dashed=True,
-            ),
-        ],
-    )
-
 
 def logspace(start: float, stop: float, count: int) -> list[float]:
     log_start = math.log10(start)
@@ -556,6 +595,7 @@ def write_svg_chart(
     x_log: bool,
     y_log: bool,
     series: list[Series],
+    plain_y_ticks: bool = False,
 ) -> None:
     import matplotlib
 
@@ -589,6 +629,17 @@ def write_svg_chart(
         axis.set_xscale("log")
     if y_log:
         axis.set_yscale("log")
+    if plain_y_ticks:
+        import matplotlib.ticker as ticker
+
+        y_values = [y for item in series for _, y in item.points]
+        y_min = min(y_values)
+        y_max = max(y_values)
+        tick_values = ticker.MaxNLocator(nbins=6).tick_values(y_min, y_max)
+        visible_ticks = [value for value in tick_values if y_min <= value <= y_max]
+        axis.yaxis.set_major_locator(ticker.FixedLocator(visible_ticks))
+        axis.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
+        axis.yaxis.set_minor_formatter(ticker.NullFormatter())
     axis.set_title(title, loc="left", fontweight="bold")
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
@@ -678,13 +729,17 @@ def format_report(
             f"- Predicted sample/parameter ratio at target: "
             f"`{suggestion.samples_seen / suggestion.actual_params:.4f}`",
             "",
+            "## Policy And Allocation Fits",
+            "",
+            f"```text\n{laws.policy_top1.format('policy_top1')}\n```",
+            "",
+            f"```text\n{laws.datapoints_per_parameter.format('datapoints_per_parameter')}\n```",
+            "",
             "## Training Hyperparameter Fits",
             "",
             f"```text\n{laws.batch_size.format('batch_size')}\n```",
             "",
             f"```text\n{laws.lr.format('lr')}\n```",
-            "",
-            f"```text\n{laws.runtime_sec.format('runtime_sec')}\n```",
             "",
             "## Extrapolated Target",
             "",
@@ -695,7 +750,6 @@ def format_report(
             f"- Target params: `{suggestion.target_params:,}`",
             f"- Actual params: `{suggestion.actual_params:,}`",
             f"- Estimated samples: `{suggestion.samples_seen:,}`",
-            f"- Estimated runtime from prior runs: `{suggestion.runtime_sec / 3600:.2f}h`",
             "",
             "## Launch Command",
             "",
