@@ -19,10 +19,9 @@ DEFAULT_TAIL = 100
 @dataclass(frozen=True, slots=True)
 class TailMetrics:
     wandb_url: str
-    loss_tail_mean: float
-    policy_top1_tail_mean: float
-    loss_tail_count: int
-    policy_top1_tail_count: int
+    loss: float
+    policy_top1: float
+    tail_count: int
 
 
 def wandb_tail_metrics() -> None:
@@ -36,7 +35,7 @@ def wandb_tail_metrics() -> None:
     parser.add_argument(
         "--write-csv",
         action="store_true",
-        help="Rewrite --csv with loss_tail_mean and policy_top1_tail_mean columns.",
+        help="Rewrite --csv with loss and policy_top1 columns.",
     )
     args = parser.parse_args()
 
@@ -69,20 +68,18 @@ def write_csv_rows(
 ) -> None:
     fieldnames = list(rows[0].keys()) if rows else []
     for fieldname in (
-        "loss_tail_mean",
-        "policy_top1_tail_mean",
-        "loss_tail_count",
-        "policy_top1_tail_count",
+        "loss",
+        "policy_top1",
+        "tail_count",
     ):
         if fieldname not in fieldnames:
             fieldnames.append(fieldname)
 
     for row in rows:
         metrics = metrics_by_url[row["wandb_url"]]
-        row["loss_tail_mean"] = str(metrics.loss_tail_mean)
-        row["policy_top1_tail_mean"] = str(metrics.policy_top1_tail_mean)
-        row["loss_tail_count"] = str(metrics.loss_tail_count)
-        row["policy_top1_tail_count"] = str(metrics.policy_top1_tail_count)
+        row["loss"] = str(metrics.loss)
+        row["policy_top1"] = str(metrics.policy_top1)
+        row["tail_count"] = str(metrics.tail_count)
 
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -93,10 +90,9 @@ def write_csv_rows(
 def write_metrics_csv(metrics: Iterable[TailMetrics]) -> None:
     fieldnames = [
         "wandb_url",
-        "loss_tail_mean",
-        "policy_top1_tail_mean",
-        "loss_tail_count",
-        "policy_top1_tail_count",
+        "loss",
+        "policy_top1",
+        "tail_count",
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
@@ -104,10 +100,9 @@ def write_metrics_csv(metrics: Iterable[TailMetrics]) -> None:
         writer.writerow(
             {
                 "wandb_url": row.wandb_url,
-                "loss_tail_mean": row.loss_tail_mean,
-                "policy_top1_tail_mean": row.policy_top1_tail_mean,
-                "loss_tail_count": row.loss_tail_count,
-                "policy_top1_tail_count": row.policy_top1_tail_count,
+                "loss": row.loss,
+                "policy_top1": row.policy_top1,
+                "tail_count": row.tail_count,
             }
         )
 
@@ -156,19 +151,34 @@ def tail_metrics_from_history(
     tail: int,
 ) -> TailMetrics:
     sorted_rows = sorted(rows, key=lambda row: int(row.get("_step") or 0))
-    loss_values = tail_values(sorted_rows, LOSS_KEY, tail=tail)
-    policy_top1_values = tail_values(sorted_rows, POLICY_TOP1_KEY, tail=tail)
-    if not loss_values:
-        raise ValueError(f"{wandb_url} has no {LOSS_KEY!r} history values.")
-    if not policy_top1_values:
-        raise ValueError(f"{wandb_url} has no {POLICY_TOP1_KEY!r} history values.")
+    pairs = tail_metric_pairs(sorted_rows, tail=tail)
+    if not pairs:
+        raise ValueError(
+            f"{wandb_url} has no history rows with both {LOSS_KEY!r} and "
+            f"{POLICY_TOP1_KEY!r} values."
+        )
+    loss_values = [loss for loss, _ in pairs]
+    policy_top1_values = [policy_top1 for _, policy_top1 in pairs]
     return TailMetrics(
         wandb_url=wandb_url,
-        loss_tail_mean=fmean(loss_values),
-        policy_top1_tail_mean=fmean(policy_top1_values),
-        loss_tail_count=len(loss_values),
-        policy_top1_tail_count=len(policy_top1_values),
+        loss=fmean(loss_values),
+        policy_top1=fmean(policy_top1_values),
+        tail_count=len(pairs),
     )
+
+
+def tail_metric_pairs(
+    rows: Iterable[Mapping[str, object]],
+    *,
+    tail: int,
+) -> list[tuple[float, float]]:
+    pairs: list[tuple[float, float]] = []
+    for row in rows:
+        loss = row.get(LOSS_KEY)
+        policy_top1 = row.get(POLICY_TOP1_KEY)
+        if isinstance(loss, int | float) and isinstance(policy_top1, int | float):
+            pairs.append((float(loss), float(policy_top1)))
+    return pairs[-tail:]
 
 
 def tail_values(

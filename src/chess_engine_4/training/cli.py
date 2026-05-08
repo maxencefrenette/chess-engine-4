@@ -19,12 +19,13 @@ from chess_engine_4.model import MlpChessNet
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
 from chess_engine_4.training.flops import (
     measure_training_flops_per_sample,
-    steps_for_flops_target,
+    step_adjusted_compute,
+    steps_for_compute_budget,
 )
 from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/1e14.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/1e15.toml")
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +33,8 @@ class TrainOptions:
     config: Path = _DEFAULT_CONFIG_PATH
     data: str | None = None
     batch_size: int | None = None
-    flops_target: float | None = None
+    compute_budget: float | None = None
+    step_penalty_k: float | None = None
     d_model: int | None = None
     depth: int | None = None
     lr: float | None = None
@@ -46,7 +48,8 @@ def train() -> None:
     parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--data", default=None, help=_DATA_HELP)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--flops-target", type=float, default=None)
+    parser.add_argument("--compute-budget", type=float, default=None)
+    parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
@@ -60,7 +63,8 @@ def train() -> None:
             config=args.config,
             data=args.data,
             batch_size=args.batch_size,
-            flops_target=args.flops_target,
+            compute_budget=args.compute_budget,
+            step_penalty_k=args.step_penalty_k,
             d_model=args.d_model,
             depth=args.depth,
             lr=args.lr,
@@ -74,7 +78,8 @@ def train() -> None:
 def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     config = with_overrides(
         load_training_config(options.config),
-        flops_target=options.flops_target,
+        compute_budget=options.compute_budget,
+        step_penalty_k=options.step_penalty_k,
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
@@ -89,10 +94,11 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         flops_model,
         batch_size=config.data.batch_size,
     )
-    steps = steps_for_flops_target(
-        flops_target=config.run.flops_target,
+    steps = steps_for_compute_budget(
+        compute_budget=config.run.compute_budget,
         flops_per_sample=flops_per_sample,
         batch_size=config.data.batch_size,
+        step_penalty_k=config.run.step_penalty_k,
     )
 
     dataset = LeelaTarDataset(
@@ -147,10 +153,15 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
             elapsed=elapsed,
             lr=config.optimizer.lr,
         )
-        estimated_flops_seen = seen * flops_per_sample
-        metrics["perf/measured_flops_per_sample"] = flops_per_sample
-        metrics["perf/estimated_flops_seen"] = estimated_flops_seen
-        metrics["perf/flops_target"] = config.run.flops_target
+        flops_seen = seen * flops_per_sample
+        compute_seen = step_adjusted_compute(
+            flops_per_sample=flops_per_sample,
+            batch_size=config.data.batch_size,
+            steps=step,
+            step_penalty_k=config.run.step_penalty_k,
+        )
+        metrics["perf/flops_seen"] = flops_seen
+        metrics["perf/compute_seen"] = compute_seen
         should_log = step == 1 or step % config.run.log_every == 0 or step == steps
         if wandb_run is not None and should_log:
             wandb_run.log(metrics, step=step)
@@ -162,7 +173,8 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                 f"value={loss.value.item():.4f} "
                 f"mlh={loss.moves_left.item():.4f} "
                 f"grad_norm={grad_norm:.2f} "
-                f"flops_seen={estimated_flops_seen:.3e} "
+                f"flops_seen={flops_seen:.3e} "
+                f"compute_seen={compute_seen:.3e} "
                 f"samples_per_sec={seen / elapsed:.1f}"
             )
         last_metrics = metrics
@@ -173,9 +185,11 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "steps": step if seen > 0 else 0,
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss/total", 0.0)),
-        "flops_target": config.run.flops_target,
-        "estimated_flops_seen": int(last_metrics.get("perf/estimated_flops_seen", 0)),
-        "measured_flops_per_sample": flops_per_sample,
+        "compute_budget": config.run.compute_budget,
+        "flops_seen": int(last_metrics.get("perf/flops_seen", 0)),
+        "compute_seen": float(last_metrics.get("perf/compute_seen", 0.0)),
+        "step_penalty_k": config.run.step_penalty_k,
+        "flops_per_sample": flops_per_sample,
         "device": str(device),
     }
 
@@ -274,9 +288,10 @@ def _init_wandb(
     wandb_config = {
         "run_name": config.run.name,
         "seed": config.run.seed,
-        "flops_target": config.run.flops_target,
+        "compute_budget": config.run.compute_budget,
         "computed_steps": steps,
-        "measured_flops_per_sample": flops_per_sample,
+        "flops_per_sample": flops_per_sample,
+        "step_penalty_k": config.run.step_penalty_k,
         "log_every": config.run.log_every,
         "batch_size": config.data.batch_size,
         "max_records": config.data.max_records,
@@ -291,9 +306,6 @@ def _init_wandb(
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
-        "non_embedding_parameter_count": sum(
-            parameter.numel() for block in model.blocks for parameter in block.parameters()
-        ),
     }
     return wandb.init(
         name=run_name or config.run.name,

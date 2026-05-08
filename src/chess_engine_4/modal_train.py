@@ -14,7 +14,7 @@ APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
 WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
-REMOTE_CONFIG_PATH = Path("configs/1e14.toml")
+REMOTE_CONFIG_PATH = Path("configs/1e15.toml")
 
 GPU_CHOICES = {
     "any": "any",
@@ -49,7 +49,8 @@ def train_modal() -> None:
     parser = argparse.ArgumentParser(description="Train the MLP-only chess network on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--flops-target", type=float, default=None)
+    parser.add_argument("--compute-budget", type=float, default=None)
+    parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
@@ -64,7 +65,8 @@ def train_modal() -> None:
     payload = {
         "config": str(args.config),
         "batch_size": args.batch_size,
-        "flops_target": args.flops_target,
+        "compute_budget": args.compute_budget,
+        "step_penalty_k": args.step_penalty_k,
         "d_model": args.d_model,
         "depth": args.depth,
         "lr": args.lr,
@@ -82,7 +84,9 @@ def train_modal() -> None:
         f"modal_run_complete run={result['run_name']} "
         f"steps={result['steps']} "
         f"samples_seen={result['samples_seen']} "
-        f"flops_seen={result['estimated_flops_seen']:.3e} "
+        f"flops_seen={result['flops_seen']:.3e} "
+        f"compute_seen={result['compute_seen']:.3e} "
+        f"step_penalty_k={result['step_penalty_k']:.3f} "
         f"final_loss={result['final_loss']:.4f} "
         f"device={result['device']}"
     )
@@ -107,7 +111,8 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             config=Path(payload["config"]),
             data=REMOTE_DATA_PATH,
             batch_size=payload["batch_size"],
-            flops_target=payload["flops_target"],
+            compute_budget=payload["compute_budget"],
+            step_penalty_k=payload["step_penalty_k"],
             d_model=payload["d_model"],
             depth=payload["depth"],
             lr=payload["lr"],

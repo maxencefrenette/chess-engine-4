@@ -1,47 +1,44 @@
-[runs.1e13]
-source_experiment = "experiments/2026-05-07.01-shape-retune"
-run_name = "shape2-1e13-d48x1"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fn34qq8s"
-flops = 1.000039744512e13
+[runs.1e14]
+source_experiment = "experiments/2026-05-07.03-k1.2-baselines"
+run_name = "baseline-1e14-k1.2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/dl7xy2lq"
+compute = 1.00002756842630e14
 d_model = 48
 depth = 1
 batch_size = 192
 lr = 1e-3
 params = 463094
-non_embedding_params = 27696
-samples_seen = 3382272
-loss_tail_mean = 4.727134048938751
-policy_top1_tail_mean = 0.2202083384990692
-runtime_sec = 207.916145263
+samples_seen = 4517376
+loss = 4.795940928459167
+policy_top1 = 0.23625000640749932
+runtime_sec = 291.904244462
 
-[runs.1e14]
-source_experiment = "experiments/2026-05-07.02-shape-down-batch"
-run_name = "shape4-1e14-d64x5-b512-lr7e-4"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q4jwdjdy"
-flops = 1.00002162032640e14
+[runs.1e15]
+source_experiment = "experiments/2026-05-07.03-k1.2-baselines"
+run_name = "baseline-1e15-k1.2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/14s9ljb8"
+compute = 1.000010895480377e15
 d_model = 64
 depth = 5
 batch_size = 512
 lr = 7.071067811865475e-4
 params = 825990
-non_embedding_params = 246080
-samples_seen = 19235328
-loss_tail_mean = 4.491282234191894
-policy_top1_tail_mean = 0.2871875
-runtime_sec = 962.05167082
+samples_seen = 22644224
+loss = 4.540704984664917
+policy_top1 = 0.29857421875
+runtime_sec = 1069.045226766
 
-[runs.1e15]
-source_experiment = "experiments/2026-05-07.01-shape-retune"
-run_name = "shape2-1e15-d192x4"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/hbfybm6d"
-flops = 1.000012524295680e15
+[runs.1e16]
+source_experiment = "experiments/2026-05-07.03-k1.2-baselines"
+run_name = "baseline-1e16-k1.2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/96u1lzqi"
+compute = 1.0000079310778892e16
 d_model = 192
 depth = 4
-batch_size = 768
+batch_size = 1024
 lr = 3e-4
 params = 3506246
-non_embedding_params = 1770240
-samples_seen = 45944064
-loss_tail_mean = 4.274450967311859
-policy_top1_tail_mean = 0.3417187598347664
-runtime_sec = 2227.6
+samples_seen = 52509696
+loss = 4.2710971975326535
+policy_top1 = 0.35298828125
+runtime_sec = 2244.662782581

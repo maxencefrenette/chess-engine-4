@@ -15,7 +15,8 @@ from chess_engine_4.training.losses import LossWeights
 class RunConfig:
     name: str = "1e14"
     seed: int = 1
-    flops_target: float = 1e14
+    compute_budget: float = 1e14
+    step_penalty_k: float = 1.0
     log_every: int = 10
     device: str = "auto"
 
@@ -64,15 +65,18 @@ def load_training_config(path: str | Path) -> TrainingConfig:
 def with_overrides(
     config: TrainingConfig,
     *,
-    flops_target: float | None = None,
+    compute_budget: float | None = None,
+    step_penalty_k: float | None = None,
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
     lr: float | None = None,
     device: str | None = None,
 ) -> TrainingConfig:
-    if flops_target is not None:
-        config = replace(config, run=replace(config.run, flops_target=flops_target))
+    if compute_budget is not None:
+        config = replace(config, run=replace(config.run, compute_budget=compute_budget))
+    if step_penalty_k is not None:
+        config = replace(config, run=replace(config.run, step_penalty_k=step_penalty_k))
     if batch_size is not None:
         config = replace(config, data=replace(config.data, batch_size=batch_size))
     if d_model is not None:

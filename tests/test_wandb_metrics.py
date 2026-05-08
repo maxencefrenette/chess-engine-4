@@ -39,7 +39,6 @@ def test_tail_metrics_from_history() -> None:
         tail=2,
     )
 
-    assert metrics.loss_tail_mean == 25.0
-    assert metrics.policy_top1_tail_mean == 0.25
-    assert metrics.loss_tail_count == 2
-    assert metrics.policy_top1_tail_count == 2
+    assert metrics.loss == 25.0
+    assert metrics.policy_top1 == 0.25
+    assert metrics.tail_count == 2

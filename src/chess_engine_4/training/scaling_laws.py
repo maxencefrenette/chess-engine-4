@@ -28,17 +28,16 @@ CHARTS = [
 class SweepResult:
     budget: str
     source_experiment: str
-    flops: float
+    compute: float
     run_name: str
     batch_size: int
     lr: float
     d_model: int
     depth: int
     params: int
-    non_embedding_params: int
     samples_seen: int
-    loss_tail_mean: float
-    policy_top1_tail_mean: float
+    loss: float
+    policy_top1: float
     runtime_sec: float
     wandb_url: str
 
@@ -72,7 +71,7 @@ class LossPowerLaw:
 @dataclass(frozen=True, slots=True)
 class ScalingLaws:
     loss: LossPowerLaw
-    policy_top1_tail_mean: float
+    policy_top1: float
     d_model: PowerLaw
     depth: PowerLaw
     params: PowerLaw
@@ -84,7 +83,7 @@ class ScalingLaws:
 
 @dataclass(frozen=True, slots=True)
 class HparamSuggestion:
-    flops_target: float
+    compute_budget: float
     d_model: int
     depth: int
     batch_size: int
@@ -107,10 +106,10 @@ class Series:
 
 def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-flops", type=float, default=1e16)
+    parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
     parser.add_argument("--gpu", default="t4")
-    parser.add_argument("--config", default="configs/1e15.toml")
+    parser.add_argument("--config", default="configs/1e16.toml")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--no-output", action="store_true")
     parser.add_argument("--write-config", type=Path, default=None)
@@ -118,7 +117,7 @@ def scaling_laws() -> None:
 
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
-    suggestion = extrapolate(laws, args.target_flops)
+    suggestion = extrapolate(laws, args.target_compute_budget)
     report = format_report(
         best_results=best_results,
         laws=laws,
@@ -129,7 +128,7 @@ def scaling_laws() -> None:
     print(report)
 
     if not args.no_output:
-        output_dir = report_output_dir(args.output_root, args.target_flops)
+        output_dir = report_output_dir(args.output_root, args.target_compute_budget)
         write_report_artifacts(
             output_dir=output_dir,
             best_results=best_results,
@@ -153,19 +152,16 @@ def read_best_runs(path: Path) -> list[SweepResult]:
         SweepResult(
             budget=budget,
             source_experiment=str(row["source_experiment"]),
-            flops=float(row["flops"]),
+            compute=float(row["compute"]),
             run_name=str(row["run_name"]),
             batch_size=int(row["batch_size"]),
             lr=float(row["lr"]),
             d_model=int(row["d_model"]),
             depth=int(row["depth"]),
             params=int(row["params"]),
-            non_embedding_params=int(row["non_embedding_params"]),
             samples_seen=int(row["samples_seen"]),
-            loss_tail_mean=float(row.get("loss_tail_mean", row.get("loss_ema"))),
-            policy_top1_tail_mean=float(
-                row.get("policy_top1_tail_mean", row.get("policy_top1"))
-            ),
+            loss=float(row["loss"]),
+            policy_top1=float(row["policy_top1"]),
             runtime_sec=float(row["runtime_sec"]),
             wandb_url=str(row["wandb_url"]),
         )
@@ -173,55 +169,54 @@ def read_best_runs(path: Path) -> list[SweepResult]:
     ]
     if not results:
         raise ValueError(f"No rows found in {path}.")
-    return sorted(results, key=lambda result: result.flops)
+    return sorted(results, key=lambda result: result.compute)
 
 
 def best_results_by_budget(results: Iterable[SweepResult]) -> list[SweepResult]:
     best: dict[str, SweepResult] = {}
     for result in results:
         previous = best.get(result.budget)
-        if previous is None or result.loss_tail_mean < previous.loss_tail_mean:
+        if previous is None or result.loss < previous.loss:
             best[result.budget] = result
-    return sorted(best.values(), key=lambda result: result.flops)
+    return sorted(best.values(), key=lambda result: result.compute)
 
 
 def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     if len(best_results) < 2:
         raise ValueError("At least two best-run points are required for extrapolation.")
     return ScalingLaws(
-        loss=fit_loss_power_law((r.flops, r.loss_tail_mean) for r in best_results),
-        policy_top1_tail_mean=sum(r.policy_top1_tail_mean for r in best_results)
-        / len(best_results),
-        d_model=fit_power_law((r.flops, r.d_model) for r in best_results),
-        depth=fit_power_law((r.flops, r.depth) for r in best_results),
-        params=fit_power_law((r.flops, r.params) for r in best_results),
-        samples=fit_power_law((r.flops, r.samples_seen) for r in best_results),
-        batch_size=fit_power_law((r.flops, r.batch_size) for r in best_results),
-        lr=fit_power_law((r.flops, r.lr) for r in best_results),
-        runtime_sec=fit_power_law((r.flops, r.runtime_sec) for r in best_results),
+        loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
+        policy_top1=sum(r.policy_top1 for r in best_results) / len(best_results),
+        d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
+        depth=fit_power_law((r.compute, r.depth) for r in best_results),
+        params=fit_power_law((r.compute, r.params) for r in best_results),
+        samples=fit_power_law((r.compute, r.samples_seen) for r in best_results),
+        batch_size=fit_power_law((r.compute, r.batch_size) for r in best_results),
+        lr=fit_power_law((r.compute, r.lr) for r in best_results),
+        runtime_sec=fit_power_law((r.compute, r.runtime_sec) for r in best_results),
     )
 
 
-def extrapolate(laws: ScalingLaws, flops_target: float) -> HparamSuggestion:
-    if flops_target <= 0:
-        raise ValueError("target FLOPs must be positive.")
+def extrapolate(laws: ScalingLaws, compute_budget: float) -> HparamSuggestion:
+    if compute_budget <= 0:
+        raise ValueError("target compute must be positive.")
 
-    target_params = round(laws.params.predict(flops_target))
+    target_params = round(laws.params.predict(compute_budget))
     d_model, depth, actual_params = closest_architecture(
         target_params=target_params,
-        target_d_model=laws.d_model.predict(flops_target),
-        target_depth=laws.depth.predict(flops_target),
+        target_d_model=laws.d_model.predict(compute_budget),
+        target_depth=laws.depth.predict(compute_budget),
     )
     return HparamSuggestion(
-        flops_target=flops_target,
+        compute_budget=compute_budget,
         d_model=d_model,
         depth=depth,
-        batch_size=round_to_batch_ladder(laws.batch_size.predict(flops_target)),
-        lr=round_to_lr_ladder(laws.lr.predict(flops_target)),
+        batch_size=round_to_batch_ladder(laws.batch_size.predict(compute_budget)),
+        lr=round_to_lr_ladder(laws.lr.predict(compute_budget)),
         target_params=target_params,
         actual_params=actual_params,
-        samples_seen=round_to_int(laws.samples.predict(flops_target)),
-        runtime_sec=laws.runtime_sec.predict(flops_target),
+        samples_seen=round_to_int(laws.samples.predict(compute_budget)),
+        runtime_sec=laws.runtime_sec.predict(compute_budget),
     )
 
 
@@ -291,11 +286,6 @@ def closest_architecture(
     return d_model, depth, params
 
 
-def non_embedding_parameter_count(*, d_model: int, depth: int, mlp_ratio: float = 4.0) -> int:
-    hidden_dim = int(d_model * mlp_ratio)
-    return depth * (3 * d_model * hidden_dim + d_model)
-
-
 def parameter_count(*, d_model: int, depth: int, mlp_ratio: float = 4.0) -> int:
     input_dim = INPUT_PLANE_COUNT * 8 * 8
     hidden_dim = int(d_model * mlp_ratio)
@@ -335,8 +325,8 @@ def round_to_int(value: float) -> int:
     return int(round(value))
 
 
-def report_output_dir(output_root: Path, target_flops: float) -> Path:
-    return output_root / f"{target_flops:.0e}".replace("+", "")
+def report_output_dir(output_root: Path, compute_budget: float) -> Path:
+    return output_root / f"{compute_budget:.0e}".replace("+", "")
 
 
 def write_report_artifacts(
@@ -375,34 +365,34 @@ def write_scaling_charts(
     laws: ScalingLaws,
     suggestion: HparamSuggestion,
 ) -> None:
-    min_flops = min(result.flops for result in best_results)
-    max_flops = max(suggestion.flops_target, max(result.flops for result in best_results))
-    curve_flops = logspace(min_flops, max_flops, 96)
+    min_compute = min(result.compute for result in best_results)
+    max_compute = max(suggestion.compute_budget, max(result.compute for result in best_results))
+    curve_compute = logspace(min_compute, max_compute, 96)
 
     write_svg_chart(
         output_dir / "loss.svg",
         title="Loss fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Tail loss",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "observed best",
-                [(result.flops, result.loss_tail_mean) for result in best_results],
+                [(result.compute, result.loss) for result in best_results],
                 "#1f77b4",
                 line=False,
             ),
             Series(
                 "fit",
-                [(flops, laws.loss.predict(flops)) for flops in curve_flops],
+                [(compute, laws.loss.predict(compute)) for compute in curve_compute],
                 "#d62728",
                 markers=False,
                 dashed=True,
             ),
             Series(
                 "target",
-                [(suggestion.flops_target, laws.loss.predict(suggestion.flops_target))],
+                [(suggestion.compute_budget, laws.loss.predict(suggestion.compute_budget))],
                 "#2ca02c",
             ),
         ],
@@ -411,14 +401,14 @@ def write_scaling_charts(
     write_svg_chart(
         output_dir / "policy_top1.svg",
         title="Policy top-1",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Top-1 accuracy",
         x_log=True,
         y_log=False,
         series=[
             Series(
                 "observed best",
-                [(result.flops, result.policy_top1_tail_mean) for result in best_results],
+                [(result.compute, result.policy_top1) for result in best_results],
                 "#1f77b4",
                 line=False,
             ),
@@ -428,20 +418,20 @@ def write_scaling_charts(
     write_svg_chart(
         output_dir / "model_size.svg",
         title="Model size fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Total parameters",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "params observed",
-                [(result.flops, result.params) for result in best_results],
+                [(result.compute, result.params) for result in best_results],
                 "#9467bd",
                 line=False,
             ),
             Series(
                 "params fit",
-                [(flops, laws.params.predict(flops)) for flops in curve_flops],
+                [(compute, laws.params.predict(compute)) for compute in curve_compute],
                 "#9467bd",
                 markers=False,
                 dashed=True,
@@ -452,20 +442,20 @@ def write_scaling_charts(
     write_svg_chart(
         output_dir / "data_samples.svg",
         title="Data samples fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Samples seen",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "D observed",
-                [(result.flops, result.samples_seen) for result in best_results],
+                [(result.compute, result.samples_seen) for result in best_results],
                 "#ff7f0e",
                 line=False,
             ),
             Series(
                 "D fit",
-                [(flops, laws.samples.predict(flops)) for flops in curve_flops],
+                [(compute, laws.samples.predict(compute)) for compute in curve_compute],
                 "#ff7f0e",
                 markers=False,
                 dashed=True,
@@ -476,70 +466,70 @@ def write_scaling_charts(
     write_svg_chart(
         output_dir / "batch_size.svg",
         title="Batch size fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Batch size",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "batch observed",
-                [(result.flops, result.batch_size) for result in best_results],
+                [(result.compute, result.batch_size) for result in best_results],
                 "#1f77b4",
                 line=False,
             ),
             Series(
                 "batch fit",
-                [(flops, laws.batch_size.predict(flops)) for flops in curve_flops],
+                [(compute, laws.batch_size.predict(compute)) for compute in curve_compute],
                 "#1f77b4",
                 markers=False,
                 dashed=True,
             ),
-            Series("target", [(suggestion.flops_target, suggestion.batch_size)], "#2ca02c"),
+            Series("target", [(suggestion.compute_budget, suggestion.batch_size)], "#2ca02c"),
         ],
     )
 
     write_svg_chart(
         output_dir / "learning_rate.svg",
         title="Learning rate fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Learning rate",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "lr observed",
-                [(result.flops, result.lr) for result in best_results],
+                [(result.compute, result.lr) for result in best_results],
                 "#d62728",
                 line=False,
             ),
             Series(
                 "lr fit",
-                [(flops, laws.lr.predict(flops)) for flops in curve_flops],
+                [(compute, laws.lr.predict(compute)) for compute in curve_compute],
                 "#d62728",
                 markers=False,
                 dashed=True,
             ),
-            Series("target", [(suggestion.flops_target, suggestion.lr)], "#2ca02c"),
+            Series("target", [(suggestion.compute_budget, suggestion.lr)], "#2ca02c"),
         ],
     )
 
     write_svg_chart(
         output_dir / "runtime.svg",
         title="Runtime fit",
-        x_label="Training FLOPs",
+        x_label="Training compute",
         y_label="Runtime seconds",
         x_log=True,
         y_log=True,
         series=[
             Series(
                 "runtime observed",
-                [(result.flops, result.runtime_sec) for result in best_results],
+                [(result.compute, result.runtime_sec) for result in best_results],
                 "#2ca02c",
                 line=False,
             ),
             Series(
                 "runtime fit",
-                [(flops, laws.runtime_sec.predict(flops)) for flops in curve_flops],
+                [(compute, laws.runtime_sec.predict(compute)) for compute in curve_compute],
                 "#2ca02c",
                 markers=False,
                 dashed=True,
@@ -624,24 +614,24 @@ def format_report(
         "# Hyperparameter Scaling Report",
         "",
         "This is a repo-local extrapolation from the current best W&B runs, not a claim that "
-        "the true scaling law is identified. With only three FLOPs budgets, the fitted "
+        "the true scaling law is identified. With only three compute budgets, the fitted "
         "curves are useful for choosing the next run and fragile as forecasts.",
         "",
-        "## Best Observed Tail Points",
+        "## Best Observed Points",
         "",
-        "| Budget | FLOPs | Model | Batch | LR | Samples | Tail Loss | Tail Policy Top-1 | W&B |",
+        "| Budget | Compute | Model | Batch | LR | Samples | Loss | Policy Top-1 | W&B |",
         "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for result in best_results:
         lines.append(
-            f"| `{result.budget}` | {result.flops:.1e} | d{result.d_model}x{result.depth} | "
+            f"| `{result.budget}` | {result.compute:.1e} | d{result.d_model}x{result.depth} | "
             f"{result.batch_size} | {result.lr:g} | {result.samples_seen:,} | "
-            f"{result.loss_tail_mean:.4f} | {result.policy_top1_tail_mean:.4f} | "
+            f"{result.loss:.4f} | {result.policy_top1:.4f} | "
             f"{result.wandb_url} |"
         )
 
     command = (
-        f"uv run train-modal --config {config} --flops-target {suggestion.flops_target:.0e} "
+        f"uv run train-modal --config {config} --compute-budget {suggestion.compute_budget:.0e} "
         f"--d-model {suggestion.d_model} --depth {suggestion.depth} "
         f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g} --gpu {gpu}"
     )
@@ -649,15 +639,15 @@ def format_report(
     lines.extend(
         [
             "",
-            "## Tail Loss Fit",
+            "## Loss Fit",
             "",
             "Fitted form:",
             "",
             f"```text\n{laws.loss.format()}\n```",
             "",
-            f"- RMSE on the observed tail-loss points: `{laws.loss.rmse:.4f}`",
-            f"- Predicted tail loss at `{suggestion.flops_target:.0e}` FLOPs: "
-            f"`{laws.loss.predict(suggestion.flops_target):.4f}`",
+            f"- RMSE on the observed loss points: `{laws.loss.rmse:.4f}`",
+            f"- Predicted loss at `{suggestion.compute_budget:.0e}` compute: "
+            f"`{laws.loss.predict(suggestion.compute_budget):.4f}`",
             "",
         ]
     )
@@ -698,7 +688,7 @@ def format_report(
             "",
             "## Extrapolated Target",
             "",
-            f"- FLOPs target: `{suggestion.flops_target:.0e}`",
+            f"- Compute budget: `{suggestion.compute_budget:.0e}`",
             f"- Model: `d{suggestion.d_model}x{suggestion.depth}`",
             f"- Batch size: `{suggestion.batch_size}`",
             f"- LR: `{suggestion.lr:g}`",
@@ -716,13 +706,13 @@ def format_report(
 
 
 def format_config(suggestion: HparamSuggestion) -> str:
-    name = f"{suggestion.flops_target:.0e}".replace("+", "")
+    name = f"{suggestion.compute_budget:.0e}".replace("+", "")
     return "\n".join(
         [
             "[run]",
             f'name = "{name}"',
             "seed = 1",
-            f"flops_target = {suggestion.flops_target:.0e}",
+            f"compute_budget = {suggestion.compute_budget:.0e}",
             "log_every = 10",
             'device = "auto"',
             "",

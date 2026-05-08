@@ -14,7 +14,8 @@ def test_load_training_config_reads_sections(tmp_path: Path) -> None:
         """
 [run]
 name = "audit"
-flops_target = 1e12
+compute_budget = 1e12
+step_penalty_k = 1.1
 
 [data]
 batch_size = 8
@@ -35,7 +36,8 @@ moves_left = 0.5
     config = load_training_config(config_path)
 
     assert config.run.name == "audit"
-    assert config.run.flops_target == 1e12
+    assert config.run.compute_budget == 1e12
+    assert config.run.step_penalty_k == 1.1
     assert config.data.batch_size == 8
     assert config.data.max_records == 128
     assert config.model.d_model == 64
@@ -58,11 +60,12 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/1e14.toml")
+    config = load_training_config("configs/1e15.toml")
 
     overridden = with_overrides(
         config,
-        flops_target=1e11,
+        compute_budget=1e11,
+        step_penalty_k=1.1,
         batch_size=4,
         d_model=64,
         depth=2,
@@ -70,7 +73,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         device="cpu",
     )
 
-    assert overridden.run.flops_target == 1e11
+    assert overridden.run.compute_budget == 1e11
+    assert overridden.run.step_penalty_k == 1.1
     assert overridden.data.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
@@ -81,7 +85,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
 
 
 def test_1e14_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/1e14.toml")
+    config = load_training_config("configs/1e15.toml")
     model = MlpChessNet(config.model)
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
