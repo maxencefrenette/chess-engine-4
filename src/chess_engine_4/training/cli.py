@@ -258,7 +258,7 @@ def inspect_data() -> None:
             f"value={tuple(value.shape)} "
             f"legal_policy_sum=[{legal_policy_sum.min():.4f}, {legal_policy_sum.max():.4f}] "
             f"illegal_moves=[{illegal_count.min()}, {illegal_count.max()}] "
-            f"plies_left=[{value[:, 0, 2].min():.1f}, {value[:, 0, 2].max():.1f}]"
+            f"root_m=[{value[:, 4, 2].min():.1f}, {value[:, 4, 2].max():.1f}]"
         )
 
 
@@ -442,10 +442,10 @@ def _training_metrics(
     policy_top1 = (policy_logits.argmax(dim=-1) == legal_targets.argmax(dim=-1)).float().mean()
     wdl_probs = torch.softmax(output.wdl_logits, dim=-1)
     q_pred = wdl_probs[:, 0] - wdl_probs[:, 2]
-    result = values[:, 0]
-    q_target = result[:, 0]
+    root = values[:, 4]
+    q_target = root[:, 0]
     q_mse = torch.square(q_pred - q_target).mean()
-    moves_left_mae = torch.abs(output.moves_left - result[:, 2]).mean()
+    moves_left_mae = torch.abs(output.moves_left - root[:, 2]).mean()
     samples_per_sec = samples_seen / elapsed if elapsed > 0 else 0.0
     return {
         "loss/total": loss.total.item(),

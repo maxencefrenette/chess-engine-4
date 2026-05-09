@@ -9,7 +9,7 @@ from torch import nn
 
 from chess_engine_4.model.mlp import MlpChessNetOutput
 
-RESULT_VALUE_INDEX = 0
+ROOT_VALUE_INDEX = 4
 MOVES_LEFT_SCALE = 20.0
 MOVES_LEFT_HUBER_DELTA = 10.0 / MOVES_LEFT_SCALE
 
@@ -48,14 +48,14 @@ def wdl_target_from_q_d(q: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
 
 
 def value_cross_entropy(wdl_logits: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
-    result = values[:, RESULT_VALUE_INDEX]
-    targets = wdl_target_from_q_d(result[:, 0], result[:, 1])
+    root = values[:, ROOT_VALUE_INDEX]
+    targets = wdl_target_from_q_d(root[:, 0], root[:, 1])
     log_probs = nn.functional.log_softmax(wdl_logits, dim=-1)
     return -(targets.detach() * log_probs).sum(dim=-1).mean()
 
 
 def moves_left_loss(moves_left: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
-    target = values[:, RESULT_VALUE_INDEX, 2]
+    target = values[:, ROOT_VALUE_INDEX, 2]
     return nn.functional.huber_loss(
         moves_left / MOVES_LEFT_SCALE,
         target / MOVES_LEFT_SCALE,

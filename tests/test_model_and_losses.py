@@ -39,11 +39,11 @@ def test_policy_cross_entropy_masks_illegal_moves() -> None:
     assert math.isclose(loss.item(), math.log(2), rel_tol=1e-6)
 
 
-def test_value_cross_entropy_uses_result_row() -> None:
+def test_value_cross_entropy_uses_root_row() -> None:
     logits = torch.tensor([[2.0, 0.0, -2.0]])
     values = torch.zeros(1, 6, 3)
-    values[0, 0, 0] = 1.0
-    values[0, 0, 1] = 0.0
+    values[0, 4, 0] = 1.0
+    values[0, 4, 1] = 0.0
 
     loss = value_cross_entropy(logits, values)
 
@@ -51,10 +51,10 @@ def test_value_cross_entropy_uses_result_row() -> None:
     torch.testing.assert_close(loss, expected)
 
 
-def test_moves_left_loss_uses_result_row_plies_left() -> None:
+def test_moves_left_loss_uses_root_row_root_m() -> None:
     prediction = torch.tensor([30.0])
     values = torch.zeros(1, 6, 3)
-    values[0, 0, 2] = 40.0
+    values[0, 4, 2] = 40.0
 
     loss = moves_left_loss(prediction, values)
 
@@ -68,8 +68,8 @@ def test_lczero_loss_backpropagates() -> None:
     policy[:, 0] = 0.75
     policy[:, 1] = 0.25
     values = torch.zeros(2, 6, 3)
-    values[:, 0, 0] = 1.0
-    values[:, 0, 2] = 42.0
+    values[:, 4, 0] = 1.0
+    values[:, 4, 2] = 42.0
 
     loss = lczero_loss(model(planes), policy, values, weights=LossWeights())
     loss.total.backward()
