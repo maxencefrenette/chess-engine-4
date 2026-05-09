@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -96,7 +95,7 @@ lc0_builder_image = (
         "https://github.com/LeelaChessZero/lc0.git /opt/lc0",
         "cd /opt/lc0 && ./build.sh release -Dgtest=false -Donnx=true "
         "-Donnx_libdir=/opt/onnxruntime/lib -Donnx_include=/opt/onnxruntime/include "
-        "-Dnative_cuda=false -Ddefault_backend=cuda",
+        "-Dnative_arch=false -Dnative_cuda=false -Ddefault_backend=cuda",
         "install -m 755 /opt/lc0/build/release/lc0 /usr/local/bin/lc0",
     )
     .env({"LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH})
@@ -117,7 +116,7 @@ def prepare_lc0_modal() -> None:
 
 
 def eval_modal() -> None:
-    parser = argparse.ArgumentParser(description="Run an lc0-vs-BT4 fastchess match on Modal.")
+    parser = argparse.ArgumentParser(description="Run an lc0-vs-lc0 fastchess match on Modal.")
     parser.add_argument("candidate_weights", type=Path)
     parser.add_argument("--gpu", default="l4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--name", default=None)
@@ -126,27 +125,28 @@ def eval_modal() -> None:
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--tc", default="1.0+0.01")
     parser.add_argument("--nodes", type=int, default=None)
+    parser.add_argument("--candidate-nodes", type=int, default=None)
+    parser.add_argument("--baseline-nodes", type=int, default=None)
+    parser.add_argument("--startup-ms", type=int, default=120_000)
+    parser.add_argument("--ping-ms", type=int, default=120_000)
     parser.add_argument("--candidate-backend", default="onnx-cuda")
     parser.add_argument("--baseline-backend", default="cuda")
     parser.add_argument("--candidate-name", default="candidate")
     parser.add_argument("--baseline-name", default="BT4-1740")
     parser.add_argument(
+        "--baseline-weights",
+        default=str(BT4_REMOTE_PATH),
+        help="Remote Modal Volume path to the baseline lc0 weights file.",
+    )
+    parser.add_argument(
+        "--baseline-url",
+        default=BT4_URL,
+        help="Optional URL to download the baseline weights if missing.",
+    )
+    parser.add_argument(
         "--lc0-path",
         default=str(DEFAULT_LC0_REMOTE_PATH),
-        help="Remote Modal Volume path to a prebuilt Linux lc0 binary.",
-    )
-    parser.add_argument(
-        "--lc0-url",
-        default=None,
-        help=(
-            "Optional URL for a prebuilt Linux lc0 binary or archive to cache "
-            "in the artifacts Volume."
-        ),
-    )
-    parser.add_argument(
-        "--lc0-archive-member",
-        default=None,
-        help="Optional member path/name to select lc0 from --lc0-url archives.",
+        help="Remote Modal Volume path to the lc0 binary built by prepare-lc0-modal.",
     )
     args = parser.parse_args()
 
@@ -165,13 +165,17 @@ def eval_modal() -> None:
         "concurrency": args.concurrency,
         "tc": args.tc,
         "nodes": args.nodes,
+        "candidate_nodes": args.candidate_nodes,
+        "baseline_nodes": args.baseline_nodes,
+        "startup_ms": args.startup_ms,
+        "ping_ms": args.ping_ms,
         "candidate_backend": args.candidate_backend,
         "baseline_backend": args.baseline_backend,
         "candidate_name": args.candidate_name,
         "baseline_name": args.baseline_name,
+        "baseline_weights": args.baseline_weights,
+        "baseline_url": args.baseline_url,
         "lc0_path": args.lc0_path,
-        "lc0_url": args.lc0_url,
-        "lc0_archive_member": args.lc0_archive_member,
     }
 
     train_function = _remote_function_for_gpu(args.gpu)
@@ -179,6 +183,7 @@ def eval_modal() -> None:
         result = train_function.remote(payload)
     print(result["stdout"])
     print(f"pgn_path={result['pgn_path']}")
+    print(f"log_path={result['log_path']}")
 
 
 def _upload_candidate(local_path: Path, remote_path: Path) -> None:
@@ -209,67 +214,46 @@ def _volume_relative_path(mounted_path: Path) -> str:
 
 
 def _run_eval_remote(payload: dict[str, Any]) -> dict[str, str]:
-    _install_lc0_if_requested(payload)
+    _require_lc0(payload)
     REMOTE_LEELA_PATH.mkdir(parents=True, exist_ok=True)
     REMOTE_EVAL_PATH.mkdir(parents=True, exist_ok=True)
-    if not BT4_REMOTE_PATH.exists():
-        _download_file(BT4_URL, BT4_REMOTE_PATH)
+    baseline_weights = Path(payload["baseline_weights"])
+    if not baseline_weights.exists():
+        baseline_url = payload.get("baseline_url")
+        if not baseline_url:
+            raise FileNotFoundError(baseline_weights)
+        _download_file(baseline_url, baseline_weights)
         artifact_volume.commit()
 
     run_dir = REMOTE_EVAL_PATH / str(payload["run_name"])
     run_dir.mkdir(parents=True, exist_ok=True)
     pgn_path = run_dir / "games.pgn"
+    log_path = run_dir / "fastchess.log"
     command = _fastchess_command(payload, pgn_path)
+    command.extend(["-log", f"file={log_path}", "level=info", "engine=true", "append=false"])
     completed = subprocess.run(
         command,
-        check=True,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         env={**os.environ, "LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH},
     )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "fastchess failed with exit code "
+            f"{completed.returncode}\ncommand={' '.join(command)}\n{completed.stdout}"
+        )
     artifact_volume.commit()
-    return {"stdout": completed.stdout, "pgn_path": str(pgn_path)}
+    return {"stdout": completed.stdout, "pgn_path": str(pgn_path), "log_path": str(log_path)}
 
 
-def _install_lc0_if_requested(payload: dict[str, Any]) -> None:
+def _require_lc0(payload: dict[str, Any]) -> None:
     lc0_path = Path(payload["lc0_path"])
     if lc0_path.exists():
         return
-    lc0_url = payload.get("lc0_url")
-    if not lc0_url:
-        raise FileNotFoundError(
-            f"Missing prebuilt lc0 binary at {lc0_path}. Upload one with "
-            f"`modal volume put {ARTIFACT_VOLUME_NAME} /path/to/linux/lc0 {lc0_path}` "
-            "or pass --lc0-url."
-        )
-
-    import tarfile
-    import zipfile
-
-    scratch = Path("/tmp/lc0-prebuilt")
-    if scratch.exists():
-        shutil.rmtree(scratch)
-    scratch.mkdir(parents=True)
-    download_path = scratch / "lc0-download"
-    _download_file(lc0_url, download_path)
-
-    extracted_dir = scratch / "extracted"
-    extracted_dir.mkdir()
-    if tarfile.is_tarfile(download_path):
-        with tarfile.open(download_path) as archive:
-            archive.extractall(extracted_dir)
-    elif zipfile.is_zipfile(download_path):
-        with zipfile.ZipFile(download_path) as archive:
-            archive.extractall(extracted_dir)
-    else:
-        extracted_dir = scratch
-
-    source = _find_lc0_binary(extracted_dir, payload.get("lc0_archive_member"))
-    lc0_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, lc0_path)
-    lc0_path.chmod(0o755)
-    artifact_volume.commit()
+    raise FileNotFoundError(
+        f"Missing lc0 binary at {lc0_path}. Run `uv run prepare-lc0-modal` first."
+    )
 
 
 def _download_file(url: str, path: Path) -> None:
@@ -278,25 +262,6 @@ def _download_file(url: str, path: Path) -> None:
     request = urllib.request.Request(url, headers={"User-Agent": "chess-engine-4/0.1"})
     with urllib.request.urlopen(request) as response, path.open("wb") as output:
         shutil.copyfileobj(response, output)
-
-
-def _find_lc0_binary(root: Path, archive_member: str | None) -> Path:
-    if archive_member:
-        candidate = root / archive_member
-        if candidate.exists():
-            return candidate
-        matches = [path for path in root.rglob("*") if path.name == archive_member]
-        if matches:
-            return matches[0]
-        raise FileNotFoundError(f"Could not find lc0 archive member: {archive_member}")
-
-    direct = root / "lc0-download"
-    if direct.exists() and direct.is_file():
-        return direct
-    matches = [path for path in root.rglob("lc0") if path.is_file()]
-    if not matches:
-        raise FileNotFoundError("Could not find an lc0 binary in the prebuilt archive.")
-    return matches[0]
 
 
 @app.function(
@@ -323,9 +288,8 @@ def _prepare_lc0_remote(output: str) -> dict[str, str]:
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
-    limit_flag = f"nodes={payload['nodes']}" if payload.get("nodes") else f"tc={payload['tc']}"
     lc0_path = payload["lc0_path"]
-    return [
+    command = [
         "fastchess",
         "-repeat",
         "-games",
@@ -336,25 +300,44 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         str(payload["concurrency"]),
         "-report",
         "penta=true",
+        "-startup-ms",
+        str(payload["startup_ms"]),
+        "-ping-ms",
+        str(payload["ping_ms"]),
         "-pgnout",
         f"file={pgn_path}",
+        "nodes=true",
+        "nps=true",
+        "timeleft=true",
+        "latency=true",
         "-each",
         "proto=uci",
-        limit_flag,
         "option.Threads=1",
         "-engine",
         f"name={payload['candidate_name']}",
         f"cmd={lc0_path}",
         "dir=/tmp",
+        _engine_limit_flag(payload, "candidate"),
         f"option.WeightsFile={payload['candidate_weights']}",
         f"option.Backend={payload['candidate_backend']}",
         "-engine",
         f"name={payload['baseline_name']}",
         f"cmd={lc0_path}",
         "dir=/tmp",
-        f"option.WeightsFile={BT4_REMOTE_PATH}",
+        _engine_limit_flag(payload, "baseline"),
+        f"option.WeightsFile={payload['baseline_weights']}",
         f"option.Backend={payload['baseline_backend']}",
     ]
+    return [item for item in command if item]
+
+
+def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
+    engine_nodes = payload.get(f"{engine}_nodes")
+    if engine_nodes:
+        return f"nodes={engine_nodes}"
+    if payload.get("nodes"):
+        return f"nodes={payload['nodes']}"
+    return f"tc={payload['tc']}"
 
 
 @app.function(
