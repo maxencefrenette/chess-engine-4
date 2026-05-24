@@ -17,8 +17,11 @@ class RunConfig:
     seed: int = 1
     compute_budget: float = 1e14
     step_penalty_k: float = 1.0
-    log_every: int = 10
-    device: str = "auto"
+
+
+@dataclass(frozen=True, slots=True)
+class InfraConfig:
+    gpu_type: str = "l4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +39,7 @@ class OptimizerConfig:
 @dataclass(frozen=True, slots=True)
 class TrainingConfig:
     run: RunConfig = RunConfig()
+    infra: InfraConfig = InfraConfig()
     data: DataConfig = DataConfig()
     model: ModelConfig = model_config_from_dict({})
     optimizer: OptimizerConfig = OptimizerConfig()
@@ -50,6 +54,7 @@ def load_training_config(path: str | Path) -> TrainingConfig:
     _reject_unknown_sections(raw, config_path)
     return TrainingConfig(
         run=_build_section(RunConfig, raw.get("run", {}), config_path, "run"),
+        infra=_build_section(InfraConfig, raw.get("infra", {}), config_path, "infra"),
         data=_build_section(DataConfig, raw.get("data", {}), config_path, "data"),
         model=_build_model_config(raw.get("model", {}), config_path),
         optimizer=_build_section(
@@ -72,7 +77,6 @@ def with_overrides(
     depth: int | None = None,
     num_heads: int | None = None,
     lr: float | None = None,
-    device: str | None = None,
 ) -> TrainingConfig:
     if compute_budget is not None:
         config = replace(config, run=replace(config.run, compute_budget=compute_budget))
@@ -90,8 +94,6 @@ def with_overrides(
         config = replace(config, model=replace(config.model, num_heads=num_heads))
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
-    if device is not None:
-        config = replace(config, run=replace(config.run, device=device))
     return config
 
 
@@ -123,7 +125,7 @@ def _build_section[ConfigT](
 
 
 def _reject_unknown_sections(raw: dict[str, Any], path: Path) -> None:
-    allowed = {"run", "data", "model", "optimizer", "loss"}
+    allowed = {"run", "infra", "data", "model", "optimizer", "loss"}
     unknown = sorted(set(raw) - allowed)
     if unknown:
         unknown_names = ", ".join(unknown)

@@ -17,6 +17,9 @@ name = "audit"
 compute_budget = 1e12
 step_penalty_k = 1.1
 
+[infra]
+gpu_type = "l4"
+
 [data]
 batch_size = 8
 max_records = 128
@@ -39,6 +42,7 @@ moves_left = 0.5
     assert config.run.name == "audit"
     assert config.run.compute_budget == 1e12
     assert config.run.step_penalty_k == 1.1
+    assert config.infra.gpu_type == "l4"
     assert config.data.batch_size == 8
     assert config.data.max_records == 128
     assert config.model.d_model == 64
@@ -72,7 +76,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         d_model=64,
         depth=2,
         lr=0.001,
-        device="cpu",
     )
 
     assert overridden.run.compute_budget == 1e11
@@ -81,7 +84,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
     assert overridden.optimizer.lr == 0.001
-    assert overridden.run.device == "cpu"
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
 

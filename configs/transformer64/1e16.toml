@@ -3,8 +3,9 @@ name = "transformer64-1e16"
 seed = 1
 compute_budget = 1e16
 step_penalty_k = 1.2
-log_every = 10
-device = "auto"
+
+[infra]
+gpu_type = "l4"
 
 [data]
 batch_size = 1536

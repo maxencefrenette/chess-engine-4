@@ -10,6 +10,8 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
+from chess_engine_4.training.config import load_training_config
+
 APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
 ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
@@ -59,7 +61,8 @@ def train_modal() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
-    parser.add_argument("--gpu", default="t4", choices=sorted(GPU_CHOICES))
+    parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
+    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-project", default=os.environ.get("WANDB_PROJECT"))
     parser.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY"))
@@ -79,6 +82,7 @@ def train_modal() -> None:
         "depth": args.depth,
         "num_heads": args.num_heads,
         "lr": args.lr,
+        "num_workers": args.num_workers,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
         "wandb_entity": args.wandb_entity,
@@ -88,7 +92,12 @@ def train_modal() -> None:
         "checkpoint_every": args.checkpoint_every,
     }
 
-    train_function = _remote_function_for_gpu(args.gpu)
+    config = load_training_config(args.config)
+    gpu = args.gpu or config.infra.gpu_type
+    if gpu not in GPU_CHOICES:
+        parser.error(f"config infra.gpu_type must be one of: {', '.join(sorted(GPU_CHOICES))}")
+
+    train_function = _remote_function_for_gpu(gpu)
     with app.run():
         result = train_function.remote(payload)
     print(
@@ -100,6 +109,7 @@ def train_modal() -> None:
         f"step_penalty_k={result['step_penalty_k']:.3f} "
         f"final_loss={result['final_loss']:.4f} "
         f"device={result['device']} "
+        f"precision={result['precision']} "
         f"checkpoint_path={result['checkpoint_path']}"
     )
 
@@ -130,6 +140,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             num_heads=payload["num_heads"],
             lr=payload["lr"],
             device="cuda",
+            num_workers=payload["num_workers"],
             wandb=payload["wandb"],
             wandb_name=payload["wandb_name"],
             checkpoint_dir=(

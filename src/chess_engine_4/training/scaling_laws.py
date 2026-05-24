@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chess_engine_4.model import mlp_parameter_count, transformer64_parameter_count
+from chess_engine_4.training.config import load_training_config
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
 DEFAULT_OUTPUT_ROOT = Path("reports/scaling-laws/mlp")
@@ -125,7 +126,7 @@ def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--gpu", default="t4")
+    parser.add_argument("--gpu", default=None)
     parser.add_argument("--config", default="configs/mlp/1e16.toml")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--no-output", action="store_true")
@@ -135,12 +136,13 @@ def scaling_laws() -> None:
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
     suggestion = extrapolate(laws, args.target_compute_budget)
+    gpu = args.gpu or load_training_config(args.config).infra.gpu_type
     report = format_report(
         best_results=best_results,
         laws=laws,
         suggestion=suggestion,
         config=args.config,
-        gpu=args.gpu,
+        gpu=gpu,
     )
     print(report)
 
@@ -152,12 +154,12 @@ def scaling_laws() -> None:
             laws=laws,
             suggestion=suggestion,
             config=args.config,
-            gpu=args.gpu,
+            gpu=gpu,
         )
         print(f"\nwrote report to {output_dir / 'README.md'}")
 
     if args.write_config is not None:
-        args.write_config.write_text(format_config(suggestion), encoding="utf-8")
+        args.write_config.write_text(format_config(suggestion, gpu=gpu), encoding="utf-8")
         print(f"\nwrote {args.write_config}")
 
 
@@ -712,7 +714,7 @@ def format_report(
     command = (
         f"uv run train-modal --config {config} --compute-budget {suggestion.compute_budget:.0e} "
         f"--d-model {suggestion.d_model} --depth {suggestion.depth}{num_heads_arg} "
-        f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g} --gpu {gpu}"
+        f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g}"
     )
 
     lines.extend(
@@ -773,6 +775,7 @@ def format_report(
             "",
             f"- Compute budget: `{suggestion.compute_budget:.0e}`",
             f"- Model: `{format_suggestion_model_label(suggestion)}`",
+            f"- GPU type: `{gpu}`",
             f"- Batch size: `{suggestion.batch_size}`",
             f"- LR: `{suggestion.lr:g}`",
             f"- Target params: `{suggestion.target_params:,}`",
@@ -787,7 +790,7 @@ def format_report(
     return "\n".join(lines)
 
 
-def format_config(suggestion: HparamSuggestion) -> str:
+def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
     name = f"{suggestion.compute_budget:.0e}".replace("+", "")
     model_lines = [
         "[model]",
@@ -818,8 +821,9 @@ def format_config(suggestion: HparamSuggestion) -> str:
             f'name = "{name}"',
             "seed = 1",
             f"compute_budget = {suggestion.compute_budget:.0e}",
-            "log_every = 10",
-            'device = "auto"',
+            "",
+            "[infra]",
+            f'gpu_type = "{gpu}"',
             "",
             "[data]",
             f"batch_size = {suggestion.batch_size}",

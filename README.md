@@ -18,17 +18,10 @@ an LC0-style attention policy head.
 
 The models are trained on lc0 t80 data using supervised learning.
 
-## Methodology
+## Optimization
 
-Hyperparameters are swept at smaller compute budgets, and the best runs are used to fit scaling laws in order to extrapolate the best hyperparameters for larger compute budgets. Due to some compute budgets being quite small and noisy, end-of-run metrics are averaged over the last 100 steps of training.
-
-In order to steer the optimization towards recipes with fewer steps, an alternative compute budget C_eff is defined as:
-
-```math
-C_{\text{eff}} = \text{flops\_per\_sample} \times \text{batch\_size} \times \text{steps}^k
-```
-
-The default is k = 1.0, which is ordinary physical FLOPs. Setting k > 1.0 turns `compute_budget` into the step-adjusted budget and acts as a soft penalty on steps.
+See [OPTIMIZATION.md](OPTIMIZATION.md) for the compute-budget convention and the
+config rules used when tuning model quality versus run cost.
 
 ## Prerequisites
 
@@ -72,6 +65,8 @@ To launch the same training loop on Modal:
 ```sh
 uv run train-modal --config configs/mlp/1e15.toml
 ```
+
+Modal training uses the GPU type from the model config by default. CUDA training is hardcoded to bf16 and requires a bf16-capable GPU such as L4 or newer; local CPU/MPS runs use fp32.
 
 To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 
