@@ -1,0 +1,14 @@
+uv run train-modal --config configs/transformer64/1e14.toml --d-model 48 --depth 1 --num-heads 4 --batch-size 256 --lr 8.66e-4 --wandb-name t64shape-1e14-d48x1-b256
+uv run train-modal --config configs/transformer64/1e14.toml --d-model 48 --depth 2 --num-heads 4 --batch-size 256 --lr 8.66e-4 --wandb-name t64shape-1e14-d48x2-b256
+uv run train-modal --config configs/transformer64/1e14.toml --d-model 64 --depth 1 --num-heads 4 --batch-size 384 --lr 7.07e-4 --wandb-name t64shape-1e14-d64x1-b384
+uv run train-modal --config configs/transformer64/1e14.toml --d-model 80 --depth 1 --num-heads 4 --batch-size 384 --lr 7.07e-4 --wandb-name t64shape-1e14-d80x1-b384
+uv run train-modal --config configs/transformer64/1e15.toml --d-model 64 --depth 2 --num-heads 4 --batch-size 512 --lr 7.07e-4 --wandb-name t64shape-1e15-d64x2-b512
+uv run train-modal --config configs/transformer64/1e15.toml --d-model 80 --depth 2 --num-heads 4 --batch-size 512 --lr 7.07e-4 --wandb-name t64shape-1e15-d80x2-b512
+uv run train-modal --config configs/transformer64/1e15.toml --d-model 80 --depth 2 --num-heads 4 --batch-size 768 --lr 5.77e-4 --wandb-name t64shape-1e15-d80x2-b768
+uv run train-modal --config configs/transformer64/1e15.toml --d-model 96 --depth 2 --num-heads 4 --batch-size 768 --lr 5.77e-4 --wandb-name t64shape-1e15-d96x2-b768
+uv run train-modal --config configs/transformer64/1e15.toml --d-model 96 --depth 2 --num-heads 4 --batch-size 1024 --lr 5e-4 --wandb-name t64shape-1e15-d96x2-b1024
+uv run train-modal --config configs/transformer64/1e16.toml --d-model 80 --depth 3 --num-heads 4 --batch-size 1536 --lr 2.45e-4 --wandb-name t64shape-1e16-d80x3-b1536
+uv run train-modal --config configs/transformer64/1e16.toml --d-model 80 --depth 4 --num-heads 4 --batch-size 1536 --lr 2.45e-4 --wandb-name t64shape-1e16-d80x4-b1536
+uv run train-modal --config configs/transformer64/1e16.toml --d-model 96 --depth 3 --num-heads 4 --batch-size 1536 --lr 2.45e-4 --wandb-name t64shape-1e16-d96x3-b1536
+uv run train-modal --config configs/transformer64/1e16.toml --d-model 128 --depth 2 --num-heads 4 --batch-size 2048 --lr 2.12e-4 --wandb-name t64shape-1e16-d128x2-b2048
+uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --output-root reports/scaling-laws/transformer64 --config configs/transformer64/1e16.toml --target-compute-budget 1e17

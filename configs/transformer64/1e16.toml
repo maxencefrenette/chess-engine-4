@@ -7,13 +7,13 @@ log_every = 10
 device = "auto"
 
 [data]
-batch_size = 1024
+batch_size = 1536
 
 [model]
 kind = "transformer64"
-d_model = 192
-depth = 6
-num_heads = 6
+d_model = 80
+depth = 3
+num_heads = 4
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 learned_square_embeddings = true
@@ -22,7 +22,7 @@ learned_square_embeddings = true
 kind = "attention"
 
 [optimizer]
-lr = 3e-4
+lr = 2.45e-4
 weight_decay = 0.01
 
 [loss]
