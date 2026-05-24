@@ -1,0 +1,4 @@
+budget,run_name,wandb_url,compute,d_model,depth,num_heads,batch_size,lr,params,samples_seen,loss,policy_top1,tail_count,runtime_sec
+1e14,transformer64-baseline-1e14,https://wandb.ai/maxence-frenette/chess-engine-4/runs/e7s9p9rb,1.0002107818543178e14,96,2,4,192,0.001,341092,178560,5.874319114583604,0.21847296636947927,94,25.911058883
+1e15,transformer64-baseline-1e15,https://wandb.ai/maxence-frenette/chess-engine-4/runs/hzn4nw8w,1.0000945828780129e15,128,4,4,512,0.0007071067811865475,1122948,538624,5.544227495193481,0.2313671875,100,135.786448201
+1e16,transformer64-baseline-1e16,https://wandb.ai/maxence-frenette/chess-engine-4/runs/0l1y6qut,1.0007762999881004e16,192,6,6,1024,0.0003,3688132,1555456,5.191388034820557,0.23794921875,100,958.527800631

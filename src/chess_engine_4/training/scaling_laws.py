@@ -28,12 +28,14 @@ CHARTS = [
 class SweepResult:
     budget: str
     source_experiment: str
+    model_kind: str
     compute: float
     run_name: str
     batch_size: int
     lr: float
     d_model: int
     depth: int
+    num_heads: int | None
     params: int
     samples_seen: int
     loss: float
@@ -82,6 +84,8 @@ class LossPowerLaw:
 
 @dataclass(frozen=True, slots=True)
 class ScalingLaws:
+    model_kind: str
+    num_heads: PowerLaw | None
     loss: LossPowerLaw
     policy_top1: LinearLaw
     d_model: PowerLaw
@@ -95,9 +99,11 @@ class ScalingLaws:
 
 @dataclass(frozen=True, slots=True)
 class HparamSuggestion:
+    model_kind: str
     compute_budget: float
     d_model: int
     depth: int
+    num_heads: int | None
     batch_size: int
     lr: float
     target_params: int
@@ -163,12 +169,14 @@ def read_best_runs(path: Path) -> list[SweepResult]:
         SweepResult(
             budget=budget,
             source_experiment=str(row["source_experiment"]),
+            model_kind=str(row.get("model_kind", "mlp")),
             compute=float(row["compute"]),
             run_name=str(row["run_name"]),
             batch_size=int(row["batch_size"]),
             lr=float(row["lr"]),
             d_model=int(row["d_model"]),
             depth=int(row["depth"]),
+            num_heads=int(row["num_heads"]) if "num_heads" in row else None,
             params=int(row["params"]),
             samples_seen=int(row["samples_seen"]),
             loss=float(row["loss"]),
@@ -195,7 +203,19 @@ def best_results_by_budget(results: Iterable[SweepResult]) -> list[SweepResult]:
 def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     if len(best_results) < 2:
         raise ValueError("At least two best-run points are required for extrapolation.")
+    model_kinds = {result.model_kind for result in best_results}
+    if len(model_kinds) != 1:
+        raise ValueError(
+            f"Cannot fit one report across multiple model kinds: {sorted(model_kinds)}."
+        )
+    num_heads = [result.num_heads for result in best_results]
     return ScalingLaws(
+        model_kind=next(iter(model_kinds)),
+        num_heads=(
+            fit_power_law((r.compute, r.num_heads) for r in best_results if r.num_heads)
+            if all(value is not None for value in num_heads)
+            else None
+        ),
         loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
         policy_top1=fit_linear_law((r.compute, r.policy_top1) for r in best_results),
         d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
@@ -216,14 +236,20 @@ def extrapolate(laws: ScalingLaws, compute_budget: float) -> HparamSuggestion:
 
     target_params = round(laws.params.predict(compute_budget))
     d_model, depth, actual_params = closest_architecture(
+        model_kind=laws.model_kind,
         target_params=target_params,
         target_d_model=laws.d_model.predict(compute_budget),
         target_depth=laws.depth.predict(compute_budget),
     )
+    num_heads = None
+    if laws.num_heads is not None:
+        num_heads = closest_divisor(d_model, laws.num_heads.predict(compute_budget))
     return HparamSuggestion(
+        model_kind=laws.model_kind,
         compute_budget=compute_budget,
         d_model=d_model,
         depth=depth,
+        num_heads=num_heads,
         batch_size=round_to_batch_ladder(laws.batch_size.predict(compute_budget)),
         lr=round_to_lr_ladder(laws.lr.predict(compute_budget)),
         target_params=target_params,
@@ -293,6 +319,7 @@ def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
 
 def closest_architecture(
     *,
+    model_kind: str,
     target_params: int,
     target_d_model: float | None = None,
     target_depth: float | None = None,
@@ -300,7 +327,7 @@ def closest_architecture(
     candidates: list[tuple[float, int, int, int]] = []
     for d_model in range(64, 2049, 64):
         for depth in range(2, 25):
-            params = parameter_count(d_model=d_model, depth=depth)
+            params = parameter_count(model_kind=model_kind, d_model=d_model, depth=depth)
             distance = abs(math.log(params / target_params))
             if target_d_model is not None:
                 distance += 0.5 * abs(math.log(d_model / target_d_model))
@@ -311,13 +338,46 @@ def closest_architecture(
     return d_model, depth, params
 
 
-def parameter_count(*, d_model: int, depth: int, mlp_ratio: float = 4.0) -> int:
+def closest_divisor(value: int, target: float) -> int:
+    divisors = [candidate for candidate in range(1, value + 1) if value % candidate == 0]
+    return min(divisors, key=lambda candidate: abs(math.log(candidate / target)))
+
+
+def parameter_count(
+    *,
+    model_kind: str = "mlp",
+    d_model: int,
+    depth: int,
+    mlp_ratio: float = 4.0,
+) -> int:
+    if model_kind == "transformer64":
+        return transformer64_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
+    if model_kind != "mlp":
+        raise ValueError(f"unknown model kind: {model_kind}")
     input_dim = INPUT_PLANE_COUNT * 8 * 8
     hidden_dim = int(d_model * mlp_ratio)
     block_params = depth * (3 * d_model * hidden_dim + d_model)
     input_params = input_dim * d_model + d_model
     final_norm_params = d_model
     policy_params = d_model * POLICY_SIZE + POLICY_SIZE
+    wdl_params = d_model * 3 + 3
+    moves_left_params = d_model + 1
+    return (
+        input_params
+        + block_params
+        + final_norm_params
+        + policy_params
+        + wdl_params
+        + moves_left_params
+    )
+
+
+def transformer64_parameter_count(*, d_model: int, depth: int, mlp_ratio: float = 4.0) -> int:
+    hidden_dim = int(d_model * mlp_ratio)
+    input_params = INPUT_PLANE_COUNT * d_model + d_model + 64 * d_model
+    block_params = depth * (4 * d_model * d_model + 3 * d_model * hidden_dim + 2 * d_model)
+    final_norm_params = d_model
+    policy_params = d_model * d_model + d_model + 2 * (d_model * d_model + d_model) + 4 * d_model
     wdl_params = d_model * 3 + 3
     moves_left_params = d_model + 1
     return (
@@ -675,15 +735,16 @@ def format_report(
     ]
     for result in best_results:
         lines.append(
-            f"| `{result.budget}` | {result.compute:.1e} | d{result.d_model}x{result.depth} | "
+            f"| `{result.budget}` | {result.compute:.1e} | {format_model_label(result)} | "
             f"{result.batch_size} | {result.lr:g} | {result.samples_seen:,} | "
             f"{result.loss:.4f} | {result.policy_top1:.4f} | "
             f"{result.wandb_url} |"
         )
 
+    num_heads_arg = f" --num-heads {suggestion.num_heads}" if suggestion.num_heads else ""
     command = (
         f"uv run train-modal --config {config} --compute-budget {suggestion.compute_budget:.0e} "
-        f"--d-model {suggestion.d_model} --depth {suggestion.depth} "
+        f"--d-model {suggestion.d_model} --depth {suggestion.depth}{num_heads_arg} "
         f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g} --gpu {gpu}"
     )
 
@@ -744,7 +805,7 @@ def format_report(
             "## Extrapolated Target",
             "",
             f"- Compute budget: `{suggestion.compute_budget:.0e}`",
-            f"- Model: `d{suggestion.d_model}x{suggestion.depth}`",
+            f"- Model: `{format_suggestion_model_label(suggestion)}`",
             f"- Batch size: `{suggestion.batch_size}`",
             f"- LR: `{suggestion.lr:g}`",
             f"- Target params: `{suggestion.target_params:,}`",
@@ -761,6 +822,29 @@ def format_report(
 
 def format_config(suggestion: HparamSuggestion) -> str:
     name = f"{suggestion.compute_budget:.0e}".replace("+", "")
+    model_lines = [
+        "[model]",
+        f'kind = "{suggestion.model_kind}"',
+        f"d_model = {suggestion.d_model}",
+        f"depth = {suggestion.depth}",
+    ]
+    if suggestion.num_heads is not None:
+        model_lines.append(f"num_heads = {suggestion.num_heads}")
+    model_lines.extend(
+        [
+            "mlp_ratio = 4.0",
+            "rms_norm_eps = 1e-6",
+        ]
+    )
+    if suggestion.model_kind == "transformer64":
+        model_lines.extend(
+            [
+                "learned_square_embeddings = true",
+                "",
+                "[model.policy]",
+                'kind = "attention"',
+            ]
+        )
     return "\n".join(
         [
             "[run]",
@@ -773,11 +857,7 @@ def format_config(suggestion: HparamSuggestion) -> str:
             "[data]",
             f"batch_size = {suggestion.batch_size}",
             "",
-            "[model]",
-            f"d_model = {suggestion.d_model}",
-            f"depth = {suggestion.depth}",
-            "mlp_ratio = 4.0",
-            "rms_norm_eps = 1e-6",
+            *model_lines,
             "",
             "[optimizer]",
             f"lr = {suggestion.lr:g}",
@@ -790,3 +870,15 @@ def format_config(suggestion: HparamSuggestion) -> str:
             "",
         ]
     )
+
+
+def format_model_label(result: SweepResult) -> str:
+    if result.num_heads is None:
+        return f"d{result.d_model}x{result.depth}"
+    return f"d{result.d_model}x{result.depth}h{result.num_heads}"
+
+
+def format_suggestion_model_label(suggestion: HparamSuggestion) -> str:
+    if suggestion.num_heads is None:
+        return f"d{suggestion.d_model}x{suggestion.depth}"
+    return f"d{suggestion.d_model}x{suggestion.depth}h{suggestion.num_heads}"
