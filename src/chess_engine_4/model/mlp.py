@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 from torch import nn
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.model.heads import DensePolicyHeadConfig
+from chess_engine_4.model.output import ChessNetOutput
 
 
 @dataclass(frozen=True, slots=True)
 class MlpChessNetConfig:
+    kind: str = "mlp"
     input_planes: int = INPUT_PLANE_COUNT
     board_size: int = 8
     policy_size: int = POLICY_SIZE
@@ -19,13 +22,7 @@ class MlpChessNetConfig:
     depth: int = 8
     mlp_ratio: float = 4.0
     rms_norm_eps: float = 1e-6
-
-
-@dataclass(frozen=True, slots=True)
-class MlpChessNetOutput:
-    policy_logits: torch.Tensor
-    wdl_logits: torch.Tensor
-    moves_left: torch.Tensor
+    policy: DensePolicyHeadConfig = field(default_factory=DensePolicyHeadConfig)
 
 
 class MlpBlock(nn.Module):
@@ -50,6 +47,8 @@ class MlpChessNet(nn.Module):
         super().__init__()
         if config is None:
             config = MlpChessNetConfig()
+        if config.policy.kind != "dense":
+            raise ValueError("MlpChessNet only supports policy.kind='dense'.")
         self.config = config
         input_dim = config.input_planes * config.board_size * config.board_size
         hidden_dim = int(config.d_model * config.mlp_ratio)
@@ -70,12 +69,12 @@ class MlpChessNet(nn.Module):
         self.wdl_head = nn.Linear(config.d_model, 3)
         self.moves_left_head = nn.Linear(config.d_model, 1)
 
-    def forward(self, planes: torch.Tensor) -> MlpChessNetOutput:
+    def forward(self, planes: torch.Tensor) -> ChessNetOutput:
         x = planes.flatten(start_dim=1)
         x = self.input(x)
         x = self.blocks(x)
         x = self.norm(x)
-        return MlpChessNetOutput(
+        return ChessNetOutput(
             policy_logits=self.policy_head(x),
             wdl_logits=self.wdl_head(x),
             moves_left=self.moves_left_head(x).squeeze(-1),

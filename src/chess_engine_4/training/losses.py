@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from chess_engine_4.model.mlp import MlpChessNetOutput
+from chess_engine_4.model import ChessNetOutput
 
 ROOT_VALUE_INDEX = 4
 MOVES_LEFT_SCALE = 20.0
@@ -64,7 +64,7 @@ def moves_left_loss(moves_left: torch.Tensor, values: torch.Tensor) -> torch.Ten
 
 
 def lczero_loss(
-    output: MlpChessNetOutput,
+    output: ChessNetOutput,
     policy_target: torch.Tensor,
     values: torch.Tensor,
     *,

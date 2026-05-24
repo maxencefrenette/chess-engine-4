@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import MlpChessNet
+from chess_engine_4.model import MlpChessNet, Transformer64ChessNet
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
@@ -22,6 +22,7 @@ batch_size = 8
 max_records = 128
 
 [model]
+kind = "mlp"
 d_model = 64
 depth = 2
 
@@ -42,6 +43,7 @@ moves_left = 0.5
     assert config.data.max_records == 128
     assert config.model.d_model == 64
     assert config.model.depth == 2
+    assert config.model.kind == "mlp"
     assert config.optimizer.lr == 0.001
     assert config.loss.moves_left == 0.5
 
@@ -82,6 +84,25 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.run.device == "cpu"
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
+
+
+def test_load_training_config_supports_transformer64() -> None:
+    config = load_training_config("configs/transformer64/1e14.toml")
+    model = Transformer64ChessNet(config.model)
+
+    assert config.model.kind == "transformer64"
+    assert config.model.num_heads == 4
+    assert sum(parameter.numel() for parameter in model.parameters()) > 0
+
+
+def test_with_overrides_supports_transformer_heads() -> None:
+    config = load_training_config("configs/transformer64/1e14.toml")
+
+    overridden = with_overrides(config, d_model=64, depth=3, num_heads=8)
+
+    assert overridden.model.d_model == 64
+    assert overridden.model.depth == 3
+    assert overridden.model.num_heads == 8
 
 
 def test_1e15_config_builds_expected_model_size() -> None:

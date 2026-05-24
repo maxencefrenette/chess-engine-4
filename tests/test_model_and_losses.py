@@ -4,7 +4,9 @@ import math
 
 import torch
 
-from chess_engine_4.model import MlpChessNet, MlpChessNetConfig
+from chess_engine_4.model import MlpChessNet, MlpChessNetConfig, Transformer64ChessNet
+from chess_engine_4.model.heads import AttentionPolicyHead, AttentionPolicyHeadConfig
+from chess_engine_4.model.transformer import Transformer64ChessNetConfig
 from chess_engine_4.training.losses import (
     LossWeights,
     lczero_loss,
@@ -22,6 +24,33 @@ def test_mlp_chess_net_shapes() -> None:
     assert tuple(output.policy_logits.shape) == (3, 1858)
     assert tuple(output.wdl_logits.shape) == (3, 3)
     assert tuple(output.moves_left.shape) == (3,)
+
+
+def test_transformer64_chess_net_shapes() -> None:
+    model = Transformer64ChessNet(
+        Transformer64ChessNetConfig(
+            d_model=32,
+            depth=2,
+            num_heads=4,
+            mlp_ratio=2.0,
+            policy=AttentionPolicyHeadConfig(embedding_size=32, d_model=32),
+        )
+    )
+    output = model(torch.zeros(3, 112, 8, 8))
+
+    assert tuple(output.policy_logits.shape) == (3, 1858)
+    assert tuple(output.wdl_logits.shape) == (3, 3)
+    assert tuple(output.moves_left.shape) == (3,)
+
+
+def test_attention_policy_head_uses_lc0_attention_space() -> None:
+    head = AttentionPolicyHead(16, config=AttentionPolicyHeadConfig(embedding_size=16, d_model=16))
+    tokens = torch.zeros(2, 64, 16)
+
+    logits = head(tokens)
+
+    assert tuple(logits.shape) == (2, 1858)
+    assert int(head.policy_map.max()) == 4287
 
 
 def test_wdl_target_from_q_d() -> None:

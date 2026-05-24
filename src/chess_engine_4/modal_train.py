@@ -50,13 +50,14 @@ image = (
 def train_modal() -> None:
     load_dotenv(dotenv_path=Path.cwd() / ".env")
 
-    parser = argparse.ArgumentParser(description="Train the MLP-only chess network on Modal.")
+    parser = argparse.ArgumentParser(description="Train a chess neural network on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--compute-budget", type=float, default=None)
     parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--gpu", default="t4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -76,6 +77,7 @@ def train_modal() -> None:
         "step_penalty_k": args.step_penalty_k,
         "d_model": args.d_model,
         "depth": args.depth,
+        "num_heads": args.num_heads,
         "lr": args.lr,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
@@ -125,6 +127,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             step_penalty_k=payload["step_penalty_k"],
             d_model=payload["d_model"],
             depth=payload["depth"],
+            num_heads=payload["num_heads"],
             lr=payload["lr"],
             device="cuda",
             wandb=payload["wandb"],

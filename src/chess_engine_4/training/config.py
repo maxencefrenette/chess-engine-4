@@ -7,7 +7,7 @@ from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
 
-from chess_engine_4.model import MlpChessNetConfig
+from chess_engine_4.model import ModelConfig, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
 
 
@@ -37,7 +37,7 @@ class OptimizerConfig:
 class TrainingConfig:
     run: RunConfig = RunConfig()
     data: DataConfig = DataConfig()
-    model: MlpChessNetConfig = MlpChessNetConfig()
+    model: ModelConfig = model_config_from_dict({})
     optimizer: OptimizerConfig = OptimizerConfig()
     loss: LossWeights = LossWeights()
 
@@ -51,7 +51,7 @@ def load_training_config(path: str | Path) -> TrainingConfig:
     return TrainingConfig(
         run=_build_section(RunConfig, raw.get("run", {}), config_path, "run"),
         data=_build_section(DataConfig, raw.get("data", {}), config_path, "data"),
-        model=_build_section(MlpChessNetConfig, raw.get("model", {}), config_path, "model"),
+        model=_build_model_config(raw.get("model", {}), config_path),
         optimizer=_build_section(
             OptimizerConfig,
             raw.get("optimizer", {}),
@@ -70,6 +70,7 @@ def with_overrides(
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
+    num_heads: int | None = None,
     lr: float | None = None,
     device: str | None = None,
 ) -> TrainingConfig:
@@ -83,11 +84,24 @@ def with_overrides(
         config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
         config = replace(config, model=replace(config.model, depth=depth))
+    if num_heads is not None:
+        if not hasattr(config.model, "num_heads"):
+            raise ValueError(f"model kind {config.model.kind!r} does not support num_heads.")
+        config = replace(config, model=replace(config.model, num_heads=num_heads))
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
     if device is not None:
         config = replace(config, run=replace(config.run, device=device))
     return config
+
+
+def _build_model_config(values: object, path: Path) -> ModelConfig:
+    if not isinstance(values, dict):
+        raise ValueError(f"{path}: [model] must be a table.")
+    try:
+        return model_config_from_dict(values)
+    except ValueError as exc:
+        raise ValueError(f"{path}: {exc}") from exc
 
 
 def _build_section[ConfigT](

@@ -15,7 +15,7 @@ from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
     LeelaTarDataset,
 )
-from chess_engine_4.model import MlpChessNet
+from chess_engine_4.model import build_model
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
 from chess_engine_4.training.flops import (
     measure_training_flops_per_sample,
@@ -37,6 +37,7 @@ class TrainOptions:
     step_penalty_k: float | None = None
     d_model: int | None = None
     depth: int | None = None
+    num_heads: int | None = None
     lr: float | None = None
     device: str | None = None
     wandb: bool = True
@@ -46,7 +47,7 @@ class TrainOptions:
 
 
 def train() -> None:
-    parser = argparse.ArgumentParser(description="Train the MLP-only chess network.")
+    parser = argparse.ArgumentParser(description="Train a chess neural network.")
     parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--data", default=None, help=_DATA_HELP)
     parser.add_argument("--batch-size", type=int, default=None)
@@ -54,6 +55,7 @@ def train() -> None:
     parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -71,6 +73,7 @@ def train() -> None:
             step_penalty_k=args.step_penalty_k,
             d_model=args.d_model,
             depth=args.depth,
+            num_heads=args.num_heads,
             lr=args.lr,
             device=args.device,
             wandb=args.wandb,
@@ -89,13 +92,14 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
+        num_heads=options.num_heads,
         lr=options.lr,
         device=options.device,
     )
     _seed_everything(config.run.seed)
 
     with torch.device("meta"):
-        flops_model = MlpChessNet(config.model)
+        flops_model = build_model(config.model)
     flops_per_sample = measure_training_flops_per_sample(
         flops_model,
         batch_size=config.data.batch_size,
@@ -113,7 +117,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         max_records=config.data.max_records,
     )
     device = _resolve_device(config.run.device)
-    model = MlpChessNet(config.model).to(device)
+    model = build_model(config.model).to(device)
     optimizer = torch.optim.AdamW(
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
@@ -393,10 +397,21 @@ def _init_wandb(
         "batch_size": config.data.batch_size,
         "max_records": config.data.max_records,
         "device": str(device),
+        "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,
+        **({"num_heads": config.model.num_heads} if hasattr(config.model, "num_heads") else {}),
         "mlp_ratio": config.model.mlp_ratio,
         "rms_norm_eps": config.model.rms_norm_eps,
+        "policy_kind": config.model.policy.kind,
+        **(
+            {
+                "policy_embedding_size": config.model.policy.embedding_size,
+                "policy_d_model": config.model.policy.d_model,
+            }
+            if hasattr(config.model.policy, "embedding_size")
+            else {}
+        ),
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
         "policy_loss_weight": config.loss.policy,

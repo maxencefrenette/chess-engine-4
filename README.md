@@ -3,11 +3,20 @@
 Chess Engine 4 is a compact Python training codebase for an LCZero-compatible
 neural network.
 
-## Model
+The goal is to create strong nets that can be run directly inside lc0 through
+the ONNX backend.
 
-The model is stack of SwiGLU MLP blocks, without any attention or convolution. The input is the 8x8x18 tensor of planes used by LCZero, flattened into a 1d vector. The output has LCZero-style policy, value, and moves-left heads.
+## Models
 
-The model is trained on lc0 t80 data using supervised learning.
+The training loop supports multiple model kinds behind one output contract:
+LCZero-style policy logits, WDL value logits, and a moves-left prediction.
+
+The current MLP model is a stack of pre-norm SwiGLU blocks over flattened LCZero
+input planes. Transformer64 is a vanilla attention model with one token per
+board square, learned square embeddings, pooled value and moves-left heads, and
+an LC0-style attention policy head.
+
+The models are trained on lc0 t80 data using supervised learning.
 
 ## Methodology
 
@@ -33,11 +42,17 @@ uv sync --dev
 
 Set appropriate environment variables in `.env`. See `.env.example`.
 
-`uv run train` trains the MLP-only model and logs metrics to the W&B project
-configured in `.env`.
+`uv run train` trains the model selected by `[model].kind` and logs metrics to
+the W&B project configured in `.env`.
 
 ```sh
 uv run train --config configs/1e15.toml
+```
+
+To train the starter Transformer64 config:
+
+```sh
+uv run train --config configs/transformer64/1e14.toml
 ```
 
 For local dry runs without W&B:

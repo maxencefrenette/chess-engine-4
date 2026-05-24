@@ -13,7 +13,7 @@ import torch
 from torch import nn
 from torch.export import Dim
 
-from chess_engine_4.model import MlpChessNet, MlpChessNetConfig, MlpChessNetOutput
+from chess_engine_4.model import ChessNetOutput, build_model, model_config_from_dict
 
 DEFAULT_ONNX_INPUT = "/input/planes"
 DEFAULT_ONNX_OUTPUT_POLICY = "/output/policy"
@@ -24,12 +24,12 @@ DEFAULT_ONNX_OUTPUT_MLH = "/output/mlh"
 class LeelaOnnxWrapper(nn.Module):
     """Expose model outputs in the form expected by lc0's ONNX backend."""
 
-    def __init__(self, model: MlpChessNet) -> None:
+    def __init__(self, model: nn.Module) -> None:
         super().__init__()
         self.model = model
 
     def forward(self, planes: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        output: MlpChessNetOutput = self.model(planes)
+        output: ChessNetOutput = self.model(planes)
         return (
             output.policy_logits,
             torch.softmax(output.wdl_logits, dim=-1),
@@ -183,11 +183,11 @@ def leela_onnx_net_bytes(
     )
 
 
-def _model_from_checkpoint(checkpoint: dict[str, Any]) -> MlpChessNet:
+def _model_from_checkpoint(checkpoint: dict[str, Any]) -> nn.Module:
     config = checkpoint.get("config")
     if not isinstance(config, dict) or not isinstance(config.get("model"), dict):
         raise ValueError("Checkpoint does not contain a config.model mapping.")
-    model = MlpChessNet(MlpChessNetConfig(**config["model"]))
+    model = build_model(model_config_from_dict(config["model"]))
     state_dict = checkpoint.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("Checkpoint does not contain a model_state_dict mapping.")

@@ -10,6 +10,7 @@ device = "auto"
 batch_size = 512
 
 [model]
+kind = "mlp"
 d_model = 80
 depth = 3
 mlp_ratio = 4.0
