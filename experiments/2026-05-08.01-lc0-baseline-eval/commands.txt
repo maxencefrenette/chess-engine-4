@@ -1,4 +1,4 @@
-uv run train-modal --config configs/1e16.toml --save-checkpoints --wandb-name 1e16-baseline-checkpoint
+uv run train-modal --config configs/mlp/1e16.toml --save-checkpoints --wandb-name 1e16-baseline-checkpoint
 uv run checkpoint2leela artifacts/checkpoints/1e16-baseline-checkpoint-final.pt --output artifacts/leela/1e16-baseline.pb.gz
 uv run prepare-lc0-modal
 uv run eval-modal artifacts/leela/1e16-baseline.pb.gz --gpu l4 --candidate-backend onnx-cuda --candidate-nodes 16000 --baseline-nodes 1 --games 2 --rounds 1 --concurrency 1 --name 1e16-c16000-bt4n1-g2-cuda

@@ -9,10 +9,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.model import mlp_parameter_count, transformer64_parameter_count
 
-DEFAULT_BEST_RUNS = Path("experiments/best-runs.toml")
-DEFAULT_OUTPUT_ROOT = Path("reports/scaling-laws")
+DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
+DEFAULT_OUTPUT_ROOT = Path("reports/scaling-laws/mlp")
 CHARTS = [
     ("Loss fit", "loss.svg"),
     ("Policy top-1", "policy_top1.svg"),
@@ -126,7 +126,7 @@ def scaling_laws() -> None:
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
     parser.add_argument("--gpu", default="t4")
-    parser.add_argument("--config", default="configs/1e16.toml")
+    parser.add_argument("--config", default="configs/mlp/1e16.toml")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--no-output", action="store_true")
     parser.add_argument("--write-config", type=Path, default=None)
@@ -354,40 +354,7 @@ def parameter_count(
         return transformer64_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
     if model_kind != "mlp":
         raise ValueError(f"unknown model kind: {model_kind}")
-    input_dim = INPUT_PLANE_COUNT * 8 * 8
-    hidden_dim = int(d_model * mlp_ratio)
-    block_params = depth * (3 * d_model * hidden_dim + d_model)
-    input_params = input_dim * d_model + d_model
-    final_norm_params = d_model
-    policy_params = d_model * POLICY_SIZE + POLICY_SIZE
-    wdl_params = d_model * 3 + 3
-    moves_left_params = d_model + 1
-    return (
-        input_params
-        + block_params
-        + final_norm_params
-        + policy_params
-        + wdl_params
-        + moves_left_params
-    )
-
-
-def transformer64_parameter_count(*, d_model: int, depth: int, mlp_ratio: float = 4.0) -> int:
-    hidden_dim = int(d_model * mlp_ratio)
-    input_params = INPUT_PLANE_COUNT * d_model + d_model + 64 * d_model
-    block_params = depth * (4 * d_model * d_model + 3 * d_model * hidden_dim + 2 * d_model)
-    final_norm_params = d_model
-    policy_params = d_model * d_model + d_model + 2 * (d_model * d_model + d_model) + 4 * d_model
-    wdl_params = d_model * 3 + 3
-    moves_left_params = d_model + 1
-    return (
-        input_params
-        + block_params
-        + final_norm_params
-        + policy_params
-        + wdl_params
-        + moves_left_params
-    )
+    return mlp_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
 
 
 def round_to_batch_ladder(value: float) -> int:

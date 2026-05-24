@@ -17,8 +17,8 @@ The exact command list is in `commands.txt`; the compact metric export is in `re
 | Budget | Config | Model | Batch sizes | Learning rates |
 | --- | --- | --- | --- | --- |
 | `1e13` | `configs/1e13.toml` | `d64x2` | `128, 192, 256, 384, 512, 768` | `3e-4, 1e-3, 3e-3` |
-| `1e14` | `configs/1e14.toml` | `d160x3` | `256, 384, 512, 768, 1024, 1536` | `1e-4, 3e-4, 1e-3` |
-| `1e15` | `configs/1e15.toml` | `d384x6` | `512, 768, 1024, 1536, 2048, 3072` | `1e-4, 3e-4, 1e-3` |
+| `1e14` | `configs/mlp/1e14.toml` | `d160x3` | `256, 384, 512, 768, 1024, 1536` | `1e-4, 3e-4, 1e-3` |
+| `1e15` | `configs/mlp/1e15.toml` | `d384x6` | `512, 768, 1024, 1536, 2048, 3072` | `1e-4, 3e-4, 1e-3` |
 
 Runs were launched in parallel with up to 6 local Modal launchers active at once.
 

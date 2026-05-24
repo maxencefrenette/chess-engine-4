@@ -1,4 +1,4 @@
 uv run train-modal --config configs/transformer64/1e14.toml --wandb-name transformer64-baseline-1e14
 uv run train-modal --config configs/transformer64/1e15.toml --wandb-name transformer64-baseline-1e15
 uv run train-modal --config configs/transformer64/1e16.toml --wandb-name transformer64-baseline-1e16
-uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --output-root reports/scaling-laws-transformer64 --config configs/transformer64/1e16.toml --target-compute-budget 1e16
+uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --output-root reports/scaling-laws/transformer64 --config configs/transformer64/1e16.toml --target-compute-budget 1e16

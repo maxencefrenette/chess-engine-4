@@ -18,10 +18,10 @@ These are the equivalent one-line commands for the candidates tested:
 ```sh
 uv run train-modal --config configs/1e13.toml --d-model 64 --depth 2 --gpu l4
 uv run train-modal --config configs/1e13.toml --d-model 128 --depth 2 --gpu l4
-uv run train-modal --config configs/1e14.toml --d-model 160 --depth 3 --gpu l4
-uv run train-modal --config configs/1e14.toml --d-model 256 --depth 4 --gpu l4
-uv run train-modal --config configs/1e15.toml --d-model 384 --depth 6 --gpu l4
-uv run train-modal --config configs/1e15.toml --d-model 512 --depth 6 --gpu l4
+uv run train-modal --config configs/mlp/1e14.toml --d-model 160 --depth 3 --gpu l4
+uv run train-modal --config configs/mlp/1e14.toml --d-model 256 --depth 4 --gpu l4
+uv run train-modal --config configs/mlp/1e15.toml --d-model 384 --depth 6 --gpu l4
+uv run train-modal --config configs/mlp/1e15.toml --d-model 512 --depth 6 --gpu l4
 ```
 
 ## Results
@@ -51,8 +51,8 @@ number of optimizer steps at the same FLOPs budget.
 Updated the best-so-far budget configs:
 
 - `configs/1e13.toml`: d64x2
-- `configs/1e14.toml`: d160x3
-- `configs/1e15.toml`: d384x6
+- `configs/mlp/1e14.toml`: d160x3
+- `configs/mlp/1e15.toml`: d384x6
 
 ## Next Steps
 

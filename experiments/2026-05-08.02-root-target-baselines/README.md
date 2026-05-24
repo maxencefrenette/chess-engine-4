@@ -7,7 +7,7 @@ Reset the baseline runs after switching the value and moves-left training target
 - value target: `root_q/root_d`
 - moves-left target: `root_m`
 
-Because the loss definition changed, these runs replace the previous `experiments/best-runs.toml` entries even though the model shapes and compute budgets are unchanged.
+Because the loss definition changed, these runs replace the previous `experiments/best-runs-mlp.toml` entries even though the model shapes and compute budgets are unchanged.
 
 ## Results
 
@@ -23,4 +23,4 @@ Because the loss definition changed, these runs replace the previous `experiment
 
 The total loss is not directly comparable to older result-target baselines because the value and moves-left targets changed. Policy top-1 remains comparable, and it is slightly higher at all three budgets.
 
-All three runs saved final checkpoints in the Modal artifact volume. `experiments/best-runs.toml` now points to these root-target runs.
+All three runs saved final checkpoints in the Modal artifact volume. `experiments/best-runs-mlp.toml` now points to these root-target runs.

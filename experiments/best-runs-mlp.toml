@@ -1,5 +1,6 @@
 [runs.1e14]
 source_experiment = "experiments/2026-05-08.02-root-target-baselines"
+model_kind = "mlp"
 run_name = "baseline-root-ckpt-1e14"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ndwnfs7n"
 checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e14-final.pt"
@@ -17,6 +18,7 @@ runtime_sec = 388.59342621
 
 [runs.1e15]
 source_experiment = "experiments/2026-05-08.02-root-target-baselines"
+model_kind = "mlp"
 run_name = "baseline-root-ckpt-1e15"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/8t0jrso3"
 checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e15-final.pt"
@@ -34,6 +36,7 @@ runtime_sec = 964.442146199
 
 [runs.1e16]
 source_experiment = "experiments/2026-05-08.02-root-target-baselines"
+model_kind = "mlp"
 run_name = "baseline-root-ckpt-1e16"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/con1n4ql"
 checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e16-final.pt"

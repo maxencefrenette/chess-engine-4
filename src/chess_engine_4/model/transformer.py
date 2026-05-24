@@ -120,3 +120,30 @@ class Transformer64ChessNet(nn.Module):
             wdl_logits=self.wdl_head(x),
             moves_left=self.moves_left_head(x),
         )
+
+
+def transformer64_parameter_count(
+    *,
+    input_planes: int = INPUT_PLANE_COUNT,
+    board_size: int = 8,
+    d_model: int,
+    depth: int,
+    mlp_ratio: float = 4.0,
+) -> int:
+    if board_size != 8:
+        raise ValueError("Transformer64 parameter counting expects board_size=8.")
+    hidden_dim = int(d_model * mlp_ratio)
+    input_params = input_planes * d_model + d_model + board_size * board_size * d_model
+    block_params = depth * (4 * d_model * d_model + 3 * d_model * hidden_dim + 2 * d_model)
+    final_norm_params = d_model
+    policy_params = d_model * d_model + d_model + 2 * (d_model * d_model + d_model) + 4 * d_model
+    wdl_params = d_model * 3 + 3
+    moves_left_params = d_model + 1
+    return (
+        input_params
+        + block_params
+        + final_norm_params
+        + policy_params
+        + wdl_params
+        + moves_left_params
+    )

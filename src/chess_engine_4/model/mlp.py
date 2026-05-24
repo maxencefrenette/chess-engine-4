@@ -79,3 +79,30 @@ class MlpChessNet(nn.Module):
             wdl_logits=self.wdl_head(x),
             moves_left=self.moves_left_head(x).squeeze(-1),
         )
+
+
+def mlp_parameter_count(
+    *,
+    input_planes: int = INPUT_PLANE_COUNT,
+    board_size: int = 8,
+    policy_size: int = POLICY_SIZE,
+    d_model: int,
+    depth: int,
+    mlp_ratio: float = 4.0,
+) -> int:
+    input_dim = input_planes * board_size * board_size
+    hidden_dim = int(d_model * mlp_ratio)
+    block_params = depth * (3 * d_model * hidden_dim + d_model)
+    input_params = input_dim * d_model + d_model
+    final_norm_params = d_model
+    policy_params = d_model * policy_size + policy_size
+    wdl_params = d_model * 3 + 3
+    moves_left_params = d_model + 1
+    return (
+        input_params
+        + block_params
+        + final_norm_params
+        + policy_params
+        + wdl_params
+        + moves_left_params
+    )

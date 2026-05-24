@@ -14,7 +14,7 @@ from chess_engine_4.training.scaling_laws import (
 
 
 def test_read_best_runs_and_extrapolate() -> None:
-    best_runs = read_best_runs(Path("experiments/best-runs.toml"))
+    best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
     assert [run.budget for run in best_runs] == ["1e14", "1e15", "1e16"]
 
     laws = fit_scaling_laws(best_runs)
@@ -30,6 +30,7 @@ def test_read_best_runs_and_extrapolate() -> None:
 
 def test_parameter_count_formulas_match_current_baselines() -> None:
     assert parameter_count(d_model=32, depth=1) == 303206
+    assert parameter_count(model_kind="transformer64", d_model=96, depth=2) == 341092
 
 
 def test_rounding_ladders() -> None:
@@ -38,7 +39,7 @@ def test_rounding_ladders() -> None:
 
 
 def test_write_report_artifacts(tmp_path: Path) -> None:
-    best_runs = read_best_runs(Path("experiments/best-runs.toml"))
+    best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
     laws = fit_scaling_laws(best_runs)
     suggestion = extrapolate(laws, 1e17)
 
@@ -47,7 +48,7 @@ def test_write_report_artifacts(tmp_path: Path) -> None:
         best_results=best_runs,
         laws=laws,
         suggestion=suggestion,
-        config="configs/1e16.toml",
+        config="configs/mlp/1e16.toml",
         gpu="t4",
     )
 

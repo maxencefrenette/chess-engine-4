@@ -67,9 +67,9 @@ The tail-loss metric still supports the concern that the prior scaling trend was
 Updated best-so-far state:
 
 - `configs/1e13.toml`: `d48x1`
-- `configs/1e14.toml`: `d96x2`
-- `configs/1e15.toml`: `d192x4`
-- `experiments/best-runs.toml`: points at the three winning W&B runs using post-hoc tail metrics
+- `configs/mlp/1e14.toml`: `d96x2`
+- `configs/mlp/1e15.toml`: `d192x4`
+- `experiments/best-runs-mlp.toml`: points at the three winning W&B runs using post-hoc tail metrics
 
 ## Next Steps
 

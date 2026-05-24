@@ -46,7 +46,7 @@ Set appropriate environment variables in `.env`. See `.env.example`.
 the W&B project configured in `.env`.
 
 ```sh
-uv run train --config configs/1e15.toml
+uv run train --config configs/mlp/1e15.toml
 ```
 
 To train the starter Transformer64 config:
@@ -58,25 +58,25 @@ uv run train --config configs/transformer64/1e14.toml
 For local dry runs without W&B:
 
 ```sh
-uv run train --config configs/1e15.toml --no-wandb --batch-size 4 --compute-budget 1e9 --device cpu
+uv run train --config configs/mlp/1e15.toml --no-wandb --batch-size 4 --compute-budget 1e9 --device cpu
 ```
 
 To save a final local checkpoint:
 
 ```sh
-uv run train --config configs/1e15.toml --checkpoint-dir checkpoints
+uv run train --config configs/mlp/1e15.toml --checkpoint-dir checkpoints
 ```
 
 To launch the same training loop on Modal:
 
 ```sh
-uv run train-modal --config configs/1e15.toml
+uv run train-modal --config configs/mlp/1e15.toml
 ```
 
 To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 
 ```sh
-uv run train-modal --config configs/1e15.toml --save-checkpoints
+uv run train-modal --config configs/mlp/1e15.toml --save-checkpoints
 ```
 
 To convert a saved checkpoint into an lc0 ONNX weights file:
@@ -103,10 +103,16 @@ Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 # Scaling Laws
 
 To fit scaling laws and extrapolate the next compute budget from the current best
-W&B runs:
+MLP W&B runs:
 
 ```sh
 uv run scaling-laws --target-compute-budget 1e16
 ```
 
-This also writes a Markdown report and SVG charts under `reports/scaling-laws/`.
+This also writes a Markdown report and SVG charts under `reports/scaling-laws/mlp/`.
+
+For Transformer64, use the matching best-run file and report root:
+
+```sh
+uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --output-root reports/scaling-laws/transformer64 --config configs/transformer64/1e16.toml --target-compute-budget 1e17
+```

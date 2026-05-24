@@ -4,7 +4,7 @@ Date: 2026-05-07
 
 ## Goal
 
-Reset the baseline runs after switching from physical-FLOPs budgets to step-adjusted compute budgets. The old `experiments/best-runs.toml` entries used the previous methodology, so these runs replace them even where the loss is not directly comparable.
+Reset the baseline runs after switching from physical-FLOPs budgets to step-adjusted compute budgets. The old `experiments/best-runs-mlp.toml` entries used the previous methodology, so these runs replace them even where the loss is not directly comparable.
 
 The configs were shifted from `1e13`/`1e14`/`1e15` to `1e14`/`1e15`/`1e16`, with `step_penalty_k = 1.2`. The 10x compute-budget bump keeps step counts in roughly the same range under the new step penalty. The `1e16` baseline uses batch size 1024 to reduce wall-clock time.
 
@@ -30,4 +30,4 @@ Metrics below use the current convention:
 
 - The new step-adjusted budgets landed where expected: each run ended at approximately its target `compute_budget`.
 - The 10x budget bump with `k = 1.2` kept optimizer steps practical: about 24k, 44k, and 51k steps.
-- These rows are now the scaling-law baselines in `experiments/best-runs.toml`.
+- These rows are now the scaling-law baselines in `experiments/best-runs-mlp.toml`.

@@ -62,7 +62,7 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/1e15.toml")
+    config = load_training_config("configs/mlp/1e15.toml")
 
     overridden = with_overrides(
         config,
@@ -106,7 +106,7 @@ def test_with_overrides_supports_transformer_heads() -> None:
 
 
 def test_1e15_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/1e15.toml")
+    config = load_training_config("configs/mlp/1e15.toml")
     model = MlpChessNet(config.model)
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())

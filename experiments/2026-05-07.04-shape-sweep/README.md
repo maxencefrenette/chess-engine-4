@@ -71,4 +71,4 @@ The launched commands are listed in `commands.txt`.
 - `1e14` prefers a much smaller model than the previous d48x1 baseline. The best run was d32x1; d32x2 was close, while d24x1 and d28x1 were too small.
 - `1e15` improved by moving from the old d64x5 shape to d80x3. Larger models around d96-d128 were close but did not beat d80x3 by tail loss.
 - `1e16` improved by moving from d192x4 to a deeper/narrower d160x6. The d160 family dominated this sweep, while going wider again did not help.
-- Best-run configs and `experiments/best-runs.toml` now point to d32x1, d80x3, and d160x6.
+- Best-run configs and `experiments/best-runs-mlp.toml` now point to d32x1, d80x3, and d160x6.

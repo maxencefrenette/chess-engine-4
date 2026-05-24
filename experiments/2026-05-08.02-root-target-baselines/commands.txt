@@ -1,4 +1,4 @@
-uv run train-modal --config configs/1e14.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e14
-uv run train-modal --config configs/1e15.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e15
-uv run train-modal --config configs/1e16.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e16
+uv run train-modal --config configs/mlp/1e14.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e14
+uv run train-modal --config configs/mlp/1e15.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e15
+uv run train-modal --config configs/mlp/1e16.toml --gpu t4 --save-checkpoints --wandb-name baseline-root-ckpt-1e16
 uv run wandb-tail-metrics https://wandb.ai/maxence-frenette/chess-engine-4/runs/ndwnfs7n https://wandb.ai/maxence-frenette/chess-engine-4/runs/8t0jrso3 https://wandb.ai/maxence-frenette/chess-engine-4/runs/con1n4ql --tail 100
