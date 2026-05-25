@@ -1,0 +1,42 @@
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --compute-budget 3.57877137408e15 --wandb-name opt-1e19-baseline-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-baseline-repeat-true-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-bf16-plane-transfer-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-metrics-no-grad-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --num-workers 1 --wandb-name opt-1e19-workers1-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --num-workers 2 --wandb-name opt-1e19-workers2-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --num-workers 4 --wandb-name opt-1e19-workers4-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-torch-compile-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-no-gradnorm-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-lean-logging-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-no-pin-lean-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-no-pin-lean-repeat-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-no-pin-full-logging-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-no-pin-lean-nosync-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-compile-loss-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-deque-loader-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --max-steps 200 --wandb-name opt-1e19-compile-dense-parts-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-streaming-tar-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-streaming-tar-repeat-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-direct-chunk-fill-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --num-workers 1 --wandb-name opt-1e19-cpu2-workers1-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --num-workers 2 --wandb-name opt-1e19-cpu2-workers2-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --num-workers 0 --wandb-name opt-1e19-cpu2-workers0-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-router-bincount-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-compile-skip-experts-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-final-kept-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-compile-grouped-mm-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-compile-grouped-mm-bf16-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-compile-grouped-mm-default-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-compile-skip-experts-bf16-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-full-bf16-compile-grouped-mm-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-full-bf16-input-compile-grouped-mm-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-full-bf16-no-autocast-compile-grouped-mm-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 50 --wandb-name opt-1e19-full-bf16-all-tensors-compile-grouped-mm-50
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-cuda-prefetch-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-cuda-prefetch-repeat-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-cpu2-threaded-cuda-prefetch-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-prefetch-no-pin-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-prefetch-no-pin-repeat-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-cpu2-threaded-prefetch-no-pin-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-cpu-prefetch-200
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --gpu l4 --max-steps 200 --wandb-name opt-1e19-threaded-cpu-prefetch-repeat-200

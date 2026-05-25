@@ -75,6 +75,7 @@ class MoeBlock(nn.Module):
         load_balancing_loss, dead_experts = self._router_metrics(router_probs, route_experts)
         return residual + routed, load_balancing_loss, dead_experts
 
+    @torch.compiler.disable
     def _run_experts(
         self,
         x: torch.Tensor,

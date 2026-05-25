@@ -73,6 +73,7 @@ class TrainOptions:
     router_aux: float | None = None
     device: str | None = None
     num_workers: int | None = None
+    max_steps: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -93,6 +94,7 @@ def train() -> None:
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--num-workers", type=int, default=None)
+    parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
     parser.add_argument("--checkpoint-dir", type=Path, default=None)
@@ -113,6 +115,7 @@ def train() -> None:
             router_aux=args.router_aux,
             device=args.device,
             num_workers=args.num_workers,
+            max_steps=args.max_steps,
             wandb=args.wandb,
             wandb_name=args.wandb_name,
             checkpoint_dir=args.checkpoint_dir,
@@ -148,6 +151,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         batch_size=config.data.batch_size,
         step_penalty_k=config.run.step_penalty_k,
     )
+    if options.max_steps is not None:
+        if options.max_steps <= 0:
+            raise ValueError("max_steps must be positive.")
+        steps = min(steps, options.max_steps)
 
     device = _resolve_device(options.device)
     precision = _training_precision(device)
@@ -158,7 +165,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     )
     num_workers = options.num_workers if options.num_workers is not None else _NUM_WORKERS
     dataloader = _build_dataloader(dataset, device=device, num_workers=num_workers)
-    model = build_model(config.model).to(device)
+    model = _compile_model_for_training(
+        build_model(config.model).to(device),
+        device=device,
+    )
     optimizer = _build_optimizer(model, config=config, device=device)
     theoretical_tflops = _theoretical_tflops(device, precision=precision)
     wandb_run = (
@@ -427,6 +437,16 @@ def _autocast_context(device: torch.device, *, precision: str) -> Any:
     if precision == "bf16":
         return torch.autocast(device_type=device.type, dtype=torch.bfloat16)
     return nullcontext()
+
+
+def _compile_model_for_training(
+    model: torch.nn.Module,
+    *,
+    device: torch.device,
+) -> torch.nn.Module:
+    if device.type == "cuda":
+        return torch.compile(model, mode="reduce-overhead")
+    return model
 
 
 def _synchronize_if_cuda(device: torch.device) -> None:

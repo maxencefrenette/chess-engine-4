@@ -126,6 +126,12 @@ def test_with_overrides_supports_router_aux() -> None:
     assert overridden.loss.router_aux == 0.001
 
 
+def test_train_options_supports_max_steps() -> None:
+    from chess_engine_4.training.cli import TrainOptions
+
+    assert TrainOptions(max_steps=200).max_steps == 200
+
+
 def test_1e15_config_builds_expected_model_size() -> None:
     config = load_training_config("configs/mlp/1e15.toml")
     model = MlpChessNet(config.model)
