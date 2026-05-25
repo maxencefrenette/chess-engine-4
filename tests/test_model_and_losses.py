@@ -49,6 +49,10 @@ def test_mlp_moe_chess_net_shapes() -> None:
     assert tuple(output.moves_left.shape) == (4,)
     assert output.aux_loss is not None
     assert output.aux_loss.ndim == 0
+    assert output.router_dead_experts is not None
+    assert output.router_dead_experts.ndim == 0
+    assert output.router_dead_experts_max is not None
+    assert output.router_dead_experts_max.ndim == 0
 
 
 def test_transformer64_chess_net_shapes() -> None:

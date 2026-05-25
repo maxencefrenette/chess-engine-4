@@ -13,3 +13,5 @@ class ChessNetOutput:
     wdl_logits: torch.Tensor
     moves_left: torch.Tensor
     aux_loss: torch.Tensor | None = None
+    router_dead_experts: torch.Tensor | None = None
+    router_dead_experts_max: torch.Tensor | None = None

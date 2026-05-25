@@ -59,7 +59,7 @@ class MoeBlock(nn.Module):
             nn.init.kaiming_uniform_(self.up_proj[expert], a=5**0.5)
             nn.init.kaiming_uniform_(self.down_proj[expert], a=5**0.5)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         residual = x
         x = self.norm(x)
         router_logits = self.router(x)
@@ -72,7 +72,8 @@ class MoeBlock(nn.Module):
         route_probs = route_probs / route_probs.sum(dim=-1, keepdim=True)
 
         routed = self._run_experts(x, route_experts, route_probs)
-        return residual + routed, self._load_balancing_loss(router_probs, route_experts)
+        load_balancing_loss, dead_experts = self._router_metrics(router_probs, route_experts)
+        return residual + routed, load_balancing_loss, dead_experts
 
     def _run_experts(
         self,
@@ -134,15 +135,17 @@ class MoeBlock(nn.Module):
         down = down.reshape(batch_size, self.num_experts_per_token, d_model)
         return (down * route_probs.to(down.dtype).unsqueeze(-1)).sum(dim=1)
 
-    def _load_balancing_loss(
+    def _router_metrics(
         self,
         router_probs: torch.Tensor,
         route_experts: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         expert_prob = router_probs.mean(dim=0)
         expert_tokens = F.one_hot(route_experts, num_classes=self.num_experts).float()
         expert_fraction = expert_tokens.mean(dim=(0, 1)).to(expert_prob.dtype)
-        return self.num_experts * torch.sum(expert_prob * expert_fraction)
+        load_balancing_loss = self.num_experts * torch.sum(expert_prob * expert_fraction)
+        dead_experts = (expert_fraction == 0).sum().to(expert_prob.dtype)
+        return load_balancing_loss, dead_experts
 
 
 class MlpMoeChessNet(nn.Module):
@@ -185,15 +188,20 @@ class MlpMoeChessNet(nn.Module):
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
         x = self.input(planes.flatten(start_dim=1))
         aux_losses = []
+        dead_experts = []
         for block in self.blocks:
-            x, aux_loss = block(x)
+            x, aux_loss, block_dead_experts = block(x)
             aux_losses.append(aux_loss)
+            dead_experts.append(block_dead_experts)
         x = self.norm(x)
+        router_dead_experts_by_layer = torch.stack(dead_experts)
         return ChessNetOutput(
             policy_logits=self.policy_head(x),
             wdl_logits=self.wdl_head(x),
             moves_left=self.moves_left_head(x).squeeze(-1),
             aux_loss=torch.stack(aux_losses).mean(),
+            router_dead_experts=router_dead_experts_by_layer.mean(),
+            router_dead_experts_max=router_dead_experts_by_layer.max(),
         )
 
     def extra_training_flops_per_sample(self) -> int:

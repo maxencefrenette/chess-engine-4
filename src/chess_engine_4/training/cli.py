@@ -658,7 +658,7 @@ def _training_metrics(
     q_mse = torch.square(q_pred - q_target).mean()
     moves_left_mae = torch.abs(output.moves_left - root[:, 2]).mean()
     samples_per_sec = samples_seen / elapsed if elapsed > 0 else 0.0
-    return {
+    metrics = {
         "loss": loss.task.item(),
         "loss/train": loss.total.item(),
         "loss/task": loss.task.item(),
@@ -676,6 +676,11 @@ def _training_metrics(
         "perf/samples_per_sec": samples_per_sec,
         "perf/samples_seen": samples_seen,
     }
+    if output.router_dead_experts is not None:
+        metrics["router/dead_experts"] = output.router_dead_experts.item()
+    if output.router_dead_experts_max is not None:
+        metrics["router/dead_experts_max"] = output.router_dead_experts_max.item()
+    return metrics
 
 
 def _update_ema_metrics(
