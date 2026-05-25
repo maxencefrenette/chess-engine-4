@@ -98,13 +98,13 @@ def test_load_training_config_supports_transformer64() -> None:
 
 
 def test_load_training_config_supports_mlp_moe() -> None:
-    config = load_training_config("configs/mlp_moe16a2/1e17.toml")
+    config = load_training_config("configs/mlp_moe16a2/1e18.toml")
     model = MlpMoeChessNet(config.model)
 
     assert config.model.kind == "mlp_moe"
     assert config.model.num_experts == 16
     assert config.model.num_experts_per_token == 2
-    assert config.loss.router_aux == 0.003
+    assert config.loss.router_aux == 0.03
     assert sum(parameter.numel() for parameter in model.parameters()) > 0
 
 
@@ -119,7 +119,7 @@ def test_with_overrides_supports_transformer_heads() -> None:
 
 
 def test_with_overrides_supports_router_aux() -> None:
-    config = load_training_config("configs/mlp_moe16a2/1e17.toml")
+    config = load_training_config("configs/mlp_moe16a2/1e18.toml")
 
     overridden = with_overrides(config, router_aux=0.001)
 
