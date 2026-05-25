@@ -1,0 +1,16 @@
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 24 --depth 1 --wandb-name moe16a2-k2-shape-1e17-d24x1
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 1 --wandb-name moe16a2-k2-shape-1e17-d32x1
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 40 --depth 1 --wandb-name moe16a2-k2-shape-1e17-d40x1
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --wandb-name moe16a2-k2-shape-1e17-d32x2
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 40 --depth 2 --wandb-name moe16a2-k2-shape-1e17-d40x2
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 48 --depth 2 --wandb-name moe16a2-k2-shape-1e17-d48x2
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 3 --wandb-name moe16a2-k2-shape-1e17-d32x3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 40 --depth 3 --wandb-name moe16a2-k2-shape-1e17-d40x3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 256 --lr 0.002 --wandb-name moe16a2-k2-grid-1e17-d32x2-b256-lr2e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 256 --lr 0.0025 --wandb-name moe16a2-k2-grid-1e17-d32x2-b256-lr2.5e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 256 --lr 0.003 --wandb-name moe16a2-k2-grid-1e17-d32x2-b256-lr3e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 384 --lr 0.002 --wandb-name moe16a2-k2-grid-1e17-d32x2-b384-lr2e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 384 --lr 0.003 --wandb-name moe16a2-k2-grid-1e17-d32x2-b384-lr3e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 512 --lr 0.002 --wandb-name moe16a2-k2-grid-1e17-d32x2-b512-lr2e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 512 --lr 0.0025 --wandb-name moe16a2-k2-grid-1e17-d32x2-b512-lr2.5e-3
+uv run train-modal --config configs/mlp_moe16a2/1e17.toml --d-model 32 --depth 2 --batch-size 512 --lr 0.003 --wandb-name moe16a2-k2-grid-1e17-d32x2-b512-lr3e-3

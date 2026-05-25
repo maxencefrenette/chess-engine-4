@@ -8,7 +8,7 @@ step_penalty_k = 2.0
 gpu_type = "l4"
 
 [data]
-batch_size = 384
+batch_size = 512
 
 [model]
 kind = "mlp_moe"
@@ -20,7 +20,7 @@ num_experts_per_token = 2
 rms_norm_eps = 1e-6
 
 [optimizer]
-lr = 2.5e-3
+lr = 3e-3
 weight_decay = 0.01
 
 [loss]

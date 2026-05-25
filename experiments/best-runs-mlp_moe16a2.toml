@@ -45,3 +45,19 @@ samples_seen = 19292160
 loss = 3.649958544706816
 policy_top1 = 0.29465174177536074
 runtime_sec = 692.992829252
+
+[runs.1e17]
+source_experiment = "experiments/2026-05-25.04-mlp-moe16a2-k2-1e17-tuning"
+model_kind = "mlp_moe"
+run_name = "moe16a2-k2-grid-1e17-d32x2-b512-lr3e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/6phz8dux"
+compute = 1.0000410280755149e17
+d_model = 32
+depth = 2
+batch_size = 512
+lr = 3e-3
+params = 488486
+samples_seen = 5036544
+loss = 3.961554308985716
+policy_top1 = 0.22683867212567585
+runtime_sec = 239.678458295
