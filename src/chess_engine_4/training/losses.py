@@ -25,6 +25,8 @@ class LossWeights:
 @dataclass(frozen=True, slots=True)
 class LossBreakdown:
     total: torch.Tensor
+    task: torch.Tensor
+    aux: torch.Tensor
     policy: torch.Tensor
     value: torch.Tensor
     moves_left: torch.Tensor
@@ -82,14 +84,13 @@ def lczero_loss(
         if output.aux_loss is not None
         else torch.zeros((), device=policy.device, dtype=policy.dtype)
     )
-    total = (
-        weights.policy * policy
-        + weights.value * value
-        + weights.moves_left * mlh
-        + weights.router_aux * router_aux
-    )
+    task = weights.policy * policy + weights.value * value + weights.moves_left * mlh
+    aux = weights.router_aux * router_aux
+    total = task + aux
     return LossBreakdown(
         total=total,
+        task=task,
+        aux=aux,
         policy=policy,
         value=value,
         moves_left=mlh,

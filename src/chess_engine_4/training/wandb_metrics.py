@@ -11,7 +11,7 @@ from pathlib import Path
 from statistics import fmean
 from urllib.parse import urlparse
 
-LOSS_KEY = "loss/total"
+LOSS_KEY = "loss"
 POLICY_TOP1_KEY = "metrics/policy_top1"
 DEFAULT_TAIL = 100
 

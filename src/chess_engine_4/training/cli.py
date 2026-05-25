@@ -247,12 +247,12 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                 )
                 print(
                     f"step={step} "
-                    f"loss={metrics['loss/total']:.4f} "
-                    f"policy={metrics['loss/policy']:.4f} "
-                f"value={metrics['loss/value']:.4f} "
-                f"mlh={metrics['loss/moves_left']:.4f} "
-                f"aux={metrics['loss/router_aux']:.4f} "
-                f"grad_norm={grad_norm:.2f} "
+                    f"loss={metrics['loss']:.4f} "
+                    f"policy={metrics['loss/task/policy']:.4f} "
+                    f"value={metrics['loss/task/value']:.4f} "
+                    f"mlh={metrics['loss/task/moves_left']:.4f} "
+                    f"aux={metrics['loss/aux']:.4f} "
+                    f"grad_norm={grad_norm:.2f} "
                     f"flops_seen={flops_seen:.3e} "
                     f"compute_seen={compute_seen:.3e} "
                     f"samples_per_sec={metrics['perf/samples_per_sec_interval']:.1f}"
@@ -300,7 +300,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "run_name": config.run.name,
         "steps": completed_steps,
         "samples_seen": seen,
-        "final_loss": float(last_metrics.get("loss/total", 0.0)),
+        "final_loss": float(last_metrics.get("loss", 0.0)),
         "compute_budget": config.run.compute_budget,
         "flops_seen": int(last_metrics.get("perf/flops_seen", 0)),
         "compute_seen": float(last_metrics.get("perf/compute_seen", 0.0)),
@@ -653,11 +653,14 @@ def _training_metrics(
     moves_left_mae = torch.abs(output.moves_left - root[:, 2]).mean()
     samples_per_sec = samples_seen / elapsed if elapsed > 0 else 0.0
     return {
-        "loss/total": loss.total.item(),
-        "loss/policy": loss.policy.item(),
-        "loss/value": loss.value.item(),
-        "loss/moves_left": loss.moves_left.item(),
-        "loss/router_aux": loss.router_aux.item(),
+        "loss": loss.task.item(),
+        "loss/train": loss.total.item(),
+        "loss/task": loss.task.item(),
+        "loss/task/policy": loss.policy.item(),
+        "loss/task/value": loss.value.item(),
+        "loss/task/moves_left": loss.moves_left.item(),
+        "loss/aux": loss.aux.item(),
+        "loss/aux/router": loss.router_aux.item(),
         "metrics/policy_entropy": policy_entropy.item(),
         "metrics/policy_top1": policy_top1.item(),
         "metrics/value_q_mse": q_mse.item(),
