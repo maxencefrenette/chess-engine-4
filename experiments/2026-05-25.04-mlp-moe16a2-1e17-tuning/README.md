@@ -1,6 +1,6 @@
-# MLP-MoE16A2 K2 1e17 Tuning
+# MLP-MoE16A2 1e17 Tuning
 
-This experiment tunes the smallest current MoE config, `configs/mlp_moe16a2/1e17.toml`, after moving the family to `step_penalty_k = 2.0`.
+This experiment tunes the smallest current MoE config, `configs/mlp_moe16a2/1e17.toml`.
 
 Selection uses `loss/task[ema=0.99]` and is strict about router utilization: final `loss/aux/router` must be below `1.5`.
 
@@ -14,7 +14,7 @@ The selected run is `d32x2`, batch `512`, LR `3e-3`:
 
 | Run | Loss | Policy top-1 | Router loss | W&B |
 | --- | ---: | ---: | ---: | --- |
-| `moe16a2-k2-grid-1e17-d32x2-b512-lr3e-3` | `3.9616` | `0.2268` | `1.3233` | https://wandb.ai/maxence-frenette/chess-engine-4/runs/6phz8dux |
+| `moe16a2-grid-1e17-d32x2-b512-lr3e-3` | `3.9616` | `0.2268` | `1.3233` | https://wandb.ai/maxence-frenette/chess-engine-4/runs/6phz8dux |
 
 ## Takeaways
 

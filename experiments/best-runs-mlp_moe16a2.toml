@@ -47,9 +47,9 @@ policy_top1 = 0.29465174177536074
 runtime_sec = 692.992829252
 
 [runs.1e17]
-source_experiment = "experiments/2026-05-25.04-mlp-moe16a2-k2-1e17-tuning"
+source_experiment = "experiments/2026-05-25.04-mlp-moe16a2-1e17-tuning"
 model_kind = "mlp_moe"
-run_name = "moe16a2-k2-grid-1e17-d32x2-b512-lr3e-3"
+run_name = "moe16a2-grid-1e17-d32x2-b512-lr3e-3"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/6phz8dux"
 compute = 1.0000410280755149e17
 d_model = 32
@@ -61,3 +61,19 @@ samples_seen = 5036544
 loss = 3.961554308985716
 policy_top1 = 0.22683867212567585
 runtime_sec = 239.678458295
+
+[runs.1e18]
+source_experiment = "experiments/2026-05-25.05-mlp-moe16a2-1e18-tuning"
+model_kind = "mlp_moe"
+run_name = "moe16a2-grid-1e18-d80x3-b2048-lr1.2e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/d8757tq1"
+compute = 1.00008753199104e18
+d_model = 80
+depth = 3
+batch_size = 2048
+lr = 1.2e-3
+params = 2571382
+samples_seen = 18391040
+loss = 3.7795035475733765
+policy_top1 = 0.29643352507019555
+runtime_sec = 594.274369163
