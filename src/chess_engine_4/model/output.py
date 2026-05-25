@@ -12,3 +12,4 @@ class ChessNetOutput:
     policy_logits: torch.Tensor
     wdl_logits: torch.Tensor
     moves_left: torch.Tensor
+    aux_loss: torch.Tensor | None = None

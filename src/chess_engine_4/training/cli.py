@@ -245,9 +245,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                     f"step={step} "
                     f"loss={metrics['loss/total']:.4f} "
                     f"policy={metrics['loss/policy']:.4f} "
-                    f"value={metrics['loss/value']:.4f} "
-                    f"mlh={metrics['loss/moves_left']:.4f} "
-                    f"grad_norm={grad_norm:.2f} "
+                f"value={metrics['loss/value']:.4f} "
+                f"mlh={metrics['loss/moves_left']:.4f} "
+                f"aux={metrics['loss/router_aux']:.4f} "
+                f"grad_norm={grad_norm:.2f} "
                     f"flops_seen={flops_seen:.3e} "
                     f"compute_seen={compute_seen:.3e} "
                     f"samples_per_sec={metrics['perf/samples_per_sec_interval']:.1f}"
@@ -569,7 +570,22 @@ def _init_wandb(
         "d_model": config.model.d_model,
         "depth": config.model.depth,
         **({"num_heads": config.model.num_heads} if hasattr(config.model, "num_heads") else {}),
-        "mlp_ratio": config.model.mlp_ratio,
+        **({"mlp_ratio": config.model.mlp_ratio} if hasattr(config.model, "mlp_ratio") else {}),
+        **(
+            {"expert_mlp_ratio": config.model.expert_mlp_ratio}
+            if hasattr(config.model, "expert_mlp_ratio")
+            else {}
+        ),
+        **(
+            {"num_experts": config.model.num_experts}
+            if hasattr(config.model, "num_experts")
+            else {}
+        ),
+        **(
+            {"num_experts_per_token": config.model.num_experts_per_token}
+            if hasattr(config.model, "num_experts_per_token")
+            else {}
+        ),
         "rms_norm_eps": config.model.rms_norm_eps,
         "policy_kind": config.model.policy.kind,
         **(
@@ -586,6 +602,7 @@ def _init_wandb(
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,
+        "router_aux_loss_weight": config.loss.router_aux,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
     return wandb.init(
@@ -636,6 +653,7 @@ def _training_metrics(
         "loss/policy": loss.policy.item(),
         "loss/value": loss.value.item(),
         "loss/moves_left": loss.moves_left.item(),
+        "loss/router_aux": loss.router_aux.item(),
         "metrics/policy_entropy": policy_entropy.item(),
         "metrics/policy_top1": policy_top1.item(),
         "metrics/value_q_mse": q_mse.item(),

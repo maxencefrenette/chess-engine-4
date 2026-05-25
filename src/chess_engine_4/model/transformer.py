@@ -43,7 +43,7 @@ class TransformerBlock(nn.Module):
         rms_norm_eps: float,
     ) -> None:
         super().__init__()
-        self.attn_norm = nn.RMSNorm(d_model, eps=rms_norm_eps)
+        self.attn_norm = nn.RMSNorm(d_model, eps=rms_norm_eps, elementwise_affine=False)
         self.attn = nn.MultiheadAttention(
             d_model,
             num_heads,
@@ -51,7 +51,7 @@ class TransformerBlock(nn.Module):
             bias=False,
             batch_first=True,
         )
-        self.mlp_norm = nn.RMSNorm(d_model, eps=rms_norm_eps)
+        self.mlp_norm = nn.RMSNorm(d_model, eps=rms_norm_eps, elementwise_affine=False)
         self.gate_proj = nn.Linear(d_model, hidden_dim, bias=False)
         self.up_proj = nn.Linear(d_model, hidden_dim, bias=False)
         self.down_proj = nn.Linear(hidden_dim, d_model, bias=False)
@@ -103,7 +103,11 @@ class Transformer64ChessNet(nn.Module):
                 for _ in range(config.depth)
             ]
         )
-        self.norm = nn.RMSNorm(config.d_model, eps=config.rms_norm_eps)
+        self.norm = nn.RMSNorm(
+            config.d_model,
+            eps=config.rms_norm_eps,
+            elementwise_affine=False,
+        )
         self.policy_head = AttentionPolicyHead(
             config.d_model,
             config=config.policy,
@@ -134,15 +138,13 @@ def transformer64_parameter_count(
         raise ValueError("Transformer64 parameter counting expects board_size=8.")
     hidden_dim = int(d_model * mlp_ratio)
     input_params = input_planes * d_model + d_model + board_size * board_size * d_model
-    block_params = depth * (4 * d_model * d_model + 3 * d_model * hidden_dim + 2 * d_model)
-    final_norm_params = d_model
+    block_params = depth * (4 * d_model * d_model + 3 * d_model * hidden_dim)
     policy_params = d_model * d_model + d_model + 2 * (d_model * d_model + d_model) + 4 * d_model
     wdl_params = d_model * 3 + 3
     moves_left_params = d_model + 1
     return (
         input_params
         + block_params
-        + final_norm_params
         + policy_params
         + wdl_params
         + moves_left_params

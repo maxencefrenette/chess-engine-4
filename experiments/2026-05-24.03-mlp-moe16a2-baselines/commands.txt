@@ -1,0 +1,4 @@
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --wandb-name mlp-moe16a2-baseline-1e14
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --wandb-name mlp-moe16a2-baseline-1e15
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --wandb-name mlp-moe16a2-baseline-1e16
+uv run scaling-laws --best-runs experiments/best-runs-mlp_moe16a2.toml --config configs/mlp_moe16a2/1e16.toml --target-compute-budget 1e17 --output-root reports/scaling-laws/mlp_moe16a2

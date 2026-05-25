@@ -27,10 +27,16 @@ def measure_training_flops_per_sample(
     model.zero_grad(set_to_none=True)
 
     device = torch.device("meta")
-    planes = torch.zeros(profile_batch_size, 112, 8, 8, device=device)
-    policy = torch.full((profile_batch_size, POLICY_SIZE), -1.0, device=device)
+    profile_dtype = getattr(model, "flops_profile_dtype", torch.float32)
+    planes = torch.zeros(profile_batch_size, 112, 8, 8, device=device, dtype=profile_dtype)
+    policy = torch.full(
+        (profile_batch_size, POLICY_SIZE),
+        -1.0,
+        device=device,
+        dtype=profile_dtype,
+    )
     policy[:, 0] = 1.0
-    values = torch.zeros(profile_batch_size, 6, 3, device=device)
+    values = torch.zeros(profile_batch_size, 6, 3, device=device, dtype=profile_dtype)
     values[:, 0, 1] = 1.0
 
     activities = [torch.profiler.ProfilerActivity.CPU]
@@ -47,9 +53,23 @@ def measure_training_flops_per_sample(
     model.train(was_training)
 
     flops = sum(event.flops or 0 for event in profiler.key_averages())
+    extra_flops_per_sample = _extra_training_flops_per_sample(model)
+    flops += extra_flops_per_sample * profile_batch_size
     if flops <= 0:
         raise RuntimeError("PyTorch profiler did not report FLOPs for the training step.")
     return math.ceil(flops / profile_batch_size)
+
+
+def _extra_training_flops_per_sample(model: torch.nn.Module) -> int:
+    extra_flops = getattr(model, "extra_training_flops_per_sample", None)
+    if extra_flops is None:
+        return 0
+    if not callable(extra_flops):
+        raise TypeError("extra_training_flops_per_sample must be callable.")
+    measured = int(extra_flops())
+    if measured < 0:
+        raise ValueError("extra_training_flops_per_sample must be non-negative.")
+    return measured
 
 
 def steps_for_compute_budget(

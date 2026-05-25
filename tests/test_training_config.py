@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import MlpChessNet, Transformer64ChessNet
+from chess_engine_4.model import MlpChessNet, MlpMoeChessNet, Transformer64ChessNet
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
@@ -97,6 +97,17 @@ def test_load_training_config_supports_transformer64() -> None:
     assert sum(parameter.numel() for parameter in model.parameters()) > 0
 
 
+def test_load_training_config_supports_mlp_moe() -> None:
+    config = load_training_config("configs/mlp_moe16a2/1e14.toml")
+    model = MlpMoeChessNet(config.model)
+
+    assert config.model.kind == "mlp_moe"
+    assert config.model.num_experts == 16
+    assert config.model.num_experts_per_token == 2
+    assert config.loss.router_aux == 0.01
+    assert sum(parameter.numel() for parameter in model.parameters()) > 0
+
+
 def test_with_overrides_supports_transformer_heads() -> None:
     config = load_training_config("configs/transformer64/1e14.toml")
 
@@ -116,5 +127,5 @@ def test_1e15_config_builds_expected_model_size() -> None:
         parameter.numel() for block in model.blocks for parameter in block.parameters()
     )
 
-    assert trunk_parameter_count == 230_640
-    assert parameter_count == 955_062
+    assert trunk_parameter_count == 230_400
+    assert parameter_count == 954_742

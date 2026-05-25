@@ -9,7 +9,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from chess_engine_4.model import mlp_parameter_count, transformer64_parameter_count
+from chess_engine_4.model import (
+    mlp_moe_parameter_count,
+    mlp_parameter_count,
+    transformer64_parameter_count,
+)
 from chess_engine_4.training.config import load_training_config
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
@@ -354,6 +358,13 @@ def parameter_count(
 ) -> int:
     if model_kind == "transformer64":
         return transformer64_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
+    if model_kind == "mlp_moe":
+        return mlp_moe_parameter_count(
+            d_model=d_model,
+            depth=depth,
+            num_experts=16,
+            expert_mlp_ratio=2.0,
+        )
     if model_kind != "mlp":
         raise ValueError(f"unknown model kind: {model_kind}")
     return mlp_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
@@ -800,12 +811,22 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
     ]
     if suggestion.num_heads is not None:
         model_lines.append(f"num_heads = {suggestion.num_heads}")
-    model_lines.extend(
-        [
-            "mlp_ratio = 4.0",
-            "rms_norm_eps = 1e-6",
-        ]
-    )
+    if suggestion.model_kind == "mlp_moe":
+        model_lines.extend(
+            [
+                "expert_mlp_ratio = 2.0",
+                "num_experts = 16",
+                "num_experts_per_token = 2",
+                "rms_norm_eps = 1e-6",
+            ]
+        )
+    else:
+        model_lines.extend(
+            [
+                "mlp_ratio = 4.0",
+                "rms_norm_eps = 1e-6",
+            ]
+        )
     if suggestion.model_kind == "transformer64":
         model_lines.extend(
             [
@@ -838,6 +859,7 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
             "policy = 1.0",
             "value = 1.0",
             "moves_left = 1.0",
+            *(["router_aux = 0.01"] if suggestion.model_kind == "mlp_moe" else []),
             "",
         ]
     )

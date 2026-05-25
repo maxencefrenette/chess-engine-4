@@ -28,7 +28,7 @@ class MlpChessNetConfig:
 class MlpBlock(nn.Module):
     def __init__(self, d_model: int, hidden_dim: int, rms_norm_eps: float) -> None:
         super().__init__()
-        self.norm = nn.RMSNorm(d_model, eps=rms_norm_eps)
+        self.norm = nn.RMSNorm(d_model, eps=rms_norm_eps, elementwise_affine=False)
         self.gate_proj = nn.Linear(d_model, hidden_dim, bias=False)
         self.up_proj = nn.Linear(d_model, hidden_dim, bias=False)
         self.down_proj = nn.Linear(hidden_dim, d_model, bias=False)
@@ -64,7 +64,11 @@ class MlpChessNet(nn.Module):
                 for _ in range(config.depth)
             ]
         )
-        self.norm = nn.RMSNorm(config.d_model, eps=config.rms_norm_eps)
+        self.norm = nn.RMSNorm(
+            config.d_model,
+            eps=config.rms_norm_eps,
+            elementwise_affine=False,
+        )
         self.policy_head = nn.Linear(config.d_model, config.policy_size)
         self.wdl_head = nn.Linear(config.d_model, 3)
         self.moves_left_head = nn.Linear(config.d_model, 1)
@@ -92,16 +96,14 @@ def mlp_parameter_count(
 ) -> int:
     input_dim = input_planes * board_size * board_size
     hidden_dim = int(d_model * mlp_ratio)
-    block_params = depth * (3 * d_model * hidden_dim + d_model)
+    block_params = depth * (3 * d_model * hidden_dim)
     input_params = input_dim * d_model + d_model
-    final_norm_params = d_model
     policy_params = d_model * policy_size + policy_size
     wdl_params = d_model * 3 + 3
     moves_left_params = d_model + 1
     return (
         input_params
         + block_params
-        + final_norm_params
         + policy_params
         + wdl_params
         + moves_left_params

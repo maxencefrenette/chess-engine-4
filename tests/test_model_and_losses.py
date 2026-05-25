@@ -4,7 +4,13 @@ import math
 
 import torch
 
-from chess_engine_4.model import MlpChessNet, MlpChessNetConfig, Transformer64ChessNet
+from chess_engine_4.model import (
+    MlpChessNet,
+    MlpChessNetConfig,
+    MlpMoeChessNet,
+    MlpMoeChessNetConfig,
+    Transformer64ChessNet,
+)
 from chess_engine_4.model.heads import AttentionPolicyHead, AttentionPolicyHeadConfig
 from chess_engine_4.model.transformer import Transformer64ChessNetConfig
 from chess_engine_4.training.losses import (
@@ -24,6 +30,25 @@ def test_mlp_chess_net_shapes() -> None:
     assert tuple(output.policy_logits.shape) == (3, 1858)
     assert tuple(output.wdl_logits.shape) == (3, 3)
     assert tuple(output.moves_left.shape) == (3,)
+
+
+def test_mlp_moe_chess_net_shapes() -> None:
+    model = MlpMoeChessNet(
+        MlpMoeChessNetConfig(
+            d_model=32,
+            depth=2,
+            num_experts=16,
+            num_experts_per_token=2,
+            expert_mlp_ratio=2.0,
+        )
+    )
+    output = model(torch.zeros(4, 112, 8, 8))
+
+    assert tuple(output.policy_logits.shape) == (4, 1858)
+    assert tuple(output.wdl_logits.shape) == (4, 3)
+    assert tuple(output.moves_left.shape) == (4,)
+    assert output.aux_loss is not None
+    assert output.aux_loss.ndim == 0
 
 
 def test_transformer64_chess_net_shapes() -> None:
@@ -105,3 +130,25 @@ def test_lczero_loss_backpropagates() -> None:
 
     assert torch.isfinite(loss.total)
     assert any(parameter.grad is not None for parameter in model.parameters())
+
+
+def test_lczero_loss_includes_router_aux() -> None:
+    model = MlpMoeChessNet(
+        MlpMoeChessNetConfig(d_model=32, depth=1, num_experts=16, expert_mlp_ratio=2.0)
+    )
+    planes = torch.randn(2, 112, 8, 8)
+    policy = torch.full((2, 1858), -1.0)
+    policy[:, 0] = 1.0
+    values = torch.zeros(2, 6, 3)
+    values[:, 4, 0] = 1.0
+
+    without_aux = lczero_loss(model(planes), policy, values, weights=LossWeights())
+    with_aux = lczero_loss(
+        model(planes),
+        policy,
+        values,
+        weights=LossWeights(router_aux=0.01),
+    )
+
+    assert with_aux.router_aux.item() > 0
+    assert with_aux.total.item() > without_aux.total.item()

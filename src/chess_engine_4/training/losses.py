@@ -19,6 +19,7 @@ class LossWeights:
     policy: float = 1.0
     value: float = 1.0
     moves_left: float = 1.0
+    router_aux: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +28,7 @@ class LossBreakdown:
     policy: torch.Tensor
     value: torch.Tensor
     moves_left: torch.Tensor
+    router_aux: torch.Tensor
 
 
 def policy_cross_entropy(policy_logits: torch.Tensor, policy_target: torch.Tensor) -> torch.Tensor:
@@ -75,5 +77,21 @@ def lczero_loss(
     policy = policy_cross_entropy(output.policy_logits, policy_target)
     value = value_cross_entropy(output.wdl_logits, values)
     mlh = moves_left_loss(output.moves_left, values)
-    total = weights.policy * policy + weights.value * value + weights.moves_left * mlh
-    return LossBreakdown(total=total, policy=policy, value=value, moves_left=mlh)
+    router_aux = (
+        output.aux_loss
+        if output.aux_loss is not None
+        else torch.zeros((), device=policy.device, dtype=policy.dtype)
+    )
+    total = (
+        weights.policy * policy
+        + weights.value * value
+        + weights.moves_left * mlh
+        + weights.router_aux * router_aux
+    )
+    return LossBreakdown(
+        total=total,
+        policy=policy,
+        value=value,
+        moves_left=mlh,
+        router_aux=router_aux,
+    )

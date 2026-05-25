@@ -29,8 +29,9 @@ def test_read_best_runs_and_extrapolate() -> None:
 
 
 def test_parameter_count_formulas_match_current_baselines() -> None:
-    assert parameter_count(d_model=32, depth=1) == 303206
-    assert parameter_count(model_kind="transformer64", d_model=96, depth=2) == 341092
+    assert parameter_count(d_model=32, depth=1) == 303142
+    assert parameter_count(model_kind="transformer64", d_model=96, depth=2) == 340612
+    assert parameter_count(model_kind="mlp_moe", d_model=32, depth=1) == 389670
 
 
 def test_rounding_ladders() -> None:

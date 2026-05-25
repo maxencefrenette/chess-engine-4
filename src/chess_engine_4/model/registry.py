@@ -9,9 +9,10 @@ from torch import nn
 
 from chess_engine_4.model.heads import AttentionPolicyHeadConfig, DensePolicyHeadConfig
 from chess_engine_4.model.mlp import MlpChessNet, MlpChessNetConfig
+from chess_engine_4.model.mlp_moe import MlpMoeChessNet, MlpMoeChessNetConfig
 from chess_engine_4.model.transformer import Transformer64ChessNet, Transformer64ChessNetConfig
 
-type ModelConfig = MlpChessNetConfig | Transformer64ChessNetConfig
+type ModelConfig = MlpChessNetConfig | MlpMoeChessNetConfig | Transformer64ChessNetConfig
 
 
 def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
@@ -19,6 +20,9 @@ def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
     if kind == "mlp":
         values = {**values, "policy": _policy_config_from_dict(values.get("policy"), "dense")}
         return _build_model_section(MlpChessNetConfig, values, section_name="[model]")
+    if kind == "mlp_moe":
+        values = {**values, "policy": _policy_config_from_dict(values.get("policy"), "dense")}
+        return _build_model_section(MlpMoeChessNetConfig, values, section_name="[model]")
     if kind == "transformer64":
         values = {**values, "policy": _policy_config_from_dict(values.get("policy"), "attention")}
         return _build_model_section(Transformer64ChessNetConfig, values, section_name="[model]")
@@ -28,6 +32,8 @@ def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
 def build_model(config: ModelConfig) -> nn.Module:
     if isinstance(config, MlpChessNetConfig):
         return MlpChessNet(config)
+    if isinstance(config, MlpMoeChessNetConfig):
+        return MlpMoeChessNet(config)
     if isinstance(config, Transformer64ChessNetConfig):
         return Transformer64ChessNet(config)
     raise TypeError(f"unsupported model config type: {type(config).__name__}")

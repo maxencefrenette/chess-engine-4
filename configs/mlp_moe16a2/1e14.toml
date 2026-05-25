@@ -1,0 +1,30 @@
+[run]
+name = "mlp_moe16a2-1e14"
+seed = 1
+compute_budget = 1e14
+step_penalty_k = 1.2
+
+[infra]
+gpu_type = "l4"
+
+[data]
+batch_size = 192
+
+[model]
+kind = "mlp_moe"
+d_model = 32
+depth = 1
+expert_mlp_ratio = 2.0
+num_experts = 16
+num_experts_per_token = 2
+rms_norm_eps = 1e-6
+
+[optimizer]
+lr = 1e-3
+weight_decay = 0.01
+
+[loss]
+policy = 1.0
+value = 1.0
+moves_left = 1.0
+router_aux = 0.01
