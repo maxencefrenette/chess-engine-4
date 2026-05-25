@@ -1,0 +1,9 @@
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --router-aux 0.001 --wandb-name moe16a2-auxema-1e14-a1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --router-aux 0.003 --wandb-name moe16a2-auxema-1e14-a3e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --router-aux 0.01 --wandb-name moe16a2-auxema-1e14-a1e-2
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --router-aux 0.001 --wandb-name moe16a2-auxema-1e15-a1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --router-aux 0.003 --wandb-name moe16a2-auxema-1e15-a3e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --router-aux 0.01 --wandb-name moe16a2-auxema-1e15-a1e-2
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --router-aux 0.001 --wandb-name moe16a2-auxema-1e16-a1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --router-aux 0.003 --wandb-name moe16a2-auxema-1e16-a3e-3
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --router-aux 0.01 --wandb-name moe16a2-auxema-1e16-a1e-2

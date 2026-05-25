@@ -1,8 +1,8 @@
 [runs.1e14]
-source_experiment = "experiments/2026-05-24.05-mlp-moe16a2-aux-lr-batch"
+source_experiment = "experiments/2026-05-25.01-mlp-moe16a2-router-aux-ema"
 model_kind = "mlp_moe"
-run_name = "moe16a2-grid2-1e14-b384-lr2e-3-a3e-3"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/chhj4xnd"
+run_name = "moe16a2-auxema-1e14-a3e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/dfk2w9fo"
 compute = 1.0000446037356623e14
 d_model = 32
 depth = 1
@@ -10,15 +10,15 @@ batch_size = 384
 lr = 2e-3
 params = 389670
 samples_seen = 7201920
-loss = 3.8847248578071594
-policy_top1 = 0.2452604255080223
-runtime_sec = 297.226271161
+loss = 3.888581491013188
+policy_top1 = 0.24262659887500593
+runtime_sec = 273.403086904
 
 [runs.1e15]
-source_experiment = "experiments/2026-05-24.05-mlp-moe16a2-aux-lr-batch"
+source_experiment = "experiments/2026-05-25.01-mlp-moe16a2-router-aux-ema"
 model_kind = "mlp_moe"
-run_name = "moe16a2-grid2-1e15-b1024-lr8.5e-4-a1e-3"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/wtp9t8mt"
+run_name = "moe16a2-auxema-1e15-a3e-3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fzh63fln"
 compute = 1.0000409719393824e15
 d_model = 64
 depth = 2
@@ -26,15 +26,15 @@ batch_size = 1024
 lr = 8.5e-4
 params = 1368326
 samples_seen = 29646848
-loss = 3.582975640296936
-policy_top1 = 0.3023828125
-runtime_sec = 947.134116589
+loss = 3.590976304773318
+policy_top1 = 0.30467755363160465
+runtime_sec = 1090.699514683
 
 [runs.1e16]
-source_experiment = "experiments/2026-05-24.05-mlp-moe16a2-aux-lr-batch"
+source_experiment = "experiments/2026-05-25.01-mlp-moe16a2-router-aux-ema"
 model_kind = "mlp_moe"
-run_name = "moe16a2-1e16-b1024-lr4e-4-a1e-3"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/yatiw0yl"
+run_name = "moe16a2-auxema-1e16-a1e-2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/wbsxtgj1"
 compute = 1.0000077690564998e16
 d_model = 160
 depth = 6
@@ -42,6 +42,6 @@ batch_size = 1024
 lr = 4e-4
 params = 16207782
 samples_seen = 55296000
-loss = 3.358619933128357
-policy_top1 = 0.367080078125
-runtime_sec = 2755.412625301
+loss = 3.364773169351927
+policy_top1 = 0.369641475858028
+runtime_sec = 3123.5897768
