@@ -1,0 +1,10 @@
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --batch-size 2048 --lr 0.0004 --router-aux 0.01 --wandb-name moe16a2-tune-1e19-d160x6-b2048-lr4e-4-a1e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --batch-size 2048 --lr 0.0004 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d160x6-b2048-lr4e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --batch-size 2048 --lr 0.0006 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d160x6-b2048-lr6e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --batch-size 4096 --lr 0.0004 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d160x6-b4096-lr4e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 192 --depth 4 --batch-size 2048 --lr 0.0004 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d192x4-b2048-lr4e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 192 --depth 4 --batch-size 4096 --lr 0.0004 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d192x4-b4096-lr4e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 128 --depth 6 --batch-size 2048 --lr 0.0006 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d128x6-b2048-lr6e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 160 --depth 4 --batch-size 2048 --lr 0.0006 --router-aux 0.03 --wandb-name moe16a2-tune-1e19-d160x4-b2048-lr6e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 192 --depth 4 --batch-size 6144 --lr 0.00035 --router-aux 0.03 --wandb-name moe16a2-tune2-1e19-d192x4-b6144-lr3.5e-4-a3e-2
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --d-model 160 --depth 4 --batch-size 4096 --lr 0.0006 --router-aux 0.03 --wandb-name moe16a2-tune2-1e19-d160x4-b4096-lr6e-4-a3e-2

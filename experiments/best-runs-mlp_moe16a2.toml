@@ -16,3 +16,22 @@ policy_top1 = 0.29945054359438933
 router_dead_experts = 0.0
 router_dead_experts_max = 0.0
 runtime_sec = 652.339676949
+
+[runs.1e19]
+source_experiment = "experiments/2026-05-25.07-mlp-moe16a2-1e19-tuning"
+model_kind = "mlp_moe"
+run_name = "moe16a2-tune-1e19-d192x4-b4096-lr4e-4-a3e-2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/9uz0fda2"
+compute = 1.0001621794535928e19
+d_model = 192
+depth = 4
+batch_size = 4096
+lr = 4e-4
+router_aux = 0.03
+params = 15903878
+samples_seen = 43307008
+loss = 3.5069072454370724
+policy_top1 = 0.35150001274800236
+router_dead_experts = 0.0
+router_dead_experts_max = 0.0
+runtime_sec = 1593.614530243
