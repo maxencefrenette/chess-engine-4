@@ -33,6 +33,9 @@ _NUM_WORKERS = 0
 _PREFETCH_FACTOR = 2
 _PERSISTENT_WORKERS = True
 _MATMUL_PRECISION = "high"
+_METRIC_EMA_DECAY = 0.99
+_LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
+_POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
 _BF16_TFLOPS_BY_GPU = {
     "NVIDIA L4": 121.0,
     "NVIDIA A10G": 125.0,
@@ -181,6 +184,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     seen = 0
     completed_steps = 0
     last_metrics: dict[str, float | int] = {}
+    ema_metrics: dict[str, float] = {}
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
     for step, batch in enumerate(islice(dataloader, steps), start=1):
@@ -238,6 +242,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                     elapsed=interval_elapsed,
                     theoretical_tflops=theoretical_tflops,
                 )
+            _update_ema_metrics(metrics, ema_metrics)
 
             if wandb_run is not None and should_log:
                 wandb_run.log(metrics, step=step)
@@ -670,3 +675,22 @@ def _training_metrics(
         "perf/samples_per_sec": samples_per_sec,
         "perf/samples_seen": samples_seen,
     }
+
+
+def _update_ema_metrics(
+    metrics: dict[str, float | int],
+    ema_metrics: dict[str, float],
+) -> None:
+    for source_key, ema_key in (
+        ("loss/task", _LOSS_TASK_EMA_KEY),
+        ("metrics/policy_top1", _POLICY_TOP1_EMA_KEY),
+    ):
+        value = metrics[source_key]
+        if not isinstance(value, int | float):
+            continue
+        previous = ema_metrics.get(ema_key)
+        next_value = float(value) if previous is None else (
+            _METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * float(value)
+        )
+        ema_metrics[ema_key] = next_value
+        metrics[ema_key] = next_value

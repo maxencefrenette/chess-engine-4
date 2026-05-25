@@ -12,7 +12,6 @@ params = 389670
 samples_seen = 7201920
 loss = 3.8847248578071594
 policy_top1 = 0.2452604255080223
-tail_count = 100
 runtime_sec = 297.226271161
 
 [runs.1e15]
@@ -29,7 +28,6 @@ params = 1368326
 samples_seen = 29646848
 loss = 3.582975640296936
 policy_top1 = 0.3023828125
-tail_count = 100
 runtime_sec = 947.134116589
 
 [runs.1e16]
@@ -46,5 +44,4 @@ params = 16207782
 samples_seen = 55296000
 loss = 3.358619933128357
 policy_top1 = 0.367080078125
-tail_count = 100
 runtime_sec = 2755.412625301

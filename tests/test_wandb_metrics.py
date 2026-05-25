@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from chess_engine_4.training.wandb_metrics import (
-    tail_metrics_from_history,
-    tail_values,
+    metrics_from_summary,
     wandb_run_path_from_url,
 )
 
@@ -14,31 +13,14 @@ def test_wandb_run_path_from_url() -> None:
     )
 
 
-def test_tail_values_sort_by_step_and_skip_missing() -> None:
-    rows = [
-        {"_step": 20, "loss": 2.0},
-        {"_step": 10, "loss": 1.0},
-        {"_step": 30},
-        {"_step": 40, "loss": 4.0},
-    ]
-
-    assert tail_values(sorted(rows, key=lambda row: row["_step"]), "loss", tail=2) == [
-        2.0,
-        4.0,
-    ]
-
-
-def test_tail_metrics_from_history() -> None:
-    metrics = tail_metrics_from_history(
+def test_metrics_from_summary() -> None:
+    metrics = metrics_from_summary(
         "https://wandb.ai/entity/project/runs/runid",
-        [
-            {"_step": 1, "loss": 10.0, "metrics/policy_top1": 0.1},
-            {"_step": 3, "loss": 30.0, "metrics/policy_top1": 0.3},
-            {"_step": 2, "loss": 20.0, "metrics/policy_top1": 0.2},
-        ],
-        tail=2,
+        {
+            "loss/task[ema=0.99]": 4.2,
+            "metrics/policy_top1[ema=0.99]": 0.3,
+        },
     )
 
-    assert metrics.loss == 25.0
-    assert metrics.policy_top1 == 0.25
-    assert metrics.tail_count == 2
+    assert metrics.loss == 4.2
+    assert metrics.policy_top1 == 0.3
