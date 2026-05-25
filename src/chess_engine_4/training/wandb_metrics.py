@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import sys
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-LOSS_KEY = "loss/task[ema=0.99]"
+LOSS_MEAN_KEY = "loss/task[ema=0.99]"
+LOSS_SECOND_MOMENT_KEY = "loss/task2[ema=0.99]"
 POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.99]"
 
 
@@ -18,6 +20,8 @@ POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.99]"
 class WandbMetrics:
     wandb_url: str
     loss: float
+    loss_std: float
+    loss_upper_1sd: float
     policy_top1: float
 
 
@@ -65,6 +69,8 @@ def write_csv_rows(
     fieldnames = list(rows[0].keys()) if rows else []
     for fieldname in (
         "loss",
+        "loss_std",
+        "loss_upper_1sd",
         "policy_top1",
     ):
         if fieldname not in fieldnames:
@@ -73,6 +79,8 @@ def write_csv_rows(
     for row in rows:
         metrics = metrics_by_url[row["wandb_url"]]
         row["loss"] = str(metrics.loss)
+        row["loss_std"] = str(metrics.loss_std)
+        row["loss_upper_1sd"] = str(metrics.loss_upper_1sd)
         row["policy_top1"] = str(metrics.policy_top1)
 
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -85,6 +93,8 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
     fieldnames = [
         "wandb_url",
         "loss",
+        "loss_std",
+        "loss_upper_1sd",
         "policy_top1",
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
@@ -94,6 +104,8 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
             {
                 "wandb_url": row.wandb_url,
                 "loss": row.loss,
+                "loss_std": row.loss_std,
+                "loss_upper_1sd": row.loss_upper_1sd,
                 "policy_top1": row.policy_top1,
             }
         )
@@ -135,14 +147,25 @@ def metrics_from_summary(
     wandb_url: str,
     summary: Mapping[str, object],
 ) -> WandbMetrics:
-    loss = summary.get(LOSS_KEY)
+    loss_mean = summary.get(LOSS_MEAN_KEY)
+    loss_second_moment = summary.get(LOSS_SECOND_MOMENT_KEY)
     policy_top1 = summary.get(POLICY_TOP1_KEY)
-    if not isinstance(loss, int | float) or not isinstance(policy_top1, int | float):
+    if (
+        not isinstance(loss_mean, int | float)
+        or not isinstance(loss_second_moment, int | float)
+        or not isinstance(policy_top1, int | float)
+    ):
         raise ValueError(
-            f"{wandb_url} summary has no {LOSS_KEY!r} and {POLICY_TOP1_KEY!r} values."
+            f"{wandb_url} summary has no {LOSS_MEAN_KEY!r}, "
+            f"{LOSS_SECOND_MOMENT_KEY!r}, and {POLICY_TOP1_KEY!r} values."
         )
+    loss_mean = float(loss_mean)
+    variance = max(float(loss_second_moment) - loss_mean * loss_mean, 0.0)
+    loss_std = math.sqrt(variance)
     return WandbMetrics(
         wandb_url=wandb_url,
-        loss=float(loss),
+        loss=loss_mean,
+        loss_std=loss_std,
+        loss_upper_1sd=loss_mean + loss_std,
         policy_top1=float(policy_top1),
     )

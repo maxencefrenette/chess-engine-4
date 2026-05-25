@@ -35,6 +35,7 @@ _PERSISTENT_WORKERS = True
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
+_LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
 _BF16_TFLOPS_BY_GPU = {
     "NVIDIA L4": 121.0,
@@ -681,16 +682,26 @@ def _update_ema_metrics(
     metrics: dict[str, float | int],
     ema_metrics: dict[str, float],
 ) -> None:
-    for source_key, ema_key in (
-        ("loss/task", _LOSS_TASK_EMA_KEY),
-        ("metrics/policy_top1", _POLICY_TOP1_EMA_KEY),
-    ):
-        value = metrics[source_key]
-        if not isinstance(value, int | float):
-            continue
-        previous = ema_metrics.get(ema_key)
-        next_value = float(value) if previous is None else (
-            _METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * float(value)
-        )
-        ema_metrics[ema_key] = next_value
-        metrics[ema_key] = next_value
+    loss_task = float(metrics["loss/task"])
+    _update_ema_metric(metrics, ema_metrics, _LOSS_TASK_EMA_KEY, loss_task)
+    _update_ema_metric(metrics, ema_metrics, _LOSS_TASK2_EMA_KEY, loss_task * loss_task)
+    _update_ema_metric(
+        metrics,
+        ema_metrics,
+        _POLICY_TOP1_EMA_KEY,
+        float(metrics["metrics/policy_top1"]),
+    )
+
+
+def _update_ema_metric(
+    metrics: dict[str, float | int],
+    ema_metrics: dict[str, float],
+    ema_key: str,
+    value: float,
+) -> None:
+    previous = ema_metrics.get(ema_key)
+    next_value = value if previous is None else (
+        _METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * value
+    )
+    ema_metrics[ema_key] = next_value
+    metrics[ema_key] = next_value
