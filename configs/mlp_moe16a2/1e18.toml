@@ -1,8 +1,8 @@
 [run]
-name = "mlp_moe16a2-1e16"
+name = "mlp_moe16a2-1e18"
 seed = 1
-compute_budget = 1e16
-step_penalty_k = 1.5
+compute_budget = 1e18
+step_penalty_k = 2.0
 
 [infra]
 gpu_type = "l4"
