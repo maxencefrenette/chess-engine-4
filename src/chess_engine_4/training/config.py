@@ -77,6 +77,7 @@ def with_overrides(
     depth: int | None = None,
     num_heads: int | None = None,
     lr: float | None = None,
+    router_aux: float | None = None,
 ) -> TrainingConfig:
     if compute_budget is not None:
         config = replace(config, run=replace(config.run, compute_budget=compute_budget))
@@ -94,6 +95,8 @@ def with_overrides(
         config = replace(config, model=replace(config.model, num_heads=num_heads))
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
+    if router_aux is not None:
+        config = replace(config, loss=replace(config.loss, router_aux=router_aux))
     return config
 
 

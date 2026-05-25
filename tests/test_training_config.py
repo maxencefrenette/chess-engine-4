@@ -118,6 +118,14 @@ def test_with_overrides_supports_transformer_heads() -> None:
     assert overridden.model.num_heads == 8
 
 
+def test_with_overrides_supports_router_aux() -> None:
+    config = load_training_config("configs/mlp_moe16a2/1e14.toml")
+
+    overridden = with_overrides(config, router_aux=0.001)
+
+    assert overridden.loss.router_aux == 0.001
+
+
 def test_1e15_config_builds_expected_model_size() -> None:
     config = load_training_config("configs/mlp/1e15.toml")
     model = MlpChessNet(config.model)

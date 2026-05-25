@@ -66,6 +66,7 @@ class TrainOptions:
     depth: int | None = None
     num_heads: int | None = None
     lr: float | None = None
+    router_aux: float | None = None
     device: str | None = None
     num_workers: int | None = None
     wandb: bool = True
@@ -85,6 +86,7 @@ def train() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -104,6 +106,7 @@ def train() -> None:
             depth=args.depth,
             num_heads=args.num_heads,
             lr=args.lr,
+            router_aux=args.router_aux,
             device=args.device,
             num_workers=args.num_workers,
             wandb=args.wandb,
@@ -124,6 +127,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         depth=options.depth,
         num_heads=options.num_heads,
         lr=options.lr,
+        router_aux=options.router_aux,
     )
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)

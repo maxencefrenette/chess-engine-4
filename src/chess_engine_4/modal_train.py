@@ -61,6 +61,7 @@ def train_modal() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -82,6 +83,7 @@ def train_modal() -> None:
         "depth": args.depth,
         "num_heads": args.num_heads,
         "lr": args.lr,
+        "router_aux": args.router_aux,
         "num_workers": args.num_workers,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
@@ -139,6 +141,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             depth=payload["depth"],
             num_heads=payload["num_heads"],
             lr=payload["lr"],
+            router_aux=payload["router_aux"],
             device="cuda",
             num_workers=payload["num_workers"],
             wandb=payload["wandb"],

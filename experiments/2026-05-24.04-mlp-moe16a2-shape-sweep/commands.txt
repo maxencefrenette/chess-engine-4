@@ -1,0 +1,13 @@
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --d-model 24 --depth 1 --batch-size 512 --lr 0.00061 --router-aux 0.001 --wandb-name moe16a2-shape-1e14-d24x1-b512-lr6.1e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --d-model 32 --depth 1 --batch-size 512 --lr 0.00061 --router-aux 0.001 --wandb-name moe16a2-shape-1e14-d32x1-b512-lr6.1e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --d-model 40 --depth 1 --batch-size 768 --lr 0.0005 --router-aux 0.001 --wandb-name moe16a2-shape-1e14-d40x1-b768-lr5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --d-model 48 --depth 1 --batch-size 1024 --lr 0.00043 --router-aux 0.001 --wandb-name moe16a2-shape-1e14-d48x1-b1024-lr4.3e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e14.toml --d-model 20 --depth 1 --batch-size 512 --lr 0.00061 --router-aux 0.001 --wandb-name moe16a2-shape-1e14-d20x1-b512-lr6.1e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 48 --depth 2 --batch-size 1024 --lr 0.0005 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d48x2-b1024-lr5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 64 --depth 2 --batch-size 1024 --lr 0.0005 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d64x2-b1024-lr5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 80 --depth 2 --batch-size 1536 --lr 0.000408 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d80x2-b1536-lr4.08e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 64 --depth 3 --batch-size 1536 --lr 0.000408 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d64x3-b1536-lr4.08e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 40 --depth 2 --batch-size 1024 --lr 0.0005 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d40x2-b1024-lr5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e15.toml --d-model 48 --depth 1 --batch-size 1024 --lr 0.0005 --router-aux 0.001 --wandb-name moe16a2-shape-1e15-d48x1-b1024-lr5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --d-model 96 --depth 4 --batch-size 4096 --lr 0.00015 --router-aux 0.001 --wandb-name moe16a2-shape-1e16-d96x4-b4096-lr1.5e-4-aux1e-3
+uv run train-modal --config configs/mlp_moe16a2/1e16.toml --d-model 128 --depth 4 --batch-size 4096 --lr 0.00015 --router-aux 0.001 --wandb-name moe16a2-shape-1e16-d128x4-b4096-lr1.5e-4-aux1e-3
