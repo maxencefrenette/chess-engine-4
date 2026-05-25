@@ -104,7 +104,7 @@ def test_load_training_config_supports_mlp_moe() -> None:
     assert config.model.kind == "mlp_moe"
     assert config.model.num_experts == 16
     assert config.model.num_experts_per_token == 2
-    assert config.loss.router_aux == 0.01
+    assert config.loss.router_aux == 0.003
     assert sum(parameter.numel() for parameter in model.parameters()) > 0
 
 
