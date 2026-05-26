@@ -156,6 +156,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         options.data,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
+        prefetch_factor=config.infra.dataloader_prefetch_factor,
     )
     model = build_model(config.model).to(device)
     training_model = _compile_model_for_training(
@@ -587,6 +588,7 @@ def _init_wandb(
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,
         "gpu_type": config.infra.gpu_type,
+        "dataloader_prefetch_factor": config.infra.dataloader_prefetch_factor,
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,

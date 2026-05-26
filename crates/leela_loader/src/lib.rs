@@ -2,6 +2,11 @@ use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, sync_channel};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use flate2::read::GzDecoder;
 use half::f16;
@@ -19,6 +24,7 @@ const VALUE_TYPE_COUNT: usize = 6;
 const VALUE_FIELDS: usize = 3;
 const VALUE_COUNT: usize = VALUE_TYPE_COUNT * VALUE_FIELDS;
 const RECORD_SIZE: usize = 8356;
+const PREFETCH_RECV_TIMEOUT: Duration = Duration::from_secs(5);
 
 const VERSION_OFFSET: usize = 0;
 const POLICY_OFFSET: usize = 8;
@@ -45,7 +51,6 @@ const ORIG_Q_OFFSET: usize = 8328;
 const ORIG_D_OFFSET: usize = 8332;
 const ORIG_M_OFFSET: usize = 8336;
 
-#[pyclass(module = "chess_engine_4_native")]
 struct PackedBatchIterator {
     paths: Vec<PathBuf>,
     path_index: usize,
@@ -58,32 +63,25 @@ struct PackedBatchIterator {
     drop_last: bool,
 }
 
-#[pymethods]
 impl PackedBatchIterator {
-    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
-    fn __next__<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+    fn next_batch_data(&mut self) -> PyResult<Option<PackedBatchData>> {
         self.fill_pending()?;
         if self.pending_records == 0 {
-            return Err(PyStopIteration::new_err(()));
+            return Ok(None);
         }
         if self.pending_records < self.batch_size && self.drop_last {
             self.pending.clear();
             self.pending_records = 0;
-            return Err(PyStopIteration::new_err(()));
+            return Ok(None);
         }
 
         let records = self.batch_size.min(self.pending_records);
-        let batch = self.build_batch(py, records)?;
+        let batch = self.build_batch_data(records)?;
         self.emitted_records += records;
         self.pending_records -= records;
-        Ok(batch)
+        Ok(Some(batch))
     }
-}
 
-impl PackedBatchIterator {
     fn fill_pending(&mut self) -> PyResult<()> {
         while self.pending_records < self.batch_size {
             if let Some(max_records) = self.max_records {
@@ -142,11 +140,7 @@ impl PackedBatchIterator {
         }
     }
 
-    fn build_batch<'py>(
-        &mut self,
-        py: Python<'py>,
-        records: usize,
-    ) -> PyResult<Bound<'py, PyTuple>> {
+    fn build_batch_data(&mut self, records: usize) -> PyResult<PackedBatchData> {
         let mut packed_planes = vec![0_u8; records * PACKED_PLANE_BYTES];
         let mut scalars = vec![0.0_f32; records * 8];
         let mut policy_indices = vec![-1_i16; records * COMPACT_POLICY_SIZE];
@@ -180,18 +174,43 @@ impl PackedBatchIterator {
             }
         }
 
-        let packed_planes = PyArray::from_vec(py, packed_planes).reshape([
+        Ok(PackedBatchData {
             records,
+            packed_planes,
+            scalars,
+            policy_indices,
+            policy_probs,
+            value,
+        })
+    }
+}
+
+struct PackedBatchData {
+    records: usize,
+    packed_planes: Vec<u8>,
+    scalars: Vec<f32>,
+    policy_indices: Vec<i16>,
+    policy_probs: Vec<f16>,
+    value: Vec<f32>,
+}
+
+impl PackedBatchData {
+    fn into_py_tuple<'py>(self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let packed_planes = PyArray::from_vec(py, self.packed_planes).reshape([
+            self.records,
             HISTORY_PLANE_COUNT,
             BOARD_SIZE,
         ])?;
-        let scalars = PyArray::from_vec(py, scalars).reshape([records, 8])?;
-        let policy_indices =
-            PyArray::from_vec(py, policy_indices).reshape([records, COMPACT_POLICY_SIZE])?;
-        let policy_probs =
-            PyArray::from_vec(py, policy_probs).reshape([records, COMPACT_POLICY_SIZE])?;
-        let value =
-            PyArray::from_vec(py, value).reshape([records, VALUE_TYPE_COUNT, VALUE_FIELDS])?;
+        let scalars = PyArray::from_vec(py, self.scalars).reshape([self.records, 8])?;
+        let policy_indices = PyArray::from_vec(py, self.policy_indices)
+            .reshape([self.records, COMPACT_POLICY_SIZE])?;
+        let policy_probs = PyArray::from_vec(py, self.policy_probs)
+            .reshape([self.records, COMPACT_POLICY_SIZE])?;
+        let value = PyArray::from_vec(py, self.value).reshape([
+            self.records,
+            VALUE_TYPE_COUNT,
+            VALUE_FIELDS,
+        ])?;
         PyTuple::new(
             py,
             [
@@ -203,6 +222,52 @@ impl PackedBatchIterator {
             ],
         )
     }
+}
+
+#[pyclass(module = "chess_engine_4_native", unsendable)]
+struct PrefetchedPackedBatchIterator {
+    receiver: Option<Receiver<PrefetchMessage>>,
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
+}
+
+#[pymethods]
+impl PrefetchedPackedBatchIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        let receiver = self
+            .receiver
+            .as_ref()
+            .ok_or_else(|| PyStopIteration::new_err(()))?;
+        match receiver.recv_timeout(PREFETCH_RECV_TIMEOUT) {
+            Ok(PrefetchMessage::Batch(batch)) => batch.into_py_tuple(py),
+            Ok(PrefetchMessage::End) => Err(PyStopIteration::new_err(())),
+            Ok(PrefetchMessage::Error(message)) => Err(PyValueError::new_err(message)),
+            Err(RecvTimeoutError::Timeout) => Err(PyValueError::new_err(
+                "timed out after 5s waiting for the Rust dataloader prefetch thread",
+            )),
+            Err(RecvTimeoutError::Disconnected) => Err(PyStopIteration::new_err(())),
+        }
+    }
+}
+
+impl Drop for PrefetchedPackedBatchIterator {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Relaxed);
+        self.receiver.take();
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+enum PrefetchMessage {
+    Batch(PackedBatchData),
+    End,
+    Error(String),
 }
 
 struct ChunkCursor {
@@ -285,16 +350,60 @@ impl SimpleTarReader {
 }
 
 #[pyfunction]
-fn iter_packed_batches(
+fn iter_prefetched_packed_batches(
     paths: Vec<PathBuf>,
     batch_size: usize,
     max_records: Option<usize>,
     drop_last: bool,
-) -> PyResult<PackedBatchIterator> {
+    prefetch_factor: usize,
+) -> PyResult<PrefetchedPackedBatchIterator> {
+    validate_batch_size(batch_size)?;
+    if prefetch_factor == 0 {
+        return Err(PyValueError::new_err("prefetch_factor must be positive"));
+    }
+
+    let mut iterator = make_packed_batch_iterator(paths, batch_size, max_records, drop_last);
+    let (sender, receiver) = sync_channel(prefetch_factor);
+    let stop = Arc::new(AtomicBool::new(false));
+    let worker_stop = Arc::clone(&stop);
+    let handle = thread::spawn(move || {
+        loop {
+            if worker_stop.load(Ordering::Relaxed) {
+                break;
+            }
+            let message = match iterator.next_batch_data() {
+                Ok(Some(batch)) => PrefetchMessage::Batch(batch),
+                Ok(None) => PrefetchMessage::End,
+                Err(error) => PrefetchMessage::Error(error.to_string()),
+            };
+            let done = matches!(message, PrefetchMessage::End | PrefetchMessage::Error(_));
+            if sender.send(message).is_err() || done {
+                break;
+            }
+        }
+    });
+
+    Ok(PrefetchedPackedBatchIterator {
+        receiver: Some(receiver),
+        stop,
+        handle: Some(handle),
+    })
+}
+
+fn validate_batch_size(batch_size: usize) -> PyResult<()> {
     if batch_size == 0 {
         return Err(PyValueError::new_err("batch_size must be positive"));
     }
-    Ok(PackedBatchIterator {
+    Ok(())
+}
+
+fn make_packed_batch_iterator(
+    paths: Vec<PathBuf>,
+    batch_size: usize,
+    max_records: Option<usize>,
+    drop_last: bool,
+) -> PackedBatchIterator {
+    PackedBatchIterator {
         paths,
         path_index: 0,
         reader: None,
@@ -304,12 +413,12 @@ fn iter_packed_batches(
         max_records,
         emitted_records: 0,
         drop_last,
-    })
+    }
 }
 
 #[pymodule]
 fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_function(wrap_pyfunction!(iter_packed_batches, module)?)?;
+    module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;

@@ -22,6 +22,7 @@ class RunConfig:
 @dataclass(frozen=True, slots=True)
 class InfraConfig:
     gpu_type: str = "l4"
+    dataloader_prefetch_factor: int = 2
 
 
 @dataclass(frozen=True, slots=True)

@@ -120,6 +120,7 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         REMOTE_DATA_PATH,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
+        prefetch_factor=config.infra.dataloader_prefetch_factor,
     )
     iterator = iter(dataset)
 
@@ -224,6 +225,7 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "device_name": torch.cuda.get_device_name(device),
         "precision": precision,
         "batch_size": config.data.batch_size,
+        "dataloader_prefetch_factor": config.infra.dataloader_prefetch_factor,
         "warmup_steps": warmup_steps,
         "profile_steps": profile_steps,
         "overall_wall_sec": overall_end - overall_start,
@@ -276,7 +278,8 @@ def _print_profile(result: dict[str, Any]) -> None:
     print(
         f"profile_complete config={result['config']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
-        f"batch_size={result['batch_size']}"
+        f"batch_size={result['batch_size']} "
+        f"prefetch={result['dataloader_prefetch_factor']}"
     )
     print("")
     rows = [

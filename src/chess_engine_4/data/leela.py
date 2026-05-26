@@ -47,14 +47,18 @@ class LeelaTarDataset:
         env_var: str = DEFAULT_DATA_ENV_VAR,
         max_records: int | None = None,
         drop_last: bool = False,
+        prefetch_factor: int = 2,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive.")
+        if prefetch_factor <= 0:
+            raise ValueError("prefetch_factor must be positive.")
 
         self.paths = resolve_data_paths(paths, env_var=env_var)
         self.batch_size = batch_size
         self.max_records = max_records
         self.drop_last = drop_last
+        self.prefetch_factor = prefetch_factor
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
         yield from iter_native_packed_batches(
@@ -62,6 +66,7 @@ class LeelaTarDataset:
             batch_size=self.batch_size,
             max_records=self.max_records,
             drop_last=self.drop_last,
+            prefetch_factor=self.prefetch_factor,
         )
 
 
