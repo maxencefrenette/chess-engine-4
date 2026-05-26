@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from chess_engine_4.training.scaling_laws import (
     extrapolate,
     fit_scaling_laws,
@@ -15,16 +17,16 @@ from chess_engine_4.training.scaling_laws import (
 
 def test_read_best_runs_and_extrapolate() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
-    assert [run.budget for run in best_runs] == ["1e14", "1e15", "1e16"]
+    assert [run.budget for run in best_runs] == ["1e18", "1e19"]
 
     laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e17)
+    suggestion = extrapolate(laws, 1e20)
 
-    assert 0.28 < laws.policy_top1.predict(1e15) < 0.30
+    assert 0.28 < laws.policy_top1.predict(1e18) < 0.30
     assert suggestion.d_model % 64 == 0
-    assert suggestion.depth >= 2
-    assert suggestion.batch_size in {1024, 1536, 2048}
-    assert suggestion.lr in {0.00015, 0.0002, 0.0003}
+    assert suggestion.depth >= 4
+    assert suggestion.batch_size in {4096, 6144, 8192}
+    assert suggestion.lr == pytest.approx(0.00015)
     assert suggestion.actual_params > best_runs[-1].params
 
 
@@ -42,14 +44,14 @@ def test_rounding_ladders() -> None:
 def test_write_report_artifacts(tmp_path: Path) -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
     laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e17)
+    suggestion = extrapolate(laws, 1e20)
 
     write_report_artifacts(
         output_dir=tmp_path,
         best_results=best_runs,
         laws=laws,
         suggestion=suggestion,
-        config="configs/mlp/1e16.toml",
+        config="configs/mlp/1e19.toml",
         gpu="t4",
     )
 

@@ -1,24 +1,24 @@
 [run]
-name = "1e16"
+name = "mlp-1e18"
 seed = 1
-compute_budget = 1e16
-step_penalty_k = 1.2
+compute_budget = 1e18
+step_penalty_k = 2.0
 
 [infra]
 gpu_type = "l4"
 
 [data]
-batch_size = 1024
+batch_size = 2048
 
 [model]
 kind = "mlp"
-d_model = 160
-depth = 6
+d_model = 80
+depth = 3
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 
 [optimizer]
-lr = 3e-4
+lr = 1.2e-3
 weight_decay = 0.01
 
 [loss]

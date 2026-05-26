@@ -1,50 +1,35 @@
-[runs.1e14]
-source_experiment = "experiments/2026-05-08.02-root-target-baselines"
+[runs.1e18]
+source_experiment = "experiments/2026-05-25.09-mlp-k2-baselines"
 model_kind = "mlp"
-run_name = "baseline-root-ckpt-1e14"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ndwnfs7n"
-checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e14-final.pt"
-compute = 1.0000272210964723e14
-d_model = 32
-depth = 1
-batch_size = 192
-lr = 1e-3
-params = 303206
-samples_seen = 6424896
-loss = 3.8842378568649294
-policy_top1 = 0.23598959058523178
-runtime_sec = 388.59342621
-
-[runs.1e15]
-source_experiment = "experiments/2026-05-08.02-root-target-baselines"
-model_kind = "mlp"
-run_name = "baseline-root-ckpt-1e15"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/8t0jrso3"
-checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e15-final.pt"
-compute = 1.000016852620080e15
+run_name = "mlp-k2-baseline-1e18"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/uc82h12d"
+compute = 1.0001563320370094e18
 d_model = 80
 depth = 3
-batch_size = 512
-lr = 7.071067811865475e-4
-params = 955062
-samples_seen = 20007936
-loss = 3.6072361159324644
-policy_top1 = 0.3023828125
-runtime_sec = 964.442146199
+batch_size = 2048
+lr = 1.2e-3
+params = 954742
+samples_seen = 18429952
+loss = 3.65481416716968
+loss_std = 0.13077298952883898
+loss_upper_1sd = 3.7855871566985186
+policy_top1 = 0.2895884571325935
+runtime_sec = 461.246225257
 
-[runs.1e16]
-source_experiment = "experiments/2026-05-08.02-root-target-baselines"
+[runs.1e19]
+source_experiment = "experiments/2026-05-25.09-mlp-k2-baselines"
 model_kind = "mlp"
-run_name = "baseline-root-ckpt-1e16"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/con1n4ql"
-checkpoint_path = "/artifacts/checkpoints/baseline-root-ckpt-1e16-final.pt"
-compute = 1.000009814060566e16
-d_model = 160
-depth = 6
-batch_size = 1024
-lr = 3e-4
-params = 3291142
-samples_seen = 55515136
-loss = 3.375380067825317
-policy_top1 = 0.355751953125
-runtime_sec = 2446.890764969
+run_name = "mlp-k2-baseline-1e19"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/540uftct"
+compute = 1.0000793379337669e19
+d_model = 192
+depth = 4
+batch_size = 4096
+lr = 4e-4
+params = 3505286
+samples_seen = 43384832
+loss = 3.451365342430188
+loss_std = 0.07384488452823268
+loss_upper_1sd = 3.525210226958421
+policy_top1 = 0.3370018195023429
+runtime_sec = 1029.771960393

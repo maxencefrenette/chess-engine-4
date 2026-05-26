@@ -27,7 +27,7 @@ from chess_engine_4.training.flops import (
 from chess_engine_4.training.losses import lczero_loss
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/mlp/1e15.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/mlp/1e18.toml")
 _LOG_EVERY = 10
 _NUM_WORKERS = 0
 _PREFETCH_FACTOR = 2

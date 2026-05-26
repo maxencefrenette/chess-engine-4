@@ -131,7 +131,7 @@ def scaling_laws() -> None:
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
     parser.add_argument("--gpu", default=None)
-    parser.add_argument("--config", default="configs/mlp/1e16.toml")
+    parser.add_argument("--config", default="configs/mlp/1e19.toml")
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--no-output", action="store_true")
     parser.add_argument("--write-config", type=Path, default=None)
@@ -705,8 +705,8 @@ def format_report(
         "# Hyperparameter Scaling Report",
         "",
         "This is a repo-local extrapolation from the current best W&B runs, not a claim that "
-        "the true scaling law is identified. With only three compute budgets, the fitted "
-        "curves are useful for choosing the next run and fragile as forecasts.",
+        "the true scaling law is identified. With only a small number of compute budgets, "
+        "the fitted curves are useful for choosing the next run and fragile as forecasts.",
         "",
         "## Best Observed Points",
         "",

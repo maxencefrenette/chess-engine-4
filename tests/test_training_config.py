@@ -66,7 +66,7 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/mlp/1e15.toml")
+    config = load_training_config("configs/mlp/1e18.toml")
 
     overridden = with_overrides(
         config,
@@ -132,8 +132,8 @@ def test_train_options_supports_max_steps() -> None:
     assert TrainOptions(max_steps=200).max_steps == 200
 
 
-def test_1e15_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/mlp/1e15.toml")
+def test_1e18_config_builds_expected_model_size() -> None:
+    config = load_training_config("configs/mlp/1e18.toml")
     model = MlpChessNet(config.model)
 
     parameter_count = sum(parameter.numel() for parameter in model.parameters())

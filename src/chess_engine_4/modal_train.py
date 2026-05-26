@@ -19,7 +19,7 @@ WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
-REMOTE_CONFIG_PATH = Path("configs/mlp/1e15.toml")
+REMOTE_CONFIG_PATH = Path("configs/mlp/1e18.toml")
 
 GPU_CHOICES = {
     "any": "any",

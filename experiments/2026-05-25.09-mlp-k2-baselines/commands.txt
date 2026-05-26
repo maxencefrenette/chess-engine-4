@@ -1,0 +1,2 @@
+uv run train-modal --config configs/mlp/1e18.toml --wandb-name mlp-k2-baseline-1e18
+uv run train-modal --config configs/mlp/1e19.toml --wandb-name mlp-k2-baseline-1e19

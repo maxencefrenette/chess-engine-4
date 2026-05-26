@@ -39,7 +39,7 @@ Set appropriate environment variables in `.env`. See `.env.example`.
 the W&B project configured in `.env`.
 
 ```sh
-uv run train --config configs/mlp/1e15.toml
+uv run train --config configs/mlp/1e18.toml
 ```
 
 To train the starter Transformer64 config:
@@ -51,19 +51,19 @@ uv run train --config configs/transformer64/1e14.toml
 For local dry runs without W&B:
 
 ```sh
-uv run train --config configs/mlp/1e15.toml --no-wandb --batch-size 4 --compute-budget 1e9 --device cpu
+uv run train --config configs/mlp/1e18.toml --no-wandb --batch-size 4 --compute-budget 1e9 --device cpu
 ```
 
 To save a final local checkpoint:
 
 ```sh
-uv run train --config configs/mlp/1e15.toml --checkpoint-dir checkpoints
+uv run train --config configs/mlp/1e18.toml --checkpoint-dir checkpoints
 ```
 
 To launch the same training loop on Modal:
 
 ```sh
-uv run train-modal --config configs/mlp/1e15.toml
+uv run train-modal --config configs/mlp/1e18.toml
 ```
 
 Modal training uses the GPU type from the model config by default. CUDA training is hardcoded to bf16 and requires a bf16-capable GPU such as L4 or newer; local CPU/MPS runs use fp32.
@@ -71,7 +71,7 @@ Modal training uses the GPU type from the model config by default. CUDA training
 To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 
 ```sh
-uv run train-modal --config configs/mlp/1e15.toml --save-checkpoints
+uv run train-modal --config configs/mlp/1e18.toml --save-checkpoints
 ```
 
 To convert a saved checkpoint into an lc0 ONNX weights file:
