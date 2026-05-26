@@ -22,6 +22,7 @@ rms_norm_eps = 1e-6
 [optimizer]
 lr = 1.2e-3
 weight_decay = 0.01
+lr_cooldown_frac = 0.1
 
 [loss]
 policy = 1.0

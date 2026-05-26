@@ -72,6 +72,7 @@ def train_modal() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
@@ -96,6 +97,7 @@ def train_modal() -> None:
         "depth": args.depth,
         "num_heads": args.num_heads,
         "lr": args.lr,
+        "lr_cooldown_frac": args.lr_cooldown_frac,
         "router_aux": args.router_aux,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
@@ -156,6 +158,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             depth=payload["depth"],
             num_heads=payload["num_heads"],
             lr=payload["lr"],
+            lr_cooldown_frac=payload["lr_cooldown_frac"],
             router_aux=payload["router_aux"],
             dataloader_threads=payload["dataloader_threads"],
             dataloader_prefetch_per_thread=payload["dataloader_prefetch_per_thread"],

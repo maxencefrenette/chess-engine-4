@@ -35,6 +35,7 @@ class DataConfig:
 class OptimizerConfig:
     lr: float = 3e-4
     weight_decay: float = 0.01
+    lr_cooldown_frac: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,7 @@ def with_overrides(
     depth: int | None = None,
     num_heads: int | None = None,
     lr: float | None = None,
+    lr_cooldown_frac: float | None = None,
     router_aux: float | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
@@ -98,6 +100,11 @@ def with_overrides(
         config = replace(config, model=replace(config.model, num_heads=num_heads))
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
+    if lr_cooldown_frac is not None:
+        config = replace(
+            config,
+            optimizer=replace(config.optimizer, lr_cooldown_frac=lr_cooldown_frac),
+        )
     if router_aux is not None:
         config = replace(config, loss=replace(config.loss, router_aux=router_aux))
     if dataloader_threads is not None:

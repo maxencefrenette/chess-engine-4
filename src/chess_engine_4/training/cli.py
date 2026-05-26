@@ -34,6 +34,7 @@ _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
+_LR_COOLDOWN_FINAL_MULTIPLIER = 0.1
 _BF16_TFLOPS_BY_GPU = {
     "NVIDIA L4": 121.0,
     "NVIDIA A10G": 125.0,
@@ -67,6 +68,7 @@ class TrainOptions:
     depth: int | None = None
     num_heads: int | None = None
     lr: float | None = None
+    lr_cooldown_frac: float | None = None
     router_aux: float | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
@@ -89,6 +91,7 @@ def train() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
@@ -111,6 +114,7 @@ def train() -> None:
             depth=args.depth,
             num_heads=args.num_heads,
             lr=args.lr,
+            lr_cooldown_frac=args.lr_cooldown_frac,
             router_aux=args.router_aux,
             dataloader_threads=args.dataloader_threads,
             dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
@@ -134,6 +138,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         depth=options.depth,
         num_heads=options.num_heads,
         lr=options.lr,
+        lr_cooldown_frac=options.lr_cooldown_frac,
         router_aux=options.router_aux,
         dataloader_threads=options.dataloader_threads,
         dataloader_prefetch_per_thread=options.dataloader_prefetch_per_thread,
@@ -201,6 +206,13 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     final_checkpoint_saved = False
     for step, batch in enumerate(islice(dataset, steps), start=1):
         planes, policy, value = _move_batch_to_device(batch, device=device)
+        current_lr = _set_scheduled_lr(
+            optimizer,
+            base_lr=config.optimizer.lr,
+            cooldown_frac=config.optimizer.lr_cooldown_frac,
+            step=step,
+            total_steps=steps,
+        )
 
         optimizer.zero_grad(set_to_none=True)
         with _autocast_context(device, precision=precision):
@@ -242,7 +254,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
                 grad_norm=grad_norm,
                 samples_seen=seen,
                 elapsed=elapsed,
-                lr=config.optimizer.lr,
+                lr=current_lr,
             )
             metrics["perf/flops_seen"] = flops_seen
             metrics["perf/compute_seen"] = compute_seen
@@ -566,6 +578,49 @@ def _mfu(*, flops: int, elapsed: float, theoretical_tflops: float) -> float:
     return flops / elapsed / (theoretical_tflops * 1e12)
 
 
+def _set_scheduled_lr(
+    optimizer: torch.optim.Optimizer,
+    *,
+    base_lr: float,
+    cooldown_frac: float,
+    step: int,
+    total_steps: int,
+) -> float:
+    lr = _scheduled_lr(
+        base_lr=base_lr,
+        cooldown_frac=cooldown_frac,
+        step=step,
+        total_steps=total_steps,
+    )
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+    return lr
+
+
+def _scheduled_lr(
+    *,
+    base_lr: float,
+    cooldown_frac: float,
+    step: int,
+    total_steps: int,
+) -> float:
+    if base_lr <= 0:
+        raise ValueError("base_lr must be positive.")
+    if not 0.0 <= cooldown_frac < 1.0:
+        raise ValueError("lr_cooldown_frac must be in [0, 1).")
+    if step <= 0 or total_steps <= 0:
+        raise ValueError("step and total_steps must be positive.")
+    cooldown_steps = round(total_steps * cooldown_frac)
+    if cooldown_steps <= 0:
+        return base_lr
+    cooldown_start = total_steps - cooldown_steps
+    if step <= cooldown_start:
+        return base_lr
+    progress = 1.0 if cooldown_steps == 1 else (step - cooldown_start) / cooldown_steps
+    multiplier = 1.0 - (1.0 - _LR_COOLDOWN_FINAL_MULTIPLIER) * progress
+    return base_lr * multiplier
+
+
 def _init_wandb(
     config: TrainingConfig,
     run_name: str | None,
@@ -628,6 +683,8 @@ def _init_wandb(
         ),
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
+        "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
+        "lr_cooldown_final_multiplier": _LR_COOLDOWN_FINAL_MULTIPLIER,
         "fused_adamw": device.type == "cuda",
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
