@@ -1,7 +1,7 @@
 [run]
-name = "mlp-1e19"
+name = "mlp-1e20"
 seed = 1
-compute_budget = 1e19
+compute_budget = 1e20
 step_penalty_k = 2.0
 
 [infra]
@@ -10,17 +10,17 @@ dataloader_threads = 4
 dataloader_prefetch_per_thread = 2
 
 [data]
-batch_size = 4096
+batch_size = 8192
 
 [model]
 kind = "mlp"
-d_model = 192
+d_model = 384
 depth = 4
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6
 
 [optimizer]
-lr = 5e-4
+lr = 4e-4
 weight_decay = 0.01
 
 [loss]
