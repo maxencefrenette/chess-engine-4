@@ -1,0 +1,10 @@
+# All runs used the MLP 1e19 config, L4 GPU, 500 training steps, W&B disabled, and a temporary Modal cpu=4 patch.
+
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 1 --wandb-name dlopt-cpu4-nw1
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 2 --wandb-name dlopt-cpu4-nw2
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-nw0-pinfalse
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-prefetch-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4-filesystem
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-direct-iter

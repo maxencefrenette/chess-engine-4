@@ -1,0 +1,9 @@
+candidate,modal_app,command,final_samples_per_sec,final_step_ms,avg_400_500_samples_per_sec,avg_400_500_step_ms,result
+baseline_num_workers_0_pin_memory,ap-KoCcYik80bVfCncczBWC0p,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-nw0",42442.6,96.5,42826.1,95.6,baseline
+num_workers_1,ap-2yJ659ljF2lMsN2NE426bq,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 1 --wandb-name dlopt-cpu4-nw1",10517.8,389.4,10756.4,380.8,rejected
+num_workers_2,ap-iLFBdV9bzbmdxlCpS2Ohj9,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 2 --wandb-name dlopt-cpu4-nw2",18434.0,222.2,18069.2,226.7,rejected
+num_workers_4,ap-aRgywmKArlXTqW7wuHAbhp,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4",19570.2,209.3,18640.9,219.7,rejected
+pin_memory_false,ap-4uDaOWaTFqUnntq6dnPwqm,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-nw0-pinfalse",43007.7,95.2,43050.0,95.1,rejected_noise
+cuda_stream_prefetch,ap-G53BvVxezKcB4nWSpFj2XO,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-prefetch-nw0",26803.3,152.8,27571.9,148.6,rejected
+num_workers_4_file_system,ap-dCxrqiZKpYtr0ng7ldnPhL,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4-filesystem",14261.5,287.2,14875.0,275.4,rejected
+direct_dataset_iteration,ap-wzdUD1gZtxNygbeopFLl5T,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-direct-iter",36291.7,112.9,38110.3,107.5,rejected
