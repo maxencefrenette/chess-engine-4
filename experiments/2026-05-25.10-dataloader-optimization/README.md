@@ -33,8 +33,9 @@ The worker and prefetch knobs did not help, but packed input planes did. Trainin
 | Dense policy float16 | 108.8 | 105.5 | Reject |
 | Dense policy float16 copied as bf16 | 90.9 | 85.9 | Reject |
 | Dense policy CPU bf16 | 75.8 | 81.8 | Reject |
+| Rust native loader | 39.2 | 37.4 | Keep |
 
-The kept change improves the final measured interval by about 40% versus the original baseline and about 16% versus the split `uint8` compact-plane path.
+The native loader improves the final measured interval by about 59% versus the original baseline and about 35% versus the previous best packed-plane Python loader.
 
 ## Interpretation
 
@@ -57,3 +58,24 @@ Sparse policy transfer was also slower. The first version built padded policy in
 Fixed-width compact policy with `K=218` was faster on the GPU loss in a synthetic benchmark, but slower end to end. The missing piece is host-side construction: online dense-to-compact conversion from LC0 records costs more than the transfer savings. This is still a good candidate for a future Rust/preprocessed dataloader, where policy compaction can happen while decoding records without Python or NumPy `nonzero` overhead.
 
 Dense half-precision policy transfer also underperformed. CPU-side `float16` materialization was cheap, but the full training path slowed down substantially. Converting the fp16 tensor to bf16 on-device helped but still lost. Building CPU bf16 policy tensors also lost. The current best path remains dense float32 policy with packed-plane training input.
+
+## CPU/GPU Breakdown
+
+A follow-up Modal profile on the best Python path used `configs/mlp/1e19.toml`, L4, batch size 4096, packed-plane input, dense float32 policy, `num_workers=0`, and `pin_memory=True`. It measured 200 steps after 50 warmup steps.
+
+| Bucket | Mean |
+| --- | ---: |
+| Total wall time | 70.55 ms/step |
+| CPU/dataloader fetch wall | 65.81 ms/step |
+| Exposed GPU idle gap | 62.71 ms/step |
+| H2D copy on GPU stream | 2.67 ms/step |
+| Train GPU kernels | 5.15 ms/step |
+| Copy + train GPU work | 7.82 ms/step |
+
+This profile says the current path is strongly CPU/dataloader-bound. The GPU does useful copy plus training work for roughly 11% of the step wall time, while the exposed idle gap is roughly 89%. Train-only throughput was about 17.3 TFLOP/s, or 14.3% MFU on L4 bf16; end-to-end MFU is much lower because the GPU mostly waits for the next batch.
+
+## Native Loader Follow-Up
+
+The first Rust loader keeps the same batch contract as the Python loader: packed planes, scalar planes, dense float32 policy, and value targets. It is exposed through `pyo3`/`maturin`, returns NumPy arrays to Python, and the training loop wraps those arrays with `torch.from_numpy`.
+
+A 500-step Modal benchmark on the same MLP `1e19` setup reached 39.2 ms/step on the final interval and 37.4 ms/step averaged over steps 400-500. That is about 35% faster than the previous best packed-plane Python loader at 57.7 ms/step. The native loader is now the only training dataloader.

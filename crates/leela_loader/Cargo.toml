@@ -1,0 +1,16 @@
+[package]
+name = "chess-engine-4-leela-loader"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "chess_engine_4_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+flate2 = "1.1"
+numpy = "0.27"
+pyo3 = { version = "0.27", features = ["extension-module"] }
+
+[package.metadata.maturin]
+module-name = "chess_engine_4_native"

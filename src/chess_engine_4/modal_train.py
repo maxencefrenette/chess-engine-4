@@ -41,9 +41,20 @@ wandb_secret = modal.Secret.from_name(WANDB_SECRET_NAME)
 
 image = (
     modal.Image.debian_slim(python_version="3.14")
+    .apt_install("curl", "build-essential", "pkg-config")
+    .run_commands(
+        "curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal",
+        "PATH=/root/.cargo/bin:$PATH rustc --version",
+    )
     .uv_sync()
     .env({"CHESS_ENGINE_4_DATA_PATH": REMOTE_DATA_PATH})
     .workdir("/root")
+    .add_local_dir("crates", remote_path="/root/crates", copy=True)
+    .run_commands(
+        "PATH=/root/.cargo/bin:$PATH uv run maturin develop "
+        "--manifest-path /root/crates/leela_loader/Cargo.toml --release",
+        "uv run python -c 'import chess_engine_4_native'",
+    )
     .add_local_python_source("chess_engine_4")
     .add_local_dir("configs", remote_path="/root/configs")
 )

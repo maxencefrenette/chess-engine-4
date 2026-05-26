@@ -1,0 +1,457 @@
+use std::collections::VecDeque;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::PathBuf;
+
+use flate2::read::GzDecoder;
+use numpy::{PyArray, PyArrayMethods};
+use pyo3::exceptions::{PyStopIteration, PyValueError};
+use pyo3::prelude::*;
+use pyo3::types::PyTuple;
+
+const POLICY_SIZE: usize = 1858;
+const HISTORY_PLANE_COUNT: usize = 104;
+const BOARD_SIZE: usize = 8;
+const PACKED_PLANE_BYTES: usize = HISTORY_PLANE_COUNT * BOARD_SIZE;
+const VALUE_TYPE_COUNT: usize = 6;
+const VALUE_FIELDS: usize = 3;
+const VALUE_COUNT: usize = VALUE_TYPE_COUNT * VALUE_FIELDS;
+const RECORD_SIZE: usize = 8356;
+
+const VERSION_OFFSET: usize = 0;
+const POLICY_OFFSET: usize = 8;
+const PLANES_OFFSET: usize = POLICY_OFFSET + POLICY_SIZE * 4;
+const CASTLING_US_OOO_OFFSET: usize = PLANES_OFFSET + PACKED_PLANE_BYTES;
+const CASTLING_US_OO_OFFSET: usize = CASTLING_US_OOO_OFFSET + 1;
+const CASTLING_THEM_OOO_OFFSET: usize = CASTLING_US_OO_OFFSET + 1;
+const CASTLING_THEM_OO_OFFSET: usize = CASTLING_THEM_OOO_OFFSET + 1;
+const SIDE_TO_MOVE_OFFSET: usize = CASTLING_THEM_OO_OFFSET + 1;
+const RULE50_OFFSET: usize = SIDE_TO_MOVE_OFFSET + 1;
+const ROOT_Q_OFFSET: usize = 8280;
+const BEST_Q_OFFSET: usize = 8284;
+const ROOT_D_OFFSET: usize = 8288;
+const BEST_D_OFFSET: usize = 8292;
+const ROOT_M_OFFSET: usize = 8296;
+const BEST_M_OFFSET: usize = 8300;
+const PLIES_LEFT_OFFSET: usize = 8304;
+const RESULT_Q_OFFSET: usize = 8308;
+const RESULT_D_OFFSET: usize = 8312;
+const PLAYED_Q_OFFSET: usize = 8316;
+const PLAYED_D_OFFSET: usize = 8320;
+const PLAYED_M_OFFSET: usize = 8324;
+const ORIG_Q_OFFSET: usize = 8328;
+const ORIG_D_OFFSET: usize = 8332;
+const ORIG_M_OFFSET: usize = 8336;
+
+#[pyclass(module = "chess_engine_4_native")]
+struct PackedBatchIterator {
+    paths: Vec<PathBuf>,
+    path_index: usize,
+    reader: Option<SimpleTarReader>,
+    pending: VecDeque<ChunkCursor>,
+    pending_records: usize,
+    batch_size: usize,
+    max_records: Option<usize>,
+    emitted_records: usize,
+    drop_last: bool,
+}
+
+#[pymethods]
+impl PackedBatchIterator {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
+        self.fill_pending()?;
+        if self.pending_records == 0 {
+            return Err(PyStopIteration::new_err(()));
+        }
+        if self.pending_records < self.batch_size && self.drop_last {
+            self.pending.clear();
+            self.pending_records = 0;
+            return Err(PyStopIteration::new_err(()));
+        }
+
+        let records = self.batch_size.min(self.pending_records);
+        let batch = self.build_batch(py, records)?;
+        self.emitted_records += records;
+        self.pending_records -= records;
+        Ok(batch)
+    }
+}
+
+impl PackedBatchIterator {
+    fn fill_pending(&mut self) -> PyResult<()> {
+        while self.pending_records < self.batch_size {
+            if let Some(max_records) = self.max_records {
+                if self.emitted_records + self.pending_records >= max_records {
+                    break;
+                }
+            }
+            let Some(payload) = self.next_payload()? else {
+                break;
+            };
+            if payload.is_empty() {
+                continue;
+            }
+            if payload.len() % RECORD_SIZE != 0 {
+                return Err(PyValueError::new_err(format!(
+                    "LCZero chunk has {} bytes, not a multiple of {}",
+                    payload.len(),
+                    RECORD_SIZE
+                )));
+            }
+            validate_versions(&payload)?;
+            let mut records = payload.len() / RECORD_SIZE;
+            if let Some(max_records) = self.max_records {
+                let remaining =
+                    max_records.saturating_sub(self.emitted_records + self.pending_records);
+                records = records.min(remaining);
+            }
+            if records == 0 {
+                break;
+            }
+            self.pending.push_back(ChunkCursor {
+                bytes: payload,
+                record_offset: 0,
+                records,
+            });
+            self.pending_records += records;
+        }
+        Ok(())
+    }
+
+    fn next_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
+        loop {
+            if self.reader.is_none() {
+                if self.path_index >= self.paths.len() {
+                    return Ok(None);
+                }
+                let path = self.paths[self.path_index].clone();
+                self.path_index += 1;
+                self.reader = Some(SimpleTarReader::open(path)?);
+            }
+            let reader = self.reader.as_mut().expect("reader was just opened");
+            match reader.next_regular_payload()? {
+                Some(payload) => return Ok(Some(payload)),
+                None => self.reader = None,
+            }
+        }
+    }
+
+    fn build_batch<'py>(
+        &mut self,
+        py: Python<'py>,
+        records: usize,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let mut packed_planes = vec![0_u8; records * PACKED_PLANE_BYTES];
+        let mut scalars = vec![0.0_f32; records * 8];
+        let mut policy = vec![0.0_f32; records * POLICY_SIZE];
+        let mut value = vec![0.0_f32; records * VALUE_COUNT];
+
+        let mut out_record = 0;
+        while out_record < records {
+            let front = self
+                .pending
+                .front_mut()
+                .expect("pending record count is non-zero");
+            let available = front.records - front.record_offset;
+            let take = available.min(records - out_record);
+            for index in 0..take {
+                let record = front.record(index);
+                copy_record(
+                    record,
+                    out_record + index,
+                    &mut packed_planes,
+                    &mut scalars,
+                    &mut policy,
+                    &mut value,
+                );
+            }
+            front.record_offset += take;
+            out_record += take;
+            if front.record_offset == front.records {
+                self.pending.pop_front();
+            }
+        }
+
+        let packed_planes = PyArray::from_vec(py, packed_planes).reshape([
+            records,
+            HISTORY_PLANE_COUNT,
+            BOARD_SIZE,
+        ])?;
+        let scalars = PyArray::from_vec(py, scalars).reshape([records, 8])?;
+        let policy = PyArray::from_vec(py, policy).reshape([records, POLICY_SIZE])?;
+        let value =
+            PyArray::from_vec(py, value).reshape([records, VALUE_TYPE_COUNT, VALUE_FIELDS])?;
+        PyTuple::new(
+            py,
+            [
+                packed_planes.into_any(),
+                scalars.into_any(),
+                policy.into_any(),
+                value.into_any(),
+            ],
+        )
+    }
+}
+
+struct ChunkCursor {
+    bytes: Vec<u8>,
+    record_offset: usize,
+    records: usize,
+}
+
+impl ChunkCursor {
+    fn record(&self, offset: usize) -> &[u8] {
+        let start = (self.record_offset + offset) * RECORD_SIZE;
+        &self.bytes[start..start + RECORD_SIZE]
+    }
+}
+
+struct SimpleTarReader {
+    file: File,
+    path: PathBuf,
+}
+
+impl SimpleTarReader {
+    fn open(path: PathBuf) -> PyResult<Self> {
+        let file = File::open(&path).map_err(|error| {
+            PyValueError::new_err(format!("failed to open {}: {error}", path.display()))
+        })?;
+        Ok(Self { file, path })
+    }
+
+    fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
+        loop {
+            let mut header = [0_u8; 512];
+            if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
+                PyValueError::new_err(format!("failed to read {}: {error}", self.path.display()))
+            })? {
+                return Ok(None);
+            }
+            if header.iter().all(|byte| *byte == 0) {
+                return Ok(None);
+            }
+
+            let size = parse_tar_size(&header[124..136])?;
+            let typeflag = header[156];
+            let name = tar_name(&header);
+            let padded_size = size.div_ceil(512) * 512;
+
+            if typeflag == b'0' || typeflag == 0 {
+                let mut payload = vec![0_u8; size];
+                self.file.read_exact(&mut payload).map_err(|error| {
+                    PyValueError::new_err(format!(
+                        "failed to read {} member {name}: {error}",
+                        self.path.display()
+                    ))
+                })?;
+                if padded_size > size {
+                    self.file
+                        .seek(SeekFrom::Current((padded_size - size) as i64))
+                        .map_err(|error| {
+                            PyValueError::new_err(format!(
+                                "failed to seek {} member padding: {error}",
+                                self.path.display()
+                            ))
+                        })?;
+                }
+                if name.rsplit('/').next() == Some("LICENSE") {
+                    continue;
+                }
+                return decompress_if_gzip(payload);
+            }
+
+            self.file
+                .seek(SeekFrom::Current(padded_size as i64))
+                .map_err(|error| {
+                    PyValueError::new_err(format!(
+                        "failed to skip {} member {name}: {error}",
+                        self.path.display()
+                    ))
+                })?;
+        }
+    }
+}
+
+#[pyfunction]
+fn iter_packed_batches(
+    paths: Vec<PathBuf>,
+    batch_size: usize,
+    max_records: Option<usize>,
+    drop_last: bool,
+) -> PyResult<PackedBatchIterator> {
+    if batch_size == 0 {
+        return Err(PyValueError::new_err("batch_size must be positive"));
+    }
+    Ok(PackedBatchIterator {
+        paths,
+        path_index: 0,
+        reader: None,
+        pending: VecDeque::new(),
+        pending_records: 0,
+        batch_size,
+        max_records,
+        emitted_records: 0,
+        drop_last,
+    })
+}
+
+#[pymodule]
+fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(iter_packed_batches, module)?)?;
+    module.add("POLICY_SIZE", POLICY_SIZE)?;
+    module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;
+    module.add("BOARD_SIZE", BOARD_SIZE)?;
+    module.add("RECORD_SIZE", RECORD_SIZE)?;
+    Ok(())
+}
+
+fn read_exact_or_eof(file: &mut File, buffer: &mut [u8]) -> std::io::Result<bool> {
+    let mut read = 0;
+    while read < buffer.len() {
+        let count = file.read(&mut buffer[read..])?;
+        if count == 0 {
+            if read == 0 {
+                return Ok(false);
+            }
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "partial tar header",
+            ));
+        }
+        read += count;
+    }
+    Ok(true)
+}
+
+fn parse_tar_size(bytes: &[u8]) -> PyResult<usize> {
+    let nul_pos = bytes
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(bytes.len());
+    let text = std::str::from_utf8(&bytes[..nul_pos])
+        .map_err(|error| PyValueError::new_err(format!("invalid tar size bytes: {error}")))?
+        .trim();
+    if text.is_empty() {
+        return Ok(0);
+    }
+    usize::from_str_radix(text, 8)
+        .map_err(|error| PyValueError::new_err(format!("invalid tar size {text:?}: {error}")))
+}
+
+fn tar_name(header: &[u8; 512]) -> String {
+    let name_end = header[..100]
+        .iter()
+        .position(|byte| *byte == 0)
+        .unwrap_or(100);
+    String::from_utf8_lossy(&header[..name_end]).to_string()
+}
+
+fn decompress_if_gzip(payload: Vec<u8>) -> PyResult<Option<Vec<u8>>> {
+    if payload.len() >= 2 && payload[0] == 0x1f && payload[1] == 0x8b {
+        let mut decoder = GzDecoder::new(payload.as_slice());
+        let mut decompressed = Vec::new();
+        decoder.read_to_end(&mut decompressed).map_err(|error| {
+            PyValueError::new_err(format!("gzip decompression failed: {error}"))
+        })?;
+        return Ok(Some(decompressed));
+    }
+    Ok(Some(payload))
+}
+
+fn validate_versions(payload: &[u8]) -> PyResult<()> {
+    for record in payload.chunks_exact(RECORD_SIZE) {
+        let version = read_u32(record, VERSION_OFFSET);
+        if version != 6 {
+            return Err(PyValueError::new_err(format!(
+                "unsupported LCZero record version {version}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn copy_record(
+    record: &[u8],
+    out_record: usize,
+    packed_planes: &mut [u8],
+    scalars: &mut [f32],
+    policy: &mut [f32],
+    value: &mut [f32],
+) {
+    let planes_start = out_record * PACKED_PLANE_BYTES;
+    packed_planes[planes_start..planes_start + PACKED_PLANE_BYTES]
+        .copy_from_slice(&record[PLANES_OFFSET..PLANES_OFFSET + PACKED_PLANE_BYTES]);
+
+    let scalars_start = out_record * 8;
+    scalars[scalars_start] = record[CASTLING_US_OOO_OFFSET] as f32;
+    scalars[scalars_start + 1] = record[CASTLING_US_OO_OFFSET] as f32;
+    scalars[scalars_start + 2] = record[CASTLING_THEM_OOO_OFFSET] as f32;
+    scalars[scalars_start + 3] = record[CASTLING_THEM_OO_OFFSET] as f32;
+    scalars[scalars_start + 4] = record[SIDE_TO_MOVE_OFFSET] as f32;
+    scalars[scalars_start + 5] = record[RULE50_OFFSET] as f32 / 99.0;
+    scalars[scalars_start + 6] = 0.0;
+    scalars[scalars_start + 7] = 1.0;
+
+    let policy_start = out_record * POLICY_SIZE;
+    copy_f32_bytes(
+        &record[POLICY_OFFSET..POLICY_OFFSET + POLICY_SIZE * 4],
+        &mut policy[policy_start..policy_start + POLICY_SIZE],
+    );
+
+    let value_start = out_record * VALUE_COUNT;
+    value[value_start] = read_f32(record, RESULT_Q_OFFSET);
+    value[value_start + 1] = read_f32(record, RESULT_D_OFFSET);
+    value[value_start + 2] = read_f32(record, PLIES_LEFT_OFFSET);
+    value[value_start + 3] = read_f32(record, BEST_Q_OFFSET);
+    value[value_start + 4] = read_f32(record, BEST_D_OFFSET);
+    value[value_start + 5] = read_f32(record, BEST_M_OFFSET);
+    value[value_start + 6] = read_f32(record, PLAYED_Q_OFFSET);
+    value[value_start + 7] = read_f32(record, PLAYED_D_OFFSET);
+    value[value_start + 8] = read_f32(record, PLAYED_M_OFFSET);
+    value[value_start + 9] = read_f32(record, ORIG_Q_OFFSET);
+    value[value_start + 10] = read_f32(record, ORIG_D_OFFSET);
+    value[value_start + 11] = read_f32(record, ORIG_M_OFFSET);
+    value[value_start + 12] = read_f32(record, ROOT_Q_OFFSET);
+    value[value_start + 13] = read_f32(record, ROOT_D_OFFSET);
+    value[value_start + 14] = read_f32(record, ROOT_M_OFFSET);
+    value[value_start + 15] = 0.0;
+    value[value_start + 16] = 0.0;
+    value[value_start + 17] = f32::NAN;
+}
+
+fn read_u32(record: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes(
+        record[offset..offset + 4]
+            .try_into()
+            .expect("u32 offset is valid"),
+    )
+}
+
+fn read_f32(record: &[u8], offset: usize) -> f32 {
+    f32::from_le_bytes(
+        record[offset..offset + 4]
+            .try_into()
+            .expect("f32 offset is valid"),
+    )
+}
+
+fn copy_f32_bytes(bytes: &[u8], output: &mut [f32]) {
+    debug_assert_eq!(bytes.len(), output.len() * 4);
+    if cfg!(target_endian = "little") {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                bytes.as_ptr(),
+                output.as_mut_ptr().cast::<u8>(),
+                bytes.len(),
+            );
+        }
+    } else {
+        for (chunk, value) in bytes.chunks_exact(4).zip(output.iter_mut()) {
+            *value = f32::from_le_bytes(chunk.try_into().expect("chunk has four bytes"));
+        }
+    }
+}

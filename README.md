@@ -35,6 +35,15 @@ uv sync --dev
 
 Set appropriate environment variables in `.env`. See `.env.example`.
 
+For local training, build the Rust dataloader extension once:
+
+```sh
+uv run maturin develop --manifest-path crates/leela_loader/Cargo.toml --release
+```
+
+Training requires the native dataloader. Modal builds it into the training image
+automatically.
+
 `uv run train` trains the model selected by `[model].kind` and logs metrics to
 the W&B project configured in `.env`.
 
