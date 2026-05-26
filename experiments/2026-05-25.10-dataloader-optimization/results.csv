@@ -10,3 +10,9 @@ direct_dataset_iteration,ap-wzdUD1gZtxNygbeopFLl5T,"uv run train-modal --config 
 fp16_cpu_planes,ap-QdkyZLma9dWHdgRfFMtmc3,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-fp16-planes-nw0",15654.2,261.7,15324.2,267.3,rejected
 float32_cpu_bf16_cuda_copy,ap-vW3QPuT0fJm9cormZ9xr57,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-bf16-copy-nw0",41162.4,99.5,40922.6,100.1,rejected
 split_uint8_binary_planes,ap-nnP3my57uO8SrW74UD9yRi,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-split-uint8-planes-nw0",60940.8,67.2,59494.0,68.8,kept
+packed_byte_planes_bitshift_unpack,ap-uF2JaqDJ2RbLaCLxwWj0lb,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-byte-planes-nw0",44436.1,92.2,44210.0,92.6,rejected
+packed_byte_planes_lut_unpack,ap-gCDVGaxTOlHojV2CkLfEhQ,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-byte-lut-planes-nw0",57027.5,71.8,57089.7,71.7,rejected
+sparse_policy_cumsum,ap-FXU3cnV0hB9tGAENYmR9EF,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-sparse-policy-nw0",39205.9,104.5,39462.1,103.8,rejected
+sparse_policy_rank,ap-yuSbSqsSdFAGVK3iq1eK5Y,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-sparse-policy-rank-nw0",45455.8,90.1,46713.2,87.7,rejected
+packed_byte_planes_compiled_model_unpack,ap-GWZGztRVoFtaSdVVV24VMn,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-inside-compile-nw0",65654.4,62.4,67682.6,60.5,kept
+packed_byte_planes_training_wrapper,ap-T4KCdzPSGFssAWGSG97jWm,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-training-wrapper-nw0",67498.4,60.7,71002.5,57.7,kept

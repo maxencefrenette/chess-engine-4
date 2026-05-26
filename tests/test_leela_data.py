@@ -12,8 +12,8 @@ from chess_engine_4.data.leela import (
     LEELA_V6_DTYPE,
     V6_RECORD_SIZE,
     LeelaTarDataset,
+    packed_planes_from_frames,
     parse_frame_chunk,
-    planes_from_frames,
     resolve_data_paths,
     tensors_from_frames,
 )
@@ -55,22 +55,16 @@ def test_tensors_from_frames_matches_lc0_shapes_and_fields() -> None:
     assert torch.isnan(batch.value[0, 5, 2])
 
 
-def test_tensors_from_frames_supports_compact_planes() -> None:
+def test_tensors_from_frames_supports_packed_planes() -> None:
     frames = parse_frame_chunk(_records(2))
 
-    compact = tensors_from_frames(frames, compact_planes=True)
-    dense_planes = planes_from_frames(frames)
+    packed = tensors_from_frames(frames, packed_planes=True)
 
-    assert tuple(compact.binary_planes.shape) == (2, 104, 8, 8)
-    assert tuple(compact.plane_scalars.shape) == (2, 8)
-    assert compact.binary_planes.dtype == torch.uint8
-    assert compact.plane_scalars.dtype == torch.float32
-    np.testing.assert_array_equal(compact.binary_planes.numpy(), dense_planes[:, :104])
-    scalar_planes = np.broadcast_to(
-        compact.plane_scalars.numpy()[:, :, None, None],
-        dense_planes[:, 104:].shape,
-    )
-    np.testing.assert_allclose(scalar_planes, dense_planes[:, 104:])
+    assert tuple(packed.packed_planes.shape) == (2, 104, 8)
+    assert tuple(packed.plane_scalars.shape) == (2, 8)
+    assert packed.packed_planes.dtype == torch.uint8
+    assert packed.plane_scalars.dtype == torch.float32
+    np.testing.assert_array_equal(packed.packed_planes.numpy(), packed_planes_from_frames(frames))
 
 
 def test_leela_tar_dataset_yields_tensor_batches_from_gzip_members(tmp_path: Path) -> None:
@@ -85,25 +79,10 @@ def test_leela_tar_dataset_yields_tensor_batches_from_gzip_members(tmp_path: Pat
     batches = list(LeelaTarDataset(tar_path, batch_size=2))
 
     assert len(batches) == 2
-    assert tuple(batches[0][0].shape) == (2, 112, 8, 8)
-    assert tuple(batches[1][0].shape) == (1, 112, 8, 8)
-
-
-def test_leela_tar_dataset_can_yield_compact_plane_batches(tmp_path: Path) -> None:
-    tar_path = tmp_path / "training.tar"
-    payload = gzip.compress(_records(3))
-    info = tarfile.TarInfo("training.1.gz")
-    info.size = len(payload)
-
-    with tarfile.open(tar_path, "w") as tar:
-        tar.addfile(info, io.BytesIO(payload))
-
-    batches = list(LeelaTarDataset(tar_path, batch_size=2, compact_planes=True))
-
-    assert len(batches) == 2
-    assert tuple(batches[0][0].shape) == (2, 104, 8, 8)
+    assert tuple(batches[0][0].shape) == (2, 104, 8)
     assert tuple(batches[0][1].shape) == (2, 8)
     assert tuple(batches[0][2].shape) == (2, 1858)
+    assert tuple(batches[1][0].shape) == (1, 104, 8)
 
 
 def test_resolve_data_paths_loads_dotenv(tmp_path: Path, monkeypatch) -> None:

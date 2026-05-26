@@ -15,8 +15,6 @@ from torch.utils.data import DataLoader
 
 from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
-    HISTORY_PLANE_COUNT,
-    INPUT_PLANE_COUNT,
     LeelaTarDataset,
 )
 from chess_engine_4.model import build_model
@@ -27,6 +25,7 @@ from chess_engine_4.training.flops import (
     steps_for_compute_budget,
 )
 from chess_engine_4.training.losses import lczero_loss
+from chess_engine_4.training.packed_input import PackedInputTrainingModel
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _DEFAULT_CONFIG_PATH = Path("configs/mlp/1e18.toml")
@@ -164,12 +163,12 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         options.data,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
-        compact_planes=device.type == "cuda",
     )
     num_workers = options.num_workers if options.num_workers is not None else _NUM_WORKERS
     dataloader = _build_dataloader(dataset, device=device, num_workers=num_workers)
-    model = _compile_model_for_training(
-        build_model(config.model).to(device),
+    model = build_model(config.model).to(device)
+    training_model = _compile_model_for_training(
+        PackedInputTrainingModel(model).to(device),
         device=device,
     )
     optimizer = _build_optimizer(model, config=config, device=device)
@@ -190,7 +189,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         else None
     )
 
-    model.train()
+    training_model.train()
     start = time.perf_counter()
     interval_start = start
     interval_step = 0
@@ -206,7 +205,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
 
         optimizer.zero_grad(set_to_none=True)
         with _autocast_context(device, precision=precision):
-            output = model(planes)
+            output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
         loss.total.backward()
         should_log = step == 1 or step % _LOG_EVERY == 0 or step == steps
@@ -219,7 +218,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         grad_norm = _gradient_norm(model) if should_log or should_checkpoint else 0.0
         optimizer.step()
 
-        seen += planes.shape[0]
+        seen += _input_batch_size(planes)
         completed_steps = step
         flops_seen = seen * flops_per_sample
         compute_seen = step_adjusted_compute(
@@ -426,29 +425,18 @@ def _move_batch_to_device(
     batch: tuple[torch.Tensor, ...],
     *,
     device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[Any, torch.Tensor, torch.Tensor]:
     non_blocking = device.type == "cuda"
     if len(batch) == 4:
         plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
-        binary_planes, plane_scalars, policy, value = batch
-        binary_planes = binary_planes.to(device=device, non_blocking=non_blocking)
+        packed_planes, plane_scalars, policy, value = batch
+        packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
         plane_scalars = plane_scalars.to(
             device=device,
             dtype=plane_dtype,
             non_blocking=non_blocking,
         )
-        planes = torch.empty(
-            (
-                binary_planes.shape[0],
-                INPUT_PLANE_COUNT,
-                binary_planes.shape[2],
-                binary_planes.shape[3],
-            ),
-            device=device,
-            dtype=plane_dtype,
-        )
-        planes[:, :HISTORY_PLANE_COUNT].copy_(binary_planes)
-        planes[:, HISTORY_PLANE_COUNT:] = plane_scalars[:, :, None, None]
+        planes = (packed_planes, plane_scalars)
     else:
         planes, policy, value = batch
         planes = planes.to(device=device, non_blocking=non_blocking)
@@ -457,6 +445,12 @@ def _move_batch_to_device(
         policy.to(device, non_blocking=non_blocking),
         value.to(device, non_blocking=non_blocking),
     )
+
+
+def _input_batch_size(planes: Any) -> int:
+    if isinstance(planes, tuple):
+        return int(planes[0].shape[0])
+    return int(planes.shape[0])
 
 
 def _autocast_context(device: torch.device, *, precision: str) -> Any:

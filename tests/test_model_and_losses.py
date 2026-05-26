@@ -4,6 +4,7 @@ import math
 
 import torch
 
+from chess_engine_4.data.leela import HISTORY_PLANE_COUNT, INPUT_PLANE_COUNT
 from chess_engine_4.model import (
     MlpChessNet,
     MlpChessNetConfig,
@@ -21,6 +22,7 @@ from chess_engine_4.training.losses import (
     value_cross_entropy,
     wdl_target_from_q_d,
 )
+from chess_engine_4.training.packed_input import PackedInputTrainingModel
 
 
 def test_mlp_chess_net_shapes() -> None:
@@ -70,6 +72,40 @@ def test_transformer64_chess_net_shapes() -> None:
     assert tuple(output.policy_logits.shape) == (3, 1858)
     assert tuple(output.wdl_logits.shape) == (3, 3)
     assert tuple(output.moves_left.shape) == (3,)
+
+
+def test_packed_training_wrapper_matches_mlp_dense_input() -> None:
+    model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
+
+    _assert_packed_training_wrapper_matches_dense_model(model)
+
+
+def test_packed_training_wrapper_matches_mlp_moe_dense_input() -> None:
+    model = MlpMoeChessNet(
+        MlpMoeChessNetConfig(
+            d_model=32,
+            depth=2,
+            num_experts=16,
+            num_experts_per_token=2,
+            expert_mlp_ratio=2.0,
+        )
+    )
+
+    _assert_packed_training_wrapper_matches_dense_model(model)
+
+
+def test_packed_training_wrapper_matches_transformer64_dense_input() -> None:
+    model = Transformer64ChessNet(
+        Transformer64ChessNetConfig(
+            d_model=32,
+            depth=2,
+            num_heads=4,
+            mlp_ratio=2.0,
+            policy=AttentionPolicyHeadConfig(embedding_size=32, d_model=32),
+        )
+    )
+
+    _assert_packed_training_wrapper_matches_dense_model(model)
 
 
 def test_attention_policy_head_uses_lc0_attention_space() -> None:
@@ -156,3 +192,21 @@ def test_lczero_loss_includes_router_aux() -> None:
 
     assert with_aux.router_aux.item() > 0
     assert with_aux.total.item() > without_aux.total.item()
+
+
+def _assert_packed_training_wrapper_matches_dense_model(model: torch.nn.Module) -> None:
+    packed_planes = torch.zeros(3, HISTORY_PLANE_COUNT, 8, dtype=torch.uint8)
+    packed_planes[:, 0, 0] = 0x80
+    plane_scalars = torch.zeros(3, INPUT_PLANE_COUNT - HISTORY_PLANE_COUNT)
+    plane_scalars[:, -1] = 1.0
+
+    dense = torch.zeros(3, INPUT_PLANE_COUNT, 8, 8)
+    dense[:, 0, 0, 0] = 1.0
+    dense[:, -1] = 1.0
+
+    packed_output = PackedInputTrainingModel(model)((packed_planes, plane_scalars))
+    dense_output = model(dense)
+
+    torch.testing.assert_close(packed_output.policy_logits, dense_output.policy_logits)
+    torch.testing.assert_close(packed_output.wdl_logits, dense_output.wdl_logits)
+    torch.testing.assert_close(packed_output.moves_left, dense_output.moves_left)
