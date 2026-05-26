@@ -35,3 +35,24 @@ policy_top1 = 0.35150001274800236
 router_dead_experts = 0.0
 router_dead_experts_max = 0.0
 runtime_sec = 1593.614530243
+
+[runs.1e20]
+source_experiment = "experiments/2026-05-26.02-mlp-moe16a2-1e20-retune"
+model_kind = "mlp_moe"
+run_name = "moe16a2-retune-1e20-grid3-d320x4-b12288-lr0.0005-a3e-2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/2utqblr5"
+compute = 1.0001362844480628e20
+d_model = 320
+depth = 4
+batch_size = 12288
+lr = 5e-4
+router_aux = 0.03
+params = 42233862
+samples_seen = 159694848
+loss = 3.199818082843349
+loss_std = 0.036701576589735684
+loss_upper_1sd = 3.236519659433085
+policy_top1 = 0.4137125002348904
+router_dead_experts = 0.0
+router_dead_experts_max = 0.0
+runtime_sec = 855.191887474
