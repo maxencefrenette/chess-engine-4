@@ -23,3 +23,4 @@ dense_policy_fp16,ap-uICCP6tB7L9YLupNF2HpiM,"uv run train-modal --config configs
 dense_policy_fp16_to_bf16,ap-VzZbKsjc3UyC7Hx2a3dD4N,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-fp16-to-bf16-nw0",45037.8,90.9,47701.9,85.9,rejected
 dense_policy_bf16_cpu,ap-2daxQ75bFPw3ZaLtrMgctr,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-bf16-cpu-nw0",54034.1,75.8,50059.1,81.8,rejected
 rust_native_loader,ap-7GYKroSOCHu3hoRgxHqxak,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name native-loader-bench-500-logs",104444.0,39.2,109621.4,37.4,kept
+rust_compact_policy_fp16,ap-aLN2bp1x98S18e090OdXPr,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name compact-policy-fp16-bench-500",130018.5,31.5,128342.7,31.9,kept

@@ -16,6 +16,7 @@ from chess_engine_4.data.native import iter_native_packed_batches
 DEFAULT_DATA_ENV_VAR = "CHESS_ENGINE_4_DATA_PATH"
 
 POLICY_SIZE = 1858
+COMPACT_POLICY_SIZE = 218
 INPUT_PLANE_COUNT = 112
 HISTORY_PLANE_COUNT = 104
 BOARD_SIZE = 8
@@ -30,8 +31,8 @@ class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, ...]]):
     Output contract:
     - packed_planes: uint8 tensor shaped [batch, 104, 8]
     - plane_scalars: float32 tensor shaped [batch, 8]
-    - policy: float32 tensor shaped [batch, 1858], preserving LCZero's -1
-      illegal-move sentinel values
+    - policy_indices: int16 tensor shaped [batch, 218], padded with -1
+    - policy_probs: float16 tensor shaped [batch, 218], padded with 0
     - value: float32 tensor shaped [batch, 6, 3] with rows:
       result, best, played, orig, root, short-term
 

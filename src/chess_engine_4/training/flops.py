@@ -6,7 +6,7 @@ import math
 
 import torch
 
-from chess_engine_4.data.leela import POLICY_SIZE
+from chess_engine_4.data.leela import COMPACT_POLICY_SIZE
 from chess_engine_4.training.losses import lczero_loss
 
 
@@ -29,13 +29,21 @@ def measure_training_flops_per_sample(
     device = torch.device("meta")
     profile_dtype = getattr(model, "flops_profile_dtype", torch.float32)
     planes = torch.zeros(profile_batch_size, 112, 8, 8, device=device, dtype=profile_dtype)
-    policy = torch.full(
-        (profile_batch_size, POLICY_SIZE),
-        -1.0,
+    policy_indices = torch.full(
+        (profile_batch_size, COMPACT_POLICY_SIZE),
+        -1,
+        device=device,
+        dtype=torch.int16,
+    )
+    policy_indices[:, 0] = 0
+    policy_probs = torch.zeros(
+        profile_batch_size,
+        COMPACT_POLICY_SIZE,
         device=device,
         dtype=profile_dtype,
     )
-    policy[:, 0] = 1.0
+    policy_probs[:, 0] = 1.0
+    policy = (policy_indices, policy_probs)
     values = torch.zeros(profile_batch_size, 6, 3, device=device, dtype=profile_dtype)
     values[:, 0, 1] = 1.0
 

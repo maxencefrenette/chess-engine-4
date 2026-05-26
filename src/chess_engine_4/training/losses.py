@@ -33,13 +33,24 @@ class LossBreakdown:
     router_aux: torch.Tensor
 
 
-def policy_cross_entropy(policy_logits: torch.Tensor, policy_target: torch.Tensor) -> torch.Tensor:
-    """Soft-label policy cross entropy with LCZero illegal-move masking."""
+type PolicyTarget = tuple[torch.Tensor, torch.Tensor]
 
-    legal = policy_target >= 0
-    masked_logits = policy_logits.masked_fill(~legal, torch.finfo(policy_logits.dtype).min)
-    targets = policy_target.relu()
-    log_probs = nn.functional.log_softmax(masked_logits, dim=-1)
+
+def policy_cross_entropy(policy_logits: torch.Tensor, policy_target: PolicyTarget) -> torch.Tensor:
+    """Soft-label policy cross entropy over compact legal move targets."""
+
+    policy_indices, policy_probs = policy_target
+    valid = policy_indices >= 0
+    gathered_logits = policy_logits.gather(
+        dim=-1,
+        index=policy_indices.clamp_min(0).long(),
+    )
+    gathered_logits = gathered_logits.masked_fill(
+        ~valid,
+        torch.finfo(gathered_logits.dtype).min,
+    )
+    log_probs = nn.functional.log_softmax(gathered_logits, dim=-1).float()
+    targets = policy_probs.float()
     return -(targets * log_probs).sum(dim=-1).mean()
 
 
@@ -69,7 +80,7 @@ def moves_left_loss(moves_left: torch.Tensor, values: torch.Tensor) -> torch.Ten
 
 def lczero_loss(
     output: ChessNetOutput,
-    policy_target: torch.Tensor,
+    policy_target: PolicyTarget,
     values: torch.Tensor,
     *,
     weights: LossWeights | None = None,

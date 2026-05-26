@@ -339,20 +339,21 @@ def inspect_data() -> None:
 
     dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.records)
     seen = 0
-    for packed_planes, plane_scalars, policy, value in dataset:
+    for packed_planes, plane_scalars, policy_indices, policy_probs, value in dataset:
         batch_size = packed_planes.shape[0]
-        legal = policy >= 0
-        legal_policy_sum = policy.masked_fill(~legal, 0).sum(dim=1)
-        illegal_count = (~legal).sum(dim=1)
+        legal = policy_indices >= 0
+        legal_policy_sum = policy_probs.float().sum(dim=1)
+        legal_count = legal.sum(dim=1)
         seen += batch_size
         print(
             f"records={seen} "
             f"packed_planes={tuple(packed_planes.shape)} "
             f"plane_scalars={tuple(plane_scalars.shape)} "
-            f"policy={tuple(policy.shape)} "
+            f"policy_indices={tuple(policy_indices.shape)} "
+            f"policy_probs={tuple(policy_probs.shape)} "
             f"value={tuple(value.shape)} "
             f"legal_policy_sum=[{legal_policy_sum.min():.4f}, {legal_policy_sum.max():.4f}] "
-            f"illegal_moves=[{illegal_count.min()}, {illegal_count.max()}] "
+            f"legal_moves=[{legal_count.min()}, {legal_count.max()}] "
             f"root_m=[{value[:, 4, 2].min():.1f}, {value[:, 4, 2].max():.1f}]"
         )
 
@@ -364,10 +365,11 @@ def sample_batch() -> None:
     args = parser.parse_args()
 
     dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.batch_size)
-    packed_planes, plane_scalars, policy, value = next(iter(dataset))
+    packed_planes, plane_scalars, policy_indices, policy_probs, value = next(iter(dataset))
     print(f"packed_planes: {tuple(packed_planes.shape)}")
     print(f"plane_scalars: {tuple(plane_scalars.shape)}")
-    print(f"policy: {tuple(policy.shape)}")
+    print(f"policy_indices: {tuple(policy_indices.shape)}")
+    print(f"policy_probs: {tuple(policy_probs.shape)}")
     print(f"value: {tuple(value.shape)}")
 
 
@@ -427,10 +429,10 @@ def _move_batch_to_device(
     batch: tuple[torch.Tensor, ...],
     *,
     device: torch.device,
-) -> tuple[Any, torch.Tensor, torch.Tensor]:
+) -> tuple[Any, tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     non_blocking = device.type == "cuda"
     plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
-    packed_planes, plane_scalars, policy, value = batch
+    packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
     packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
     plane_scalars = plane_scalars.to(
         device=device,
@@ -440,7 +442,10 @@ def _move_batch_to_device(
     planes = (packed_planes, plane_scalars)
     return (
         planes,
-        policy.to(device, non_blocking=non_blocking),
+        (
+            policy_indices.to(device=device, non_blocking=non_blocking),
+            policy_probs.to(device=device, non_blocking=non_blocking),
+        ),
         value.to(device, non_blocking=non_blocking),
     )
 
@@ -673,7 +678,7 @@ def _gradient_norm(model: torch.nn.Module) -> float:
 def _training_metrics(
     *,
     output: Any,
-    policy_target: torch.Tensor,
+    policy_target: tuple[torch.Tensor, torch.Tensor],
     values: torch.Tensor,
     loss: Any,
     grad_norm: float,
@@ -681,14 +686,21 @@ def _training_metrics(
     elapsed: float,
     lr: float,
 ) -> dict[str, float | int]:
-    legal = policy_target >= 0
-    legal_targets = policy_target.relu()
-    policy_entropy = -(legal_targets * legal_targets.clamp_min(1e-30).log()).sum(dim=-1).mean()
-    policy_logits = output.policy_logits.masked_fill(
-        ~legal,
-        torch.finfo(output.policy_logits.dtype).min,
+    policy_indices, policy_probs = policy_target
+    valid_policy = policy_indices >= 0
+    policy_targets = policy_probs.float()
+    policy_entropy = -(
+        policy_targets * policy_targets.clamp_min(1e-30).log()
+    ).sum(dim=-1).mean()
+    gathered_logits = output.policy_logits.gather(
+        dim=-1,
+        index=policy_indices.clamp_min(0).long(),
     )
-    policy_top1 = (policy_logits.argmax(dim=-1) == legal_targets.argmax(dim=-1)).float().mean()
+    gathered_logits = gathered_logits.masked_fill(
+        ~valid_policy,
+        torch.finfo(gathered_logits.dtype).min,
+    )
+    policy_top1 = (gathered_logits.argmax(dim=-1) == policy_targets.argmax(dim=-1)).float().mean()
     wdl_probs = torch.softmax(output.wdl_logits, dim=-1)
     q_pred = wdl_probs[:, 0] - wdl_probs[:, 2]
     root = values[:, 4]

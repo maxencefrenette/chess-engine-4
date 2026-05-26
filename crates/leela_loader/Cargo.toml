@@ -9,7 +9,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 flate2 = "1.1"
-numpy = "0.27"
+half = "2.7"
+numpy = { version = "0.27", features = ["half"] }
 pyo3 = { version = "0.27", features = ["extension-module"] }
 
 [package.metadata.maturin]

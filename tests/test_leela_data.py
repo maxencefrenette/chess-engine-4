@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 
 from chess_engine_4.data.leela import (
+    COMPACT_POLICY_SIZE,
     HISTORY_PLANE_COUNT,
     POLICY_SIZE,
     V6_RECORD_SIZE,
@@ -51,14 +52,16 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
     batches = list(LeelaTarDataset(tar_path, batch_size=2))
 
     assert len(batches) == 2
-    packed_planes, plane_scalars, policy, value = batches[0]
+    packed_planes, plane_scalars, policy_indices, policy_probs, value = batches[0]
     assert tuple(packed_planes.shape) == (2, 104, 8)
     assert tuple(plane_scalars.shape) == (2, 8)
-    assert tuple(policy.shape) == (2, 1858)
+    assert tuple(policy_indices.shape) == (2, COMPACT_POLICY_SIZE)
+    assert tuple(policy_probs.shape) == (2, COMPACT_POLICY_SIZE)
     assert tuple(value.shape) == (2, 6, 3)
     assert packed_planes.dtype == torch.uint8
     assert plane_scalars.dtype == torch.float32
-    assert policy.dtype == torch.float32
+    assert policy_indices.dtype == torch.int16
+    assert policy_probs.dtype == torch.float16
     assert value.dtype == torch.float32
 
     assert packed_planes[0, 0, 0].item() == 0x80
@@ -66,8 +69,11 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
         plane_scalars[0],
         torch.tensor([1.0, 0.0, 1.0, 0.0, 1.0, 50.0 / 99.0, 0.0, 1.0]),
     )
-    assert policy[0, 0].item() == 1.0
-    assert policy[0, 1].item() == -1.0
+    assert policy_indices[0, :3].tolist() == [0, 2, -1]
+    torch.testing.assert_close(
+        policy_probs[0, :3],
+        torch.tensor([0.75, 0.25, 0.0], dtype=torch.float16),
+    )
     torch.testing.assert_close(value[0, 0], torch.tensor([1.0, 0.0, 42.0]))
     torch.testing.assert_close(value[0, 1], torch.tensor([0.5, 0.25, 12.0]))
     torch.testing.assert_close(value[0, 4], torch.tensor([0.75, 0.125, 20.0]))
@@ -115,7 +121,8 @@ def _records(count: int) -> bytes:
         struct.pack_into("<I", record, 4, 1)
         for policy_index in range(POLICY_SIZE):
             struct.pack_into("<f", record, POLICY_OFFSET + policy_index * 4, -1.0)
-        struct.pack_into("<f", record, POLICY_OFFSET, 1.0)
+        struct.pack_into("<f", record, POLICY_OFFSET, 0.75)
+        struct.pack_into("<f", record, POLICY_OFFSET + 2 * 4, 0.25)
         struct.pack_into("<Q", record, PLANES_OFFSET, 0x80)
         record[CASTLING_US_OOO_OFFSET] = 1
         record[CASTLING_US_OO_OFFSET] = 0

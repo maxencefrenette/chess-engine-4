@@ -4,12 +4,14 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use flate2::read::GzDecoder;
+use half::f16;
 use numpy::{PyArray, PyArrayMethods};
 use pyo3::exceptions::{PyStopIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
 const POLICY_SIZE: usize = 1858;
+const COMPACT_POLICY_SIZE: usize = 218;
 const HISTORY_PLANE_COUNT: usize = 104;
 const BOARD_SIZE: usize = 8;
 const PACKED_PLANE_BYTES: usize = HISTORY_PLANE_COUNT * BOARD_SIZE;
@@ -147,7 +149,8 @@ impl PackedBatchIterator {
     ) -> PyResult<Bound<'py, PyTuple>> {
         let mut packed_planes = vec![0_u8; records * PACKED_PLANE_BYTES];
         let mut scalars = vec![0.0_f32; records * 8];
-        let mut policy = vec![0.0_f32; records * POLICY_SIZE];
+        let mut policy_indices = vec![-1_i16; records * COMPACT_POLICY_SIZE];
+        let mut policy_probs = vec![f16::ZERO; records * COMPACT_POLICY_SIZE];
         let mut value = vec![0.0_f32; records * VALUE_COUNT];
 
         let mut out_record = 0;
@@ -165,9 +168,10 @@ impl PackedBatchIterator {
                     out_record + index,
                     &mut packed_planes,
                     &mut scalars,
-                    &mut policy,
+                    &mut policy_indices,
+                    &mut policy_probs,
                     &mut value,
-                );
+                )?;
             }
             front.record_offset += take;
             out_record += take;
@@ -182,7 +186,10 @@ impl PackedBatchIterator {
             BOARD_SIZE,
         ])?;
         let scalars = PyArray::from_vec(py, scalars).reshape([records, 8])?;
-        let policy = PyArray::from_vec(py, policy).reshape([records, POLICY_SIZE])?;
+        let policy_indices =
+            PyArray::from_vec(py, policy_indices).reshape([records, COMPACT_POLICY_SIZE])?;
+        let policy_probs =
+            PyArray::from_vec(py, policy_probs).reshape([records, COMPACT_POLICY_SIZE])?;
         let value =
             PyArray::from_vec(py, value).reshape([records, VALUE_TYPE_COUNT, VALUE_FIELDS])?;
         PyTuple::new(
@@ -190,7 +197,8 @@ impl PackedBatchIterator {
             [
                 packed_planes.into_any(),
                 scalars.into_any(),
-                policy.into_any(),
+                policy_indices.into_any(),
+                policy_probs.into_any(),
                 value.into_any(),
             ],
         )
@@ -303,6 +311,7 @@ fn iter_packed_batches(
 fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_packed_batches, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
+    module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;
     module.add("BOARD_SIZE", BOARD_SIZE)?;
     module.add("RECORD_SIZE", RECORD_SIZE)?;
@@ -379,9 +388,10 @@ fn copy_record(
     out_record: usize,
     packed_planes: &mut [u8],
     scalars: &mut [f32],
-    policy: &mut [f32],
+    policy_indices: &mut [i16],
+    policy_probs: &mut [f16],
     value: &mut [f32],
-) {
+) -> PyResult<()> {
     let planes_start = out_record * PACKED_PLANE_BYTES;
     packed_planes[planes_start..planes_start + PACKED_PLANE_BYTES]
         .copy_from_slice(&record[PLANES_OFFSET..PLANES_OFFSET + PACKED_PLANE_BYTES]);
@@ -396,11 +406,21 @@ fn copy_record(
     scalars[scalars_start + 6] = 0.0;
     scalars[scalars_start + 7] = 1.0;
 
-    let policy_start = out_record * POLICY_SIZE;
-    copy_f32_bytes(
-        &record[POLICY_OFFSET..POLICY_OFFSET + POLICY_SIZE * 4],
-        &mut policy[policy_start..policy_start + POLICY_SIZE],
-    );
+    let policy_start = out_record * COMPACT_POLICY_SIZE;
+    let mut legal_count = 0;
+    for policy_index in 0..POLICY_SIZE {
+        let probability = read_f32(record, POLICY_OFFSET + policy_index * 4);
+        if probability >= 0.0 {
+            if legal_count == COMPACT_POLICY_SIZE {
+                return Err(PyValueError::new_err(format!(
+                    "record has more than {COMPACT_POLICY_SIZE} legal policy moves"
+                )));
+            }
+            policy_indices[policy_start + legal_count] = policy_index as i16;
+            policy_probs[policy_start + legal_count] = f16::from_f32(probability);
+            legal_count += 1;
+        }
+    }
 
     let value_start = out_record * VALUE_COUNT;
     value[value_start] = read_f32(record, RESULT_Q_OFFSET);
@@ -421,6 +441,7 @@ fn copy_record(
     value[value_start + 15] = 0.0;
     value[value_start + 16] = 0.0;
     value[value_start + 17] = f32::NAN;
+    Ok(())
 }
 
 fn read_u32(record: &[u8], offset: usize) -> u32 {
@@ -437,21 +458,4 @@ fn read_f32(record: &[u8], offset: usize) -> f32 {
             .try_into()
             .expect("f32 offset is valid"),
     )
-}
-
-fn copy_f32_bytes(bytes: &[u8], output: &mut [f32]) {
-    debug_assert_eq!(bytes.len(), output.len() * 4);
-    if cfg!(target_endian = "little") {
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                bytes.as_ptr(),
-                output.as_mut_ptr().cast::<u8>(),
-                bytes.len(),
-            );
-        }
-    } else {
-        for (chunk, value) in bytes.chunks_exact(4).zip(output.iter_mut()) {
-            *value = f32::from_le_bytes(chunk.try_into().expect("chunk has four bytes"));
-        }
-    }
 }

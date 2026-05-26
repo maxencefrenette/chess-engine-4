@@ -34,8 +34,9 @@ The worker and prefetch knobs did not help, but packed input planes did. Trainin
 | Dense policy float16 copied as bf16 | 90.9 | 85.9 | Reject |
 | Dense policy CPU bf16 | 75.8 | 81.8 | Reject |
 | Rust native loader | 39.2 | 37.4 | Keep |
+| Rust compact policy fp16 | 31.5 | 31.9 | Keep |
 
-The native loader improves the final measured interval by about 59% versus the original baseline and about 35% versus the previous best packed-plane Python loader.
+The compact-policy native loader improves the final measured interval by about 67% versus the original baseline and about 15% versus the dense-policy Rust native loader.
 
 ## Interpretation
 
@@ -57,7 +58,7 @@ Sparse policy transfer was also slower. The first version built padded policy in
 
 Fixed-width compact policy with `K=218` was faster on the GPU loss in a synthetic benchmark, but slower end to end. The missing piece is host-side construction: online dense-to-compact conversion from LC0 records costs more than the transfer savings. This is still a good candidate for a future Rust/preprocessed dataloader, where policy compaction can happen while decoding records without Python or NumPy `nonzero` overhead.
 
-Dense half-precision policy transfer also underperformed. CPU-side `float16` materialization was cheap, but the full training path slowed down substantially. Converting the fp16 tensor to bf16 on-device helped but still lost. Building CPU bf16 policy tensors also lost. The current best path remains dense float32 policy with packed-plane training input.
+Dense half-precision policy transfer also underperformed. CPU-side `float16` materialization was cheap, but the full training path slowed down substantially. Converting the fp16 tensor to bf16 on-device helped but still lost. Building CPU bf16 policy tensors also lost.
 
 ## CPU/GPU Breakdown
 
@@ -101,3 +102,21 @@ on the native loader produced this breakdown:
 | Copy + train GPU work | 7.79 ms/step |
 
 The native loader substantially reduced host-side overhead, but training is still mostly input-bound. The GPU performs copy plus training work for about 17% of wall time, with about 83% exposed idle gap. Train-only MFU was 14.4% on L4 bf16, while end-to-end MFU was 1.6%.
+
+## Compact Policy Follow-Up
+
+The Rust loader now emits policy targets as `policy_indices: int16 [B, 218]` and `policy_probs: float16 [B, 218]`, padded with `-1` indices and zero probability. The policy loss gathers logits at legal move indices and does the soft-label cross entropy over the compact legal-move set. The stored fp16 probabilities are cast back to fp32 for the loss reduction.
+
+A 500-step Modal benchmark reached 31.5 ms/step on the final interval and 31.9 ms/step averaged over steps 400-500. The profiler breakdown was:
+
+| Bucket | Mean |
+| --- | ---: |
+| Total wall time | 34.23 ms/step |
+| CPU/dataloader fetch wall | 29.05 ms/step |
+| Python enqueue wall | 4.04 ms/step |
+| Exposed GPU idle gap | 29.15 ms/step |
+| H2D copy on GPU stream | 0.65 ms/step |
+| Train GPU kernels | 4.43 ms/step |
+| Copy + train GPU work | 5.08 ms/step |
+
+This is a clear win. H2D copy fell from 2.65 ms/step to 0.65 ms/step, while total profiled wall time fell from 45.76 ms/step to 34.23 ms/step. Training is still input-bound, but dense policy transfer is no longer the dominant payload.

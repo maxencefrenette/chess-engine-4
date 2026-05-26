@@ -25,3 +25,5 @@ uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --w
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-bf16-cpu-nw0
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name native-loader-bench-500-logs
 uv run profile-training --config configs/mlp/1e19.toml --warmup-steps 50 --profile-steps 200
+uv run profile-training --config configs/mlp/1e19.toml --warmup-steps 50 --profile-steps 200
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name compact-policy-fp16-bench-500

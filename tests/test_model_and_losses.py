@@ -126,7 +126,7 @@ def test_wdl_target_from_q_d() -> None:
 
 def test_policy_cross_entropy_masks_illegal_moves() -> None:
     logits = torch.tensor([[0.0, 10.0, 0.0]])
-    target = torch.tensor([[1.0, -1.0, 0.0]])
+    target = (torch.tensor([[0, 2, -1]], dtype=torch.int16), torch.tensor([[1.0, 0.0, 0.0]]))
 
     loss = policy_cross_entropy(logits, target)
 
@@ -158,9 +158,7 @@ def test_moves_left_loss_uses_root_row_root_m() -> None:
 def test_lczero_loss_backpropagates() -> None:
     model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0))
     planes = torch.randn(2, 112, 8, 8)
-    policy = torch.full((2, 1858), -1.0)
-    policy[:, 0] = 0.75
-    policy[:, 1] = 0.25
+    policy = _compact_policy(batch_size=2, indices=[0, 1], probs=[0.75, 0.25])
     values = torch.zeros(2, 6, 3)
     values[:, 4, 0] = 1.0
     values[:, 4, 2] = 42.0
@@ -177,8 +175,7 @@ def test_lczero_loss_includes_router_aux() -> None:
         MlpMoeChessNetConfig(d_model=32, depth=1, num_experts=16, expert_mlp_ratio=2.0)
     )
     planes = torch.randn(2, 112, 8, 8)
-    policy = torch.full((2, 1858), -1.0)
-    policy[:, 0] = 1.0
+    policy = _compact_policy(batch_size=2, indices=[0], probs=[1.0])
     values = torch.zeros(2, 6, 3)
     values[:, 4, 0] = 1.0
 
@@ -210,3 +207,17 @@ def _assert_packed_training_wrapper_matches_dense_model(model: torch.nn.Module) 
     torch.testing.assert_close(packed_output.policy_logits, dense_output.policy_logits)
     torch.testing.assert_close(packed_output.wdl_logits, dense_output.wdl_logits)
     torch.testing.assert_close(packed_output.moves_left, dense_output.moves_left)
+
+
+def _compact_policy(
+    *,
+    batch_size: int,
+    indices: list[int],
+    probs: list[float],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    policy_indices = torch.full((batch_size, 218), -1, dtype=torch.int16)
+    policy_probs = torch.zeros(batch_size, 218)
+    for offset, (index, probability) in enumerate(zip(indices, probs, strict=True)):
+        policy_indices[:, offset] = index
+        policy_probs[:, offset] = probability
+    return policy_indices, policy_probs

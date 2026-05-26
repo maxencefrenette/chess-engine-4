@@ -25,7 +25,7 @@ def iter_native_packed_batches(
     batch_size: int,
     max_records: int | None,
     drop_last: bool,
-) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     chess_engine_4_native = _load_native_module()
 
     native_iter = chess_engine_4_native.iter_packed_batches(
@@ -34,10 +34,11 @@ def iter_native_packed_batches(
         max_records,
         drop_last,
     )
-    for packed_planes, plane_scalars, policy, value in native_iter:
+    for packed_planes, plane_scalars, policy_indices, policy_probs, value in native_iter:
         yield (
             torch.from_numpy(packed_planes),
             torch.from_numpy(plane_scalars),
-            torch.from_numpy(policy),
+            torch.from_numpy(policy_indices),
+            torch.from_numpy(policy_probs),
             torch.from_numpy(value),
         )
