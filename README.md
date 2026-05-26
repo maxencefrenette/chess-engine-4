@@ -77,6 +77,12 @@ uv run train-modal --config configs/mlp/1e18.toml
 
 Modal training uses the GPU type from the model config by default. CUDA training is hardcoded to bf16 and requires a bf16-capable GPU such as L4 or newer; local CPU/MPS runs use fp32.
 
+To profile the Modal training loop:
+
+```sh
+uv run profile-training --config configs/mlp/1e18.toml
+```
+
 To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 
 ```sh

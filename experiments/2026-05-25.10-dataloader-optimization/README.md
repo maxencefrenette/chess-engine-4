@@ -79,3 +79,25 @@ This profile says the current path is strongly CPU/dataloader-bound. The GPU doe
 The first Rust loader keeps the same batch contract as the Python loader: packed planes, scalar planes, dense float32 policy, and value targets. It is exposed through `pyo3`/`maturin`, returns NumPy arrays to Python, and the training loop wraps those arrays with `torch.from_numpy`.
 
 A 500-step Modal benchmark on the same MLP `1e19` setup reached 39.2 ms/step on the final interval and 37.4 ms/step averaged over steps 400-500. That is about 35% faster than the previous best packed-plane Python loader at 57.7 ms/step. The native loader is now the only training dataloader.
+
+## Native CPU/GPU Breakdown
+
+A reusable Modal profiler was added as `uv run profile-training`. Running
+
+```sh
+uv run profile-training --config configs/mlp/1e19.toml --warmup-steps 50 --profile-steps 200
+```
+
+on the native loader produced this breakdown:
+
+| Bucket | Mean |
+| --- | ---: |
+| Total wall time | 45.76 ms/step |
+| CPU/dataloader fetch wall | 37.86 ms/step |
+| Python enqueue wall | 4.05 ms/step |
+| Exposed GPU idle gap | 37.97 ms/step |
+| H2D copy on GPU stream | 2.65 ms/step |
+| Train GPU kernels | 5.13 ms/step |
+| Copy + train GPU work | 7.79 ms/step |
+
+The native loader substantially reduced host-side overhead, but training is still mostly input-bound. The GPU performs copy plus training work for about 17% of wall time, with about 83% exposed idle gap. Train-only MFU was 14.4% on L4 bf16, while end-to-end MFU was 1.6%.
