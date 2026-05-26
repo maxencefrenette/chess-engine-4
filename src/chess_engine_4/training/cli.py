@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 
 from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
+    HISTORY_PLANE_COUNT,
+    INPUT_PLANE_COUNT,
     LeelaTarDataset,
 )
 from chess_engine_4.model import build_model
@@ -162,6 +164,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         options.data,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
+        compact_planes=device.type == "cuda",
     )
     num_workers = options.num_workers if options.num_workers is not None else _NUM_WORKERS
     dataloader = _build_dataloader(dataset, device=device, num_workers=num_workers)
@@ -420,14 +423,37 @@ def _build_dataloader(
 
 
 def _move_batch_to_device(
-    batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    batch: tuple[torch.Tensor, ...],
     *,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     non_blocking = device.type == "cuda"
-    planes, policy, value = batch
+    if len(batch) == 4:
+        plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
+        binary_planes, plane_scalars, policy, value = batch
+        binary_planes = binary_planes.to(device=device, non_blocking=non_blocking)
+        plane_scalars = plane_scalars.to(
+            device=device,
+            dtype=plane_dtype,
+            non_blocking=non_blocking,
+        )
+        planes = torch.empty(
+            (
+                binary_planes.shape[0],
+                INPUT_PLANE_COUNT,
+                binary_planes.shape[2],
+                binary_planes.shape[3],
+            ),
+            device=device,
+            dtype=plane_dtype,
+        )
+        planes[:, :HISTORY_PLANE_COUNT].copy_(binary_planes)
+        planes[:, HISTORY_PLANE_COUNT:] = plane_scalars[:, :, None, None]
+    else:
+        planes, policy, value = batch
+        planes = planes.to(device=device, non_blocking=non_blocking)
     return (
-        planes.to(device, non_blocking=non_blocking),
+        planes,
         policy.to(device, non_blocking=non_blocking),
         value.to(device, non_blocking=non_blocking),
     )

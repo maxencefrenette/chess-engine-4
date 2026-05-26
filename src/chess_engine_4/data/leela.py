@@ -78,6 +78,19 @@ class LeelaBatch:
         return self.planes, self.policy, self.value
 
 
+@dataclass(frozen=True, slots=True)
+class CompactLeelaBatch:
+    """One training batch with compact CPU-side input planes."""
+
+    binary_planes: torch.Tensor
+    plane_scalars: torch.Tensor
+    policy: torch.Tensor
+    value: torch.Tensor
+
+    def as_tuple(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return self.binary_planes, self.plane_scalars, self.policy, self.value
+
+
 class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
     """Yield LCZero-shaped tensor batches from v6 tar training data.
 
@@ -101,6 +114,7 @@ class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor, torch.Te
         env_var: str = DEFAULT_DATA_ENV_VAR,
         max_records: int | None = None,
         drop_last: bool = False,
+        compact_planes: bool = False,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive.")
@@ -109,6 +123,7 @@ class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor, torch.Te
         self.batch_size = batch_size
         self.max_records = max_records
         self.drop_last = drop_last
+        self.compact_planes = compact_planes
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         emitted = 0
@@ -134,11 +149,14 @@ class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, torch.Tensor, torch.Te
                     self.batch_size,
                 )
                 emitted += len(batch_frames)
-                yield tensors_from_frames(batch_frames).as_tuple()
+                yield tensors_from_frames(
+                    batch_frames,
+                    compact_planes=self.compact_planes,
+                ).as_tuple()
 
         if pending_count > 0 and not self.drop_last:
             batch_frames = np.concatenate(pending) if len(pending) > 1 else pending[0]
-            yield tensors_from_frames(batch_frames).as_tuple()
+            yield tensors_from_frames(batch_frames, compact_planes=self.compact_planes).as_tuple()
 
 
 def resolve_data_paths(
@@ -211,8 +229,20 @@ def parse_frame_chunk(payload: bytes, *, source: str = "<buffer>") -> np.ndarray
     return frames
 
 
-def tensors_from_frames(frames: np.ndarray) -> LeelaBatch:
+def tensors_from_frames(
+    frames: np.ndarray,
+    *,
+    compact_planes: bool = False,
+) -> LeelaBatch | CompactLeelaBatch:
     """Convert a structured v6 frame array into LCZero-shaped PyTorch tensors."""
+
+    if compact_planes:
+        return CompactLeelaBatch(
+            binary_planes=torch.from_numpy(binary_planes_from_frames(frames)),
+            plane_scalars=torch.from_numpy(plane_scalars_from_frames(frames)),
+            policy=torch.from_numpy(np.array(frames["probabilities"], dtype=np.float32, copy=True)),
+            value=torch.from_numpy(values_from_frames(frames)),
+        )
 
     return LeelaBatch(
         planes=torch.from_numpy(planes_from_frames(frames)),
@@ -229,26 +259,39 @@ def planes_from_frames(frames: np.ndarray) -> np.ndarray:
         (batch_size, INPUT_PLANE_COUNT, BOARD_SIZE, BOARD_SIZE),
         dtype=np.float32,
     )
+    planes[:, :HISTORY_PLANE_COUNT] = binary_planes_from_frames(frames)
+    planes[:, HISTORY_PLANE_COUNT:] = plane_scalars_from_frames(frames)[:, :, None, None]
+    return planes
 
+
+def binary_planes_from_frames(frames: np.ndarray) -> np.ndarray:
+    """Build compact [batch, 104, 8, 8] uint8 history planes."""
+    batch_size = len(frames)
     packed = np.ascontiguousarray(frames["planes"])
     bytes_view = packed.view(np.uint8).reshape(batch_size, HISTORY_PLANE_COUNT, 8)
     history = np.unpackbits(bytes_view, bitorder="big", axis=2)
-    planes[:, :HISTORY_PLANE_COUNT] = history.reshape(
+    return history.reshape(
         batch_size,
         HISTORY_PLANE_COUNT,
         BOARD_SIZE,
         BOARD_SIZE,
     )
 
-    _fill_constant_planes(planes[:, 104], frames["castling_us_ooo"])
-    _fill_constant_planes(planes[:, 105], frames["castling_us_oo"])
-    _fill_constant_planes(planes[:, 106], frames["castling_them_ooo"])
-    _fill_constant_planes(planes[:, 107], frames["castling_them_oo"])
-    _fill_constant_planes(planes[:, 108], frames["side_to_move_or_enpassant"])
-    _fill_constant_planes(planes[:, 109], frames["rule50_count"].astype(np.float32) / 99.0)
-    planes[:, 110].fill(0.0)
-    planes[:, 111].fill(1.0)
-    return planes
+
+def plane_scalars_from_frames(frames: np.ndarray) -> np.ndarray:
+    """Build scalar values for planes 104..111."""
+
+    batch_size = len(frames)
+    scalars = np.empty((batch_size, INPUT_PLANE_COUNT - HISTORY_PLANE_COUNT), dtype=np.float32)
+    scalars[:, 0] = frames["castling_us_ooo"]
+    scalars[:, 1] = frames["castling_us_oo"]
+    scalars[:, 2] = frames["castling_them_ooo"]
+    scalars[:, 3] = frames["castling_them_oo"]
+    scalars[:, 4] = frames["side_to_move_or_enpassant"]
+    scalars[:, 5] = frames["rule50_count"].astype(np.float32) / 99.0
+    scalars[:, 6] = 0.0
+    scalars[:, 7] = 1.0
+    return scalars
 
 
 def values_from_frames(frames: np.ndarray) -> np.ndarray:
@@ -299,10 +342,6 @@ def _take_batch(
     pending_count -= batch_size
     batch_frames = np.concatenate(selected) if len(selected) > 1 else selected[0]
     return batch_frames, pending, pending_count
-
-
-def _fill_constant_planes(target: np.ndarray, values: np.ndarray) -> None:
-    target[:] = values.astype(np.float32, copy=False)[:, None, None]
 
 
 def _worker_paths(paths: Sequence[Path]) -> list[Path]:

@@ -8,3 +8,6 @@ uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --w
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-prefetch-nw0
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4-filesystem
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-direct-iter
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-fp16-planes-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-bf16-copy-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-split-uint8-planes-nw0

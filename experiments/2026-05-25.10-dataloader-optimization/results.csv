@@ -7,3 +7,6 @@ pin_memory_false,ap-4uDaOWaTFqUnntq6dnPwqm,"uv run train-modal --config configs/
 cuda_stream_prefetch,ap-G53BvVxezKcB4nWSpFj2XO,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-prefetch-nw0",26803.3,152.8,27571.9,148.6,rejected
 num_workers_4_file_system,ap-dCxrqiZKpYtr0ng7ldnPhL,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --num-workers 4 --wandb-name dlopt-cpu4-nw4-filesystem",14261.5,287.2,14875.0,275.4,rejected
 direct_dataset_iteration,ap-wzdUD1gZtxNygbeopFLl5T,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-cpu4-direct-iter",36291.7,112.9,38110.3,107.5,rejected
+fp16_cpu_planes,ap-QdkyZLma9dWHdgRfFMtmc3,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-fp16-planes-nw0",15654.2,261.7,15324.2,267.3,rejected
+float32_cpu_bf16_cuda_copy,ap-vW3QPuT0fJm9cormZ9xr57,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-bf16-copy-nw0",41162.4,99.5,40922.6,100.1,rejected
+split_uint8_binary_planes,ap-nnP3my57uO8SrW74UD9yRi,"uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-split-uint8-planes-nw0",60940.8,67.2,59494.0,68.8,kept
