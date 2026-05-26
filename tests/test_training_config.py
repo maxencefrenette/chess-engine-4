@@ -142,13 +142,13 @@ def test_lr_cooldown_schedule() -> None:
     from chess_engine_4.training.cli import _scheduled_lr
 
     assert _scheduled_lr(base_lr=1.0, cooldown_frac=0.1, step=90, total_steps=100) == 1.0
-    assert _scheduled_lr(base_lr=1.0, cooldown_frac=0.1, step=95, total_steps=100) == 0.55
+    assert _scheduled_lr(base_lr=1.0, cooldown_frac=0.1, step=95, total_steps=100) == 0.5
     assert _scheduled_lr(
         base_lr=1.0,
         cooldown_frac=0.1,
         step=100,
         total_steps=100,
-    ) == pytest.approx(0.1)
+    ) == pytest.approx(0.0)
 
 
 def test_1e18_config_builds_expected_model_size() -> None:

@@ -1,0 +1,6 @@
+uv run train-modal --config configs/mlp/1e18.toml --wandb-name cooldown0-mlp-1e18-frac0.1-final0
+uv run train-modal --config configs/mlp/1e19.toml --wandb-name cooldown0-mlp-1e19-frac0.1-final0
+uv run train-modal --config configs/mlp/1e20.toml --wandb-name cooldown0-mlp-1e20-frac0.1-final0
+uv run train-modal --config configs/mlp_moe16a2/1e18.toml --wandb-name cooldown0-moe16a2-1e18-frac0.1-final0
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --wandb-name cooldown0-moe16a2-1e19-frac0.1-final0
+uv run train-modal --config configs/mlp_moe16a2/1e20.toml --wandb-name cooldown0-moe16a2-1e20-frac0.1-final0

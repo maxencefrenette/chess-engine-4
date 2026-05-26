@@ -34,7 +34,6 @@ _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
-_LR_COOLDOWN_FINAL_MULTIPLIER = 0.1
 _BF16_TFLOPS_BY_GPU = {
     "NVIDIA L4": 121.0,
     "NVIDIA A10G": 125.0,
@@ -617,7 +616,7 @@ def _scheduled_lr(
     if step <= cooldown_start:
         return base_lr
     progress = 1.0 if cooldown_steps == 1 else (step - cooldown_start) / cooldown_steps
-    multiplier = 1.0 - (1.0 - _LR_COOLDOWN_FINAL_MULTIPLIER) * progress
+    multiplier = 1.0 - progress
     return base_lr * multiplier
 
 
@@ -684,7 +683,6 @@ def _init_wandb(
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
-        "lr_cooldown_final_multiplier": _LR_COOLDOWN_FINAL_MULTIPLIER,
         "fused_adamw": device.type == "cuda",
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
