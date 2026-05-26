@@ -17,3 +17,9 @@ uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --w
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-sparse-policy-rank-nw0
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-inside-compile-nw0
 uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-packed-training-wrapper-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-compact-policy-k218-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-compact-policy-k218-flat-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-compact-policy-k218-torchcpu-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-fp16-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-fp16-to-bf16-nw0
+uv run train-modal --config configs/mlp/1e19.toml --max-steps 500 --no-wandb --wandb-name dlopt-dense-policy-bf16-cpu-nw0

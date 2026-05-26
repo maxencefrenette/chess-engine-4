@@ -27,6 +27,12 @@ The worker and prefetch knobs did not help, but packed input planes did. Trainin
 | Sparse policy, compact rank construction | 90.1 | 87.7 | Reject |
 | Packed bytes + compiled model unpack | 62.4 | 60.5 | Previous keep |
 | Packed bytes + compiled training wrapper | 60.7 | 57.7 | Keep |
+| Compact policy K=218, NumPy nonzero | 84.0 | 80.9 | Reject |
+| Compact policy K=218, flat NumPy | 112.2 | 85.5 | Reject |
+| Compact policy K=218, Torch CPU | 101.6 | 103.6 | Reject |
+| Dense policy float16 | 108.8 | 105.5 | Reject |
+| Dense policy float16 copied as bf16 | 90.9 | 85.9 | Reject |
+| Dense policy CPU bf16 | 75.8 | 81.8 | Reject |
 
 The kept change improves the final measured interval by about 40% versus the original baseline and about 16% versus the split `uint8` compact-plane path.
 
@@ -47,3 +53,7 @@ The first compact-plane attempt used CPU `float16` planes. That was much slower,
 Packed-byte transfer reduced host-to-device bytes further. The first two packed-byte versions unpacked before the compiled model call, so the extra GPU unpack work ran eagerly and was too expensive. Moving the unpack into a compiled training wrapper changed the result for the MLP benchmark: it now beats the split `uint8` representation while keeping core models as dense LC0-plane modules. This suggests the bandwidth reduction is real, but only pays off when the unpack is part of the compiled input path.
 
 Sparse policy transfer was also slower. The first version built padded policy indices with a full CPU cumsum over the dense policy matrix and was much worse. A tighter rank-construction version reduced the overhead, but still lost to the dense policy path. For this workload, the saved transfer bytes do not pay for the extra CPU sparse construction plus the gathered sparse cross-entropy path. PyTorch sparse tensors are unlikely to help here because the loss is row-wise indexing and reduction, not sparse matrix algebra; they would add sparse tensor construction and layout overhead without matching the kernel shape we need.
+
+Fixed-width compact policy with `K=218` was faster on the GPU loss in a synthetic benchmark, but slower end to end. The missing piece is host-side construction: online dense-to-compact conversion from LC0 records costs more than the transfer savings. This is still a good candidate for a future Rust/preprocessed dataloader, where policy compaction can happen while decoding records without Python or NumPy `nonzero` overhead.
+
+Dense half-precision policy transfer also underperformed. CPU-side `float16` materialization was cheap, but the full training path slowed down substantially. Converting the fp16 tensor to bf16 on-device helped but still lost. Building CPU bf16 policy tensors also lost. The current best path remains dense float32 policy with packed-plane training input.

@@ -62,9 +62,12 @@ def test_tensors_from_frames_supports_packed_planes() -> None:
 
     assert tuple(packed.packed_planes.shape) == (2, 104, 8)
     assert tuple(packed.plane_scalars.shape) == (2, 8)
+    assert tuple(packed.policy.shape) == (2, 1858)
     assert packed.packed_planes.dtype == torch.uint8
     assert packed.plane_scalars.dtype == torch.float32
+    assert packed.policy.dtype == torch.float32
     np.testing.assert_array_equal(packed.packed_planes.numpy(), packed_planes_from_frames(frames))
+    torch.testing.assert_close(packed.policy[:, 0], torch.ones(2))
 
 
 def test_leela_tar_dataset_yields_tensor_batches_from_gzip_members(tmp_path: Path) -> None:
@@ -82,6 +85,8 @@ def test_leela_tar_dataset_yields_tensor_batches_from_gzip_members(tmp_path: Pat
     assert tuple(batches[0][0].shape) == (2, 104, 8)
     assert tuple(batches[0][1].shape) == (2, 8)
     assert tuple(batches[0][2].shape) == (2, 1858)
+    assert batches[0][2].dtype == torch.float32
+    assert tuple(batches[0][3].shape) == (2, 6, 3)
     assert tuple(batches[1][0].shape) == (1, 104, 8)
 
 

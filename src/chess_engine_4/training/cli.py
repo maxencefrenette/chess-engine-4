@@ -339,15 +339,16 @@ def inspect_data() -> None:
 
     dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.records)
     seen = 0
-    for planes, policy, value in dataset:
-        batch_size = planes.shape[0]
+    for packed_planes, plane_scalars, policy, value in dataset:
+        batch_size = packed_planes.shape[0]
         legal = policy >= 0
         legal_policy_sum = policy.masked_fill(~legal, 0).sum(dim=1)
         illegal_count = (~legal).sum(dim=1)
         seen += batch_size
         print(
             f"records={seen} "
-            f"planes={tuple(planes.shape)} "
+            f"packed_planes={tuple(packed_planes.shape)} "
+            f"plane_scalars={tuple(plane_scalars.shape)} "
             f"policy={tuple(policy.shape)} "
             f"value={tuple(value.shape)} "
             f"legal_policy_sum=[{legal_policy_sum.min():.4f}, {legal_policy_sum.max():.4f}] "
@@ -363,8 +364,9 @@ def sample_batch() -> None:
     args = parser.parse_args()
 
     dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.batch_size)
-    planes, policy, value = next(iter(dataset))
-    print(f"planes: {tuple(planes.shape)}")
+    packed_planes, plane_scalars, policy, value = next(iter(dataset))
+    print(f"packed_planes: {tuple(packed_planes.shape)}")
+    print(f"plane_scalars: {tuple(plane_scalars.shape)}")
     print(f"policy: {tuple(policy.shape)}")
     print(f"value: {tuple(value.shape)}")
 
@@ -427,19 +429,15 @@ def _move_batch_to_device(
     device: torch.device,
 ) -> tuple[Any, torch.Tensor, torch.Tensor]:
     non_blocking = device.type == "cuda"
-    if len(batch) == 4:
-        plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
-        packed_planes, plane_scalars, policy, value = batch
-        packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
-        plane_scalars = plane_scalars.to(
-            device=device,
-            dtype=plane_dtype,
-            non_blocking=non_blocking,
-        )
-        planes = (packed_planes, plane_scalars)
-    else:
-        planes, policy, value = batch
-        planes = planes.to(device=device, non_blocking=non_blocking)
+    plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
+    packed_planes, plane_scalars, policy, value = batch
+    packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
+    plane_scalars = plane_scalars.to(
+        device=device,
+        dtype=plane_dtype,
+        non_blocking=non_blocking,
+    )
+    planes = (packed_planes, plane_scalars)
     return (
         planes,
         policy.to(device, non_blocking=non_blocking),
