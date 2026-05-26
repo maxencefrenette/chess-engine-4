@@ -34,7 +34,6 @@ def profile_training() -> None:
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
-    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
     parser.add_argument("--json", action="store_true", help="Print only the JSON result.")
@@ -55,7 +54,6 @@ def profile_training() -> None:
         "num_heads": args.num_heads,
         "lr": args.lr,
         "router_aux": args.router_aux,
-        "num_workers": args.num_workers,
         "warmup_steps": args.warmup_steps,
         "profile_steps": args.profile_steps,
     }
@@ -77,7 +75,6 @@ def profile_training() -> None:
 
 def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
     import torch
-    from torch.utils.data import DataLoader
 
     from chess_engine_4.data.leela import LeelaTarDataset
     from chess_engine_4.model import build_model
@@ -119,20 +116,12 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         batch_size=config.data.batch_size,
     )
 
-    num_workers = payload["num_workers"] if payload["num_workers"] is not None else 0
     dataset = LeelaTarDataset(
         REMOTE_DATA_PATH,
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
     )
-    dataloader = DataLoader(
-        dataset,
-        batch_size=None,
-        num_workers=num_workers,
-        pin_memory=True,
-        **({"persistent_workers": True, "prefetch_factor": 2} if num_workers > 0 else {}),
-    )
-    iterator = iter(dataloader)
+    iterator = iter(dataset)
 
     model = build_model(config.model).to(device)
     training_model = _compile_model_for_training(
@@ -235,8 +224,6 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "device_name": torch.cuda.get_device_name(device),
         "precision": precision,
         "batch_size": config.data.batch_size,
-        "num_workers": num_workers,
-        "pin_memory": True,
         "warmup_steps": warmup_steps,
         "profile_steps": profile_steps,
         "overall_wall_sec": overall_end - overall_start,
@@ -289,7 +276,7 @@ def _print_profile(result: dict[str, Any]) -> None:
     print(
         f"profile_complete config={result['config']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
-        f"batch_size={result['batch_size']} num_workers={result['num_workers']}"
+        f"batch_size={result['batch_size']}"
     )
     print("")
     rows = [

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from torch.utils.data import DataLoader
 
 from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
@@ -30,9 +29,6 @@ from chess_engine_4.training.packed_input import PackedInputTrainingModel
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _DEFAULT_CONFIG_PATH = Path("configs/mlp/1e18.toml")
 _LOG_EVERY = 10
-_NUM_WORKERS = 0
-_PREFETCH_FACTOR = 2
-_PERSISTENT_WORKERS = True
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
@@ -73,7 +69,6 @@ class TrainOptions:
     lr: float | None = None
     router_aux: float | None = None
     device: str | None = None
-    num_workers: int | None = None
     max_steps: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
@@ -94,7 +89,6 @@ def train() -> None:
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
-    parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
@@ -115,7 +109,6 @@ def train() -> None:
             lr=args.lr,
             router_aux=args.router_aux,
             device=args.device,
-            num_workers=args.num_workers,
             max_steps=args.max_steps,
             wandb=args.wandb,
             wandb_name=args.wandb_name,
@@ -164,8 +157,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         batch_size=config.data.batch_size,
         max_records=config.data.max_records,
     )
-    num_workers = options.num_workers if options.num_workers is not None else _NUM_WORKERS
-    dataloader = _build_dataloader(dataset, device=device, num_workers=num_workers)
     model = build_model(config.model).to(device)
     training_model = _compile_model_for_training(
         PackedInputTrainingModel(model).to(device),
@@ -183,7 +174,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
             precision=precision,
-            num_workers=num_workers,
         )
         if options.wandb
         else None
@@ -200,7 +190,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     ema_metrics: dict[str, float] = {}
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
-    for step, batch in enumerate(islice(dataloader, steps), start=1):
+    for step, batch in enumerate(islice(dataset, steps), start=1):
         planes, policy, value = _move_batch_to_device(batch, device=device)
 
         optimizer.zero_grad(set_to_none=True)
@@ -406,25 +396,6 @@ def _training_precision(device: torch.device) -> str:
     return "fp32"
 
 
-def _build_dataloader(
-    dataset: LeelaTarDataset,
-    *,
-    device: torch.device,
-    num_workers: int,
-) -> DataLoader:
-    if num_workers < 0:
-        raise ValueError("num_workers must be non-negative.")
-    kwargs: dict[str, Any] = {
-        "batch_size": None,
-        "num_workers": num_workers,
-        "pin_memory": device.type == "cuda",
-    }
-    if num_workers > 0:
-        kwargs["persistent_workers"] = _PERSISTENT_WORKERS
-        kwargs["prefetch_factor"] = _PREFETCH_FACTOR
-    return DataLoader(dataset, **kwargs)
-
-
 def _move_batch_to_device(
     batch: tuple[torch.Tensor, ...],
     *,
@@ -432,6 +403,8 @@ def _move_batch_to_device(
 ) -> tuple[Any, tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
     non_blocking = device.type == "cuda"
     plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
+    if device.type == "cuda":
+        batch = tuple(tensor.pin_memory() for tensor in batch)
     packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
     packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
     plane_scalars = plane_scalars.to(
@@ -595,7 +568,6 @@ def _init_wandb(
     flops_per_sample: int,
     theoretical_tflops: float | None,
     precision: str,
-    num_workers: int,
 ) -> Any:
     import wandb
 
@@ -609,10 +581,6 @@ def _init_wandb(
         "log_every": _LOG_EVERY,
         "batch_size": config.data.batch_size,
         "max_records": config.data.max_records,
-        "num_workers": num_workers,
-        "prefetch_factor": _PREFETCH_FACTOR,
-        "persistent_workers": _PERSISTENT_WORKERS,
-        "pin_memory": device.type == "cuda",
         "device": str(device),
         "device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "precision": precision,

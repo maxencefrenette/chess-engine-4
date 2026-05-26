@@ -9,7 +9,6 @@ from pathlib import Path
 
 import torch
 from dotenv import load_dotenv
-from torch.utils.data import IterableDataset, get_worker_info
 
 from chess_engine_4.data.native import iter_native_packed_batches
 
@@ -25,7 +24,7 @@ VALUE_FIELDS = 3
 V6_RECORD_SIZE = 8356
 
 
-class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, ...]]):
+class LeelaTarDataset:
     """Yield packed training batches from v6 tar training data.
 
     Output contract:
@@ -59,7 +58,7 @@ class LeelaTarDataset(IterableDataset[tuple[torch.Tensor, ...]]):
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
         yield from iter_native_packed_batches(
-            _worker_paths(self.paths),
+            self.paths,
             batch_size=self.batch_size,
             max_records=self.max_records,
             drop_last=self.drop_last,
@@ -100,13 +99,6 @@ def resolve_data_paths(
     if not resolved:
         raise FileNotFoundError(f"No Leela tar files found from: {raw_paths}")
     return resolved
-
-
-def _worker_paths(paths: Sequence[Path]) -> list[Path]:
-    worker = get_worker_info()
-    if worker is None:
-        return list(paths)
-    return list(paths)[worker.id :: worker.num_workers]
 
 
 def _looks_like_glob(value: str) -> bool:
