@@ -67,6 +67,7 @@ class TrainOptions:
     depth: int | None = None
     num_heads: int | None = None
     lr: float | None = None
+    lr_warmup_steps: int | None = None
     lr_cooldown_frac: float | None = None
     router_aux: float | None = None
     dataloader_threads: int | None = None
@@ -90,6 +91,7 @@ def train() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--lr-warmup-steps", type=int, default=None)
     parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--dataloader-threads", type=int, default=None)
@@ -113,6 +115,7 @@ def train() -> None:
             depth=args.depth,
             num_heads=args.num_heads,
             lr=args.lr,
+            lr_warmup_steps=args.lr_warmup_steps,
             lr_cooldown_frac=args.lr_cooldown_frac,
             router_aux=args.router_aux,
             dataloader_threads=args.dataloader_threads,
@@ -137,6 +140,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         depth=options.depth,
         num_heads=options.num_heads,
         lr=options.lr,
+        lr_warmup_steps=options.lr_warmup_steps,
         lr_cooldown_frac=options.lr_cooldown_frac,
         router_aux=options.router_aux,
         dataloader_threads=options.dataloader_threads,
@@ -208,6 +212,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         current_lr = _set_scheduled_lr(
             optimizer,
             base_lr=config.optimizer.lr,
+            warmup_steps=config.optimizer.lr_warmup_steps,
             cooldown_frac=config.optimizer.lr_cooldown_frac,
             step=step,
             total_steps=steps,
@@ -581,12 +586,14 @@ def _set_scheduled_lr(
     optimizer: torch.optim.Optimizer,
     *,
     base_lr: float,
+    warmup_steps: int,
     cooldown_frac: float,
     step: int,
     total_steps: int,
 ) -> float:
     lr = _scheduled_lr(
         base_lr=base_lr,
+        warmup_steps=warmup_steps,
         cooldown_frac=cooldown_frac,
         step=step,
         total_steps=total_steps,
@@ -599,16 +606,21 @@ def _set_scheduled_lr(
 def _scheduled_lr(
     *,
     base_lr: float,
+    warmup_steps: int,
     cooldown_frac: float,
     step: int,
     total_steps: int,
 ) -> float:
     if base_lr <= 0:
         raise ValueError("base_lr must be positive.")
+    if warmup_steps < 0:
+        raise ValueError("lr_warmup_steps must be non-negative.")
     if not 0.0 <= cooldown_frac < 1.0:
         raise ValueError("lr_cooldown_frac must be in [0, 1).")
     if step <= 0 or total_steps <= 0:
         raise ValueError("step and total_steps must be positive.")
+    if warmup_steps > 0 and step <= warmup_steps:
+        return base_lr * step / warmup_steps
     cooldown_steps = round(total_steps * cooldown_frac)
     if cooldown_steps <= 0:
         return base_lr
@@ -682,6 +694,7 @@ def _init_wandb(
         ),
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
+        "lr_warmup_steps": config.optimizer.lr_warmup_steps,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
         "fused_adamw": device.type == "cuda",
         "policy_loss_weight": config.loss.policy,

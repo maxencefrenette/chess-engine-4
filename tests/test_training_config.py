@@ -32,6 +32,7 @@ depth = 2
 
 [optimizer]
 lr = 0.001
+lr_warmup_steps = 50
 lr_cooldown_frac = 0.1
 
 [loss]
@@ -52,6 +53,7 @@ moves_left = 0.5
     assert config.model.depth == 2
     assert config.model.kind == "mlp"
     assert config.optimizer.lr == 0.001
+    assert config.optimizer.lr_warmup_steps == 50
     assert config.optimizer.lr_cooldown_frac == 0.1
     assert config.loss.moves_left == 0.5
 
@@ -80,6 +82,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         d_model=64,
         depth=2,
         lr=0.001,
+        lr_warmup_steps=25,
         lr_cooldown_frac=0.2,
     )
 
@@ -89,6 +92,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
     assert overridden.optimizer.lr == 0.001
+    assert overridden.optimizer.lr_warmup_steps == 25
     assert overridden.optimizer.lr_cooldown_frac == 0.2
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
@@ -141,14 +145,53 @@ def test_train_options_supports_max_steps() -> None:
 def test_lr_cooldown_schedule() -> None:
     from chess_engine_4.training.cli import _scheduled_lr
 
-    assert _scheduled_lr(base_lr=1.0, cooldown_frac=0.1, step=90, total_steps=100) == 1.0
-    assert _scheduled_lr(base_lr=1.0, cooldown_frac=0.1, step=95, total_steps=100) == 0.5
     assert _scheduled_lr(
         base_lr=1.0,
+        warmup_steps=0,
+        cooldown_frac=0.1,
+        step=90,
+        total_steps=100,
+    ) == 1.0
+    assert _scheduled_lr(
+        base_lr=1.0,
+        warmup_steps=0,
+        cooldown_frac=0.1,
+        step=95,
+        total_steps=100,
+    ) == 0.5
+    assert _scheduled_lr(
+        base_lr=1.0,
+        warmup_steps=0,
         cooldown_frac=0.1,
         step=100,
         total_steps=100,
     ) == pytest.approx(0.0)
+
+
+def test_lr_warmup_schedule() -> None:
+    from chess_engine_4.training.cli import _scheduled_lr
+
+    assert _scheduled_lr(
+        base_lr=1.0,
+        warmup_steps=50,
+        cooldown_frac=0.1,
+        step=1,
+        total_steps=100,
+    ) == 0.02
+    assert _scheduled_lr(
+        base_lr=1.0,
+        warmup_steps=50,
+        cooldown_frac=0.1,
+        step=50,
+        total_steps=100,
+    ) == 1.0
+    assert _scheduled_lr(
+        base_lr=1.0,
+        warmup_steps=50,
+        cooldown_frac=0.1,
+        step=51,
+        total_steps=100,
+    ) == 1.0
 
 
 def test_1e18_config_builds_expected_model_size() -> None:

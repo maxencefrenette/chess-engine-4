@@ -1,0 +1,6 @@
+uv run train-modal --config configs/mlp/1e18.toml --lr-warmup-steps 50 --wandb-name warmup50-mlp-1e18
+uv run train-modal --config configs/mlp/1e19.toml --lr-warmup-steps 50 --wandb-name warmup50-mlp-1e19
+uv run train-modal --config configs/mlp/1e20.toml --lr-warmup-steps 50 --wandb-name warmup50-mlp-1e20
+uv run train-modal --config configs/mlp_moe16a2/1e18.toml --lr-warmup-steps 50 --wandb-name warmup50-moe16a2-1e18
+uv run train-modal --config configs/mlp_moe16a2/1e19.toml --lr-warmup-steps 50 --wandb-name warmup50-moe16a2-1e19
+uv run train-modal --config configs/mlp_moe16a2/1e20.toml --lr-warmup-steps 50 --wandb-name warmup50-moe16a2-1e20
