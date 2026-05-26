@@ -6,7 +6,8 @@ step_penalty_k = 1.2
 
 [infra]
 gpu_type = "l4"
-dataloader_prefetch_factor = 2
+dataloader_threads = 4
+dataloader_prefetch_per_thread = 2
 
 [data]
 batch_size = 1536

@@ -22,7 +22,8 @@ class RunConfig:
 @dataclass(frozen=True, slots=True)
 class InfraConfig:
     gpu_type: str = "l4"
-    dataloader_prefetch_factor: int = 2
+    dataloader_threads: int = 4
+    dataloader_prefetch_per_thread: int = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,8 @@ def with_overrides(
     num_heads: int | None = None,
     lr: float | None = None,
     router_aux: float | None = None,
+    dataloader_threads: int | None = None,
+    dataloader_prefetch_per_thread: int | None = None,
 ) -> TrainingConfig:
     if compute_budget is not None:
         config = replace(config, run=replace(config.run, compute_budget=compute_budget))
@@ -97,6 +100,19 @@ def with_overrides(
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
     if router_aux is not None:
         config = replace(config, loss=replace(config.loss, router_aux=router_aux))
+    if dataloader_threads is not None:
+        config = replace(
+            config,
+            infra=replace(config.infra, dataloader_threads=dataloader_threads),
+        )
+    if dataloader_prefetch_per_thread is not None:
+        config = replace(
+            config,
+            infra=replace(
+                config.infra,
+                dataloader_prefetch_per_thread=dataloader_prefetch_per_thread,
+            ),
+        )
     return config
 
 

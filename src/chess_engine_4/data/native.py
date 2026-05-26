@@ -23,14 +23,16 @@ def iter_native_packed_batches(
     paths: Sequence[Path],
     *,
     batch_size: int,
-    prefetch_factor: int,
+    prefetch_per_thread: int,
+    threads: int,
 ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     chess_engine_4_native = _load_native_module()
 
     native_iter = chess_engine_4_native.iter_prefetched_packed_batches(
         [str(path) for path in paths],
         batch_size,
-        prefetch_factor,
+        prefetch_per_thread,
+        threads,
     )
     for packed_planes, plane_scalars, policy_indices, policy_probs, value in native_iter:
         yield (

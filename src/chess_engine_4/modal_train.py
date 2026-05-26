@@ -73,6 +73,8 @@ def train_modal() -> None:
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
+    parser.add_argument("--dataloader-threads", type=int, default=None)
+    parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
     parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -95,6 +97,8 @@ def train_modal() -> None:
         "num_heads": args.num_heads,
         "lr": args.lr,
         "router_aux": args.router_aux,
+        "dataloader_threads": args.dataloader_threads,
+        "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
         "max_steps": args.max_steps,
         "wandb": args.wandb,
         "wandb_project": args.wandb_project,
@@ -153,6 +157,8 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             num_heads=payload["num_heads"],
             lr=payload["lr"],
             router_aux=payload["router_aux"],
+            dataloader_threads=payload["dataloader_threads"],
+            dataloader_prefetch_per_thread=payload["dataloader_prefetch_per_thread"],
             device="cuda",
             max_steps=payload["max_steps"],
             wandb=payload["wandb"],

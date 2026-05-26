@@ -120,3 +120,25 @@ A 500-step Modal benchmark reached 31.5 ms/step on the final interval and 31.9 m
 | Copy + train GPU work | 5.08 ms/step |
 
 This is a clear win. H2D copy fell from 2.65 ms/step to 0.65 ms/step, while total profiled wall time fell from 45.76 ms/step to 34.23 ms/step. Training is still input-bound, but dense policy transfer is no longer the dominant payload.
+
+## Threaded Native Prefetch Follow-Up
+
+The PyTorch `DataLoader` wrapper was removed. The Rust loader now owns background prefetching directly: worker threads share one tar-file queue, each worker has a bounded ready-batch queue, and Python polls the worker queues for full batches. The current config uses `dataloader_threads = 4` and `dataloader_prefetch_per_thread = 2`.
+
+The latest Modal profile used:
+
+```sh
+uv run profile-training --config configs/mlp/1e19.toml --dataloader-threads 4 --warmup-steps 50 --profile-steps 200
+```
+
+| Bucket | Mean |
+| --- | ---: |
+| Total wall time | 8.38 ms/step |
+| CPU/dataloader fetch wall | 1.93 ms/step |
+| Python enqueue wall | 5.38 ms/step |
+| Exposed GPU idle gap | 2.04 ms/step |
+| H2D copy on GPU stream | 1.65 ms/step |
+| Train GPU kernels | 4.69 ms/step |
+| Copy + train GPU work | 6.34 ms/step |
+
+Compared with the single-thread compact-policy profiler at 34.23 ms/step, this cuts total profiled step time by about 75%. The remaining visible overhead is no longer batch fetch; Python enqueue plus host-to-device transfer is now a larger fraction of wall time. End-to-end MFU improved from 2.2% to 8.8% on the L4 profile.

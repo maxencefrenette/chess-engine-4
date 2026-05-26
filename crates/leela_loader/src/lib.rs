@@ -3,10 +3,11 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, RecvTimeoutError, sync_channel};
+use std::sync::mpsc::{Receiver, TryRecvError, sync_channel};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use flate2::read::GzDecoder;
 use half::f16;
@@ -212,9 +213,12 @@ impl PackedBatchData {
 
 #[pyclass(module = "chess_engine_4_native", unsendable)]
 struct PrefetchedPackedBatchIterator {
-    receiver: Option<Receiver<PrefetchMessage>>,
+    receivers: Vec<Receiver<PrefetchMessage>>,
+    active_receivers: Vec<bool>,
+    active_receiver_count: usize,
+    next_receiver: usize,
     stop: Arc<AtomicBool>,
-    handle: Option<JoinHandle<()>>,
+    handles: Vec<JoinHandle<()>>,
 }
 
 #[pymethods]
@@ -224,18 +228,39 @@ impl PrefetchedPackedBatchIterator {
     }
 
     fn __next__<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
-        let receiver = self
-            .receiver
-            .as_ref()
-            .ok_or_else(|| PyStopIteration::new_err(()))?;
-        match receiver.recv_timeout(PREFETCH_RECV_TIMEOUT) {
-            Ok(PrefetchMessage::Batch(batch)) => batch.into_py_tuple(py),
-            Ok(PrefetchMessage::End) => Err(PyStopIteration::new_err(())),
-            Ok(PrefetchMessage::Error(message)) => Err(PyValueError::new_err(message)),
-            Err(RecvTimeoutError::Timeout) => Err(PyValueError::new_err(
-                "timed out after 5s waiting for the Rust dataloader prefetch thread",
-            )),
-            Err(RecvTimeoutError::Disconnected) => Err(PyStopIteration::new_err(())),
+        let deadline = Instant::now() + PREFETCH_RECV_TIMEOUT;
+        loop {
+            if self.active_receiver_count == 0 {
+                return Err(PyStopIteration::new_err(()));
+            }
+            for offset in 0..self.receivers.len() {
+                let index = (self.next_receiver + offset) % self.receivers.len();
+                if !self.active_receivers[index] {
+                    continue;
+                }
+                match self.receivers[index].try_recv() {
+                    Ok(PrefetchMessage::Batch(batch)) => {
+                        self.next_receiver = (index + 1) % self.receivers.len();
+                        return batch.into_py_tuple(py);
+                    }
+                    Ok(PrefetchMessage::End) | Err(TryRecvError::Disconnected) => {
+                        self.active_receivers[index] = false;
+                        self.active_receiver_count -= 1;
+                    }
+                    Ok(PrefetchMessage::Error(message)) => {
+                        self.active_receivers[index] = false;
+                        self.active_receiver_count -= 1;
+                        return Err(PyValueError::new_err(message));
+                    }
+                    Err(TryRecvError::Empty) => {}
+                }
+            }
+            if Instant::now() >= deadline {
+                return Err(PyValueError::new_err(
+                    "timed out after 5s waiting for the Rust dataloader prefetch threads",
+                ));
+            }
+            thread::sleep(Duration::from_millis(1));
         }
     }
 }
@@ -243,8 +268,8 @@ impl PrefetchedPackedBatchIterator {
 impl Drop for PrefetchedPackedBatchIterator {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        self.receiver.take();
-        if let Some(handle) = self.handle.take() {
+        self.receivers.clear();
+        for handle in self.handles.drain(..) {
             let _ = handle.join();
         }
     }
@@ -339,39 +364,69 @@ impl SimpleTarReader {
 fn iter_prefetched_packed_batches(
     paths: Vec<PathBuf>,
     batch_size: usize,
-    prefetch_factor: usize,
+    prefetch_per_thread: usize,
+    threads: usize,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     validate_batch_size(batch_size)?;
-    if prefetch_factor == 0 {
-        return Err(PyValueError::new_err("prefetch_factor must be positive"));
+    if prefetch_per_thread == 0 {
+        return Err(PyValueError::new_err(
+            "prefetch_per_thread must be positive",
+        ));
+    }
+    if threads == 0 {
+        return Err(PyValueError::new_err("threads must be positive"));
     }
 
-    let mut iterator = make_packed_batch_iterator(paths, batch_size);
-    let (sender, receiver) = sync_channel(prefetch_factor);
+    let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
     let stop = Arc::new(AtomicBool::new(false));
-    let worker_stop = Arc::clone(&stop);
-    let handle = thread::spawn(move || {
-        loop {
-            if worker_stop.load(Ordering::Relaxed) {
-                break;
+    let mut receivers = Vec::with_capacity(threads);
+    let mut handles = Vec::with_capacity(threads);
+    for _ in 0..threads {
+        let (sender, receiver) = sync_channel(prefetch_per_thread);
+        receivers.push(receiver);
+        let worker_paths = Arc::clone(&paths);
+        let worker_stop = Arc::clone(&stop);
+        handles.push(thread::spawn(move || {
+            loop {
+                if worker_stop.load(Ordering::Relaxed) {
+                    break;
+                }
+                let Some(path) = next_path(&worker_paths) else {
+                    let _ = sender.send(PrefetchMessage::End);
+                    break;
+                };
+                let mut iterator = make_packed_batch_iterator(vec![path], batch_size);
+                loop {
+                    if worker_stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let message = match iterator.next_batch_data() {
+                        Ok(Some(batch)) => PrefetchMessage::Batch(batch),
+                        Ok(None) => break,
+                        Err(error) => PrefetchMessage::Error(error.to_string()),
+                    };
+                    let done = matches!(message, PrefetchMessage::Error(_));
+                    if sender.send(message).is_err() || done {
+                        return;
+                    }
+                }
             }
-            let message = match iterator.next_batch_data() {
-                Ok(Some(batch)) => PrefetchMessage::Batch(batch),
-                Ok(None) => PrefetchMessage::End,
-                Err(error) => PrefetchMessage::Error(error.to_string()),
-            };
-            let done = matches!(message, PrefetchMessage::End | PrefetchMessage::Error(_));
-            if sender.send(message).is_err() || done {
-                break;
-            }
-        }
-    });
+        }));
+    }
 
+    let active_receiver_count = receivers.len();
     Ok(PrefetchedPackedBatchIterator {
-        receiver: Some(receiver),
+        receivers,
+        active_receivers: vec![true; active_receiver_count],
+        active_receiver_count,
+        next_receiver: 0,
         stop,
-        handle: Some(handle),
+        handles,
     })
+}
+
+fn next_path(paths: &Arc<Mutex<VecDeque<PathBuf>>>) -> Option<PathBuf> {
+    paths.lock().expect("paths mutex poisoned").pop_front()
 }
 
 fn validate_batch_size(batch_size: usize) -> PyResult<()> {

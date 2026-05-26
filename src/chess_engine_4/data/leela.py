@@ -45,22 +45,27 @@ class LeelaTarDataset:
         *,
         batch_size: int,
         env_var: str = DEFAULT_DATA_ENV_VAR,
-        prefetch_factor: int = 2,
+        prefetch_per_thread: int = 2,
+        threads: int = 2,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive.")
-        if prefetch_factor <= 0:
-            raise ValueError("prefetch_factor must be positive.")
+        if prefetch_per_thread <= 0:
+            raise ValueError("prefetch_per_thread must be positive.")
+        if threads <= 0:
+            raise ValueError("threads must be positive.")
 
         self.paths = resolve_data_paths(paths, env_var=env_var)
         self.batch_size = batch_size
-        self.prefetch_factor = prefetch_factor
+        self.prefetch_per_thread = prefetch_per_thread
+        self.threads = threads
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
         yield from iter_native_packed_batches(
             self.paths,
             batch_size=self.batch_size,
-            prefetch_factor=self.prefetch_factor,
+            prefetch_per_thread=self.prefetch_per_thread,
+            threads=self.threads,
         )
 
 

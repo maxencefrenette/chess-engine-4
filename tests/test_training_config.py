@@ -19,7 +19,8 @@ step_penalty_k = 1.1
 
 [infra]
 gpu_type = "l4"
-dataloader_prefetch_factor = 3
+dataloader_threads = 4
+dataloader_prefetch_per_thread = 3
 
 [data]
 batch_size = 8
@@ -43,7 +44,8 @@ moves_left = 0.5
     assert config.run.compute_budget == 1e12
     assert config.run.step_penalty_k == 1.1
     assert config.infra.gpu_type == "l4"
-    assert config.infra.dataloader_prefetch_factor == 3
+    assert config.infra.dataloader_threads == 4
+    assert config.infra.dataloader_prefetch_per_thread == 3
     assert config.data.batch_size == 8
     assert config.model.d_model == 64
     assert config.model.depth == 2

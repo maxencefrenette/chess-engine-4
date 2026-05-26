@@ -68,6 +68,8 @@ class TrainOptions:
     num_heads: int | None = None
     lr: float | None = None
     router_aux: float | None = None
+    dataloader_threads: int | None = None
+    dataloader_prefetch_per_thread: int | None = None
     device: str | None = None
     max_steps: int | None = None
     wandb: bool = True
@@ -88,6 +90,8 @@ def train() -> None:
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
+    parser.add_argument("--dataloader-threads", type=int, default=None)
+    parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
     parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
@@ -108,6 +112,8 @@ def train() -> None:
             num_heads=args.num_heads,
             lr=args.lr,
             router_aux=args.router_aux,
+            dataloader_threads=args.dataloader_threads,
+            dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
             device=args.device,
             max_steps=args.max_steps,
             wandb=args.wandb,
@@ -129,6 +135,8 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         num_heads=options.num_heads,
         lr=options.lr,
         router_aux=options.router_aux,
+        dataloader_threads=options.dataloader_threads,
+        dataloader_prefetch_per_thread=options.dataloader_prefetch_per_thread,
     )
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)
@@ -155,7 +163,8 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     dataset = LeelaTarDataset(
         options.data,
         batch_size=config.data.batch_size,
-        prefetch_factor=config.infra.dataloader_prefetch_factor,
+        prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
+        threads=config.infra.dataloader_threads,
     )
     model = build_model(config.model).to(device)
     training_model = _compile_model_for_training(
@@ -585,7 +594,8 @@ def _init_wandb(
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,
         "gpu_type": config.infra.gpu_type,
-        "dataloader_prefetch_factor": config.infra.dataloader_prefetch_factor,
+        "dataloader_threads": config.infra.dataloader_threads,
+        "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,

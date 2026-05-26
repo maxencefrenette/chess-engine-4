@@ -845,6 +845,8 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
             "",
             "[infra]",
             f'gpu_type = "{gpu}"',
+            "dataloader_threads = 4",
+            "dataloader_prefetch_per_thread = 2",
             "",
             "[data]",
             f"batch_size = {suggestion.batch_size}",

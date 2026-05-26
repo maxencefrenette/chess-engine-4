@@ -33,6 +33,8 @@ def profile_training() -> None:
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
+    parser.add_argument("--dataloader-threads", type=int, default=None)
+    parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
     parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
@@ -54,6 +56,8 @@ def profile_training() -> None:
         "num_heads": args.num_heads,
         "lr": args.lr,
         "router_aux": args.router_aux,
+        "dataloader_threads": args.dataloader_threads,
+        "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
         "warmup_steps": args.warmup_steps,
         "profile_steps": args.profile_steps,
     }
@@ -103,6 +107,8 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         num_heads=payload["num_heads"],
         lr=payload["lr"],
         router_aux=payload["router_aux"],
+        dataloader_threads=payload["dataloader_threads"],
+        dataloader_prefetch_per_thread=payload["dataloader_prefetch_per_thread"],
     )
     device = torch.device("cuda")
     precision = _training_precision(device)
@@ -119,7 +125,8 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
     dataset = LeelaTarDataset(
         REMOTE_DATA_PATH,
         batch_size=config.data.batch_size,
-        prefetch_factor=config.infra.dataloader_prefetch_factor,
+        prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
+        threads=config.infra.dataloader_threads,
     )
     iterator = iter(dataset)
 
@@ -224,7 +231,8 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "device_name": torch.cuda.get_device_name(device),
         "precision": precision,
         "batch_size": config.data.batch_size,
-        "dataloader_prefetch_factor": config.infra.dataloader_prefetch_factor,
+        "dataloader_threads": config.infra.dataloader_threads,
+        "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
         "warmup_steps": warmup_steps,
         "profile_steps": profile_steps,
         "overall_wall_sec": overall_end - overall_start,
@@ -278,7 +286,8 @@ def _print_profile(result: dict[str, Any]) -> None:
         f"profile_complete config={result['config']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
         f"batch_size={result['batch_size']} "
-        f"prefetch={result['dataloader_prefetch_factor']}"
+        f"threads={result['dataloader_threads']} "
+        f"prefetch_per_thread={result['dataloader_prefetch_per_thread']}"
     )
     print("")
     rows = [
