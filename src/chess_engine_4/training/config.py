@@ -28,7 +28,6 @@ class InfraConfig:
 @dataclass(frozen=True, slots=True)
 class DataConfig:
     batch_size: int = 1024
-    max_records: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -119,7 +119,6 @@ def _run_profile_remote(payload: dict[str, Any]) -> dict[str, Any]:
     dataset = LeelaTarDataset(
         REMOTE_DATA_PATH,
         batch_size=config.data.batch_size,
-        max_records=config.data.max_records,
         prefetch_factor=config.infra.dataloader_prefetch_factor,
     )
     iterator = iter(dataset)

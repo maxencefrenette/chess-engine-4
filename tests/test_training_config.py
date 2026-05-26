@@ -23,7 +23,6 @@ dataloader_prefetch_factor = 3
 
 [data]
 batch_size = 8
-max_records = 128
 
 [model]
 kind = "mlp"
@@ -46,7 +45,6 @@ moves_left = 0.5
     assert config.infra.gpu_type == "l4"
     assert config.infra.dataloader_prefetch_factor == 3
     assert config.data.batch_size == 8
-    assert config.data.max_records == 128
     assert config.model.d_model == 64
     assert config.model.depth == 2
     assert config.model.kind == "mlp"

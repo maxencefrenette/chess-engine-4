@@ -58,9 +58,6 @@ struct PackedBatchIterator {
     pending: VecDeque<ChunkCursor>,
     pending_records: usize,
     batch_size: usize,
-    max_records: Option<usize>,
-    emitted_records: usize,
-    drop_last: bool,
 }
 
 impl PackedBatchIterator {
@@ -69,7 +66,7 @@ impl PackedBatchIterator {
         if self.pending_records == 0 {
             return Ok(None);
         }
-        if self.pending_records < self.batch_size && self.drop_last {
+        if self.pending_records < self.batch_size {
             self.pending.clear();
             self.pending_records = 0;
             return Ok(None);
@@ -77,18 +74,12 @@ impl PackedBatchIterator {
 
         let records = self.batch_size.min(self.pending_records);
         let batch = self.build_batch_data(records)?;
-        self.emitted_records += records;
         self.pending_records -= records;
         Ok(Some(batch))
     }
 
     fn fill_pending(&mut self) -> PyResult<()> {
         while self.pending_records < self.batch_size {
-            if let Some(max_records) = self.max_records {
-                if self.emitted_records + self.pending_records >= max_records {
-                    break;
-                }
-            }
             let Some(payload) = self.next_payload()? else {
                 break;
             };
@@ -103,12 +94,7 @@ impl PackedBatchIterator {
                 )));
             }
             validate_versions(&payload)?;
-            let mut records = payload.len() / RECORD_SIZE;
-            if let Some(max_records) = self.max_records {
-                let remaining =
-                    max_records.saturating_sub(self.emitted_records + self.pending_records);
-                records = records.min(remaining);
-            }
+            let records = payload.len() / RECORD_SIZE;
             if records == 0 {
                 break;
             }
@@ -353,8 +339,6 @@ impl SimpleTarReader {
 fn iter_prefetched_packed_batches(
     paths: Vec<PathBuf>,
     batch_size: usize,
-    max_records: Option<usize>,
-    drop_last: bool,
     prefetch_factor: usize,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     validate_batch_size(batch_size)?;
@@ -362,7 +346,7 @@ fn iter_prefetched_packed_batches(
         return Err(PyValueError::new_err("prefetch_factor must be positive"));
     }
 
-    let mut iterator = make_packed_batch_iterator(paths, batch_size, max_records, drop_last);
+    let mut iterator = make_packed_batch_iterator(paths, batch_size);
     let (sender, receiver) = sync_channel(prefetch_factor);
     let stop = Arc::new(AtomicBool::new(false));
     let worker_stop = Arc::clone(&stop);
@@ -397,12 +381,7 @@ fn validate_batch_size(batch_size: usize) -> PyResult<()> {
     Ok(())
 }
 
-fn make_packed_batch_iterator(
-    paths: Vec<PathBuf>,
-    batch_size: usize,
-    max_records: Option<usize>,
-    drop_last: bool,
-) -> PackedBatchIterator {
+fn make_packed_batch_iterator(paths: Vec<PathBuf>, batch_size: usize) -> PackedBatchIterator {
     PackedBatchIterator {
         paths,
         path_index: 0,
@@ -410,9 +389,6 @@ fn make_packed_batch_iterator(
         pending: VecDeque::new(),
         pending_records: 0,
         batch_size,
-        max_records,
-        emitted_records: 0,
-        drop_last,
     }
 }
 

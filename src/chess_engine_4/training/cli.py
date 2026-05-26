@@ -155,7 +155,6 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     dataset = LeelaTarDataset(
         options.data,
         batch_size=config.data.batch_size,
-        max_records=config.data.max_records,
         prefetch_factor=config.infra.dataloader_prefetch_factor,
     )
     model = build_model(config.model).to(device)
@@ -324,11 +323,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
 def inspect_data() -> None:
     parser = argparse.ArgumentParser(description="Inspect Leela tar training records.")
     parser.add_argument("--data", default=None, help=_DATA_HELP)
-    parser.add_argument("--records", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=1024)
     args = parser.parse_args()
 
-    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.records)
+    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
     seen = 0
     for packed_planes, plane_scalars, policy_indices, policy_probs, value in dataset:
         batch_size = packed_planes.shape[0]
@@ -355,7 +353,7 @@ def sample_batch() -> None:
     parser.add_argument("--batch-size", type=int, default=4)
     args = parser.parse_args()
 
-    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size, max_records=args.batch_size)
+    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
     packed_planes, plane_scalars, policy_indices, policy_probs, value = next(iter(dataset))
     print(f"packed_planes: {tuple(packed_planes.shape)}")
     print(f"plane_scalars: {tuple(plane_scalars.shape)}")
@@ -581,7 +579,6 @@ def _init_wandb(
         "step_penalty_k": config.run.step_penalty_k,
         "log_every": _LOG_EVERY,
         "batch_size": config.data.batch_size,
-        "max_records": config.data.max_records,
         "device": str(device),
         "device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
         "precision": precision,

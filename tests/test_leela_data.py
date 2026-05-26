@@ -47,7 +47,7 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
     tmp_path: Path,
 ) -> None:
     tar_path = tmp_path / "training.tar"
-    _write_tar(tar_path, gzip.compress(_records(3)))
+    _write_tar(tar_path, gzip.compress(_records(4)))
 
     batches = list(LeelaTarDataset(tar_path, batch_size=2))
 
@@ -79,14 +79,14 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
     torch.testing.assert_close(value[0, 4], torch.tensor([0.75, 0.125, 20.0]))
     torch.testing.assert_close(value[0, 5, :2], torch.tensor([0.0, 0.0]))
     assert torch.isnan(value[0, 5, 2])
-    assert tuple(batches[1][0].shape) == (1, 104, 8)
+    assert tuple(batches[1][0].shape) == (2, 104, 8)
 
 
-def test_leela_tar_dataset_supports_max_records_and_drop_last(tmp_path: Path) -> None:
+def test_leela_tar_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
-    _write_tar(tar_path, gzip.compress(_records(5)))
+    _write_tar(tar_path, gzip.compress(_records(3)))
 
-    batches = list(LeelaTarDataset(tar_path, batch_size=2, max_records=3, drop_last=True))
+    batches = list(LeelaTarDataset(tar_path, batch_size=2))
 
     assert len(batches) == 1
     assert tuple(batches[0][0].shape) == (2, 104, 8)
