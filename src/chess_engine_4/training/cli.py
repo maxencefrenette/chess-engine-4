@@ -67,6 +67,7 @@ class TrainOptions:
     depth: int | None = None
     num_heads: int | None = None
     lr: float | None = None
+    max_grad_norm: float | None = None
     lr_warmup_steps: int | None = None
     lr_cooldown_frac: float | None = None
     router_aux: float | None = None
@@ -91,6 +92,7 @@ def train() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--max-grad-norm", type=float, default=None)
     parser.add_argument("--lr-warmup-steps", type=int, default=None)
     parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
@@ -115,6 +117,7 @@ def train() -> None:
             depth=args.depth,
             num_heads=args.num_heads,
             lr=args.lr,
+            max_grad_norm=args.max_grad_norm,
             lr_warmup_steps=args.lr_warmup_steps,
             lr_cooldown_frac=args.lr_cooldown_frac,
             router_aux=args.router_aux,
@@ -140,6 +143,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         depth=options.depth,
         num_heads=options.num_heads,
         lr=options.lr,
+        max_grad_norm=options.max_grad_norm,
         lr_warmup_steps=options.lr_warmup_steps,
         lr_cooldown_frac=options.lr_cooldown_frac,
         router_aux=options.router_aux,
@@ -223,6 +227,10 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
         loss.total.backward()
+        grad_norm_tensor = _clip_gradient_norm(
+            model,
+            max_grad_norm=config.optimizer.max_grad_norm,
+        )
         should_log = step == 1 or step % _LOG_EVERY == 0 or step == steps
         should_checkpoint = _should_save_checkpoint(
             options.checkpoint_dir,
@@ -230,7 +238,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
             step,
             steps,
         )
-        grad_norm = _gradient_norm(model) if should_log or should_checkpoint else 0.0
+        grad_norm = grad_norm_tensor.item() if should_log or should_checkpoint else 0.0
         optimizer.step()
 
         seen += _input_batch_size(planes)
@@ -694,6 +702,7 @@ def _init_wandb(
         ),
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
+        "max_grad_norm": config.optimizer.max_grad_norm,
         "lr_warmup_steps": config.optimizer.lr_warmup_steps,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
         "fused_adamw": device.type == "cuda",
@@ -709,15 +718,27 @@ def _init_wandb(
     )
 
 
-def _gradient_norm(model: torch.nn.Module) -> float:
+def _clip_gradient_norm(
+    model: torch.nn.Module,
+    *,
+    max_grad_norm: float,
+) -> torch.Tensor:
+    if max_grad_norm < 0:
+        raise ValueError("max_grad_norm must be non-negative.")
+    if max_grad_norm == 0:
+        return _gradient_norm_tensor(model)
+    return torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+
+
+def _gradient_norm_tensor(model: torch.nn.Module) -> torch.Tensor:
     norms = [
         parameter.grad.detach().norm(2)
         for parameter in model.parameters()
         if parameter.grad is not None
     ]
     if not norms:
-        return 0.0
-    return torch.linalg.vector_norm(torch.stack(norms), 2).item()
+        return torch.tensor(0.0)
+    return torch.linalg.vector_norm(torch.stack(norms), 2)
 
 
 def _training_metrics(

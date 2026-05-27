@@ -32,6 +32,7 @@ depth = 2
 
 [optimizer]
 lr = 0.001
+max_grad_norm = 2.0
 lr_warmup_steps = 50
 lr_cooldown_frac = 0.1
 
@@ -53,6 +54,7 @@ moves_left = 0.5
     assert config.model.depth == 2
     assert config.model.kind == "mlp"
     assert config.optimizer.lr == 0.001
+    assert config.optimizer.max_grad_norm == 2.0
     assert config.optimizer.lr_warmup_steps == 50
     assert config.optimizer.lr_cooldown_frac == 0.1
     assert config.loss.moves_left == 0.5
@@ -82,6 +84,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         d_model=64,
         depth=2,
         lr=0.001,
+        max_grad_norm=3.0,
         lr_warmup_steps=25,
         lr_cooldown_frac=0.2,
     )
@@ -92,6 +95,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
     assert overridden.optimizer.lr == 0.001
+    assert overridden.optimizer.max_grad_norm == 3.0
     assert overridden.optimizer.lr_warmup_steps == 25
     assert overridden.optimizer.lr_cooldown_frac == 0.2
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay

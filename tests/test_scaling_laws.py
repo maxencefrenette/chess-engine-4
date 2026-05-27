@@ -17,16 +17,16 @@ from chess_engine_4.training.scaling_laws import (
 
 def test_read_best_runs_and_extrapolate() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
-    assert [run.budget for run in best_runs] == ["1e18", "1e19", "1e20"]
+    assert [run.budget for run in best_runs] == ["1e18", "1e19", "1e20", "1e21"]
 
     laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e21)
+    suggestion = extrapolate(laws, 1e22)
 
     assert 0.28 < laws.policy_top1.predict(1e18) < 0.29
     assert suggestion.d_model % 64 == 0
-    assert suggestion.depth >= 4
-    assert suggestion.batch_size == 16384
-    assert suggestion.lr == pytest.approx(0.0002)
+    assert suggestion.depth >= 5
+    assert suggestion.batch_size == 24576
+    assert suggestion.lr == pytest.approx(0.0001)
     assert suggestion.actual_params > best_runs[-1].params
 
 

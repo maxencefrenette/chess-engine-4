@@ -54,3 +54,23 @@ loss_std = 0.052520124590286536
 loss_upper_1sd = 3.2517680627220202
 policy_top1 = 0.4043564870136983
 runtime_sec = 379.206453481
+
+[runs.1e21]
+source_experiment = "manual-1e21-checkpoint"
+model_kind = "mlp"
+run_name = "mlp-1e21-d768x5-b16384-lr2e-4-clip1-moredata-finalckpt"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/06zpe1og"
+compute = 1.0000517832806909e21
+d_model = 768
+depth = 5
+batch_size = 16384
+lr = 2e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 42327110
+samples_seen = 252542976
+loss = 3.0394177687424224
+loss_std = 0.03677575646833828
+loss_upper_1sd = 3.0761935252107606
+policy_top1 = 0.4513420177828725
+runtime_sec = 1823.843162177
