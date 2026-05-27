@@ -28,3 +28,9 @@ It did reduce the max early grad norm on three runs, but increased it on the oth
 ## Commands
 
 The exact commands are listed in [commands.txt](commands.txt). Full metrics are in [results.csv](results.csv).
+
+## warmup50-mlp-1e20 grad norm spike analysis
+
+Link: https://wandb.ai/maxence-frenette/chess-engine-4/runs/lnyqwd6r
+
+The grad norm spikes at step 2980. The losses all spike at step 2990. The grad norm spikes before the loss which means that the spike is likely not caused by bad data, but rather by something bad with the model.
