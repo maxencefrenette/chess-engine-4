@@ -9,18 +9,12 @@ folder is a separate Next.js app that reads committed experiment summaries from
 Run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-The main pages live in `src/app/`. Data loading lives in `src/lib/best-runs.ts`.
+The main pages live in `src/app/`. Data loading lives in `src/data/best-runs.ts`.
 
 ## Stack
 
@@ -32,7 +26,7 @@ The main pages live in `src/app/`. Data loading lives in `src/lib/best-runs.ts`.
 ## Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Deploy
