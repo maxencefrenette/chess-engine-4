@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LineChart } from "@/components/line-chart";
 import { MetricCard } from "@/components/metric-card";
-import { Sparkline } from "@/components/sparkline";
 import {
   formatCompactNumber,
   formatDecimal,
@@ -73,20 +73,24 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
         <section className="mt-5 grid gap-5 lg:grid-cols-2">
           <ChartCard
             title="Loss score"
+            yLabel="Loss upper 1 SD"
             points={runs.map((run) => ({ x: run.compute, y: run.lossUpper1sd ?? run.loss }))}
           />
           <ChartCard
             title="Policy top-1"
+            yLabel="Top-1 accuracy"
             points={runs.map((run) => ({ x: run.compute, y: run.policyTop1 }))}
             stroke="#16a34a"
           />
           <ChartCard
             title="Parameters"
+            yLabel="Total parameters"
             points={runs.map((run) => ({ x: run.compute, y: run.params }))}
             stroke="#9333ea"
           />
           <ChartCard
             title="Samples seen"
+            yLabel="Training samples"
             points={runs.map((run) => ({ x: run.compute, y: run.samplesSeen }))}
             stroke="#ea580c"
           />
@@ -145,10 +149,12 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
 
 function ChartCard({
   title,
+  yLabel,
   points,
   stroke,
 }: {
   title: string;
+  yLabel: string;
   points: { x: number; y: number }[];
   stroke?: string;
 }) {
@@ -156,7 +162,13 @@ function ChartCard({
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
       <div className="mt-4">
-        <Sparkline label={title} points={points} stroke={stroke} />
+        <LineChart
+          label={title}
+          points={points}
+          stroke={stroke}
+          xLabel="Compute budget"
+          yLabel={yLabel}
+        />
       </div>
     </div>
   );
