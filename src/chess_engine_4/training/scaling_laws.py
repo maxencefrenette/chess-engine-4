@@ -1,4 +1,4 @@
-"""Scaling-law report generation."""
+"""Scaling-law fitting and hyperparameter extrapolation."""
 
 from __future__ import annotations
 
@@ -17,22 +17,11 @@ from chess_engine_4.model import (
 from chess_engine_4.training.config import load_training_config
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
-DEFAULT_OUTPUT_ROOT = Path("reports/scaling-laws/mlp")
-CHARTS = [
-    ("Loss fit", "loss.svg"),
-    ("Policy top-1", "policy_top1.svg"),
-    ("Model size fit", "model_size.svg"),
-    ("Datapoints per parameter", "datapoints_per_parameter.svg"),
-    ("Data samples fit", "data_samples.svg"),
-    ("Batch size fit", "batch_size.svg"),
-    ("Learning rate fit", "learning_rate.svg"),
-]
 
 
 @dataclass(frozen=True, slots=True)
 class SweepResult:
     budget: str
-    source_experiment: str
     model_kind: str
     compute: float
     run_name: str
@@ -45,7 +34,6 @@ class SweepResult:
     samples_seen: int
     loss: float
     policy_top1: float
-    runtime_sec: float
     wandb_url: str
 
 
@@ -116,24 +104,12 @@ class HparamSuggestion:
     samples_seen: int
 
 
-@dataclass(frozen=True, slots=True)
-class Series:
-    label: str
-    points: list[tuple[float, float]]
-    color: str
-    line: bool = True
-    markers: bool = True
-    dashed: bool = False
-
-
 def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
     parser.add_argument("--gpu", default=None)
     parser.add_argument("--config", default="configs/mlp/1e19.toml")
-    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
-    parser.add_argument("--no-output", action="store_true")
     parser.add_argument("--write-config", type=Path, default=None)
     args = parser.parse_args()
 
@@ -150,18 +126,6 @@ def scaling_laws() -> None:
     )
     print(report)
 
-    if not args.no_output:
-        output_dir = report_output_dir(args.output_root, args.target_compute_budget)
-        write_report_artifacts(
-            output_dir=output_dir,
-            best_results=best_results,
-            laws=laws,
-            suggestion=suggestion,
-            config=args.config,
-            gpu=gpu,
-        )
-        print(f"\nwrote report to {output_dir / 'README.md'}")
-
     if args.write_config is not None:
         args.write_config.write_text(format_config(suggestion, gpu=gpu), encoding="utf-8")
         print(f"\nwrote {args.write_config}")
@@ -174,7 +138,6 @@ def read_best_runs(path: Path) -> list[SweepResult]:
     results = [
         SweepResult(
             budget=budget,
-            source_experiment=str(row["source_experiment"]),
             model_kind=str(row.get("model_kind", "mlp")),
             compute=float(row["compute"]),
             run_name=str(row["run_name"]),
@@ -187,7 +150,6 @@ def read_best_runs(path: Path) -> list[SweepResult]:
             samples_seen=int(row["samples_seen"]),
             loss=float(row["loss"]),
             policy_top1=float(row["policy_top1"]),
-            runtime_sec=float(row["runtime_sec"]),
             wandb_url=str(row["wandb_url"]),
         )
         for budget, row in raw_runs.items()
@@ -195,15 +157,6 @@ def read_best_runs(path: Path) -> list[SweepResult]:
     if not results:
         raise ValueError(f"No rows found in {path}.")
     return sorted(results, key=lambda result: result.compute)
-
-
-def best_results_by_budget(results: Iterable[SweepResult]) -> list[SweepResult]:
-    best: dict[str, SweepResult] = {}
-    for result in results:
-        previous = best.get(result.budget)
-        if previous is None or result.loss < previous.loss:
-            best[result.budget] = result
-    return sorted(best.values(), key=lambda result: result.compute)
 
 
 def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
@@ -390,308 +343,6 @@ def round_to_int(value: float) -> int:
     return int(round(value))
 
 
-def report_output_dir(output_root: Path, compute_budget: float) -> Path:
-    return output_root / f"{compute_budget:.0e}".replace("+", "")
-
-
-def write_report_artifacts(
-    *,
-    output_dir: Path,
-    best_results: list[SweepResult],
-    laws: ScalingLaws,
-    suggestion: HparamSuggestion,
-    config: str,
-    gpu: str,
-) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for stale_chart in output_dir.glob("*.svg"):
-        stale_chart.unlink()
-    write_scaling_charts(
-        output_dir=output_dir,
-        best_results=best_results,
-        laws=laws,
-        suggestion=suggestion,
-    )
-    report = format_report(
-        best_results=best_results,
-        laws=laws,
-        suggestion=suggestion,
-        config=config,
-        gpu=gpu,
-        chart_links=CHARTS,
-    )
-    (output_dir / "README.md").write_text(report + "\n", encoding="utf-8")
-
-
-def write_scaling_charts(
-    *,
-    output_dir: Path,
-    best_results: list[SweepResult],
-    laws: ScalingLaws,
-    suggestion: HparamSuggestion,
-) -> None:
-    min_compute = min(result.compute for result in best_results)
-    max_compute = max(suggestion.compute_budget, max(result.compute for result in best_results))
-    curve_compute = logspace(min_compute, max_compute, 96)
-
-    write_svg_chart(
-        output_dir / "loss.svg",
-        title="Loss fit",
-        x_label="Training compute",
-        y_label="Loss",
-        x_log=True,
-        y_log=True,
-        plain_y_ticks=True,
-        series=[
-            Series(
-                "observed best",
-                [(result.compute, result.loss) for result in best_results],
-                "#1f77b4",
-                line=False,
-            ),
-            Series(
-                "fit",
-                [(compute, laws.loss.predict(compute)) for compute in curve_compute],
-                "#d62728",
-                markers=False,
-                dashed=True,
-            ),
-            Series(
-                "target",
-                [(suggestion.compute_budget, laws.loss.predict(suggestion.compute_budget))],
-                "#2ca02c",
-            ),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "policy_top1.svg",
-        title="Policy top-1",
-        x_label="Training compute",
-        y_label="Top-1 accuracy",
-        x_log=True,
-        y_log=False,
-        series=[
-            Series(
-                "observed best",
-                [(result.compute, result.policy_top1) for result in best_results],
-                "#1f77b4",
-                line=False,
-            ),
-            Series(
-                "fit",
-                [(compute, laws.policy_top1.predict(compute)) for compute in curve_compute],
-                "#1f77b4",
-                markers=False,
-                dashed=True,
-            ),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "model_size.svg",
-        title="Model size fit",
-        x_label="Training compute",
-        y_label="Total parameters",
-        x_log=True,
-        y_log=True,
-        series=[
-            Series(
-                "params observed",
-                [(result.compute, result.params) for result in best_results],
-                "#9467bd",
-                line=False,
-            ),
-            Series(
-                "params fit",
-                [(compute, laws.params.predict(compute)) for compute in curve_compute],
-                "#9467bd",
-                markers=False,
-                dashed=True,
-            ),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "datapoints_per_parameter.svg",
-        title="Datapoints per parameter",
-        x_label="Training compute",
-        y_label="Datapoints per parameter",
-        x_log=True,
-        y_log=False,
-        series=[
-            Series(
-                "observed best",
-                [
-                    (result.compute, result.samples_seen / result.params)
-                    for result in best_results
-                ],
-                "#8c564b",
-                line=False,
-            ),
-            Series(
-                "fit",
-                [
-                    (compute, laws.datapoints_per_parameter.predict(compute))
-                    for compute in curve_compute
-                ],
-                "#8c564b",
-                markers=False,
-                dashed=True,
-            ),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "data_samples.svg",
-        title="Data samples fit",
-        x_label="Training compute",
-        y_label="Samples seen",
-        x_log=True,
-        y_log=True,
-        series=[
-            Series(
-                "D observed",
-                [(result.compute, result.samples_seen) for result in best_results],
-                "#ff7f0e",
-                line=False,
-            ),
-            Series(
-                "D fit",
-                [(compute, laws.samples.predict(compute)) for compute in curve_compute],
-                "#ff7f0e",
-                markers=False,
-                dashed=True,
-            ),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "batch_size.svg",
-        title="Batch size fit",
-        x_label="Training compute",
-        y_label="Batch size",
-        x_log=True,
-        y_log=True,
-        series=[
-            Series(
-                "batch observed",
-                [(result.compute, result.batch_size) for result in best_results],
-                "#1f77b4",
-                line=False,
-            ),
-            Series(
-                "batch fit",
-                [(compute, laws.batch_size.predict(compute)) for compute in curve_compute],
-                "#1f77b4",
-                markers=False,
-                dashed=True,
-            ),
-            Series("target", [(suggestion.compute_budget, suggestion.batch_size)], "#2ca02c"),
-        ],
-    )
-
-    write_svg_chart(
-        output_dir / "learning_rate.svg",
-        title="Learning rate fit",
-        x_label="Training compute",
-        y_label="Learning rate",
-        x_log=True,
-        y_log=True,
-        series=[
-            Series(
-                "lr observed",
-                [(result.compute, result.lr) for result in best_results],
-                "#d62728",
-                line=False,
-            ),
-            Series(
-                "lr fit",
-                [(compute, laws.lr.predict(compute)) for compute in curve_compute],
-                "#d62728",
-                markers=False,
-                dashed=True,
-            ),
-            Series("target", [(suggestion.compute_budget, suggestion.lr)], "#2ca02c"),
-        ],
-    )
-
-
-def logspace(start: float, stop: float, count: int) -> list[float]:
-    log_start = math.log10(start)
-    log_stop = math.log10(stop)
-    return [
-        10 ** (log_start + (log_stop - log_start) * index / (count - 1))
-        for index in range(count)
-    ]
-
-
-def write_svg_chart(
-    path: Path,
-    *,
-    title: str,
-    x_label: str,
-    y_label: str,
-    x_log: bool,
-    y_log: bool,
-    series: list[Series],
-    plain_y_ticks: bool = False,
-) -> None:
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    figure, axis = plt.subplots(figsize=(9.2, 5.6), layout="constrained")
-    for item in series:
-        x_values = [x for x, _ in item.points]
-        y_values = [y for _, y in item.points]
-        if item.line:
-            axis.plot(
-                x_values,
-                y_values,
-                color=item.color,
-                linewidth=1.4,
-                linestyle="--" if item.dashed else "-",
-                label=item.label,
-            )
-        if item.markers:
-            axis.scatter(
-                x_values,
-                y_values,
-                color=item.color,
-                s=52,
-                zorder=3,
-                label=item.label if not item.line else None,
-            )
-
-    if x_log:
-        axis.set_xscale("log")
-    if y_log:
-        axis.set_yscale("log")
-    if plain_y_ticks:
-        import matplotlib.ticker as ticker
-
-        y_values = [y for item in series for _, y in item.points]
-        y_min = min(y_values)
-        y_max = max(y_values)
-        tick_values = ticker.MaxNLocator(nbins=6).tick_values(y_min, y_max)
-        visible_ticks = [value for value in tick_values if y_min <= value <= y_max]
-        axis.yaxis.set_major_locator(ticker.FixedLocator(visible_ticks))
-        axis.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.2f"))
-        axis.yaxis.set_minor_formatter(ticker.NullFormatter())
-    axis.set_title(title, loc="left", fontweight="bold")
-    axis.set_xlabel(x_label)
-    axis.set_ylabel(y_label)
-    axis.grid(True, which="major", color="#e4e7eb", linewidth=0.8)
-    axis.grid(True, which="minor", color="#f1f3f5", linewidth=0.5, alpha=0.7)
-    axis.legend(loc="best", frameon=False)
-    for spine in ("top", "right"):
-        axis.spines[spine].set_visible(False)
-    figure.savefig(path, format="svg")
-    plt.close(figure)
-
-
 def format_report(
     *,
     best_results: list[SweepResult],
@@ -699,7 +350,6 @@ def format_report(
     suggestion: HparamSuggestion,
     config: str,
     gpu: str,
-    chart_links: list[tuple[str, str]] | None = None,
 ) -> str:
     lines = [
         "# Hyperparameter Scaling Report",
@@ -743,12 +393,6 @@ def format_report(
             "",
         ]
     )
-    if chart_links:
-        lines.extend(["## Charts", ""])
-        for title, filename in chart_links:
-            lines.append(f"![{title}]({filename})")
-            lines.append("")
-
     lines.extend(
         [
             "## Model And Data Fits",

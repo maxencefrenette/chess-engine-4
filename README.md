@@ -94,10 +94,11 @@ MLP W&B runs:
 uv run scaling-laws --target-compute-budget 1e16
 ```
 
-This also writes a Markdown report and SVG charts under `reports/scaling-laws/mlp/`.
+The command prints the fitted laws, observed runs, extrapolated target, and launch
+command. Use `--write-config PATH` to write the suggested TOML configuration.
 
-For Transformer64, use the matching best-run file and report root:
+For Transformer64, use the matching best-run file:
 
 ```sh
-uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --output-root reports/scaling-laws/transformer64 --config configs/transformer64/1e16.toml --target-compute-budget 1e17
+uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --config configs/transformer64/1e16.toml --target-compute-budget 1e17
 ```

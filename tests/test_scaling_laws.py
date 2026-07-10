@@ -7,11 +7,11 @@ import pytest
 from chess_engine_4.training.scaling_laws import (
     extrapolate,
     fit_scaling_laws,
+    format_report,
     parameter_count,
     read_best_runs,
     round_to_batch_ladder,
     round_to_lr_ladder,
-    write_report_artifacts,
 )
 
 
@@ -41,33 +41,18 @@ def test_rounding_ladders() -> None:
     assert round_to_lr_ladder(0.00019) == 0.0002
 
 
-def test_write_report_artifacts(tmp_path: Path) -> None:
+def test_format_report() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-mlp.toml"))
     laws = fit_scaling_laws(best_runs)
     suggestion = extrapolate(laws, 1e20)
 
-    write_report_artifacts(
-        output_dir=tmp_path,
+    report = format_report(
         best_results=best_runs,
         laws=laws,
         suggestion=suggestion,
         config="configs/mlp/1e19.toml",
-        gpu="t4",
+        gpu="l4",
     )
 
-    assert (tmp_path / "README.md").exists()
-    assert (tmp_path / "loss.svg").exists()
-    assert (tmp_path / "policy_top1.svg").exists()
-    assert (tmp_path / "model_size.svg").exists()
-    assert (tmp_path / "datapoints_per_parameter.svg").exists()
-    assert (tmp_path / "data_samples.svg").exists()
-    assert (tmp_path / "batch_size.svg").exists()
-    assert (tmp_path / "learning_rate.svg").exists()
-    assert not (tmp_path / "runtime.svg").exists()
-    report = (tmp_path / "README.md").read_text()
-    assert "![Loss fit](loss.svg)" in report
-    assert "![Policy top-1](policy_top1.svg)" in report
-    assert "![Datapoints per parameter](datapoints_per_parameter.svg)" in report
-    assert "runtime_sec" not in report
-    assert "Policy Top-1 Fit" not in report
-    assert "Probe Commands" not in report
+    assert "L(C) =" in report
+    assert "uv run train-modal" in report
