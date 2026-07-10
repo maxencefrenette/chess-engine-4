@@ -49,7 +49,7 @@ class PackedInputTrainingModel(nn.Module):
 
     def __init__(self, model: nn.Module) -> None:
         super().__init__()
-        self.input_expander = PlaneInputExpander()
+        self.input_expander = torch.compile(PlaneInputExpander(), mode="reduce-overhead")
         self.model = model
 
     def forward(self, planes: PackedPlaneInput) -> ChessNetOutput:

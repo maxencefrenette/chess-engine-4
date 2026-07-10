@@ -96,10 +96,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)
 
-    with torch.device("meta"):
-        flops_model = build_model(config.model)
     flops_per_sample = measure_training_flops_per_sample(
-        flops_model,
+        config.model,
         batch_size=config.data.batch_size,
     )
     if options.profile is not None and options.max_steps is not None:
@@ -126,10 +124,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         threads=config.infra.dataloader_threads,
     )
     model = build_model(config.model).to(device)
-    training_model = torch.compile(
-        PackedInputTrainingModel(model).to(device),
-        mode="reduce-overhead",
-    )
+    training_model = PackedInputTrainingModel(model).to(device)
     optimizer = _build_optimizer(model, config=config)
     theoretical_tflops = _theoretical_tflops(device)
     wandb_run = (
@@ -466,7 +461,7 @@ def _save_checkpoint(
     path = checkpoint_dir / f"{_checkpoint_name(run_name)}-{suffix}.pt"
     torch.save(
         {
-            "format_version": 1,
+            "format_version": 2,
             "run_name": run_name,
             "step": step,
             "samples_seen": samples_seen,

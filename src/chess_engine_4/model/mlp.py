@@ -9,6 +9,7 @@ from torch import nn
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
 from chess_engine_4.model.output import ChessNetOutput
+from chess_engine_4.model.transformer_engine import te
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,16 +27,18 @@ class MlpChessNetConfig:
 class MlpBlock(nn.Module):
     def __init__(self, d_model: int, hidden_dim: int, rms_norm_eps: float) -> None:
         super().__init__()
-        self.norm = nn.RMSNorm(d_model, eps=rms_norm_eps, elementwise_affine=False)
-        self.gate_proj = nn.Linear(d_model, hidden_dim, bias=False)
-        self.up_proj = nn.Linear(d_model, hidden_dim, bias=False)
-        self.down_proj = nn.Linear(hidden_dim, d_model, bias=False)
+        transformer_engine = te()
+        self.mlp = transformer_engine.LayerNormMLP(
+            d_model,
+            hidden_dim,
+            eps=rms_norm_eps,
+            bias=False,
+            normalization="RMSNorm",
+            activation="swiglu",
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        residual = x
-        x = self.norm(x)
-        x = nn.functional.silu(self.gate_proj(x)) * self.up_proj(x)
-        return residual + self.down_proj(x)
+        return x + self.mlp(x)
 
 
 class MlpChessNet(nn.Module):
@@ -48,8 +51,12 @@ class MlpChessNet(nn.Module):
         self.config = config
         input_dim = config.input_planes * config.board_size * config.board_size
         hidden_dim = int(config.d_model * config.mlp_ratio)
+        transformer_engine = te()
 
-        self.input = nn.Linear(input_dim, config.d_model)
+        self.input = transformer_engine.Linear(
+            input_dim,
+            config.d_model,
+        )
         self.blocks = nn.Sequential(
             *[
                 MlpBlock(
@@ -60,14 +67,22 @@ class MlpChessNet(nn.Module):
                 for _ in range(config.depth)
             ]
         )
-        self.norm = nn.RMSNorm(
+        self.norm = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
-            elementwise_affine=False,
         )
-        self.policy_head = nn.Linear(config.d_model, config.policy_size)
-        self.wdl_head = nn.Linear(config.d_model, 3)
-        self.moves_left_head = nn.Linear(config.d_model, 1)
+        self.policy_head = transformer_engine.Linear(
+            config.d_model,
+            config.policy_size,
+        )
+        self.wdl_head = transformer_engine.Linear(
+            config.d_model,
+            3,
+        )
+        self.moves_left_head = transformer_engine.Linear(
+            config.d_model,
+            1,
+        )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
         x = planes.flatten(start_dim=1)
@@ -93,6 +108,7 @@ def mlp_parameter_count(
     input_dim = input_planes * board_size * board_size
     hidden_dim = int(d_model * mlp_ratio)
     block_params = depth * (3 * d_model * hidden_dim)
+    norm_params = (depth + 1) * d_model
     input_params = input_dim * d_model + d_model
     policy_params = d_model * policy_size + policy_size
     wdl_params = d_model * 3 + 3
@@ -100,6 +116,7 @@ def mlp_parameter_count(
     return (
         input_params
         + block_params
+        + norm_params
         + policy_params
         + wdl_params
         + moves_left_params

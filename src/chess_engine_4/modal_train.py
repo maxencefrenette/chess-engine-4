@@ -44,7 +44,22 @@ image = (
         "curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal",
         "PATH=/root/.cargo/bin:$PATH rustc --version",
     )
-    .uv_sync()
+    .uv_sync(
+        extra_options="--no-build-isolation-package transformer-engine-torch",
+        env={
+            "NVTE_BUILD_USE_NVIDIA_WHEELS": "1",
+            "NVTE_FRAMEWORK": "pytorch",
+            "NVTE_WITH_NCCL_EP": "0",
+            "PATH": (
+                "/.uv/.venv/lib/python3.14/site-packages/nvidia/cu13/bin:"
+                "/usr/local/bin:/usr/bin:/bin"
+            ),
+        },
+    )
+    .run_commands(
+        "find /.uv/.venv/lib/python3.14/site-packages/nvidia -type d -name lib "
+        "> /etc/ld.so.conf.d/nvidia-python.conf && ldconfig"
+    )
     .env({"CHESS_ENGINE_4_DATA_PATH": REMOTE_DATA_PATH})
     .workdir("/root")
     .add_local_dir("crates", remote_path="/root/crates", copy=True)

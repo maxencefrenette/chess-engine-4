@@ -6,10 +6,10 @@ from dataclasses import dataclass
 
 import torch
 from torch import nn
-from torch.nn import functional as F
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
 from chess_engine_4.model.output import ChessNetOutput
+from chess_engine_4.model.transformer_engine import te
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,18 +44,31 @@ class MoeBlock(nn.Module):
 
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
-        self.norm = nn.RMSNorm(d_model, eps=rms_norm_eps, elementwise_affine=False)
-        self.router = nn.Linear(d_model, num_experts, bias=False)
-        self.gate_proj = nn.Parameter(torch.empty(num_experts, d_model, hidden_dim))
-        self.up_proj = nn.Parameter(torch.empty(num_experts, d_model, hidden_dim))
-        self.down_proj = nn.Parameter(torch.empty(num_experts, hidden_dim, d_model))
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        for expert in range(self.num_experts):
-            nn.init.kaiming_uniform_(self.gate_proj[expert], a=5**0.5)
-            nn.init.kaiming_uniform_(self.up_proj[expert], a=5**0.5)
-            nn.init.kaiming_uniform_(self.down_proj[expert], a=5**0.5)
+        transformer_engine = te()
+        self.norm = transformer_engine.RMSNorm(
+            d_model,
+            eps=rms_norm_eps,
+        )
+        self.router = transformer_engine.Linear(
+            d_model,
+            num_experts,
+            bias=False,
+        )
+        self.experts = transformer_engine.ops.Sequential(
+            transformer_engine.ops.GroupedLinear(
+                num_experts,
+                d_model,
+                2 * hidden_dim,
+                bias=False,
+            ),
+            transformer_engine.ops.ScaledSwiGLU(),
+            transformer_engine.ops.GroupedLinear(
+                num_experts,
+                hidden_dim,
+                d_model,
+                bias=False,
+            ),
+        )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         residual = x
@@ -69,88 +82,46 @@ class MoeBlock(nn.Module):
         )
         route_probs = route_probs / route_probs.sum(dim=-1, keepdim=True)
 
-        routed = self._run_experts(x, route_experts, route_probs)
-        load_balancing_loss, dead_experts = self._router_metrics(router_probs, route_experts)
+        routing_probs = torch.zeros_like(router_probs).scatter(1, route_experts, route_probs)
+        routing_map = routing_probs.ne(0).to(torch.int32)
+        routed = self._run_experts(x, routing_map, routing_probs)
+        expert_fraction = routing_map.float().mean(dim=0).to(router_probs.dtype)
+        balanced_fraction = expert_fraction / self.num_experts_per_token
+        load_balancing_loss = self.num_experts * torch.sum(
+            router_probs.mean(dim=0) * balanced_fraction
+        )
+        dead_experts = (expert_fraction == 0).sum().to(router_probs.dtype)
         return residual + routed, load_balancing_loss, dead_experts
 
-    @torch.compiler.disable
     def _run_experts(
         self,
         x: torch.Tensor,
-        route_experts: torch.Tensor,
-        route_probs: torch.Tensor,
+        routing_map: torch.Tensor,
+        routing_probs: torch.Tensor,
     ) -> torch.Tensor:
-        if x.device.type == "meta":
-            return self._run_experts_meta(x, route_probs)
-
-        batch_size, d_model = x.shape
-        flat_experts = route_experts.reshape(-1)
-        flat_probs = route_probs.reshape(-1)
-        flat_tokens = torch.arange(batch_size, device=x.device).repeat_interleave(
-            self.num_experts_per_token
+        transformer_engine = te()
+        tokens_per_expert = routing_map.sum(dim=0, dtype=torch.int64)
+        permuted_x, permuted_probs, row_id_map = transformer_engine.moe_permute_with_probs(
+            x,
+            routing_probs,
+            routing_map,
+            x.shape[0] * self.num_experts_per_token,
         )
-        order = torch.argsort(flat_experts)
-        sorted_experts = flat_experts[order]
-        sorted_tokens = flat_tokens[order]
-        sorted_probs = flat_probs[order]
-        sorted_x = x[sorted_tokens]
-
-        active_experts, counts = torch.unique_consecutive(sorted_experts, return_counts=True)
-        offsets = torch.cumsum(counts, dim=0).to(torch.int32)
-
-        gate = F.grouped_mm(
-            sorted_x,
-            self.gate_proj.to(sorted_x.dtype)[active_experts],
-            offs=offsets,
+        permuted_output = self.experts(
+            permuted_x,
+            tokens_per_expert,
+            permuted_probs,
+            tokens_per_expert,
         )
-        up = F.grouped_mm(sorted_x, self.up_proj.to(sorted_x.dtype)[active_experts], offs=offsets)
-        hidden = F.silu(gate) * up
-        down = F.grouped_mm(hidden, self.down_proj.to(hidden.dtype)[active_experts], offs=offsets)
-        down = down * sorted_probs[:, None]
-
-        output = torch.zeros(batch_size, d_model, device=x.device, dtype=down.dtype)
-        output.index_add_(0, sorted_tokens, down)
-        return output
-
-    def _run_experts_meta(self, x: torch.Tensor, route_probs: torch.Tensor) -> torch.Tensor:
-        """Profile MoE FLOPs on meta without data-dependent routing ops.
-
-        The real route uses unique_consecutive to build grouped_mm offsets, but that op has no
-        meta kernel. This path keeps the grouped_mm shapes visible to the profiler while avoiding
-        route-dependent tensor values that do not exist on the meta device.
-        """
-        batch_size, d_model = x.shape
-        sorted_x = x.to(torch.bfloat16).repeat_interleave(self.num_experts_per_token, dim=0)
-        offsets = torch.empty(1, device=x.device, dtype=torch.int32)
-
-        gate = F.grouped_mm(
-            sorted_x,
-            self.gate_proj[:1].to(sorted_x.dtype),
-            offs=offsets,
+        return transformer_engine.moe_unpermute(
+            permuted_output,
+            row_id_map,
+            restore_shape=x.shape,
         )
-        up = F.grouped_mm(sorted_x, self.up_proj[:1].to(sorted_x.dtype), offs=offsets)
-        hidden = F.silu(gate) * up
-        down = F.grouped_mm(hidden, self.down_proj[:1].to(hidden.dtype), offs=offsets)
-        down = down.reshape(batch_size, self.num_experts_per_token, d_model)
-        return (down * route_probs.to(down.dtype).unsqueeze(-1)).sum(dim=1)
-
-    def _router_metrics(
-        self,
-        router_probs: torch.Tensor,
-        route_experts: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        expert_prob = router_probs.mean(dim=0)
-        expert_tokens = F.one_hot(route_experts, num_classes=self.num_experts).float()
-        expert_fraction = expert_tokens.mean(dim=(0, 1)).to(expert_prob.dtype)
-        load_balancing_loss = self.num_experts * torch.sum(expert_prob * expert_fraction)
-        dead_experts = (expert_fraction == 0).sum().to(expert_prob.dtype)
-        return load_balancing_loss, dead_experts
 
 
 class MlpMoeChessNet(nn.Module):
     """Single-token MLP model with MoE SwiGLU blocks."""
-
-    flops_profile_dtype = torch.bfloat16
 
     def __init__(self, config: MlpMoeChessNetConfig | None = None) -> None:
         super().__init__()
@@ -159,8 +130,12 @@ class MlpMoeChessNet(nn.Module):
         self.config = config
         input_dim = config.input_planes * config.board_size * config.board_size
         hidden_dim = int(config.d_model * config.expert_mlp_ratio)
+        transformer_engine = te()
 
-        self.input = nn.Linear(input_dim, config.d_model)
+        self.input = transformer_engine.Linear(
+            input_dim,
+            config.d_model,
+        )
         self.blocks = nn.ModuleList(
             [
                 MoeBlock(
@@ -173,14 +148,22 @@ class MlpMoeChessNet(nn.Module):
                 for _ in range(config.depth)
             ]
         )
-        self.norm = nn.RMSNorm(
+        self.norm = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
-            elementwise_affine=False,
         )
-        self.policy_head = nn.Linear(config.d_model, config.policy_size)
-        self.wdl_head = nn.Linear(config.d_model, 3)
-        self.moves_left_head = nn.Linear(config.d_model, 1)
+        self.policy_head = transformer_engine.Linear(
+            config.d_model,
+            config.policy_size,
+        )
+        self.wdl_head = transformer_engine.Linear(
+            config.d_model,
+            3,
+        )
+        self.moves_left_head = transformer_engine.Linear(
+            config.d_model,
+            1,
+        )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
         x = self.input(planes.flatten(start_dim=1))
@@ -201,14 +184,6 @@ class MlpMoeChessNet(nn.Module):
             router_dead_experts_max=router_dead_experts_by_layer.max(),
         )
 
-    def extra_training_flops_per_sample(self) -> int:
-        return mlp_moe_grouped_mm_training_flops_per_sample(
-            d_model=self.config.d_model,
-            depth=self.config.depth,
-            num_experts_per_token=self.config.num_experts_per_token,
-            expert_mlp_ratio=self.config.expert_mlp_ratio,
-        )
-
 
 def mlp_moe_parameter_count(
     *,
@@ -225,6 +200,7 @@ def mlp_moe_parameter_count(
     input_params = input_dim * d_model + d_model
     expert_params = depth * num_experts * (3 * d_model * hidden_dim)
     router_params = depth * d_model * num_experts
+    norm_params = (depth + 1) * d_model
     policy_params = d_model * policy_size + policy_size
     wdl_params = d_model * 3 + 3
     moves_left_params = d_model + 1
@@ -232,19 +208,8 @@ def mlp_moe_parameter_count(
         input_params
         + expert_params
         + router_params
+        + norm_params
         + policy_params
         + wdl_params
         + moves_left_params
     )
-
-
-def mlp_moe_grouped_mm_training_flops_per_sample(
-    *,
-    d_model: int,
-    depth: int,
-    num_experts_per_token: int = 2,
-    expert_mlp_ratio: float = 4.0,
-) -> int:
-    hidden_dim = int(d_model * expert_mlp_ratio)
-    forward_flops_per_block = num_experts_per_token * 6 * d_model * hidden_dim
-    return 3 * depth * forward_flops_per_block

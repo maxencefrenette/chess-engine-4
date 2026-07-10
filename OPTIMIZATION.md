@@ -39,3 +39,11 @@ Use `[infra]` for cost optimization, not model-quality tuning. The goal of the
 infra section is to reduce the dollar cost and wall-clock time of a full run
 given the rest of the config. Examples include GPU type and future hardware
 allocation settings.
+
+## Transformer Engine
+
+Training is CUDA-only and uses NVIDIA Transformer Engine for dense linear,
+RMSNorm, fused dense SwiGLU MLP, and grouped MoE expert operations. The packed
+plane expansion remains a small `torch.compile` graph; compiling the complete
+TE model was slower in the current L4 benchmarks because it introduced graph
+breaks around TE operations.

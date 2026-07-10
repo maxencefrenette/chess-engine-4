@@ -13,7 +13,8 @@ LCZero-style policy logits, WDL value logits, and a moves-left prediction.
 
 The dense MLP model is a stack of pre-norm SwiGLU blocks over flattened LCZero
 input planes. The MoE family replaces each dense MLP block with a routed
-SwiGLU mixture of experts.
+SwiGLU mixture of experts. Both training models use NVIDIA Transformer Engine;
+the MoE path uses its fused grouped-linear operation pipeline.
 
 The models are trained on lc0 t80 data using supervised learning.
 
@@ -53,7 +54,9 @@ uv run train-modal --config configs/mlp/1e18.toml
 ```
 
 Modal training uses the GPU type from the model config by default. Training is
-hardcoded to bf16 and requires a bf16-capable GPU such as L4 or newer.
+CUDA-only, hardcoded to bf16, and requires a bf16-capable GPU such as L4 or
+newer. The Modal image builds the pinned Transformer Engine version and its
+PyTorch extension automatically.
 
 To profile the Modal training loop:
 
@@ -72,6 +75,10 @@ To convert a saved checkpoint into an lc0 ONNX weights file:
 ```sh
 uv run checkpoint2leela checkpoints/run-final.pt --output artifacts/leela/run.pb.gz
 ```
+
+Conversion reconstructs a portable inference model from the Transformer Engine
+checkpoint. The resulting ONNX graph has no Transformer Engine dependency and
+keeps MoE top-k routing sparse by evaluating only the selected experts.
 
 To run a small lc0-vs-BT4 match on Modal with fastchess:
 

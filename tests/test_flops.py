@@ -1,15 +1,8 @@
 from __future__ import annotations
 
 import pytest
-import torch
-from torch.nn import functional as F
 
-from chess_engine_4.model import (
-    MlpChessNet,
-    MlpChessNetConfig,
-    MlpMoeChessNet,
-    MlpMoeChessNetConfig,
-)
+from chess_engine_4.model import MlpChessNetConfig, MlpMoeChessNetConfig
 from chess_engine_4.training.flops import (
     measure_training_flops_per_sample,
     step_adjusted_compute,
@@ -17,79 +10,32 @@ from chess_engine_4.training.flops import (
 )
 
 
-def test_measure_training_flops_per_sample_uses_meta_model() -> None:
-    with torch.device("meta"):
-        model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0))
+def test_measures_dense_training_flops_on_meta() -> None:
+    config = MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0)
 
-    flops_per_sample = measure_training_flops_per_sample(model, batch_size=4)
-
-    assert flops_per_sample > 0
+    assert measure_training_flops_per_sample(config, batch_size=4) > 0
 
 
-def test_measure_training_flops_per_sample_supports_moe_grouped_mm() -> None:
-    with torch.device("meta"):
-        model = MlpMoeChessNet(
-            MlpMoeChessNetConfig(d_model=32, depth=1, num_experts=16, expert_mlp_ratio=2.0)
-        )
-
-    flops_per_sample = measure_training_flops_per_sample(model, batch_size=4)
-
-    assert flops_per_sample > 0
-
-
-def test_grouped_mm_profiler_flops_sentinel() -> None:
-    with torch.device("meta"):
-        x = torch.empty(8, 32, dtype=torch.bfloat16)
-        weight = torch.empty(1, 32, 64, dtype=torch.bfloat16)
-        offsets = torch.empty(1, dtype=torch.int32)
-
-    with torch.profiler.profile(
-        activities=[torch.profiler.ProfilerActivity.CPU],
-        with_flops=True,
-        acc_events=True,
-    ) as profiler:
-        F.grouped_mm(x, weight, offs=offsets)
-
-    grouped_mm_flops = sum(
-        event.flops or 0 for event in profiler.key_averages() if "_grouped_mm" in event.key
+def test_moe_flops_increase_with_active_experts() -> None:
+    one_active = MlpMoeChessNetConfig(
+        d_model=32,
+        depth=1,
+        num_experts=16,
+        num_experts_per_token=1,
+        expert_mlp_ratio=2.0,
     )
-    assert grouped_mm_flops == 0
-
-
-def test_moe_grouped_mm_extra_flops_match_fixed_formula() -> None:
-    with torch.device("meta"):
-        ratio_2 = MlpMoeChessNet(
-            MlpMoeChessNetConfig(
-                d_model=32,
-                depth=1,
-                num_experts=16,
-                num_experts_per_token=2,
-                expert_mlp_ratio=2.0,
-            )
-        )
-        ratio_4 = MlpMoeChessNet(
-            MlpMoeChessNetConfig(
-                d_model=32,
-                depth=1,
-                num_experts=16,
-                num_experts_per_token=2,
-                expert_mlp_ratio=4.0,
-            )
-        )
-
-    expected_delta = 3 * 2 * 6 * 32 * (128 - 64)
-    measured_delta = (
-        ratio_4.extra_training_flops_per_sample() - ratio_2.extra_training_flops_per_sample()
+    two_active = MlpMoeChessNetConfig(
+        d_model=32,
+        depth=1,
+        num_experts=16,
+        num_experts_per_token=2,
+        expert_mlp_ratio=2.0,
     )
 
-    assert measured_delta == expected_delta
+    one_active_flops = measure_training_flops_per_sample(one_active, batch_size=4)
+    two_active_flops = measure_training_flops_per_sample(two_active, batch_size=4)
 
-
-def test_measure_training_flops_per_sample_rejects_real_model() -> None:
-    model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0))
-
-    with pytest.raises(ValueError, match="meta device"):
-        measure_training_flops_per_sample(model, batch_size=4)
+    assert two_active_flops > one_active_flops
 
 
 def test_steps_for_compute_budget_rounds_up() -> None:

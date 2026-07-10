@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import MlpChessNet, MlpMoeChessNet
+from chess_engine_4.model import mlp_moe_parameter_count, mlp_parameter_count
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
@@ -103,13 +103,17 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
 
 def test_load_training_config_supports_mlp_moe() -> None:
     config = load_training_config("configs/mlp_moe16a2/1e18.toml")
-    model = MlpMoeChessNet(config.model)
 
     assert config.model.kind == "mlp_moe"
     assert config.model.num_experts == 16
     assert config.model.num_experts_per_token == 2
     assert config.loss.router_aux == 0.03
-    assert sum(parameter.numel() for parameter in model.parameters()) > 0
+    assert mlp_moe_parameter_count(
+        d_model=config.model.d_model,
+        depth=config.model.depth,
+        num_experts=config.model.num_experts,
+        expert_mlp_ratio=config.model.expert_mlp_ratio,
+    ) > 0
 
 
 def test_with_overrides_supports_router_aux() -> None:
@@ -194,12 +198,9 @@ def test_lr_warmup_schedule() -> None:
 
 def test_1e18_config_builds_expected_model_size() -> None:
     config = load_training_config("configs/mlp/1e18.toml")
-    model = MlpChessNet(config.model)
 
-    parameter_count = sum(parameter.numel() for parameter in model.parameters())
-    trunk_parameter_count = sum(
-        parameter.numel() for block in model.blocks for parameter in block.parameters()
-    )
-
-    assert trunk_parameter_count == 147_456
-    assert parameter_count == 727_302
+    assert mlp_parameter_count(
+        d_model=config.model.d_model,
+        depth=config.model.depth,
+        mlp_ratio=config.model.mlp_ratio,
+    ) == 727_558

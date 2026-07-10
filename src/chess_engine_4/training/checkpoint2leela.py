@@ -13,7 +13,8 @@ import torch
 from torch import nn
 from torch.export import Dim
 
-from chess_engine_4.model import ChessNetOutput, build_model, model_config_from_dict
+from chess_engine_4.model import ChessNetOutput, model_config_from_dict
+from chess_engine_4.model.export import portable_model_from_te_state_dict
 
 DEFAULT_ONNX_INPUT = "/input/planes"
 DEFAULT_ONNX_OUTPUT_POLICY = "/output/policy"
@@ -189,12 +190,11 @@ def _model_from_checkpoint(checkpoint: dict[str, Any]) -> nn.Module:
         raise ValueError("Checkpoint does not contain a config.model mapping.")
     model_config = dict(config["model"])
     model_config.pop("policy", None)
-    model = build_model(model_config_from_dict(model_config))
+    parsed_config = model_config_from_dict(model_config)
     state_dict = checkpoint.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("Checkpoint does not contain a model_state_dict mapping.")
-    model.load_state_dict(state_dict)
-    return model
+    return portable_model_from_te_state_dict(parsed_config, state_dict)
 
 
 def _default_onnx_path(output_path: Path) -> Path:

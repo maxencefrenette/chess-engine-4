@@ -6,11 +6,11 @@ import torch
 
 from chess_engine_4.data.leela import HISTORY_PLANE_COUNT, INPUT_PLANE_COUNT
 from chess_engine_4.model import (
-    MlpChessNet,
+    ChessNetOutput,
     MlpChessNetConfig,
-    MlpMoeChessNet,
     MlpMoeChessNetConfig,
 )
+from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import (
     LossWeights,
     lczero_loss,
@@ -23,7 +23,7 @@ from chess_engine_4.training.packed_input import PackedInputTrainingModel
 
 
 def test_mlp_chess_net_shapes() -> None:
-    model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
+    model = PortableChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
     output = model(torch.zeros(3, 112, 8, 8))
 
     assert tuple(output.policy_logits.shape) == (3, 1858)
@@ -32,7 +32,7 @@ def test_mlp_chess_net_shapes() -> None:
 
 
 def test_mlp_moe_chess_net_shapes() -> None:
-    model = MlpMoeChessNet(
+    model = PortableChessNet(
         MlpMoeChessNetConfig(
             d_model=32,
             depth=2,
@@ -46,22 +46,16 @@ def test_mlp_moe_chess_net_shapes() -> None:
     assert tuple(output.policy_logits.shape) == (4, 1858)
     assert tuple(output.wdl_logits.shape) == (4, 3)
     assert tuple(output.moves_left.shape) == (4,)
-    assert output.aux_loss is not None
-    assert output.aux_loss.ndim == 0
-    assert output.router_dead_experts is not None
-    assert output.router_dead_experts.ndim == 0
-    assert output.router_dead_experts_max is not None
-    assert output.router_dead_experts_max.ndim == 0
 
 
 def test_packed_training_wrapper_matches_mlp_dense_input() -> None:
-    model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
+    model = PortableChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
 
     _assert_packed_training_wrapper_matches_dense_model(model)
 
 
 def test_packed_training_wrapper_matches_mlp_moe_dense_input() -> None:
-    model = MlpMoeChessNet(
+    model = PortableChessNet(
         MlpMoeChessNetConfig(
             d_model=32,
             depth=2,
@@ -112,7 +106,7 @@ def test_moves_left_loss_uses_root_row_root_m() -> None:
 
 
 def test_lczero_loss_backpropagates() -> None:
-    model = MlpChessNet(MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0))
+    model = PortableChessNet(MlpChessNetConfig(d_model=32, depth=1, mlp_ratio=2.0))
     planes = torch.randn(2, 112, 8, 8)
     policy = _compact_policy(batch_size=2, indices=[0, 1], probs=[0.75, 0.25])
     values = torch.zeros(2, 6, 3)
@@ -127,17 +121,19 @@ def test_lczero_loss_backpropagates() -> None:
 
 
 def test_lczero_loss_includes_router_aux() -> None:
-    model = MlpMoeChessNet(
-        MlpMoeChessNetConfig(d_model=32, depth=1, num_experts=16, expert_mlp_ratio=2.0)
+    output = ChessNetOutput(
+        policy_logits=torch.randn(2, 1858),
+        wdl_logits=torch.randn(2, 3),
+        moves_left=torch.randn(2),
+        aux_loss=torch.tensor(1.25),
     )
-    planes = torch.randn(2, 112, 8, 8)
     policy = _compact_policy(batch_size=2, indices=[0], probs=[1.0])
     values = torch.zeros(2, 6, 3)
     values[:, 4, 0] = 1.0
 
-    without_aux = lczero_loss(model(planes), policy, values, weights=LossWeights())
+    without_aux = lczero_loss(output, policy, values, weights=LossWeights())
     with_aux = lczero_loss(
-        model(planes),
+        output,
         policy,
         values,
         weights=LossWeights(router_aux=0.01),

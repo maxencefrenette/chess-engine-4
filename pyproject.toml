@@ -7,11 +7,15 @@ requires-python = ">=3.14"
 license = { text = "GPL-3.0-only" }
 dependencies = [
     "modal>=1.4.2",
+    "ninja>=1.13; sys_platform == 'linux'",
     "numpy>=2.2",
+    "nvidia-cuda-cccl>=13.0; sys_platform == 'linux'",
+    "nvidia-cuda-nvcc>=13.0; sys_platform == 'linux'",
     "onnx>=1.21.0",
     "onnxscript>=0.7.0",
     "python-dotenv>=1.2.2",
     "torch>=2.9",
+    "transformer-engine[core-cu13,pytorch]==2.17.0; sys_platform == 'linux'",
     "wandb>=0.26.1",
 ]
 

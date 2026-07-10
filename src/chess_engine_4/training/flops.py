@@ -1,4 +1,4 @@
-"""Training FLOPs measurement."""
+"""Training compute accounting."""
 
 from __future__ import annotations
 
@@ -7,77 +7,50 @@ import math
 import torch
 
 from chess_engine_4.data.leela import COMPACT_POLICY_SIZE
+from chess_engine_4.model import ModelConfig
+from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import lczero_loss
 
 
-def measure_training_flops_per_sample(
-    model: torch.nn.Module,
-    *,
-    batch_size: int,
-) -> int:
-    """Measure train-step FLOPs per sample on the PyTorch meta device."""
+def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -> int:
+    """Measure physical train-step FLOPs using the portable equivalent model on meta.
+
+    Transformer Engine does not implement meta kernels for all fused operations. The portable
+    model has the same active matrix operations, including top-k MoE routing, while using
+    standard PyTorch operators that the FLOPs profiler can inspect without a GPU allocation.
+    """
 
     profile_batch_size = min(batch_size, 8)
-    devices = {parameter.device.type for parameter in model.parameters()}
-    if devices != {"meta"}:
-        raise ValueError("FLOPs measurement expects a model on the meta device.")
-
-    was_training = model.training
-    model.train()
-    model.zero_grad(set_to_none=True)
-
-    device = torch.device("meta")
-    profile_dtype = getattr(model, "flops_profile_dtype", torch.float32)
-    planes = torch.zeros(profile_batch_size, 112, 8, 8, device=device, dtype=profile_dtype)
-    policy_indices = torch.full(
-        (profile_batch_size, COMPACT_POLICY_SIZE),
-        -1,
-        device=device,
-        dtype=torch.int16,
-    )
-    policy_indices[:, 0] = 0
-    policy_probs = torch.zeros(
-        profile_batch_size,
-        COMPACT_POLICY_SIZE,
-        device=device,
-        dtype=profile_dtype,
-    )
-    policy_probs[:, 0] = 1.0
-    policy = (policy_indices, policy_probs)
-    values = torch.zeros(profile_batch_size, 6, 3, device=device, dtype=profile_dtype)
-    values[:, 0, 1] = 1.0
-
-    activities = [torch.profiler.ProfilerActivity.CPU]
+    with torch.device("meta"):
+        model = PortableChessNet(config).train()
+        planes = torch.zeros(profile_batch_size, 112, 8, 8)
+        policy_indices = torch.full(
+            (profile_batch_size, COMPACT_POLICY_SIZE),
+            -1,
+            dtype=torch.int16,
+        )
+        policy_indices[:, 0] = 0
+        policy_probs = torch.zeros(profile_batch_size, COMPACT_POLICY_SIZE)
+        policy_probs[:, 0] = 1.0
+        values = torch.zeros(profile_batch_size, 6, 3)
+        values[:, 0, 1] = 1.0
 
     with torch.profiler.profile(
-        activities=activities,
+        activities=[torch.profiler.ProfilerActivity.CPU],
         with_flops=True,
         acc_events=True,
     ) as profiler:
-        loss = lczero_loss(model(planes), policy, values).total
+        loss = lczero_loss(
+            model(planes),
+            (policy_indices, policy_probs),
+            values,
+        ).total
         loss.backward()
 
-    model.zero_grad(set_to_none=True)
-    model.train(was_training)
-
     flops = sum(event.flops or 0 for event in profiler.key_averages())
-    extra_flops_per_sample = _extra_training_flops_per_sample(model)
-    flops += extra_flops_per_sample * profile_batch_size
     if flops <= 0:
         raise RuntimeError("PyTorch profiler did not report FLOPs for the training step.")
     return math.ceil(flops / profile_batch_size)
-
-
-def _extra_training_flops_per_sample(model: torch.nn.Module) -> int:
-    extra_flops = getattr(model, "extra_training_flops_per_sample", None)
-    if extra_flops is None:
-        return 0
-    if not callable(extra_flops):
-        raise TypeError("extra_training_flops_per_sample must be callable.")
-    measured = int(extra_flops())
-    if measured < 0:
-        raise ValueError("extra_training_flops_per_sample must be non-negative.")
-    return measured
 
 
 def steps_for_compute_budget(
