@@ -364,11 +364,22 @@ def inspect_data() -> None:
     parser = argparse.ArgumentParser(description="Inspect Leela tar training records.")
     parser.add_argument("--data", default=None, help=_DATA_HELP)
     parser.add_argument("--batch-size", type=int, default=1024)
+    limit = parser.add_mutually_exclusive_group()
+    limit.add_argument(
+        "--batches",
+        type=int,
+        default=1,
+        help="Number of batches to inspect (default: 1).",
+    )
+    limit.add_argument("--all", action="store_true", help="Inspect the entire dataset.")
     args = parser.parse_args()
+    if args.batches <= 0:
+        parser.error("--batches must be positive")
 
     dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
     seen = 0
-    for packed_planes, plane_scalars, policy_indices, policy_probs, value in dataset:
+    for batch_number, batch in enumerate(dataset, start=1):
+        packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
         batch_size = packed_planes.shape[0]
         legal = policy_indices >= 0
         legal_policy_sum = policy_probs.float().sum(dim=1)
@@ -385,21 +396,8 @@ def inspect_data() -> None:
             f"legal_moves=[{legal_count.min()}, {legal_count.max()}] "
             f"root_m=[{value[:, 4, 2].min():.1f}, {value[:, 4, 2].max():.1f}]"
         )
-
-
-def sample_batch() -> None:
-    parser = argparse.ArgumentParser(description="Load and print one Leela training batch.")
-    parser.add_argument("--data", default=None, help=_DATA_HELP)
-    parser.add_argument("--batch-size", type=int, default=4)
-    args = parser.parse_args()
-
-    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
-    packed_planes, plane_scalars, policy_indices, policy_probs, value = next(iter(dataset))
-    print(f"packed_planes: {tuple(packed_planes.shape)}")
-    print(f"plane_scalars: {tuple(plane_scalars.shape)}")
-    print(f"policy_indices: {tuple(policy_indices.shape)}")
-    print(f"policy_probs: {tuple(policy_probs.shape)}")
-    print(f"value: {tuple(value.shape)}")
+        if not args.all and batch_number >= args.batches:
+            break
 
 
 def _seed_everything(seed: int) -> None:

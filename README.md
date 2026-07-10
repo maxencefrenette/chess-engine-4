@@ -39,7 +39,11 @@ To inspect training data locally, build the Rust dataloader extension once:
 
 ```sh
 uv run maturin develop --manifest-path crates/leela_loader/Cargo.toml --release
+uv run inspect-data
 ```
+
+By default, `inspect-data` validates one batch. Pass `--batches N` for a bounded
+scan or `--all` to inspect every batch.
 
 Training runs on Modal. Modal builds the native dataloader into its image
 automatically. `uv run train-modal` trains the model selected by `[model].kind`
