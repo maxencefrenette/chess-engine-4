@@ -21,8 +21,6 @@ BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
 GPU_CHOICES = {
-    "any": "any",
-    "t4": "T4",
     "l4": "L4",
     "a10g": "A10G",
     "a100-40gb": "A100-40GB",
@@ -343,26 +341,6 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
 
 @app.function(
     image=image,
-    gpu="any",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_any(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="T4",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_t4(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
     gpu="L4",
     volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
     timeout=24 * 60 * 60,
@@ -443,8 +421,6 @@ def _eval_b200(payload: dict[str, Any]) -> dict[str, str]:
 
 def _remote_function_for_gpu(gpu: str) -> modal.Function:
     return {
-        "any": _eval_any,
-        "t4": _eval_t4,
         "l4": _eval_l4,
         "a10g": _eval_a10g,
         "a100-40gb": _eval_a100_40gb,

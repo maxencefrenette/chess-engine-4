@@ -79,7 +79,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     overridden = with_overrides(
         config,
         compute_budget=1e11,
-        step_penalty_k=1.1,
         batch_size=4,
         d_model=64,
         depth=2,
@@ -90,7 +89,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     )
 
     assert overridden.run.compute_budget == 1e11
-    assert overridden.run.step_penalty_k == 1.1
+    assert overridden.run.step_penalty_k == config.run.step_penalty_k
     assert overridden.data.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
@@ -146,7 +145,6 @@ def test_train_options_supports_max_steps() -> None:
     options = TrainOptions(max_steps=200)
 
     assert options.max_steps == 200
-    assert options.device == "auto"
 
 
 def test_training_profile_config_validates_steps() -> None:

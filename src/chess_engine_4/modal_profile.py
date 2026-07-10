@@ -20,8 +20,6 @@ def profile_training() -> None:
     parser = argparse.ArgumentParser(description="Profile a training loop on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--compute-budget", type=float, default=None)
-    parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
@@ -43,8 +41,6 @@ def profile_training() -> None:
     payload = {
         "config": str(args.config),
         "batch_size": args.batch_size,
-        "compute_budget": args.compute_budget,
-        "step_penalty_k": args.step_penalty_k,
         "d_model": args.d_model,
         "depth": args.depth,
         "num_heads": args.num_heads,
@@ -52,17 +48,7 @@ def profile_training() -> None:
         "router_aux": args.router_aux,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
-        "max_grad_norm": None,
-        "lr_warmup_steps": None,
-        "lr_cooldown_frac": None,
-        "max_steps": None,
         "wandb": False,
-        "wandb_project": None,
-        "wandb_entity": None,
-        "wandb_mode": None,
-        "wandb_name": None,
-        "checkpoint_dir": None,
-        "checkpoint_every": None,
         "profile": {
             "warmup_steps": args.warmup_steps,
             "profile_steps": args.profile_steps,

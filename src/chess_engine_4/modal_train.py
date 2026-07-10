@@ -22,8 +22,6 @@ REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 REMOTE_CONFIG_PATH = Path("configs/mlp/1e18.toml")
 
 GPU_CHOICES = {
-    "any": "any",
-    "t4": "T4",
     "l4": "L4",
     "a10g": "A10G",
     "a100-40gb": "A100-40GB",
@@ -67,7 +65,6 @@ def train_modal() -> None:
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--compute-budget", type=float, default=None)
-    parser.add_argument("--step-penalty-k", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--num-heads", type=int, default=None)
@@ -81,9 +78,6 @@ def train_modal() -> None:
     parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--wandb-project", default=os.environ.get("WANDB_PROJECT"))
-    parser.add_argument("--wandb-entity", default=os.environ.get("WANDB_ENTITY"))
-    parser.add_argument("--wandb-mode", default=os.environ.get("WANDB_MODE"))
     parser.add_argument("--wandb-name", default=None)
     parser.add_argument("--save-checkpoints", action="store_true")
     parser.add_argument("--checkpoint-dir", type=Path, default=REMOTE_CHECKPOINT_PATH)
@@ -94,7 +88,6 @@ def train_modal() -> None:
         "config": str(args.config),
         "batch_size": args.batch_size,
         "compute_budget": args.compute_budget,
-        "step_penalty_k": args.step_penalty_k,
         "d_model": args.d_model,
         "depth": args.depth,
         "num_heads": args.num_heads,
@@ -107,9 +100,9 @@ def train_modal() -> None:
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
         "max_steps": args.max_steps,
         "wandb": args.wandb,
-        "wandb_project": args.wandb_project,
-        "wandb_entity": args.wandb_entity,
-        "wandb_mode": args.wandb_mode,
+        "wandb_project": os.environ.get("WANDB_PROJECT"),
+        "wandb_entity": os.environ.get("WANDB_ENTITY"),
+        "wandb_mode": os.environ.get("WANDB_MODE"),
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(args.checkpoint_dir) if args.save_checkpoints else None,
         "checkpoint_every": args.checkpoint_every,
@@ -157,55 +150,33 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         TrainOptions(
             config=Path(payload["config"]),
             data=REMOTE_DATA_PATH,
-            batch_size=payload["batch_size"],
-            compute_budget=payload["compute_budget"],
-            step_penalty_k=payload["step_penalty_k"],
-            d_model=payload["d_model"],
-            depth=payload["depth"],
-            num_heads=payload["num_heads"],
-            lr=payload["lr"],
-            max_grad_norm=payload["max_grad_norm"],
-            lr_warmup_steps=payload["lr_warmup_steps"],
-            lr_cooldown_frac=payload["lr_cooldown_frac"],
-            router_aux=payload["router_aux"],
-            dataloader_threads=payload["dataloader_threads"],
-            dataloader_prefetch_per_thread=payload["dataloader_prefetch_per_thread"],
-            device="cuda",
-            max_steps=payload["max_steps"],
-            wandb=payload["wandb"],
-            wandb_name=payload["wandb_name"],
+            batch_size=payload.get("batch_size"),
+            compute_budget=payload.get("compute_budget"),
+            d_model=payload.get("d_model"),
+            depth=payload.get("depth"),
+            num_heads=payload.get("num_heads"),
+            lr=payload.get("lr"),
+            max_grad_norm=payload.get("max_grad_norm"),
+            lr_warmup_steps=payload.get("lr_warmup_steps"),
+            lr_cooldown_frac=payload.get("lr_cooldown_frac"),
+            router_aux=payload.get("router_aux"),
+            dataloader_threads=payload.get("dataloader_threads"),
+            dataloader_prefetch_per_thread=payload.get(
+                "dataloader_prefetch_per_thread"
+            ),
+            max_steps=payload.get("max_steps"),
+            wandb=payload.get("wandb", True),
+            wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
                 Path(payload["checkpoint_dir"]) if payload.get("checkpoint_dir") else None
             ),
-            checkpoint_every=payload["checkpoint_every"],
+            checkpoint_every=payload.get("checkpoint_every"),
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
         )
     )
     if result["checkpoint_path"]:
         artifact_volume.commit()
     return result
-
-
-@app.function(
-    image=image,
-    gpu="any",
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_any(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="T4",
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_t4(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
 
 
 @app.function(
@@ -298,8 +269,6 @@ def _train_b200(payload: dict[str, Any]) -> dict[str, float | int | str]:
 
 def remote_function_for_gpu(gpu: str) -> modal.Function:
     return {
-        "any": _train_any,
-        "t4": _train_t4,
         "l4": _train_l4,
         "a10g": _train_a10g,
         "a100-40gb": _train_a100_40gb,

@@ -75,7 +75,6 @@ def with_overrides(
     config: TrainingConfig,
     *,
     compute_budget: float | None = None,
-    step_penalty_k: float | None = None,
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
@@ -90,8 +89,6 @@ def with_overrides(
 ) -> TrainingConfig:
     if compute_budget is not None:
         config = replace(config, run=replace(config.run, compute_budget=compute_budget))
-    if step_penalty_k is not None:
-        config = replace(config, run=replace(config.run, step_penalty_k=step_penalty_k))
     if batch_size is not None:
         config = replace(config, data=replace(config.data, batch_size=batch_size))
     if d_model is not None:

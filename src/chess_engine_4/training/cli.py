@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import time
-from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -22,8 +21,11 @@ from chess_engine_4.training.flops import (
     step_adjusted_compute,
     steps_for_compute_budget,
 )
-from chess_engine_4.training.losses import lczero_loss
-from chess_engine_4.training.packed_input import PackedInputTrainingModel
+from chess_engine_4.training.losses import PolicyTarget, lczero_loss
+from chess_engine_4.training.packed_input import (
+    PackedInputTrainingModel,
+    PackedPlaneInput,
+)
 from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
@@ -34,7 +36,7 @@ _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
-_BF16_TFLOPS_BY_GPU = {
+_TFLOPS_BY_GPU = {
     "NVIDIA L4": 121.0,
     "NVIDIA A10G": 125.0,
     "NVIDIA A100": 312.0,
@@ -43,17 +45,14 @@ _BF16_TFLOPS_BY_GPU = {
     "NVIDIA H200": 989.0,
     "NVIDIA B200": 2250.0,
 }
-_FP32_TFLOPS_BY_GPU = {
-    "Tesla T4": 8.1,
-    "NVIDIA T4": 8.1,
-    "NVIDIA L4": 30.3,
-    "NVIDIA A10G": 31.2,
-    "NVIDIA A100": 19.5,
-    "NVIDIA L40S": 91.6,
-    "NVIDIA H100": 67.0,
-    "NVIDIA H200": 67.0,
-    "NVIDIA B200": 90.0,
-}
+
+type NativeBatch = tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +61,6 @@ class TrainOptions:
     data: str | None = None
     batch_size: int | None = None
     compute_budget: float | None = None
-    step_penalty_k: float | None = None
     d_model: int | None = None
     depth: int | None = None
     num_heads: int | None = None
@@ -73,7 +71,6 @@ class TrainOptions:
     router_aux: float | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
-    device: str = "auto"
     max_steps: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
@@ -86,7 +83,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     config = with_overrides(
         load_training_config(options.config),
         compute_budget=options.compute_budget,
-        step_penalty_k=options.step_penalty_k,
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
@@ -108,25 +104,23 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         flops_model,
         batch_size=config.data.batch_size,
     )
-    steps = steps_for_compute_budget(
-        compute_budget=config.run.compute_budget,
-        flops_per_sample=flops_per_sample,
-        batch_size=config.data.batch_size,
-        step_penalty_k=config.run.step_penalty_k,
-    )
     if options.profile is not None and options.max_steps is not None:
         raise ValueError("max_steps and profile cannot be used together.")
     if options.profile is not None:
         steps = options.profile.total_steps
-    elif options.max_steps is not None:
-        if options.max_steps <= 0:
-            raise ValueError("max_steps must be positive.")
-        steps = min(steps, options.max_steps)
+    else:
+        steps = steps_for_compute_budget(
+            compute_budget=config.run.compute_budget,
+            flops_per_sample=flops_per_sample,
+            batch_size=config.data.batch_size,
+            step_penalty_k=config.run.step_penalty_k,
+        )
+        if options.max_steps is not None:
+            if options.max_steps <= 0:
+                raise ValueError("max_steps must be positive.")
+            steps = min(steps, options.max_steps)
 
-    device = _resolve_device(options.device)
-    if options.profile is not None and device.type != "cuda":
-        raise ValueError("Training profiling requires a CUDA device.")
-    precision = _training_precision(device)
+    device = torch.device("cuda")
     dataset = LeelaTarDataset(
         options.data,
         batch_size=config.data.batch_size,
@@ -134,12 +128,12 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         threads=config.infra.dataloader_threads,
     )
     model = build_model(config.model).to(device)
-    training_model = _compile_model_for_training(
+    training_model = torch.compile(
         PackedInputTrainingModel(model).to(device),
-        device=device,
+        mode="reduce-overhead",
     )
-    optimizer = _build_optimizer(model, config=config, device=device)
-    theoretical_tflops = _theoretical_tflops(device, precision=precision)
+    optimizer = _build_optimizer(model, config=config)
+    theoretical_tflops = _theoretical_tflops(device)
     wandb_run = (
         _init_wandb(
             config,
@@ -149,7 +143,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
-            precision=precision,
         )
         if options.wandb
         else None
@@ -199,7 +192,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
 
         optimizer.zero_grad(set_to_none=True)
-        with _autocast_context(device, precision=precision):
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
         loss.total.backward()
@@ -240,7 +233,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
 
         if should_log or should_checkpoint:
-            _synchronize_if_cuda(device)
+            torch.cuda.synchronize(device)
             now = time.perf_counter()
             elapsed = now - start
             interval_elapsed = now - interval_start
@@ -336,7 +329,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "step_penalty_k": config.run.step_penalty_k,
         "flops_per_sample": flops_per_sample,
         "device": str(device),
-        "precision": precision,
+        "precision": "bf16",
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -409,91 +402,37 @@ def sample_batch() -> None:
     print(f"value: {tuple(value.shape)}")
 
 
-def _resolve_device(requested: str) -> torch.device:
-    if requested == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
-    device = torch.device(requested)
-    if requested == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but is not available.")
-    if requested == "mps" and not torch.backends.mps.is_available():
-        raise RuntimeError("MPS was requested but is not available.")
-    return device
-
-
 def _seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def _training_precision(device: torch.device) -> str:
-    if device.type == "cuda":
-        if torch.cuda.get_device_capability(device)[0] < 8:
-            name = torch.cuda.get_device_name(device)
-            raise RuntimeError(f"CUDA training requires native bf16 support; {name} is too old.")
-        if not torch.cuda.is_bf16_supported():
-            name = torch.cuda.get_device_name(device)
-            raise RuntimeError(f"CUDA training requires bf16 support; {name} reports none.")
-        return "bf16"
-    return "fp32"
+    torch.cuda.manual_seed_all(seed)
 
 
 def _move_batch_to_device(
-    batch: tuple[torch.Tensor, ...],
+    batch: NativeBatch,
     *,
     device: torch.device,
-) -> tuple[Any, tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
-    non_blocking = device.type == "cuda"
-    plane_dtype = torch.bfloat16 if device.type == "cuda" else torch.float32
-    if device.type == "cuda":
-        batch = tuple(tensor.pin_memory() for tensor in batch)
+) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
+    batch = tuple(tensor.pin_memory() for tensor in batch)
     packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
-    packed_planes = packed_planes.to(device=device, non_blocking=non_blocking)
+    packed_planes = packed_planes.to(device=device, non_blocking=True)
     plane_scalars = plane_scalars.to(
         device=device,
-        dtype=plane_dtype,
-        non_blocking=non_blocking,
+        dtype=torch.bfloat16,
+        non_blocking=True,
     )
     planes = (packed_planes, plane_scalars)
     return (
         planes,
         (
-            policy_indices.to(device=device, non_blocking=non_blocking),
-            policy_probs.to(device=device, non_blocking=non_blocking),
+            policy_indices.to(device=device, non_blocking=True),
+            policy_probs.to(device=device, non_blocking=True),
         ),
-        value.to(device, non_blocking=non_blocking),
+        value.to(device, non_blocking=True),
     )
 
 
-def _input_batch_size(planes: Any) -> int:
-    if isinstance(planes, tuple):
-        return int(planes[0].shape[0])
-    return int(planes.shape[0])
-
-
-def _autocast_context(device: torch.device, *, precision: str) -> Any:
-    if precision == "bf16":
-        return torch.autocast(device_type=device.type, dtype=torch.bfloat16)
-    return nullcontext()
-
-
-def _compile_model_for_training(
-    model: torch.nn.Module,
-    *,
-    device: torch.device,
-) -> torch.nn.Module:
-    if device.type == "cuda":
-        return torch.compile(model, mode="reduce-overhead")
-    return model
-
-
-def _synchronize_if_cuda(device: torch.device) -> None:
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
+def _input_batch_size(planes: PackedPlaneInput) -> int:
+    return int(planes[0].shape[0])
 
 
 def _should_save_checkpoint(
@@ -575,24 +514,17 @@ def _build_optimizer(
     model: torch.nn.Module,
     *,
     config: TrainingConfig,
-    device: torch.device,
 ) -> torch.optim.Optimizer:
-    kwargs: dict[str, Any] = {}
-    if device.type == "cuda":
-        kwargs["fused"] = True
     return torch.optim.AdamW(
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
-        **kwargs,
+        fused=True,
     )
 
 
-def _theoretical_tflops(device: torch.device, *, precision: str) -> float | None:
-    if device.type != "cuda":
-        return None
+def _theoretical_tflops(device: torch.device) -> float | None:
     name = torch.cuda.get_device_name(device)
-    table = _BF16_TFLOPS_BY_GPU if precision == "bf16" else _FP32_TFLOPS_BY_GPU
-    for prefix, tflops in table.items():
+    for prefix, tflops in _TFLOPS_BY_GPU.items():
         if name.startswith(prefix):
             return tflops
     return None
@@ -663,7 +595,6 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
-    precision: str,
 ) -> Any:
     import wandb
 
@@ -676,9 +607,9 @@ def _init_wandb(
         "step_penalty_k": config.run.step_penalty_k,
         "log_every": _LOG_EVERY,
         "batch_size": config.data.batch_size,
-        "device": str(device),
-        "device_name": torch.cuda.get_device_name(device) if device.type == "cuda" else None,
-        "precision": precision,
+        "device": "cuda",
+        "device_name": torch.cuda.get_device_name(device),
+        "precision": "bf16",
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,
         "gpu_type": config.infra.gpu_type,
@@ -719,7 +650,7 @@ def _init_wandb(
         "max_grad_norm": config.optimizer.max_grad_norm,
         "lr_warmup_steps": config.optimizer.lr_warmup_steps,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
-        "fused_adamw": device.type == "cuda",
+        "fused_adamw": True,
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,
