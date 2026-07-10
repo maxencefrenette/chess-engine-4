@@ -1,4 +1,4 @@
-"""Command-line entrypoints for local training workflows."""
+"""Training runtime and local data diagnostics."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import argparse
 import time
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass
-from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +24,7 @@ from chess_engine_4.training.flops import (
 )
 from chess_engine_4.training.losses import lczero_loss
 from chess_engine_4.training.packed_input import PackedInputTrainingModel
+from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _DEFAULT_CONFIG_PATH = Path("configs/mlp/1e18.toml")
@@ -73,67 +73,16 @@ class TrainOptions:
     router_aux: float | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
-    device: str | None = None
+    device: str = "auto"
     max_steps: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
     checkpoint_every: int | None = None
+    profile: TrainingProfileConfig | None = None
 
 
-def train() -> None:
-    parser = argparse.ArgumentParser(description="Train a chess neural network.")
-    parser.add_argument("--config", default=_DEFAULT_CONFIG_PATH, type=Path)
-    parser.add_argument("--data", default=None, help=_DATA_HELP)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--compute-budget", type=float, default=None)
-    parser.add_argument("--step-penalty-k", type=float, default=None)
-    parser.add_argument("--d-model", type=int, default=None)
-    parser.add_argument("--depth", type=int, default=None)
-    parser.add_argument("--num-heads", type=int, default=None)
-    parser.add_argument("--lr", type=float, default=None)
-    parser.add_argument("--max-grad-norm", type=float, default=None)
-    parser.add_argument("--lr-warmup-steps", type=int, default=None)
-    parser.add_argument("--lr-cooldown-frac", type=float, default=None)
-    parser.add_argument("--router-aux", type=float, default=None)
-    parser.add_argument("--dataloader-threads", type=int, default=None)
-    parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
-    parser.add_argument("--device", default=None, choices=["auto", "cpu", "cuda", "mps"])
-    parser.add_argument("--max-steps", type=int, default=None)
-    parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--wandb-name", default=None)
-    parser.add_argument("--checkpoint-dir", type=Path, default=None)
-    parser.add_argument("--checkpoint-every", type=int, default=None)
-    args = parser.parse_args()
-
-    run_training(
-        TrainOptions(
-            config=args.config,
-            data=args.data,
-            batch_size=args.batch_size,
-            compute_budget=args.compute_budget,
-            step_penalty_k=args.step_penalty_k,
-            d_model=args.d_model,
-            depth=args.depth,
-            num_heads=args.num_heads,
-            lr=args.lr,
-            max_grad_norm=args.max_grad_norm,
-            lr_warmup_steps=args.lr_warmup_steps,
-            lr_cooldown_frac=args.lr_cooldown_frac,
-            router_aux=args.router_aux,
-            dataloader_threads=args.dataloader_threads,
-            dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
-            device=args.device,
-            max_steps=args.max_steps,
-            wandb=args.wandb,
-            wandb_name=args.wandb_name,
-            checkpoint_dir=args.checkpoint_dir,
-            checkpoint_every=args.checkpoint_every,
-        )
-    )
-
-
-def run_training(options: TrainOptions) -> dict[str, float | int | str]:
+def run_training(options: TrainOptions) -> dict[str, Any]:
     config = with_overrides(
         load_training_config(options.config),
         compute_budget=options.compute_budget,
@@ -165,12 +114,18 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         batch_size=config.data.batch_size,
         step_penalty_k=config.run.step_penalty_k,
     )
-    if options.max_steps is not None:
+    if options.profile is not None and options.max_steps is not None:
+        raise ValueError("max_steps and profile cannot be used together.")
+    if options.profile is not None:
+        steps = options.profile.total_steps
+    elif options.max_steps is not None:
         if options.max_steps <= 0:
             raise ValueError("max_steps must be positive.")
         steps = min(steps, options.max_steps)
 
     device = _resolve_device(options.device)
+    if options.profile is not None and device.type != "cuda":
+        raise ValueError("Training profiling requires a CUDA device.")
     precision = _training_precision(device)
     dataset = LeelaTarDataset(
         options.data,
@@ -202,6 +157,8 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
 
     training_model.train()
     start = time.perf_counter()
+    profile_records: list[dict[str, Any]] = []
+    profile_measured_wall_start: float | None = None
     interval_start = start
     interval_step = 0
     interval_seen = 0
@@ -211,8 +168,27 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
     ema_metrics: dict[str, float] = {}
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
-    for step, batch in enumerate(islice(dataset, steps), start=1):
+    iterator = iter(dataset)
+    for step in range(1, steps + 1):
+        if options.profile is not None:
+            if step == options.profile.warmup_steps + 1:
+                profile_measured_wall_start = time.perf_counter()
+            fetch_start = time.perf_counter()
+        try:
+            batch = next(iterator)
+        except StopIteration:
+            break
+        if options.profile is not None:
+            fetch_end = time.perf_counter()
+            copy_start = torch.cuda.Event(enable_timing=True)
+            copy_end = torch.cuda.Event(enable_timing=True)
+            train_start = torch.cuda.Event(enable_timing=True)
+            train_end = torch.cuda.Event(enable_timing=True)
+            copy_start.record()
         planes, policy, value = _move_batch_to_device(batch, device=device)
+        if options.profile is not None:
+            copy_end.record()
+            train_start.record()
         current_lr = _set_scheduled_lr(
             optimizer,
             base_lr=config.optimizer.lr,
@@ -240,6 +216,18 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         )
         grad_norm = grad_norm_tensor.item() if should_log or should_checkpoint else 0.0
         optimizer.step()
+        if options.profile is not None:
+            train_end.record()
+            profile_records.append(
+                {
+                    "fetch_wall_ms": (fetch_end - fetch_start) * 1000.0,
+                    "enqueue_wall_ms": (time.perf_counter() - fetch_end) * 1000.0,
+                    "copy_start": copy_start,
+                    "copy_end": copy_end,
+                    "train_start": train_start,
+                    "train_end": train_end,
+                }
+            )
 
         seen += _input_batch_size(planes)
         completed_steps = step
@@ -337,7 +325,7 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         )
     if wandb_run is not None:
         wandb_run.finish()
-    return {
+    result: dict[str, Any] = {
         "run_name": config.run.name,
         "steps": completed_steps,
         "samples_seen": seen,
@@ -351,6 +339,32 @@ def run_training(options: TrainOptions) -> dict[str, float | int | str]:
         "precision": precision,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
+    if options.profile is not None:
+        result.update(
+            {
+                "config": str(options.config),
+                "model_kind": config.model.kind,
+                "device_name": torch.cuda.get_device_name(device),
+                "batch_size": config.data.batch_size,
+                "dataloader_threads": config.infra.dataloader_threads,
+                "dataloader_prefetch_per_thread": (
+                    config.infra.dataloader_prefetch_per_thread
+                ),
+            }
+        )
+        result.update(
+            summarize_profile(
+                profile=options.profile,
+                records=profile_records,
+                measured_wall_start=profile_measured_wall_start,
+                overall_wall_start=start,
+                device=device,
+                batch_size=config.data.batch_size,
+                flops_per_sample=flops_per_sample,
+                theoretical_tflops=theoretical_tflops,
+            )
+        )
+    return result
 
 
 def inspect_data() -> None:

@@ -120,7 +120,7 @@ def train_modal() -> None:
     if gpu not in GPU_CHOICES:
         parser.error(f"config infra.gpu_type must be one of: {', '.join(sorted(GPU_CHOICES))}")
 
-    train_function = _remote_function_for_gpu(gpu)
+    train_function = remote_function_for_gpu(gpu)
     with app.run():
         result = train_function.remote(payload)
     print(
@@ -141,6 +141,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
     import os
 
     from chess_engine_4.training.cli import TrainOptions, run_training
+    from chess_engine_4.training.profiling import TrainingProfileConfig
 
     for env_key, payload_key in (
         ("WANDB_PROJECT", "wandb_project"),
@@ -151,6 +152,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         if value:
             os.environ[env_key] = value
 
+    profile = payload.get("profile")
     result = run_training(
         TrainOptions(
             config=Path(payload["config"]),
@@ -176,6 +178,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
                 Path(payload["checkpoint_dir"]) if payload.get("checkpoint_dir") else None
             ),
             checkpoint_every=payload["checkpoint_every"],
+            profile=(TrainingProfileConfig(**profile) if profile is not None else None),
         )
     )
     if result["checkpoint_path"]:
@@ -293,7 +296,7 @@ def _train_b200(payload: dict[str, Any]) -> dict[str, float | int | str]:
     return _run_training_remote(payload)
 
 
-def _remote_function_for_gpu(gpu: str) -> modal.Function:
+def remote_function_for_gpu(gpu: str) -> modal.Function:
     return {
         "any": _train_any,
         "t4": _train_t4,

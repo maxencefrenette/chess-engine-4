@@ -143,7 +143,22 @@ def test_with_overrides_supports_router_aux() -> None:
 def test_train_options_supports_max_steps() -> None:
     from chess_engine_4.training.cli import TrainOptions
 
-    assert TrainOptions(max_steps=200).max_steps == 200
+    options = TrainOptions(max_steps=200)
+
+    assert options.max_steps == 200
+    assert options.device == "auto"
+
+
+def test_training_profile_config_validates_steps() -> None:
+    from chess_engine_4.training.profiling import TrainingProfileConfig
+
+    profile = TrainingProfileConfig(warmup_steps=50, profile_steps=200)
+
+    assert profile.total_steps == 250
+    with pytest.raises(ValueError, match="warmup_steps"):
+        TrainingProfileConfig(warmup_steps=-1)
+    with pytest.raises(ValueError, match="profile_steps"):
+        TrainingProfileConfig(profile_steps=0)
 
 
 def test_lr_cooldown_schedule() -> None:
