@@ -63,7 +63,6 @@ class TrainOptions:
     compute_budget: float | None = None
     d_model: int | None = None
     depth: int | None = None
-    num_heads: int | None = None
     lr: float | None = None
     max_grad_norm: float | None = None
     lr_warmup_steps: int | None = None
@@ -86,7 +85,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
-        num_heads=options.num_heads,
         lr=options.lr,
         max_grad_norm=options.max_grad_norm,
         lr_warmup_steps=options.lr_warmup_steps,
@@ -616,7 +614,6 @@ def _init_wandb(
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,
-        **({"num_heads": config.model.num_heads} if hasattr(config.model, "num_heads") else {}),
         **({"mlp_ratio": config.model.mlp_ratio} if hasattr(config.model, "mlp_ratio") else {}),
         **(
             {"expert_mlp_ratio": config.model.expert_mlp_ratio}
@@ -634,15 +631,6 @@ def _init_wandb(
             else {}
         ),
         "rms_norm_eps": config.model.rms_norm_eps,
-        "policy_kind": config.model.policy.kind,
-        **(
-            {
-                "policy_embedding_size": config.model.policy.embedding_size,
-                "policy_d_model": config.model.policy.d_model,
-            }
-            if hasattr(config.model.policy, "embedding_size")
-            else {}
-        ),
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
         "max_grad_norm": config.optimizer.max_grad_norm,

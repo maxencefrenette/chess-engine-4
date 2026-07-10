@@ -11,10 +11,9 @@ the ONNX backend.
 The training loop supports multiple model kinds behind one output contract:
 LCZero-style policy logits, WDL value logits, and a moves-left prediction.
 
-The current MLP model is a stack of pre-norm SwiGLU blocks over flattened LCZero
-input planes. Transformer64 is a vanilla attention model with one token per
-board square, learned square embeddings, pooled value and moves-left heads, and
-an LC0-style attention policy head.
+The dense MLP model is a stack of pre-norm SwiGLU blocks over flattened LCZero
+input planes. The MoE family replaces each dense MLP block with a routed
+SwiGLU mixture of experts.
 
 The models are trained on lc0 t80 data using supervised learning.
 
@@ -100,9 +99,3 @@ uv run scaling-laws --target-compute-budget 1e16
 
 The command prints the fitted laws, observed runs, extrapolated target, and launch
 command. Use `--write-config PATH` to write the suggested TOML configuration.
-
-For Transformer64, use the matching best-run file:
-
-```sh
-uv run scaling-laws --best-runs experiments/best-runs-transformer64.toml --config configs/transformer64/1e16.toml --target-compute-budget 1e17
-```

@@ -78,7 +78,6 @@ def with_overrides(
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
-    num_heads: int | None = None,
     lr: float | None = None,
     max_grad_norm: float | None = None,
     lr_warmup_steps: int | None = None,
@@ -95,10 +94,6 @@ def with_overrides(
         config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
         config = replace(config, model=replace(config.model, depth=depth))
-    if num_heads is not None:
-        if not hasattr(config.model, "num_heads"):
-            raise ValueError(f"model kind {config.model.kind!r} does not support num_heads.")
-        config = replace(config, model=replace(config.model, num_heads=num_heads))
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
     if max_grad_norm is not None:

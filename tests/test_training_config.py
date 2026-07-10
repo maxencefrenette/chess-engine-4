@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import MlpChessNet, MlpMoeChessNet, Transformer64ChessNet
+from chess_engine_4.model import MlpChessNet, MlpMoeChessNet
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
@@ -101,15 +101,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.loss == config.loss
 
 
-def test_load_training_config_supports_transformer64() -> None:
-    config = load_training_config("configs/transformer64/1e14.toml")
-    model = Transformer64ChessNet(config.model)
-
-    assert config.model.kind == "transformer64"
-    assert config.model.num_heads == 4
-    assert sum(parameter.numel() for parameter in model.parameters()) > 0
-
-
 def test_load_training_config_supports_mlp_moe() -> None:
     config = load_training_config("configs/mlp_moe16a2/1e18.toml")
     model = MlpMoeChessNet(config.model)
@@ -119,16 +110,6 @@ def test_load_training_config_supports_mlp_moe() -> None:
     assert config.model.num_experts_per_token == 2
     assert config.loss.router_aux == 0.03
     assert sum(parameter.numel() for parameter in model.parameters()) > 0
-
-
-def test_with_overrides_supports_transformer_heads() -> None:
-    config = load_training_config("configs/transformer64/1e14.toml")
-
-    overridden = with_overrides(config, d_model=64, depth=3, num_heads=8)
-
-    assert overridden.model.d_model == 64
-    assert overridden.model.depth == 3
-    assert overridden.model.num_heads == 8
 
 
 def test_with_overrides_supports_router_aux() -> None:

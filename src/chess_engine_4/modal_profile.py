@@ -22,7 +22,6 @@ def profile_training() -> None:
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
-    parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument("--dataloader-threads", type=int, default=None)
@@ -43,7 +42,6 @@ def profile_training() -> None:
         "batch_size": args.batch_size,
         "d_model": args.d_model,
         "depth": args.depth,
-        "num_heads": args.num_heads,
         "lr": args.lr,
         "router_aux": args.router_aux,
         "dataloader_threads": args.dataloader_threads,

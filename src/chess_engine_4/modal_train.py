@@ -67,7 +67,6 @@ def train_modal() -> None:
     parser.add_argument("--compute-budget", type=float, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
-    parser.add_argument("--num-heads", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--max-grad-norm", type=float, default=None)
     parser.add_argument("--lr-warmup-steps", type=int, default=None)
@@ -90,7 +89,6 @@ def train_modal() -> None:
         "compute_budget": args.compute_budget,
         "d_model": args.d_model,
         "depth": args.depth,
-        "num_heads": args.num_heads,
         "lr": args.lr,
         "max_grad_norm": args.max_grad_norm,
         "lr_warmup_steps": args.lr_warmup_steps,
@@ -154,7 +152,6 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             compute_budget=payload.get("compute_budget"),
             d_model=payload.get("d_model"),
             depth=payload.get("depth"),
-            num_heads=payload.get("num_heads"),
             lr=payload.get("lr"),
             max_grad_norm=payload.get("max_grad_norm"),
             lr_warmup_steps=payload.get("lr_warmup_steps"),

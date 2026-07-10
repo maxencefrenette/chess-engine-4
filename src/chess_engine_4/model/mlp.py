@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import torch
 from torch import nn
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
-from chess_engine_4.model.heads import DensePolicyHeadConfig
 from chess_engine_4.model.output import ChessNetOutput
 
 
@@ -22,7 +21,6 @@ class MlpChessNetConfig:
     depth: int = 8
     mlp_ratio: float = 4.0
     rms_norm_eps: float = 1e-6
-    policy: DensePolicyHeadConfig = field(default_factory=DensePolicyHeadConfig)
 
 
 class MlpBlock(nn.Module):
@@ -47,8 +45,6 @@ class MlpChessNet(nn.Module):
         super().__init__()
         if config is None:
             config = MlpChessNetConfig()
-        if config.policy.kind != "dense":
-            raise ValueError("MlpChessNet only supports policy.kind='dense'.")
         self.config = config
         input_dim = config.input_planes * config.board_size * config.board_size
         hidden_dim = int(config.d_model * config.mlp_ratio)

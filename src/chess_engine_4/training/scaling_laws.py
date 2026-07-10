@@ -12,7 +12,6 @@ from pathlib import Path
 from chess_engine_4.model import (
     mlp_moe_parameter_count,
     mlp_parameter_count,
-    transformer64_parameter_count,
 )
 from chess_engine_4.training.config import load_training_config
 
@@ -29,7 +28,6 @@ class SweepResult:
     lr: float
     d_model: int
     depth: int
-    num_heads: int | None
     params: int
     samples_seen: int
     loss: float
@@ -78,7 +76,6 @@ class LossPowerLaw:
 @dataclass(frozen=True, slots=True)
 class ScalingLaws:
     model_kind: str
-    num_heads: PowerLaw | None
     loss: LossPowerLaw
     policy_top1: LinearLaw
     d_model: PowerLaw
@@ -96,7 +93,6 @@ class HparamSuggestion:
     compute_budget: float
     d_model: int
     depth: int
-    num_heads: int | None
     batch_size: int
     lr: float
     target_params: int
@@ -145,7 +141,6 @@ def read_best_runs(path: Path) -> list[SweepResult]:
             lr=float(row["lr"]),
             d_model=int(row["d_model"]),
             depth=int(row["depth"]),
-            num_heads=int(row["num_heads"]) if "num_heads" in row else None,
             params=int(row["params"]),
             samples_seen=int(row["samples_seen"]),
             loss=float(row["loss"]),
@@ -167,14 +162,8 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
         raise ValueError(
             f"Cannot fit one report across multiple model kinds: {sorted(model_kinds)}."
         )
-    num_heads = [result.num_heads for result in best_results]
     return ScalingLaws(
         model_kind=next(iter(model_kinds)),
-        num_heads=(
-            fit_power_law((r.compute, r.num_heads) for r in best_results if r.num_heads)
-            if all(value is not None for value in num_heads)
-            else None
-        ),
         loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
         policy_top1=fit_linear_law((r.compute, r.policy_top1) for r in best_results),
         d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
@@ -200,15 +189,11 @@ def extrapolate(laws: ScalingLaws, compute_budget: float) -> HparamSuggestion:
         target_d_model=laws.d_model.predict(compute_budget),
         target_depth=laws.depth.predict(compute_budget),
     )
-    num_heads = None
-    if laws.num_heads is not None:
-        num_heads = closest_divisor(d_model, laws.num_heads.predict(compute_budget))
     return HparamSuggestion(
         model_kind=laws.model_kind,
         compute_budget=compute_budget,
         d_model=d_model,
         depth=depth,
-        num_heads=num_heads,
         batch_size=round_to_batch_ladder(laws.batch_size.predict(compute_budget)),
         lr=round_to_lr_ladder(laws.lr.predict(compute_budget)),
         target_params=target_params,
@@ -297,11 +282,6 @@ def closest_architecture(
     return d_model, depth, params
 
 
-def closest_divisor(value: int, target: float) -> int:
-    divisors = [candidate for candidate in range(1, value + 1) if value % candidate == 0]
-    return min(divisors, key=lambda candidate: abs(math.log(candidate / target)))
-
-
 def parameter_count(
     *,
     model_kind: str = "mlp",
@@ -309,8 +289,6 @@ def parameter_count(
     depth: int,
     mlp_ratio: float = 4.0,
 ) -> int:
-    if model_kind == "transformer64":
-        return transformer64_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
     if model_kind == "mlp_moe":
         return mlp_moe_parameter_count(
             d_model=d_model,
@@ -371,10 +349,9 @@ def format_report(
             f"{result.wandb_url} |"
         )
 
-    num_heads_arg = f" --num-heads {suggestion.num_heads}" if suggestion.num_heads else ""
     command = (
         f"uv run train-modal --config {config} --compute-budget {suggestion.compute_budget:.0e} "
-        f"--d-model {suggestion.d_model} --depth {suggestion.depth}{num_heads_arg} "
+        f"--d-model {suggestion.d_model} --depth {suggestion.depth} "
         f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g}"
     )
 
@@ -453,8 +430,6 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
         f"d_model = {suggestion.d_model}",
         f"depth = {suggestion.depth}",
     ]
-    if suggestion.num_heads is not None:
-        model_lines.append(f"num_heads = {suggestion.num_heads}")
     if suggestion.model_kind == "mlp_moe":
         model_lines.extend(
             [
@@ -469,15 +444,6 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
             [
                 "mlp_ratio = 4.0",
                 "rms_norm_eps = 1e-6",
-            ]
-        )
-    if suggestion.model_kind == "transformer64":
-        model_lines.extend(
-            [
-                "learned_square_embeddings = true",
-                "",
-                "[model.policy]",
-                'kind = "attention"',
             ]
         )
     return "\n".join(
@@ -512,12 +478,8 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
 
 
 def format_model_label(result: SweepResult) -> str:
-    if result.num_heads is None:
-        return f"d{result.d_model}x{result.depth}"
-    return f"d{result.d_model}x{result.depth}h{result.num_heads}"
+    return f"d{result.d_model}x{result.depth}"
 
 
 def format_suggestion_model_label(suggestion: HparamSuggestion) -> str:
-    if suggestion.num_heads is None:
-        return f"d{suggestion.d_model}x{suggestion.depth}"
-    return f"d{suggestion.d_model}x{suggestion.depth}h{suggestion.num_heads}"
+    return f"d{suggestion.d_model}x{suggestion.depth}"

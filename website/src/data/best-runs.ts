@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "smol-toml";
 
-export type ModelFamilyId = "mlp" | "mlp_moe16a2" | "transformer64";
+export type ModelFamilyId = "mlp" | "mlp_moe16a2";
 
 export type BestRun = {
   budget: string;
@@ -42,12 +42,6 @@ export const modelFamilies: ModelFamily[] = [
     name: "MLP-MoE 16a2",
     description: "Single-token MoE with 16 experts and 2 active experts.",
     bestRunsPath: "experiments/best-runs-mlp_moe16a2.toml",
-  },
-  {
-    id: "transformer64",
-    name: "Transformer64",
-    description: "Vanilla attention over 64 board-square tokens.",
-    bestRunsPath: "experiments/best-runs-transformer64.toml",
   },
 ];
 

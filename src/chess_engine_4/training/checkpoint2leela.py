@@ -187,7 +187,9 @@ def _model_from_checkpoint(checkpoint: dict[str, Any]) -> nn.Module:
     config = checkpoint.get("config")
     if not isinstance(config, dict) or not isinstance(config.get("model"), dict):
         raise ValueError("Checkpoint does not contain a config.model mapping.")
-    model = build_model(model_config_from_dict(config["model"]))
+    model_config = dict(config["model"])
+    model_config.pop("policy", None)
+    model = build_model(model_config_from_dict(model_config))
     state_dict = checkpoint.get("model_state_dict")
     if not isinstance(state_dict, dict):
         raise ValueError("Checkpoint does not contain a model_state_dict mapping.")
