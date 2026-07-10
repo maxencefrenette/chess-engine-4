@@ -56,7 +56,8 @@ uv run train-modal --config configs/mlp/1e18.toml
 Modal training uses the GPU type from the model config by default. Training is
 CUDA-only, hardcoded to bf16, and requires a bf16-capable GPU such as L4 or
 newer. The Modal image builds the pinned Transformer Engine version and its
-PyTorch extension automatically.
+PyTorch extension automatically. Training functions reserve eight CPU cores
+for the background Rust dataloader.
 
 To profile the Modal training loop:
 

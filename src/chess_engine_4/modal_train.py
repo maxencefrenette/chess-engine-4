@@ -194,6 +194,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
 @app.function(
     image=image,
     gpu="L4",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -205,6 +206,7 @@ def _train_l4(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A10G",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -216,6 +218,7 @@ def _train_a10g(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A100-40GB",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -227,6 +230,7 @@ def _train_a100_40gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="A100-80GB",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -238,6 +242,7 @@ def _train_a100_80gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="L40S",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -249,6 +254,7 @@ def _train_l40s(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="H100",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -260,6 +266,7 @@ def _train_h100(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="H200",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
@@ -271,6 +278,7 @@ def _train_h200(payload: dict[str, Any]) -> dict[str, float | int | str]:
 @app.function(
     image=image,
     gpu="B200",
+    cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,

@@ -19,7 +19,7 @@ from chess_engine_4.training.losses import (
     value_cross_entropy,
     wdl_target_from_q_d,
 )
-from chess_engine_4.training.packed_input import PackedInputTrainingModel
+from chess_engine_4.training.packed_input import PlaneInputExpander
 
 
 def test_mlp_chess_net_shapes() -> None:
@@ -48,13 +48,13 @@ def test_mlp_moe_chess_net_shapes() -> None:
     assert tuple(output.moves_left.shape) == (4,)
 
 
-def test_packed_training_wrapper_matches_mlp_dense_input() -> None:
+def test_packed_input_expansion_matches_mlp_dense_input() -> None:
     model = PortableChessNet(MlpChessNetConfig(d_model=32, depth=2, mlp_ratio=2.0))
 
-    _assert_packed_training_wrapper_matches_dense_model(model)
+    _assert_packed_input_expansion_matches_dense_model(model)
 
 
-def test_packed_training_wrapper_matches_mlp_moe_dense_input() -> None:
+def test_packed_input_expansion_matches_mlp_moe_dense_input() -> None:
     model = PortableChessNet(
         MlpMoeChessNetConfig(
             d_model=32,
@@ -65,7 +65,7 @@ def test_packed_training_wrapper_matches_mlp_moe_dense_input() -> None:
         )
     )
 
-    _assert_packed_training_wrapper_matches_dense_model(model)
+    _assert_packed_input_expansion_matches_dense_model(model)
 
 
 def test_wdl_target_from_q_d() -> None:
@@ -143,7 +143,7 @@ def test_lczero_loss_includes_router_aux() -> None:
     assert with_aux.total.item() > without_aux.total.item()
 
 
-def _assert_packed_training_wrapper_matches_dense_model(model: torch.nn.Module) -> None:
+def _assert_packed_input_expansion_matches_dense_model(model: torch.nn.Module) -> None:
     packed_planes = torch.zeros(3, HISTORY_PLANE_COUNT, 8, dtype=torch.uint8)
     packed_planes[:, 0, 0] = 0x80
     plane_scalars = torch.zeros(3, INPUT_PLANE_COUNT - HISTORY_PLANE_COUNT)
@@ -153,7 +153,7 @@ def _assert_packed_training_wrapper_matches_dense_model(model: torch.nn.Module) 
     dense[:, 0, 0, 0] = 1.0
     dense[:, -1] = 1.0
 
-    packed_output = PackedInputTrainingModel(model)((packed_planes, plane_scalars))
+    packed_output = model(PlaneInputExpander()(packed_planes, plane_scalars))
     dense_output = model(dense)
 
     torch.testing.assert_close(packed_output.policy_logits, dense_output.policy_logits)

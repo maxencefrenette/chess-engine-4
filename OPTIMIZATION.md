@@ -44,6 +44,12 @@ allocation settings.
 
 Training is CUDA-only and uses NVIDIA Transformer Engine for dense linear,
 RMSNorm, fused dense SwiGLU MLP, and grouped MoE expert operations. The packed
-plane expansion remains a small `torch.compile` graph; compiling the complete
-TE model was slower in the current L4 benchmarks because it introduced graph
-breaks around TE operations.
+input and dense model are captured with TE's high-level CUDA graph API. MoE
+keeps only the packed-plane expansion under `torch.compile`: TE's BF16 grouped
+expert path reads dynamic expert split sizes on the host, so the complete MoE
+model is not CUDA-graph safe. The fully fused graph-safe grouped expert kernel
+is currently available for TE's MXFP8 and NVFP4 recipes, not BF16.
+
+Modal training reserves eight physical CPU cores and the baseline configs use
+eight Rust dataloader threads. This keeps batch decoding ahead of the captured
+dense model, where four loader threads became the end-to-end bottleneck.

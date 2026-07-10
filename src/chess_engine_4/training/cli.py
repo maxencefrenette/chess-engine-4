@@ -23,8 +23,8 @@ from chess_engine_4.training.flops import (
 )
 from chess_engine_4.training.losses import PolicyTarget, lczero_loss
 from chess_engine_4.training.packed_input import (
-    PackedInputTrainingModel,
     PackedPlaneInput,
+    build_training_model,
 )
 from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
 
@@ -124,8 +124,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         threads=config.infra.dataloader_threads,
     )
     model = build_model(config.model).to(device)
-    training_model = PackedInputTrainingModel(model).to(device)
     optimizer = _build_optimizer(model, config=config)
+    training_model = build_training_model(model, batch_size=config.data.batch_size)
     theoretical_tflops = _theoretical_tflops(device)
     wandb_run = (
         _init_wandb(
