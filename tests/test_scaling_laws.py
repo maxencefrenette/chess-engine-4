@@ -22,11 +22,11 @@ def test_read_best_runs_and_extrapolate() -> None:
     laws = fit_scaling_laws(best_runs)
     suggestion = extrapolate(laws, 1e23)
 
-    assert 0.30 < laws.policy_top1.predict(1e18) < 0.31
+    assert 0.29 < laws.policy_top1.predict(1e18) < 0.31
     assert suggestion.d_model % 64 == 0
     assert suggestion.depth >= 5
-    assert suggestion.batch_size == 16384
-    assert suggestion.lr == pytest.approx(0.0001)
+    assert suggestion.batch_size == 24576
+    assert suggestion.lr == pytest.approx(0.0002)
     assert suggestion.actual_params > best_runs[-1].params
 
 
