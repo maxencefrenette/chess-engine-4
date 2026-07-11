@@ -26,7 +26,7 @@ def test_read_best_runs_and_extrapolate() -> None:
     assert suggestion.d_model % 64 == 0
     assert suggestion.depth >= 5
     assert suggestion.batch_size == 24576
-    assert suggestion.lr == pytest.approx(0.0002)
+    assert suggestion.lr == pytest.approx(0.0003)
     assert suggestion.actual_params > best_runs[-1].params
 
 

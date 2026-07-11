@@ -1,22 +1,22 @@
 [runs.1e18]
-source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
+source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"
 model_kind = "dense"
-run_name = "dense-bw-tune-18-d64x3-b3072-lr10"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/vowzs4os"
+run_name = "dense-retune-18-d64x3-b3072-lr14"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/vzu3es4b"
 compute = 1.0001092180702004e18
 d_model = 64
 depth = 3
 batch_size = 3072
-lr = 1e-3
+lr = 1.4e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 733408
 samples_seen = 25841664
-loss = 3.6191772883561018
-loss_std = 0.11231877314458513
-loss_upper_1sd = 3.7314960615006867
-policy_top1 = 0.29518674574293063
-runtime_sec = 31.066133054
+loss = 3.6099936068050353
+loss_std = 0.11726965417603889
+loss_upper_1sd = 3.7272632609810743
+policy_top1 = 0.29698181016253294
+runtime_sec = 24.862965513
 
 [runs.1e19]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
@@ -59,24 +59,24 @@ policy_top1 = 0.4073527127308262
 runtime_sec = 86.02108341
 
 [runs.1e21]
-source_experiment = "experiments/2026-07-10.02-dense-more-data"
+source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"
 model_kind = "dense"
-run_name = "dense-moredata-1e21-d512x5-b32768-lr2"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q46ovubj"
-compute = 1.0001197509177508e21
-d_model = 512
+run_name = "dense-retune-21-d576x5-b32768-lr45"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/men5iops"
+compute = 1.0000145081659674e21
+d_model = 576
 depth = 5
 batch_size = 32768
-lr = 2e-4
+lr = 4.5e-4
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
-params = 20403616
-samples_seen = 513900544
-loss = 3.0475372054782865
-loss_std = 0.028569091638483163
-loss_upper_1sd = 3.0761062971167696
-policy_top1 = 0.4469397697032038
-runtime_sec = 990.599938945
+params = 25165664
+samples_seen = 462979072
+loss = 2.9949533463124527
+loss_std = 0.03335888575740931
+loss_upper_1sd = 3.028312232069862
+policy_top1 = 0.46285301071621826
+runtime_sec = 948.326094408
 
 [runs.1e22]
 source_experiment = "experiments/2026-07-11.01-dense-1e22-data-allocation"

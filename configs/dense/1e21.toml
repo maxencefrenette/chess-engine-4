@@ -16,13 +16,13 @@ recipe = "mxfp8"
 
 [model]
 kind = "dense"
-d_model = 512
+d_model = 576
 depth = 5
 expansion_ratio = 4.0
 rms_norm_eps = 1e-6
 
 [optimizer]
-lr = 2e-4
+lr = 4.5e-4
 weight_decay = 0.01
 max_grad_norm = 1.0
 lr_cooldown_frac = 0.1
