@@ -50,7 +50,7 @@ automatically. `uv run train-modal` trains the model selected by `[model].kind`
 and logs metrics to the W&B project configured in `.env`.
 
 ```sh
-uv run train-modal --config configs/mlp/1e18.toml
+uv run train-modal --config configs/dense/1e18.toml
 ```
 
 Training and evaluation are Blackwell-only and run on a Modal B200. Models use
@@ -70,13 +70,13 @@ overridden for profiling with `--quantization-recipe`.
 To profile the Modal training loop:
 
 ```sh
-uv run profile-training --config configs/mlp/1e18.toml
+uv run profile-training --config configs/dense/1e18.toml
 ```
 
 To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 
 ```sh
-uv run train-modal --config configs/mlp/1e18.toml --save-checkpoints
+uv run train-modal --config configs/dense/1e18.toml --save-checkpoints
 ```
 
 To convert a saved checkpoint into an lc0 ONNX weights file:

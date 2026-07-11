@@ -1,5 +1,5 @@
 [run]
-name = "mlp-1e20"
+name = "dense-1e20"
 seed = 1
 compute_budget = 1e20
 step_penalty_k = 2.0
@@ -16,7 +16,7 @@ recipe = "mxfp8"
 
 [model]
 kind = "mlp"
-d_model = 384
+d_model = 320
 depth = 4
 mlp_ratio = 4.0
 rms_norm_eps = 1e-6

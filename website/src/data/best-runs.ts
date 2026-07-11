@@ -35,7 +35,7 @@ export const modelFamilies: ModelFamily[] = [
     id: "mlp",
     name: "Dense MLP",
     description: "Single-token dense SwiGLU MLP trained on lc0 planes.",
-    bestRunsPath: "experiments/best-runs-mlp.toml",
+    bestRunsPath: "experiments/best-runs-dense.toml",
   },
   {
     id: "mlp_moe16a2",

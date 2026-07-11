@@ -14,7 +14,7 @@ from chess_engine_4.model import (
     mlp_parameter_count,
 )
 
-DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
+DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,7 +103,7 @@ def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--config", default="configs/mlp/1e19.toml")
+    parser.add_argument("--config", default="configs/dense/1e19.toml")
     parser.add_argument("--write-config", type=Path, default=None)
     args = parser.parse_args()
 

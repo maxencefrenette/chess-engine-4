@@ -17,7 +17,7 @@ WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
-REMOTE_CONFIG_PATH = Path("configs/mlp/1e18.toml")
+REMOTE_CONFIG_PATH = Path("configs/dense/1e18.toml")
 
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)

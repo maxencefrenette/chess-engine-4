@@ -23,6 +23,8 @@ volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
     import os
     import shutil
+    import time
+    import urllib.error
     import urllib.request
 
     os.makedirs(REMOTE_DATA_PATH, exist_ok=True)
@@ -30,26 +32,34 @@ def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
     if limit is not None:
         names = names[:limit]
 
-    results: list[tuple[str, str, int]] = []
-    for name in names:
+    def sync_file(name: str) -> tuple[str, str, int]:
         path = os.path.join(REMOTE_DATA_PATH, name)
         if os.path.exists(path) and os.path.getsize(path) > 1024 * 1024:
-            results.append((name, "exists", os.path.getsize(path)))
-            continue
+            return name, "exists", os.path.getsize(path)
 
         tmp_path = f"{path}.tmp"
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         url = f"{BASE_URL}/{name}"
         print(f"downloading {url}", flush=True)
-        request = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 chess-engine-4-data-sync"},
-        )
-        with urllib.request.urlopen(request) as response, open(tmp_path, "wb") as handle:
-            shutil.copyfileobj(response, handle, length=1024 * 1024)
+        for attempt in range(10):
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 chess-engine-4-data-sync"},
+            )
+            try:
+                with urllib.request.urlopen(request) as response, open(tmp_path, "wb") as handle:
+                    shutil.copyfileobj(response, handle, length=1024 * 1024)
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code != 429 or attempt == 9:
+                    raise RuntimeError(f"failed to download {url}: HTTP {exc.code}") from None
+                retry_after = int(exc.headers.get("Retry-After", "60"))
+                time.sleep(max(retry_after, 60))
         os.replace(tmp_path, path)
-        results.append((name, "downloaded", os.path.getsize(path)))
+        return name, "downloaded", os.path.getsize(path)
+
+    results = [sync_file(name) for name in names]
 
     volume.commit()
     return results

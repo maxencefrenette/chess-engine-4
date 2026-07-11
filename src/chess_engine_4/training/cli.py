@@ -30,7 +30,7 @@ from chess_engine_4.training.packed_input import (
 from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/mlp/1e18.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/dense/1e18.toml")
 _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99

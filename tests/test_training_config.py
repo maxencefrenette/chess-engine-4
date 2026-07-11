@@ -72,7 +72,7 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/mlp/1e18.toml")
+    config = load_training_config("configs/dense/1e18.toml")
 
     overridden = with_overrides(
         config,
@@ -195,7 +195,7 @@ def test_lr_warmup_schedule() -> None:
 
 
 def test_1e18_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/mlp/1e18.toml")
+    config = load_training_config("configs/dense/1e18.toml")
 
     assert mlp_parameter_count(
         d_model=config.model.d_model,
