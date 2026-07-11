@@ -7,13 +7,20 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE, RULE50_PLANE_INDEX
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
 
 def mxfp8_aligned_size(size: int) -> int:
     return (size + 31) // 32 * 32
+
+
+def normalize_lc0_planes(planes: torch.Tensor) -> torch.Tensor:
+    """Normalize lc0's raw rule-50 ply plane to the model's learned input scale."""
+
+    planes[:, RULE50_PLANE_INDEX].div_(99.0)
+    return planes
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +102,7 @@ class DenseChessNet(nn.Module):
         )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
-        x = planes.flatten(start_dim=1)
+        x = normalize_lc0_planes(planes).flatten(start_dim=1)
         x = self.input(x)
         x = self.blocks(x)
         x = self.norm(x)

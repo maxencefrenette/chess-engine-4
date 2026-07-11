@@ -67,7 +67,7 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
     assert packed_planes[0, 0, 0].item() == 0x80
     torch.testing.assert_close(
         plane_scalars[0],
-        torch.tensor([1.0, 0.0, 1.0, 0.0, 1.0, 50.0 / 99.0, 0.0, 1.0]),
+        torch.tensor([1.0, 0.0, 1.0, 0.0, 1.0, 50.0, 0.0, 1.0]),
     )
     assert policy_indices[0, :3].tolist() == [0, 2, -1]
     torch.testing.assert_close(

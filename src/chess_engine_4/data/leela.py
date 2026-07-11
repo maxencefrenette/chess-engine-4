@@ -18,6 +18,7 @@ POLICY_SIZE = 1858
 COMPACT_POLICY_SIZE = 218
 INPUT_PLANE_COUNT = 112
 HISTORY_PLANE_COUNT = 104
+RULE50_PLANE_INDEX = HISTORY_PLANE_COUNT + 5
 BOARD_SIZE = 8
 VALUE_TYPE_COUNT = 6
 VALUE_FIELDS = 3
@@ -29,7 +30,7 @@ class LeelaTarDataset:
 
     Output contract:
     - packed_planes: uint8 tensor shaped [batch, 104, 8]
-    - plane_scalars: float32 tensor shaped [batch, 8]
+    - plane_scalars: float32 tensor shaped [batch, 8], including raw rule-50 plies
     - policy_indices: int16 tensor shaped [batch, 218], padded with -1
     - policy_probs: float16 tensor shaped [batch, 218], padded with 0
     - value: float32 tensor shaped [batch, 6, 3] with rows:

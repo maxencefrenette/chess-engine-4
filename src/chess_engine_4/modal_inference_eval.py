@@ -81,7 +81,16 @@ def _run_native_evaluation(payload: dict[str, Any]) -> dict[str, str]:
         count=int(payload["samples"]),
         seed=int(payload["seed"]),
     )
-    native = evaluate_native_checkpoint(checkpoint_path, positions)
+    native_mxfp8 = evaluate_native_checkpoint(
+        checkpoint_path,
+        positions,
+        precision_override="mxfp8",
+    )
+    native_bf16 = evaluate_native_checkpoint(
+        checkpoint_path,
+        positions,
+        precision_override="bf16",
+    )
 
     prefix = REMOTE_EVAL_PATH / str(payload["run_name"])
     positions_path = prefix.with_name(prefix.name + "-positions.json")
@@ -97,9 +106,12 @@ def _run_native_evaluation(payload: dict[str, Any]) -> dict[str, str]:
     )
     np.savez(
         native_path,
-        policies=np.stack(native.policies),
-        q=native.q,
-        d=native.d,
+        mxfp8_policies=np.stack(native_mxfp8.policies),
+        mxfp8_q=native_mxfp8.q,
+        mxfp8_d=native_mxfp8.d,
+        bf16_policies=np.stack(native_bf16.policies),
+        bf16_q=native_bf16.q,
+        bf16_d=native_bf16.d,
     )
     artifact_volume.commit()
     return {"positions_path": str(positions_path), "native_path": str(native_path)}
@@ -112,6 +124,7 @@ def _run_export_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
         NetworkOutputs,
         UciPosition,
         compare_outputs,
+        compare_raw_outputs,
         evaluate_lc0,
     )
 
@@ -128,22 +141,34 @@ def _run_export_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
         for item in json.loads(positions_path.read_text())
     ]
     with np.load(native_path) as data:
-        native = NetworkOutputs(
-            policies=list(data["policies"]),
-            q=data["q"],
-            d=data["d"],
+        native_mxfp8 = NetworkOutputs(
+            policies=list(data["mxfp8_policies"]),
+            q=data["mxfp8_q"],
+            d=data["mxfp8_d"],
+        )
+        native_bf16 = NetworkOutputs(
+            policies=list(data["bf16_policies"]),
+            q=data["bf16_q"],
+            d=data["bf16_d"],
         )
 
     comparisons = {}
     for weights_path in weights_paths:
-        exported = evaluate_lc0(
+        lc0 = evaluate_lc0(
             lc0_path=lc0_path,
             weights_path=weights_path,
             positions=positions,
             backend=str(payload["backend"]),
             env={**os.environ, "LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH},
         )
-        comparisons[weights_path.name] = compare_outputs(native, exported)
+        comparisons[weights_path.name] = {
+            "native_mxfp8_vs_native_bf16": compare_raw_outputs(
+                native_mxfp8,
+                native_bf16,
+            ),
+            "native_mxfp8_vs_lc0": compare_outputs(native_mxfp8, lc0),
+            "native_bf16_vs_lc0": compare_outputs(native_bf16, lc0),
+        }
 
     result = {
         "checkpoint": str(payload["checkpoint"]),

@@ -542,7 +542,7 @@ fn copy_record(
     scalars[scalars_start + 2] = record[CASTLING_THEM_OOO_OFFSET] as f32;
     scalars[scalars_start + 3] = record[CASTLING_THEM_OO_OFFSET] as f32;
     scalars[scalars_start + 4] = record[SIDE_TO_MOVE_OFFSET] as f32;
-    scalars[scalars_start + 5] = record[RULE50_OFFSET] as f32 / 99.0;
+    scalars[scalars_start + 5] = record[RULE50_OFFSET] as f32;
     scalars[scalars_start + 6] = 0.0;
     scalars[scalars_start + 7] = 1.0;
 

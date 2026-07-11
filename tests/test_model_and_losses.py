@@ -4,8 +4,13 @@ import math
 
 import torch
 
-from chess_engine_4.data.leela import HISTORY_PLANE_COUNT, INPUT_PLANE_COUNT
+from chess_engine_4.data.leela import (
+    HISTORY_PLANE_COUNT,
+    INPUT_PLANE_COUNT,
+    RULE50_PLANE_INDEX,
+)
 from chess_engine_4.model import DenseChessNetConfig
+from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import (
     LossWeights,
@@ -31,6 +36,23 @@ def test_packed_input_expansion_matches_dense_input() -> None:
     model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=2, expansion_ratio=2.0))
 
     _assert_packed_input_expansion_matches_dense_model(model)
+
+
+def test_dense_model_normalizes_lc0_rule50_plane() -> None:
+    planes = torch.zeros(1, INPUT_PLANE_COUNT, 8, 8)
+    planes[:, RULE50_PLANE_INDEX] = 50.0
+    planes[:, RULE50_PLANE_INDEX + 1] = 7.0
+
+    normalized = normalize_lc0_planes(planes)
+
+    torch.testing.assert_close(
+        normalized[:, RULE50_PLANE_INDEX],
+        torch.full((1, 8, 8), 50.0 / 99.0),
+    )
+    torch.testing.assert_close(
+        normalized[:, RULE50_PLANE_INDEX + 1],
+        torch.full((1, 8, 8), 7.0),
+    )
 
 
 def test_wdl_target_from_q_d() -> None:

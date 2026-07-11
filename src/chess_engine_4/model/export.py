@@ -6,6 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.registry import ModelConfig
 
@@ -44,7 +45,7 @@ class PortableChessNet(nn.Module):
         self.moves_left_head = nn.Linear(config.d_model, 1)
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
-        x = self.input(planes.flatten(start_dim=1))
+        x = self.input(normalize_lc0_planes(planes).flatten(start_dim=1))
         for block in self.blocks:
             x = block(x)
         x = self.norm(x)

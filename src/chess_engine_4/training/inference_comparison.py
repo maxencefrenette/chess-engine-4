@@ -48,6 +48,7 @@ def evaluate_lc0(
         "--minibatch-size=1",
         "--task-workers=0",
         "--threads=1",
+        "--policy-softmax-temp=1.0",
     ]
     process = subprocess.Popen(
         command,
@@ -135,6 +136,40 @@ def compare_outputs(native: NetworkOutputs, exported: NetworkOutputs) -> dict[st
     }
 
 
+def compare_raw_outputs(
+    reference: NetworkOutputs,
+    candidate: NetworkOutputs,
+) -> dict[str, float | int]:
+    reference_logits = np.stack(reference.policies)
+    candidate_logits = np.stack(candidate.policies)
+    if reference_logits.shape != candidate_logits.shape:
+        raise ValueError(
+            f"Raw policy shapes differ: {reference_logits.shape} != {candidate_logits.shape}."
+        )
+    logits_error = candidate_logits - reference_logits
+    reference_policy = _softmax(reference_logits)
+    candidate_policy = _softmax(candidate_logits)
+    policy_error = candidate_policy - reference_policy
+    q_error = candidate.q - reference.q
+    d_error = candidate.d - reference.d
+    return {
+        "positions": len(reference.policies),
+        "policy_logits_mae": float(np.mean(np.abs(logits_error))),
+        "policy_logits_rmse": float(np.sqrt(np.mean(np.square(logits_error)))),
+        "policy_logits_max_abs_error": float(np.max(np.abs(logits_error))),
+        "policy_probability_mae": float(np.mean(np.abs(policy_error))),
+        "policy_top1_agreement": float(
+            np.mean(reference_policy.argmax(axis=1) == candidate_policy.argmax(axis=1))
+        ),
+        "q_mae": float(np.mean(np.abs(q_error))),
+        "q_rmse": float(np.sqrt(np.mean(np.square(q_error)))),
+        "q_max_abs_error": float(np.max(np.abs(q_error))),
+        "draw_mae": float(np.mean(np.abs(d_error))),
+        "draw_rmse": float(np.sqrt(np.mean(np.square(d_error)))),
+        "draw_max_abs_error": float(np.max(np.abs(d_error))),
+    }
+
+
 def _send_lc0(process: subprocess.Popen[str], command: str) -> None:
     assert process.stdin is not None
     process.stdin.write(command + "\n")
@@ -173,3 +208,9 @@ def _parse_lc0_evaluation(lines: list[str]) -> tuple[dict[int, float], float, fl
 
 def _wdl_from_q_d(q: np.ndarray, d: np.ndarray) -> np.ndarray:
     return np.stack(((1.0 - d + q) / 2.0, d, (1.0 - d - q) / 2.0), axis=-1)
+
+
+def _softmax(logits: np.ndarray) -> np.ndarray:
+    shifted = logits.astype(np.float64) - logits.max(axis=-1, keepdims=True)
+    probabilities = np.exp(shifted)
+    return probabilities / probabilities.sum(axis=-1, keepdims=True)

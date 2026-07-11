@@ -84,12 +84,13 @@ def evaluate_native_checkpoint(
     positions: list[SampledPosition],
     *,
     batch_size: int = 128,
+    precision_override: str | None = None,
 ) -> NetworkOutputs:
     checkpoint = torch.load(checkpoint_path, map_location="cuda", weights_only=False)
     config = checkpoint.get("config")
     if not isinstance(config, dict) or not isinstance(config.get("model"), dict):
         raise ValueError("Checkpoint does not contain config.model.")
-    precision = config.get("precision", {}).get("recipe", "mxfp8")
+    precision = precision_override or config.get("precision", {}).get("recipe", "mxfp8")
     model = build_model(model_config_from_dict(config["model"])).cuda().eval()
     model.load_state_dict(checkpoint["model_state_dict"])
     expander = PlaneInputExpander().cuda().eval()
@@ -237,7 +238,7 @@ def _plane_scalars(record: bytes) -> np.ndarray:
         [
             *record[_CASTLING_OFFSET : _CASTLING_OFFSET + 4],
             record[_SIDE_TO_MOVE_OFFSET],
-            record[_RULE50_OFFSET] / 99.0,
+            record[_RULE50_OFFSET],
             0.0,
             1.0,
         ],
@@ -253,4 +254,3 @@ def _same_position(left: chess.Board, right: chess.Board) -> bool:
         and left.ep_square == right.ep_square
         and left.halfmove_clock == right.halfmove_clock
     )
-
