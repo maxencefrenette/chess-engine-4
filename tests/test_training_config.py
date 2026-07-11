@@ -18,7 +18,6 @@ compute_budget = 1e12
 step_penalty_k = 1.1
 
 [infra]
-gpu_type = "l4"
 dataloader_threads = 4
 dataloader_prefetch_per_thread = 3
 
@@ -46,7 +45,6 @@ moves_left = 0.5
     assert config.run.name == "audit"
     assert config.run.compute_budget == 1e12
     assert config.run.step_penalty_k == 1.1
-    assert config.infra.gpu_type == "l4"
     assert config.infra.dataloader_threads == 4
     assert config.infra.dataloader_prefetch_per_thread == 3
     assert config.data.batch_size == 8
@@ -203,4 +201,12 @@ def test_1e18_config_builds_expected_model_size() -> None:
         d_model=config.model.d_model,
         depth=config.model.depth,
         mlp_ratio=config.model.mlp_ratio,
-    ) == 727_558
+    ) == 733_408
+
+
+def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid-precision.toml"
+    config_path.write_text('[precision]\nrecipe = "fp8"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unknown quantization recipe: fp8"):
+        load_training_config(config_path)

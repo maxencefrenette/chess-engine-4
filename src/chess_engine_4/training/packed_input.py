@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable
 
 import torch
@@ -11,7 +10,7 @@ from torch import nn
 from chess_engine_4.data.leela import BOARD_SIZE, HISTORY_PLANE_COUNT, INPUT_PLANE_COUNT
 from chess_engine_4.model.mlp_moe import MlpMoeChessNet
 from chess_engine_4.model.output import ChessNetOutput
-from chess_engine_4.model.transformer_engine import te
+from chess_engine_4.model.transformer_engine import autocast_context, quantization_recipe, te
 
 type PackedPlaneInput = tuple[torch.Tensor, torch.Tensor]
 type GraphOutput = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
@@ -65,39 +64,32 @@ class _GraphedDenseTrainingModel(nn.Module):
         )
 
 
-class PackedInputTrainingModel(nn.Module):
-    """Wrap a core model with compiled packed-plane expansion."""
-
+class _EagerPackedModel(nn.Module):
     def __init__(self, model: nn.Module) -> None:
         super().__init__()
-        self.input_expander = torch.compile(PlaneInputExpander(), mode="reduce-overhead")
+        self.input_expander = PlaneInputExpander()
         self.model = model
 
     def forward(self, planes: PackedPlaneInput) -> ChessNetOutput:
         return self.model(self.input_expander(*planes))
 
 
-def build_training_model(model: nn.Module, *, batch_size: int) -> nn.Module:
-    """Build the fastest supported packed-input adapter for a core model."""
+def build_training_model(model: nn.Module, *, batch_size: int, precision: str) -> nn.Module:
+    """Build the eager MoE or CUDA-graphed dense packed-input training model."""
 
     if isinstance(model, MlpMoeChessNet):
-        return PackedInputTrainingModel(model).cuda()
+        return _EagerPackedModel(model).cuda()
 
     sample_planes = _sample_packed_planes(batch_size)
-    with (
-        torch.autocast(device_type="cuda", dtype=torch.bfloat16, cache_enabled=False),
-        warnings.catch_warnings(),
-    ):
-        warnings.filterwarnings(
-            "ignore",
-            message="The AccumulateGrad node's stream does not match.*",
-            category=UserWarning,
-        )
+    recipe = quantization_recipe(precision)
+    with autocast_context(precision):
         graphable = _GraphablePackedModel(model).cuda().train()
         graph = te().make_graphed_callables(
             graphable,
             sample_planes,
             allow_unused_input=True,
+            enabled=recipe is not None,
+            recipe=recipe,
         )
         return _GraphedDenseTrainingModel(graph)
 

@@ -8,6 +8,7 @@ import torch
 from torch import nn
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.model.mlp import mxfp8_aligned_size
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
@@ -41,6 +42,8 @@ class MoeBlock(nn.Module):
             raise ValueError("num_experts must be positive.")
         if not 0 < num_experts_per_token <= num_experts:
             raise ValueError("num_experts_per_token must be in [1, num_experts].")
+        if d_model % 32 or hidden_dim % 32:
+            raise ValueError("MXFP8 MoE requires d_model and hidden_dim divisible by 32.")
 
         self.num_experts = num_experts
         self.num_experts_per_token = num_experts_per_token
@@ -48,32 +51,33 @@ class MoeBlock(nn.Module):
         self.norm = transformer_engine.RMSNorm(
             d_model,
             eps=rms_norm_eps,
+            params_dtype=torch.bfloat16,
         )
         self.router = transformer_engine.Linear(
             d_model,
-            num_experts,
+            mxfp8_aligned_size(num_experts),
             bias=False,
+            params_dtype=torch.bfloat16,
         )
-        self.experts = transformer_engine.ops.Sequential(
-            transformer_engine.ops.GroupedLinear(
-                num_experts,
-                d_model,
-                2 * hidden_dim,
-                bias=False,
-            ),
-            transformer_engine.ops.ScaledSwiGLU(),
-            transformer_engine.ops.GroupedLinear(
-                num_experts,
-                hidden_dim,
-                d_model,
-                bias=False,
-            ),
+        self.expert_fc1 = transformer_engine.GroupedLinear(
+            num_experts,
+            d_model,
+            2 * hidden_dim,
+            bias=False,
+            params_dtype=torch.bfloat16,
+        )
+        self.expert_fc2 = transformer_engine.GroupedLinear(
+            num_experts,
+            hidden_dim,
+            d_model,
+            bias=False,
+            params_dtype=torch.bfloat16,
         )
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         residual = x
         x = self.norm(x)
-        router_logits = self.router(x)
+        router_logits = self.router(x)[:, : self.num_experts]
         router_probs = torch.softmax(router_logits, dim=-1)
         route_probs, route_experts = torch.topk(
             router_probs,
@@ -107,11 +111,35 @@ class MoeBlock(nn.Module):
             routing_map,
             x.shape[0] * self.num_experts_per_token,
         )
-        permuted_output = self.experts(
-            permuted_x,
-            tokens_per_expert,
-            permuted_probs,
-            tokens_per_expert,
+        counts = tokens_per_expert.tolist()
+        padded_counts = [((count + 31) // 32) * 32 for count in counts]
+        x_chunks = torch.split(permuted_x, counts)
+        prob_chunks = torch.split(permuted_probs, counts)
+        padded_x = torch.cat(
+            [
+                torch.nn.functional.pad(chunk, (0, 0, 0, padded - count))
+                for chunk, count, padded in zip(x_chunks, counts, padded_counts, strict=True)
+            ]
+        )
+        padded_probs = torch.cat(
+            [
+                torch.nn.functional.pad(chunk, (0, padded - count))
+                for chunk, count, padded in zip(prob_chunks, counts, padded_counts, strict=True)
+            ]
+        )
+        gate, up = self.expert_fc1(padded_x, padded_counts).chunk(2, dim=-1)
+        hidden = torch.nn.functional.silu(gate) * up
+        hidden = hidden * padded_probs.unsqueeze(-1)
+        padded_output = self.expert_fc2(hidden, padded_counts)
+        permuted_output = torch.cat(
+            [
+                chunk[:count]
+                for chunk, count in zip(
+                    torch.split(padded_output, padded_counts),
+                    counts,
+                    strict=True,
+                )
+            ]
         )
         return transformer_engine.moe_unpermute(
             permuted_output,
@@ -135,6 +163,7 @@ class MlpMoeChessNet(nn.Module):
         self.input = transformer_engine.Linear(
             input_dim,
             config.d_model,
+            params_dtype=torch.bfloat16,
         )
         self.blocks = nn.ModuleList(
             [
@@ -151,18 +180,22 @@ class MlpMoeChessNet(nn.Module):
         self.norm = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
+            params_dtype=torch.bfloat16,
         )
         self.policy_head = transformer_engine.Linear(
             config.d_model,
-            config.policy_size,
+            mxfp8_aligned_size(config.policy_size),
+            params_dtype=torch.bfloat16,
         )
         self.wdl_head = transformer_engine.Linear(
             config.d_model,
-            3,
+            32,
+            params_dtype=torch.bfloat16,
         )
         self.moves_left_head = transformer_engine.Linear(
             config.d_model,
-            1,
+            32,
+            params_dtype=torch.bfloat16,
         )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
@@ -176,9 +209,9 @@ class MlpMoeChessNet(nn.Module):
         x = self.norm(x)
         router_dead_experts_by_layer = torch.stack(dead_experts)
         return ChessNetOutput(
-            policy_logits=self.policy_head(x),
-            wdl_logits=self.wdl_head(x),
-            moves_left=self.moves_left_head(x).squeeze(-1),
+            policy_logits=self.policy_head(x)[:, : self.config.policy_size],
+            wdl_logits=self.wdl_head(x)[:, :3],
+            moves_left=self.moves_left_head(x)[:, 0],
             aux_loss=torch.stack(aux_losses).mean(),
             router_dead_experts=router_dead_experts_by_layer.mean(),
             router_dead_experts_max=router_dead_experts_by_layer.max(),
@@ -199,11 +232,12 @@ def mlp_moe_parameter_count(
     hidden_dim = int(d_model * expert_mlp_ratio)
     input_params = input_dim * d_model + d_model
     expert_params = depth * num_experts * (3 * d_model * hidden_dim)
-    router_params = depth * d_model * num_experts
+    router_params = depth * d_model * mxfp8_aligned_size(num_experts)
     norm_params = (depth + 1) * d_model
-    policy_params = d_model * policy_size + policy_size
-    wdl_params = d_model * 3 + 3
-    moves_left_params = d_model + 1
+    aligned_policy_size = mxfp8_aligned_size(policy_size)
+    policy_params = d_model * aligned_policy_size + aligned_policy_size
+    wdl_params = d_model * 32 + 32
+    moves_left_params = d_model * 32 + 32
     return (
         input_params
         + expert_params

@@ -14,7 +14,7 @@ dependencies = [
     "onnx>=1.21.0",
     "onnxscript>=0.7.0",
     "python-dotenv>=1.2.2",
-    "torch>=2.9",
+    "torch==2.11.0",
     "transformer-engine[core-cu13,pytorch]==2.17.0; sys_platform == 'linux'",
     "wandb>=0.26.1",
 ]

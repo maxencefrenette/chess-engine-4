@@ -20,17 +20,6 @@ REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
-GPU_CHOICES = {
-    "l4": "L4",
-    "a10g": "A10G",
-    "a100-40gb": "A100-40GB",
-    "a100-80gb": "A100-80GB",
-    "l40s": "L40S",
-    "h100": "H100",
-    "h200": "H200",
-    "b200": "B200",
-}
-
 ORT_VERSION = "1.23.2"
 LC0_VERSION = "0.32.1"
 FASTCHESS_VERSION = "1.8.0-alpha"
@@ -117,7 +106,6 @@ def prepare_lc0_modal() -> None:
 def eval_modal() -> None:
     parser = argparse.ArgumentParser(description="Run an lc0-vs-lc0 fastchess match on Modal.")
     parser.add_argument("candidate_weights", type=Path)
-    parser.add_argument("--gpu", default="l4", choices=sorted(GPU_CHOICES))
     parser.add_argument("--name", default=None)
     parser.add_argument("--games", type=int, default=2)
     parser.add_argument("--rounds", type=int, default=1)
@@ -177,9 +165,8 @@ def eval_modal() -> None:
         "lc0_path": args.lc0_path,
     }
 
-    train_function = _remote_function_for_gpu(args.gpu)
     with app.run():
-        result = train_function.remote(payload)
+        result = _eval.remote(payload)
     print(result["stdout"])
     print(f"pgn_path={result['pgn_path']}")
     print(f"log_path={result['log_path']}")
@@ -341,92 +328,9 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
 
 @app.function(
     image=image,
-    gpu="L4",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_l4(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A10G",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_a10g(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A100-40GB",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_a100_40gb(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A100-80GB",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_a100_80gb(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="L40S",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_l40s(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="H100",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_h100(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="H200",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval_h200(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
-
-
-@app.function(
-    image=image,
     gpu="B200",
     volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
     timeout=24 * 60 * 60,
 )
-def _eval_b200(payload: dict[str, Any]) -> dict[str, str]:
+def _eval(payload: dict[str, Any]) -> dict[str, str]:
     return _run_eval_remote(payload)
-
-
-def _remote_function_for_gpu(gpu: str) -> modal.Function:
-    return {
-        "l4": _eval_l4,
-        "a10g": _eval_a10g,
-        "a100-40gb": _eval_a100_40gb,
-        "a100-80gb": _eval_a100_80gb,
-        "l40s": _eval_l40s,
-        "h100": _eval_h100,
-        "h200": _eval_h200,
-        "b200": _eval_b200,
-    }[gpu]

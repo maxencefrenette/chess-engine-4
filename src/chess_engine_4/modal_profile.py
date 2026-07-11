@@ -8,12 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from chess_engine_4.modal_train import (
-    GPU_CHOICES,
     REMOTE_CONFIG_PATH,
+    _train,
     app,
-    remote_function_for_gpu,
 )
-from chess_engine_4.training.config import load_training_config
 
 
 def profile_training() -> None:
@@ -24,9 +22,13 @@ def profile_training() -> None:
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
+    parser.add_argument(
+        "--quantization-recipe",
+        choices=("bf16", "mxfp8", "nvfp4"),
+        default=None,
+    )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
-    parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
     parser.add_argument("--json", action="store_true", help="Print only the JSON result.")
@@ -44,6 +46,7 @@ def profile_training() -> None:
         "depth": args.depth,
         "lr": args.lr,
         "router_aux": args.router_aux,
+        "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
         "wandb": False,
@@ -53,14 +56,8 @@ def profile_training() -> None:
         },
     }
 
-    config = load_training_config(args.config)
-    gpu = args.gpu or config.infra.gpu_type
-    if gpu not in GPU_CHOICES:
-        parser.error(f"config infra.gpu_type must be one of: {', '.join(sorted(GPU_CHOICES))}")
-
-    profile_function = remote_function_for_gpu(gpu)
     with app.run():
-        result = profile_function.remote(payload)
+        result = _train.remote(payload)
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))

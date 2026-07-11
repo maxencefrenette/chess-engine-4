@@ -31,8 +31,8 @@ def test_read_best_runs_and_extrapolate() -> None:
 
 
 def test_parameter_count_formulas_match_current_baselines() -> None:
-    assert parameter_count(d_model=32, depth=1) == 303206
-    assert parameter_count(model_kind="mlp_moe", d_model=32, depth=1) == 389734
+    assert parameter_count(d_model=32, depth=1) == 306176
+    assert parameter_count(model_kind="mlp_moe", d_model=32, depth=1) == 393216
 
 
 def test_rounding_ladders() -> None:

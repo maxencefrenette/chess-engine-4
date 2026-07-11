@@ -65,14 +65,14 @@ def wdl_target_from_q_d(q: torch.Tensor, d: torch.Tensor) -> torch.Tensor:
 def value_cross_entropy(wdl_logits: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
     root = values[:, ROOT_VALUE_INDEX]
     targets = wdl_target_from_q_d(root[:, 0], root[:, 1])
-    log_probs = nn.functional.log_softmax(wdl_logits, dim=-1)
+    log_probs = nn.functional.log_softmax(wdl_logits, dim=-1).float()
     return -(targets.detach() * log_probs).sum(dim=-1).mean()
 
 
 def moves_left_loss(moves_left: torch.Tensor, values: torch.Tensor) -> torch.Tensor:
     target = values[:, ROOT_VALUE_INDEX, 2]
     return nn.functional.huber_loss(
-        moves_left / MOVES_LEFT_SCALE,
+        moves_left.float() / MOVES_LEFT_SCALE,
         target / MOVES_LEFT_SCALE,
         delta=MOVES_LEFT_HUBER_DELTA,
     )

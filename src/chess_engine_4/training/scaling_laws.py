@@ -13,7 +13,6 @@ from chess_engine_4.model import (
     mlp_moe_parameter_count,
     mlp_parameter_count,
 )
-from chess_engine_4.training.config import load_training_config
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-mlp.toml")
 
@@ -104,7 +103,6 @@ def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-compute-budget", type=float, default=1e16)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--gpu", default=None)
     parser.add_argument("--config", default="configs/mlp/1e19.toml")
     parser.add_argument("--write-config", type=Path, default=None)
     args = parser.parse_args()
@@ -112,7 +110,7 @@ def scaling_laws() -> None:
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
     suggestion = extrapolate(laws, args.target_compute_budget)
-    gpu = args.gpu or load_training_config(args.config).infra.gpu_type
+    gpu = "b200"
     report = format_report(
         best_results=best_results,
         laws=laws,
@@ -123,7 +121,7 @@ def scaling_laws() -> None:
     print(report)
 
     if args.write_config is not None:
-        args.write_config.write_text(format_config(suggestion, gpu=gpu), encoding="utf-8")
+        args.write_config.write_text(format_config(suggestion), encoding="utf-8")
         print(f"\nwrote {args.write_config}")
 
 
@@ -422,7 +420,7 @@ def format_report(
     return "\n".join(lines)
 
 
-def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
+def format_config(suggestion: HparamSuggestion) -> str:
     name = f"{suggestion.compute_budget:.0e}".replace("+", "")
     model_lines = [
         "[model]",
@@ -454,12 +452,14 @@ def format_config(suggestion: HparamSuggestion, *, gpu: str = "l4") -> str:
             f"compute_budget = {suggestion.compute_budget:.0e}",
             "",
             "[infra]",
-            f'gpu_type = "{gpu}"',
             "dataloader_threads = 4",
             "dataloader_prefetch_per_thread = 2",
             "",
             "[data]",
             f"batch_size = {suggestion.batch_size}",
+            "",
+            "[precision]",
+            'recipe = "mxfp8"',
             "",
             *model_lines,
             "",

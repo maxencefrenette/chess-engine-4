@@ -21,7 +21,6 @@ class RunConfig:
 
 @dataclass(frozen=True, slots=True)
 class InfraConfig:
-    gpu_type: str = "l4"
     dataloader_threads: int = 4
     dataloader_prefetch_per_thread: int = 2
 
@@ -29,6 +28,15 @@ class InfraConfig:
 @dataclass(frozen=True, slots=True)
 class DataConfig:
     batch_size: int = 1024
+
+
+@dataclass(frozen=True, slots=True)
+class PrecisionConfig:
+    recipe: str = "mxfp8"
+
+    def __post_init__(self) -> None:
+        if self.recipe not in {"bf16", "mxfp8", "nvfp4"}:
+            raise ValueError(f"unknown quantization recipe: {self.recipe}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +53,7 @@ class TrainingConfig:
     run: RunConfig = RunConfig()
     infra: InfraConfig = InfraConfig()
     data: DataConfig = DataConfig()
+    precision: PrecisionConfig = PrecisionConfig()
     model: ModelConfig = model_config_from_dict({})
     optimizer: OptimizerConfig = OptimizerConfig()
     loss: LossWeights = LossWeights()
@@ -60,6 +69,12 @@ def load_training_config(path: str | Path) -> TrainingConfig:
         run=_build_section(RunConfig, raw.get("run", {}), config_path, "run"),
         infra=_build_section(InfraConfig, raw.get("infra", {}), config_path, "infra"),
         data=_build_section(DataConfig, raw.get("data", {}), config_path, "data"),
+        precision=_build_section(
+            PrecisionConfig,
+            raw.get("precision", {}),
+            config_path,
+            "precision",
+        ),
         model=_build_model_config(raw.get("model", {}), config_path),
         optimizer=_build_section(
             OptimizerConfig,
@@ -85,6 +100,7 @@ def with_overrides(
     router_aux: float | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
+    quantization_recipe: str | None = None,
 ) -> TrainingConfig:
     if compute_budget is not None:
         config = replace(config, run=replace(config.run, compute_budget=compute_budget))
@@ -126,6 +142,13 @@ def with_overrides(
                 dataloader_prefetch_per_thread=dataloader_prefetch_per_thread,
             ),
         )
+    if quantization_recipe is not None:
+        if quantization_recipe not in {"bf16", "mxfp8", "nvfp4"}:
+            raise ValueError(f"unknown quantization recipe: {quantization_recipe}")
+        config = replace(
+            config,
+            precision=replace(config.precision, recipe=quantization_recipe),
+        )
     return config
 
 
@@ -157,7 +180,7 @@ def _build_section[ConfigT](
 
 
 def _reject_unknown_sections(raw: dict[str, Any], path: Path) -> None:
-    allowed = {"run", "infra", "data", "model", "optimizer", "loss"}
+    allowed = {"run", "infra", "data", "precision", "model", "optimizer", "loss"}
     unknown = sorted(set(raw) - allowed)
     if unknown:
         unknown_names = ", ".join(unknown)

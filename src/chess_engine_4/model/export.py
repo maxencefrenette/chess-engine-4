@@ -126,12 +126,12 @@ def portable_model_from_te_state_dict(
         "input.weight": state_dict["input.weight"],
         "input.bias": state_dict["input.bias"],
         "norm.weight": state_dict.get("norm.weight", torch.ones(config.d_model)),
-        "policy_head.weight": state_dict["policy_head.weight"],
-        "policy_head.bias": state_dict["policy_head.bias"],
-        "wdl_head.weight": state_dict["wdl_head.weight"],
-        "wdl_head.bias": state_dict["wdl_head.bias"],
-        "moves_left_head.weight": state_dict["moves_left_head.weight"],
-        "moves_left_head.bias": state_dict["moves_left_head.bias"],
+        "policy_head.weight": state_dict["policy_head.weight"][: config.policy_size],
+        "policy_head.bias": state_dict["policy_head.bias"][: config.policy_size],
+        "wdl_head.weight": state_dict["wdl_head.weight"][:3],
+        "wdl_head.bias": state_dict["wdl_head.bias"][:3],
+        "moves_left_head.weight": state_dict["moves_left_head.weight"][:1],
+        "moves_left_head.bias": state_dict["moves_left_head.bias"][:1],
     }
 
     if isinstance(config, MlpChessNetConfig):
@@ -166,17 +166,19 @@ def portable_model_from_te_state_dict(
                 f"{source}.norm.weight",
                 torch.ones(config.d_model),
             )
-            portable_state[f"{target}.router.weight"] = state_dict[f"{source}.router.weight"]
-            if f"{source}.experts.0.weight0" in state_dict:
+            portable_state[f"{target}.router.weight"] = state_dict[
+                f"{source}.router.weight"
+            ][: config.num_experts]
+            if f"{source}.expert_fc1.weight0" in state_dict:
                 portable_state[f"{target}.gate_up_weight"] = torch.stack(
                     [
-                        state_dict[f"{source}.experts.0.weight{expert}"]
+                        state_dict[f"{source}.expert_fc1.weight{expert}"]
                         for expert in range(config.num_experts)
                     ]
                 )
                 portable_state[f"{target}.down_weight"] = torch.stack(
                     [
-                        state_dict[f"{source}.experts.2.weight{expert}"]
+                        state_dict[f"{source}.expert_fc2.weight{expert}"]
                         for expert in range(config.num_experts)
                     ]
                 )

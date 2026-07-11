@@ -12,6 +12,10 @@ from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
 
+def mxfp8_aligned_size(size: int) -> int:
+    return (size + 31) // 32 * 32
+
+
 @dataclass(frozen=True, slots=True)
 class MlpChessNetConfig:
     kind: str = "mlp"
@@ -35,6 +39,7 @@ class MlpBlock(nn.Module):
             bias=False,
             normalization="RMSNorm",
             activation="swiglu",
+            params_dtype=torch.bfloat16,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -56,6 +61,7 @@ class MlpChessNet(nn.Module):
         self.input = transformer_engine.Linear(
             input_dim,
             config.d_model,
+            params_dtype=torch.bfloat16,
         )
         self.blocks = nn.Sequential(
             *[
@@ -70,18 +76,22 @@ class MlpChessNet(nn.Module):
         self.norm = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
+            params_dtype=torch.bfloat16,
         )
         self.policy_head = transformer_engine.Linear(
             config.d_model,
-            config.policy_size,
+            mxfp8_aligned_size(config.policy_size),
+            params_dtype=torch.bfloat16,
         )
         self.wdl_head = transformer_engine.Linear(
             config.d_model,
-            3,
+            32,
+            params_dtype=torch.bfloat16,
         )
         self.moves_left_head = transformer_engine.Linear(
             config.d_model,
-            1,
+            32,
+            params_dtype=torch.bfloat16,
         )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
@@ -90,9 +100,9 @@ class MlpChessNet(nn.Module):
         x = self.blocks(x)
         x = self.norm(x)
         return ChessNetOutput(
-            policy_logits=self.policy_head(x),
-            wdl_logits=self.wdl_head(x),
-            moves_left=self.moves_left_head(x).squeeze(-1),
+            policy_logits=self.policy_head(x)[:, : self.config.policy_size],
+            wdl_logits=self.wdl_head(x)[:, :3],
+            moves_left=self.moves_left_head(x)[:, 0],
         )
 
 
@@ -110,9 +120,10 @@ def mlp_parameter_count(
     block_params = depth * (3 * d_model * hidden_dim)
     norm_params = (depth + 1) * d_model
     input_params = input_dim * d_model + d_model
-    policy_params = d_model * policy_size + policy_size
-    wdl_params = d_model * 3 + 3
-    moves_left_params = d_model + 1
+    aligned_policy_size = mxfp8_aligned_size(policy_size)
+    policy_params = d_model * aligned_policy_size + aligned_policy_size
+    wdl_params = d_model * 32 + 32
+    moves_left_params = d_model * 32 + 32
     return (
         input_params
         + block_params

@@ -53,11 +53,19 @@ and logs metrics to the W&B project configured in `.env`.
 uv run train-modal --config configs/mlp/1e18.toml
 ```
 
-Modal training uses the GPU type from the model config by default. Training is
-CUDA-only, hardcoded to bf16, and requires a bf16-capable GPU such as L4 or
-newer. The Modal image builds the pinned Transformer Engine version and its
-PyTorch extension automatically. Training functions reserve eight CPU cores
-for the background Rust dataloader.
+Training and evaluation are Blackwell-only and run on a Modal B200. Models use
+Transformer Engine MXFP8 block scaling and FP32 optimizer master weights. Dense
+training is CUDA-graphed; MoE routing remains eager because expert token counts
+are dynamic. The Modal image builds the pinned Transformer Engine version and
+its PyTorch extension automatically. Training reserves eight CPU cores for the
+background Rust dataloader.
+
+MXFP8 projections are padded to 32-element boundaries and sliced back to the
+LC0 output contract. MoE expert batches are likewise padded per expert to a
+32-token boundary before grouped matrix multiplications.
+
+The `[precision].recipe` setting accepts `bf16`, `mxfp8`, or `nvfp4`. It can be
+overridden for profiling with `--quantization-recipe`.
 
 To profile the Modal training loop:
 
@@ -85,7 +93,7 @@ To run a small lc0-vs-BT4 match on Modal with fastchess:
 
 ```sh
 uv run prepare-lc0-modal
-uv run eval-modal artifacts/leela/run.pb.gz --gpu l4 --nodes 64 --games 2 --rounds 1
+uv run eval-modal artifacts/leela/run.pb.gz --nodes 64 --games 2 --rounds 1
 ```
 
 `prepare-lc0-modal` builds the Linux CUDA/ONNX lc0 binary once on Modal and

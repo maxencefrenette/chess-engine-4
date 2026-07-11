@@ -15,6 +15,7 @@ from chess_engine_4.data.leela import (
     LeelaTarDataset,
 )
 from chess_engine_4.model import build_model
+from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
 from chess_engine_4.training.flops import (
     measure_training_flops_per_sample,
@@ -36,15 +37,7 @@ _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
-_TFLOPS_BY_GPU = {
-    "NVIDIA L4": 121.0,
-    "NVIDIA A10G": 125.0,
-    "NVIDIA A100": 312.0,
-    "NVIDIA L40S": 362.0,
-    "NVIDIA H100": 989.0,
-    "NVIDIA H200": 989.0,
-    "NVIDIA B200": 2250.0,
-}
+_B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
 
 type NativeBatch = tuple[
     torch.Tensor,
@@ -68,6 +61,7 @@ class TrainOptions:
     lr_warmup_steps: int | None = None
     lr_cooldown_frac: float | None = None
     router_aux: float | None = None
+    quantization_recipe: str | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
     max_steps: int | None = None
@@ -92,6 +86,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         router_aux=options.router_aux,
         dataloader_threads=options.dataloader_threads,
         dataloader_prefetch_per_thread=options.dataloader_prefetch_per_thread,
+        quantization_recipe=options.quantization_recipe,
     )
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)
@@ -117,6 +112,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps = min(steps, options.max_steps)
 
     device = torch.device("cuda")
+    _require_blackwell(device)
     dataset = LeelaTarDataset(
         options.data,
         batch_size=config.data.batch_size,
@@ -125,8 +121,12 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
     model = build_model(config.model).to(device)
     optimizer = _build_optimizer(model, config=config)
-    training_model = build_training_model(model, batch_size=config.data.batch_size)
-    theoretical_tflops = _theoretical_tflops(device)
+    training_model = build_training_model(
+        model,
+        batch_size=config.data.batch_size,
+        precision=config.precision.recipe,
+    )
+    theoretical_tflops = _theoretical_tflops(device, precision=config.precision.recipe)
     wandb_run = (
         _init_wandb(
             config,
@@ -185,7 +185,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        with autocast_context(config.precision.recipe):
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
         loss.total.backward()
@@ -322,7 +322,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "step_penalty_k": config.run.step_penalty_k,
         "flops_per_sample": flops_per_sample,
         "device": str(device),
-        "precision": "bf16",
+        "precision": config.precision.recipe,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -506,19 +506,27 @@ def _build_optimizer(
     *,
     config: TrainingConfig,
 ) -> torch.optim.Optimizer:
-    return torch.optim.AdamW(
+    return te().optimizers.FusedAdam(
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
-        fused=True,
+        master_weights=True,
+        master_weight_dtype=torch.float32,
     )
 
 
-def _theoretical_tflops(device: torch.device) -> float | None:
+def _theoretical_tflops(device: torch.device, *, precision: str) -> float:
+    _require_blackwell(device)
+    return _B200_TFLOPS[precision]
+
+
+def _require_blackwell(device: torch.device) -> None:
+    capability = torch.cuda.get_device_capability(device)
     name = torch.cuda.get_device_name(device)
-    for prefix, tflops in _TFLOPS_BY_GPU.items():
-        if name.startswith(prefix):
-            return tflops
-    return None
+    if capability != (10, 0) or "B200" not in name:
+        raise RuntimeError(
+            "chess-engine-4 requires an NVIDIA B200 (SM100); "
+            f"found {name} SM{capability[0]}{capability[1]}."
+        )
 
 
 def _mfu(*, flops: int, elapsed: float, theoretical_tflops: float) -> float:
@@ -600,10 +608,9 @@ def _init_wandb(
         "batch_size": config.data.batch_size,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
-        "precision": "bf16",
+        "precision": config.precision.recipe,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,
-        "gpu_type": config.infra.gpu_type,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
         "model_kind": config.model.kind,

@@ -10,8 +10,6 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
-from chess_engine_4.training.config import load_training_config
-
 APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
 ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
@@ -20,17 +18,6 @@ REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 REMOTE_CONFIG_PATH = Path("configs/mlp/1e18.toml")
-
-GPU_CHOICES = {
-    "l4": "L4",
-    "a10g": "A10G",
-    "a100-40gb": "A100-40GB",
-    "a100-80gb": "A100-80GB",
-    "l40s": "L40S",
-    "h100": "H100",
-    "h200": "H200",
-    "b200": "B200",
-}
 
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
@@ -56,6 +43,7 @@ image = (
             ),
         },
     )
+    .run_commands("uv pip install --no-deps nvidia-cublas==13.6.0.2")
     .run_commands(
         "find /.uv/.venv/lib/python3.14/site-packages/nvidia -type d -name lib "
         "> /etc/ld.so.conf.d/nvidia-python.conf && ldconfig"
@@ -87,9 +75,13 @@ def train_modal() -> None:
     parser.add_argument("--lr-warmup-steps", type=int, default=None)
     parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument("--router-aux", type=float, default=None)
+    parser.add_argument(
+        "--quantization-recipe",
+        choices=("bf16", "mxfp8", "nvfp4"),
+        default=None,
+    )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
-    parser.add_argument("--gpu", default=None, choices=sorted(GPU_CHOICES))
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
@@ -109,6 +101,7 @@ def train_modal() -> None:
         "lr_warmup_steps": args.lr_warmup_steps,
         "lr_cooldown_frac": args.lr_cooldown_frac,
         "router_aux": args.router_aux,
+        "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
         "max_steps": args.max_steps,
@@ -121,14 +114,8 @@ def train_modal() -> None:
         "checkpoint_every": args.checkpoint_every,
     }
 
-    config = load_training_config(args.config)
-    gpu = args.gpu or config.infra.gpu_type
-    if gpu not in GPU_CHOICES:
-        parser.error(f"config infra.gpu_type must be one of: {', '.join(sorted(GPU_CHOICES))}")
-
-    train_function = remote_function_for_gpu(gpu)
     with app.run():
-        result = train_function.remote(payload)
+        result = _train.remote(payload)
     print(
         f"modal_run_complete run={result['run_name']} "
         f"steps={result['steps']} "
@@ -172,6 +159,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             lr_warmup_steps=payload.get("lr_warmup_steps"),
             lr_cooldown_frac=payload.get("lr_cooldown_frac"),
             router_aux=payload.get("router_aux"),
+            quantization_recipe=payload.get("quantization_recipe"),
             dataloader_threads=payload.get("dataloader_threads"),
             dataloader_prefetch_per_thread=payload.get(
                 "dataloader_prefetch_per_thread"
@@ -193,108 +181,11 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
 
 @app.function(
     image=image,
-    gpu="L4",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_l4(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A10G",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_a10g(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A100-40GB",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_a100_40gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="A100-80GB",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_a100_80gb(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="L40S",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_l40s(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="H100",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_h100(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
-    gpu="H200",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train_h200(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
-
-
-@app.function(
-    image=image,
     gpu="B200",
     cpu=8,
     volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
     secrets=[wandb_secret],
     timeout=24 * 60 * 60,
 )
-def _train_b200(payload: dict[str, Any]) -> dict[str, float | int | str]:
+def _train(payload: dict[str, Any]) -> dict[str, float | int | str]:
     return _run_training_remote(payload)
-
-
-def remote_function_for_gpu(gpu: str) -> modal.Function:
-    return {
-        "l4": _train_l4,
-        "a10g": _train_a10g,
-        "a100-40gb": _train_a100_40gb,
-        "a100-80gb": _train_a100_80gb,
-        "l40s": _train_l40s,
-        "h100": _train_h100,
-        "h200": _train_h200,
-        "b200": _train_b200,
-    }[gpu]
