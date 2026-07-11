@@ -2,10 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LineChart } from "@/components/line-chart";
 import { MetricCard } from "@/components/metric-card";
+import { RunsTable } from "@/components/runs-table";
 import {
   formatCompactNumber,
   formatDecimal,
   formatModel,
+  formatPercent,
+} from "@/data/format";
+import {
   getFamily,
   latestRun,
   modelFamilies,
@@ -40,25 +44,27 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
 
   return (
     <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <Link href="/" className="text-sm font-medium text-blue-700 hover:text-blue-900">
-          Back to families
-        </Link>
-
-        <header className="mt-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-blue-700">
-            Model family
-          </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-zinc-950">
-            {family.name}
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg leading-8 text-zinc-600">
-            {family.description}
-          </p>
+      <div className="mx-auto max-w-[1500px] px-8 py-6">
+        <header className="flex items-end justify-between gap-8 border-b border-zinc-200 pb-5">
+          <div>
+            <Link href="/" className="text-sm font-medium text-blue-700 hover:text-blue-900">
+              Families
+            </Link>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+              {family.name}
+            </h1>
+            <p className="mt-2 text-sm text-zinc-600">{family.description}</p>
+          </div>
+          {latest ? (
+            <div className="text-right">
+              <div className="text-xs font-medium uppercase text-zinc-500">Current frontier</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-950">{latest.budget}</div>
+            </div>
+          ) : null}
         </header>
 
         {latest ? (
-          <section className="mt-5 grid gap-4 md:grid-cols-4">
+          <section className="mt-5 grid grid-cols-4 gap-4">
             <MetricCard label="Latest model" value={formatModel(latest)} detail={latest.budget} />
             <MetricCard label="Parameters" value={formatCompactNumber(latest.params)} />
             <MetricCard
@@ -66,7 +72,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
               value={formatDecimal(latest.lossUpper1sd ?? latest.loss)}
               detail="Loss upper 1 SD when available"
             />
-            <MetricCard label="Policy top-1" value={formatDecimal(latest.policyTop1)} />
+            <MetricCard label="Policy top-1" value={formatPercent(latest.policyTop1)} />
           </section>
         ) : null}
 
@@ -74,25 +80,38 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           <ChartCard
             title="Loss score"
             yLabel="Loss upper 1 SD"
-            points={runs.map((run) => ({ x: run.compute, y: run.lossUpper1sd ?? run.loss }))}
+            points={runs.map((run) => ({
+              x: run.compute,
+              y: run.lossUpper1sd ?? run.loss,
+              budget: run.budget,
+            }))}
           />
           <ChartCard
             title="Policy top-1"
             yLabel="Top-1 accuracy"
-            points={runs.map((run) => ({ x: run.compute, y: run.policyTop1 }))}
+            points={runs.map((run) => ({ x: run.compute, y: run.policyTop1, budget: run.budget }))}
             stroke="#16a34a"
+            valueFormat="percent"
           />
           <ChartCard
             title="Parameters"
             yLabel="Total parameters"
-            points={runs.map((run) => ({ x: run.compute, y: run.params }))}
+            points={runs.map((run) => ({ x: run.compute, y: run.params, budget: run.budget }))}
             stroke="#9333ea"
+            valueFormat="compact"
+            yScale="log"
           />
           <ChartCard
             title="Samples seen"
             yLabel="Training samples"
-            points={runs.map((run) => ({ x: run.compute, y: run.samplesSeen }))}
+            points={runs.map((run) => ({
+              x: run.compute,
+              y: run.samplesSeen,
+              budget: run.budget,
+            }))}
             stroke="#ea580c"
+            valueFormat="compact"
+            yScale="log"
           />
         </section>
 
@@ -100,47 +119,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           <div className="border-b border-zinc-200 px-5 py-4">
             <h2 className="text-lg font-semibold text-zinc-950">Best observed runs</h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left text-sm">
-              <thead className="bg-zinc-50 text-zinc-500">
-                <tr>
-                  <Th>Budget</Th>
-                  <Th>Model</Th>
-                  <Th>Batch</Th>
-                  <Th>LR</Th>
-                  <Th>Params</Th>
-                  <Th>Samples</Th>
-                  <Th>Loss</Th>
-                  <Th>Loss score</Th>
-                  <Th>Policy top-1</Th>
-                  <Th>W&B</Th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-100">
-                {runs.map((run) => (
-                  <tr key={run.budget} className="text-zinc-700">
-                    <Td>{run.budget}</Td>
-                    <Td>{formatModel(run)}</Td>
-                    <Td>{formatCompactNumber(run.batchSize)}</Td>
-                    <Td>{run.lr.toPrecision(2)}</Td>
-                    <Td>{formatCompactNumber(run.params)}</Td>
-                    <Td>{formatCompactNumber(run.samplesSeen)}</Td>
-                    <Td>{formatDecimal(run.loss)}</Td>
-                    <Td>{formatDecimal(run.lossUpper1sd ?? run.loss)}</Td>
-                    <Td>{formatDecimal(run.policyTop1)}</Td>
-                    <Td>
-                      <a
-                        href={run.wandbUrl}
-                        className="font-medium text-blue-700 hover:text-blue-900"
-                      >
-                        run
-                      </a>
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RunsTable runs={runs} />
         </section>
       </div>
     </main>
@@ -152,11 +131,15 @@ function ChartCard({
   yLabel,
   points,
   stroke,
+  valueFormat,
+  yScale,
 }: {
   title: string;
   yLabel: string;
-  points: { x: number; y: number }[];
+  points: { x: number; y: number; budget: string }[];
   stroke?: string;
+  valueFormat?: "decimal" | "percent" | "compact";
+  yScale?: "linear" | "log";
 }) {
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
@@ -166,18 +149,12 @@ function ChartCard({
           label={title}
           points={points}
           stroke={stroke}
+          valueFormat={valueFormat}
+          yScale={yScale}
           xLabel="Compute budget"
           yLabel={yLabel}
         />
       </div>
     </div>
   );
-}
-
-function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-4 py-3 font-medium">{children}</th>;
-}
-
-function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-4 py-3">{children}</td>;
 }

@@ -66,21 +66,6 @@ export function latestRun(runs: BestRun[]): BestRun | undefined {
   return runs.at(-1);
 }
 
-export function formatModel(run: BestRun): string {
-  return `d${run.dModel}x${run.depth}`;
-}
-
-export function formatCompactNumber(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    notation: "compact",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-export function formatDecimal(value: number, digits = 4): string {
-  return value.toFixed(digits);
-}
-
 function normalizeRun(budget: string, run: Record<string, unknown>): BestRun {
   return {
     budget,

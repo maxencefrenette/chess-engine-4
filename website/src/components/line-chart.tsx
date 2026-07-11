@@ -1,6 +1,20 @@
+"use client";
+
+import {
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Scatter,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 type LineChartPoint = {
   x: number;
   y: number;
+  budget: string;
 };
 
 type LineChartProps = {
@@ -9,6 +23,14 @@ type LineChartProps = {
   xLabel: string;
   yLabel: string;
   stroke?: string;
+  valueFormat?: "decimal" | "percent" | "compact";
+  yScale?: "linear" | "log";
+};
+
+type ChartPoint = LineChartPoint & {
+  logX: number;
+  plotY: number;
+  fit?: number;
 };
 
 export function LineChart({
@@ -17,182 +39,114 @@ export function LineChart({
   xLabel,
   yLabel,
   stroke = "#2563eb",
+  valueFormat = "decimal",
+  yScale = "linear",
 }: LineChartProps) {
   if (points.length === 0) {
     return null;
   }
 
-  const width = 720;
-  const height = 360;
-  const padding = { top: 22, right: 28, bottom: 58, left: 76 };
-  const xValues = points.map((point) => Math.log10(point.x));
-  const yValues = points.map((point) => point.y);
-  const minX = Math.min(...xValues);
-  const maxX = Math.max(...xValues);
-  const minY = Math.min(...yValues);
-  const maxY = Math.max(...yValues);
-  const yPadding = minY === maxY ? Math.max(Math.abs(minY) * 0.05, 1) : (maxY - minY) * 0.08;
-  const yDomainMin = minY >= 0 ? Math.max(0, minY - yPadding) : minY - yPadding;
-  const yDomainMax = maxY + yPadding;
-  const innerWidth = width - padding.left - padding.right;
-  const innerHeight = height - padding.top - padding.bottom;
-  const xTicks = computeXTicks(points);
-  const yTicks = computeYTicks(yDomainMin, yDomainMax);
-
-  const scaleX = (value: number) =>
-    padding.left + ((Math.log10(value) - minX) / Math.max(maxX - minX, 1)) * innerWidth;
-  const scaleY = (value: number) =>
-    height -
-    padding.bottom -
-    ((value - yDomainMin) / Math.max(yDomainMax - yDomainMin, 1)) * innerHeight;
-
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${scaleX(point.x)} ${scaleY(point.y)}`)
-    .join(" ");
+  const fit = linearFit(points, yScale);
+  const chartPoints: ChartPoint[] = points.map((point) => ({
+    ...point,
+    logX: Math.log10(point.x),
+    plotY: plotY(point.y, yScale),
+    fit: fit(Math.log10(point.x)),
+  }));
 
   return (
-    <svg
-      role="img"
-      aria-label={label}
-      viewBox={`0 0 ${width} ${height}`}
-      className="h-80 w-full overflow-visible"
-    >
-      {yTicks.map((tick) => (
-        <g key={`y-${tick}`}>
-          <line
-            stroke="#e4e4e7"
-            strokeWidth="1"
-            x1={padding.left}
-            x2={width - padding.right}
-            y1={scaleY(tick)}
-            y2={scaleY(tick)}
+    <div aria-label={label} className="h-[360px] w-full" role="img">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={chartPoints} margin={{ top: 12, right: 20, bottom: 18, left: 12 }}>
+          <CartesianGrid stroke="#e4e4e7" strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="logX"
+            domain={["dataMin", "dataMax"]}
+            label={{ value: xLabel, position: "insideBottom", offset: -10 }}
+            tickFormatter={(value: number) => `1e${Math.round(value)}`}
+            type="number"
           />
-          <text
-            dominantBaseline="middle"
-            fill="#71717a"
-            fontSize="12"
-            textAnchor="end"
-            x={padding.left - 10}
-            y={scaleY(tick)}
-          >
-            {formatTick(tick)}
-          </text>
-        </g>
-      ))}
-      {xTicks.map((tick) => (
-        <g key={`x-${tick}`}>
-          <line
-            stroke="#f4f4f5"
-            strokeWidth="1"
-            x1={scaleX(tick)}
-            x2={scaleX(tick)}
-            y1={padding.top}
-            y2={height - padding.bottom}
+          <YAxis
+            dataKey="plotY"
+            domain={["auto", "auto"]}
+            label={{ value: yLabel, angle: -90, position: "insideLeft" }}
+            tickFormatter={(value: number) =>
+              formatValue(yScale === "log" ? 10 ** value : value, valueFormat)
+            }
+            width={68}
           />
-          <text
-            fill="#71717a"
-            fontSize="12"
-            textAnchor="middle"
-            x={scaleX(tick)}
-            y={height - padding.bottom + 24}
-          >
-            {formatComputeTick(tick)}
-          </text>
-        </g>
-      ))}
-      <line
-        stroke="#a1a1aa"
-        strokeWidth="1"
-        x1={padding.left}
-        x2={padding.left}
-        y1={padding.top}
-        y2={height - padding.bottom}
-      />
-      <line
-        stroke="#a1a1aa"
-        strokeWidth="1"
-        x1={padding.left}
-        x2={width - padding.right}
-        y1={height - padding.bottom}
-        y2={height - padding.bottom}
-      />
-      <text
-        fill="#52525b"
-        fontSize="12"
-        fontWeight="600"
-        textAnchor="middle"
-        x={(padding.left + width - padding.right) / 2}
-        y={height - 12}
-      >
-        {xLabel}
-      </text>
-      <text
-        fill="#52525b"
-        fontSize="12"
-        fontWeight="600"
-        textAnchor="middle"
-        transform={`rotate(-90 ${18} ${(padding.top + height - padding.bottom) / 2})`}
-        x={18}
-        y={(padding.top + height - padding.bottom) / 2}
-      >
-        {yLabel}
-      </text>
-      <path d={path} fill="none" stroke={stroke} strokeLinecap="round" strokeWidth="2.5" />
-      {points.map((point) => (
-        <circle
-          key={`${point.x}-${point.y}`}
-          cx={scaleX(point.x)}
-          cy={scaleY(point.y)}
-          fill="white"
-          r="4.5"
-          stroke={stroke}
-          strokeWidth="2"
-        />
-      ))}
-    </svg>
+          <Tooltip
+            cursor={{ stroke: "#a1a1aa", strokeDasharray: "3 3" }}
+            content={({ active, payload }) => {
+              const point = payload?.find((entry) => entry.dataKey === "plotY")?.payload as
+                | ChartPoint
+                | undefined;
+              if (!active || !point) return null;
+              return (
+                <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-lg">
+                  <div className="font-semibold text-zinc-950">{point.budget}</div>
+                  <div className="mt-1 text-zinc-600">
+                    {yLabel}: {formatValue(point.y, valueFormat, true)}
+                  </div>
+                </div>
+              );
+            }}
+          />
+          <Line
+            dataKey="fit"
+            dot={false}
+            isAnimationActive={false}
+            stroke={stroke}
+            strokeDasharray="5 5"
+            strokeOpacity={0.65}
+            strokeWidth={1.5}
+            type="linear"
+          />
+          <Scatter dataKey="plotY" fill={stroke} isAnimationActive={false} r={5} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
-function computeXTicks(points: LineChartPoint[]): number[] {
-  const unique = [...new Set(points.map((point) => point.x))].sort((a, b) => a - b);
-  if (unique.length <= 4) {
-    return unique;
+function linearFit(
+  points: LineChartPoint[],
+  yScale: NonNullable<LineChartProps["yScale"]>,
+): (x: number) => number {
+  if (points.length < 2) {
+    return () => plotY(points[0].y, yScale);
   }
-  return [unique[0], unique[Math.floor(unique.length / 2)], unique[unique.length - 1]];
+
+  const xs = points.map((point) => Math.log10(point.x));
+  const ys = points.map((point) => plotY(point.y, yScale));
+  const xMean = xs.reduce((sum, value) => sum + value, 0) / xs.length;
+  const yMean = ys.reduce((sum, value) => sum + value, 0) / ys.length;
+  const covariance = xs.reduce((sum, x, index) => sum + (x - xMean) * (ys[index] - yMean), 0);
+  const variance = xs.reduce((sum, x) => sum + (x - xMean) ** 2, 0);
+  const slope = variance === 0 ? 0 : covariance / variance;
+  const intercept = yMean - slope * xMean;
+  return (x) => intercept + slope * x;
 }
 
-function computeYTicks(min: number, max: number): number[] {
-  if (min === max) {
-    return [min];
+function plotY(value: number, scale: NonNullable<LineChartProps["yScale"]>): number {
+  if (scale === "log") {
+    if (value <= 0) throw new RangeError("Log-scale chart values must be positive.");
+    return Math.log10(value);
   }
-  const tickCount = 5;
-  return Array.from({ length: tickCount }, (_, index) => min + ((max - min) * index) / 4);
+  return value;
 }
 
-function formatComputeTick(value: number): string {
-  return `1e${Math.round(Math.log10(value))}`;
-}
-
-function formatTick(value: number): string {
-  const absolute = Math.abs(value);
-  if (absolute === 0) {
-    return "0";
+function formatValue(
+  value: number,
+  format: NonNullable<LineChartProps["valueFormat"]>,
+  precise = false,
+): string {
+  if (format === "percent") return `${(value * 100).toFixed(precise ? 2 : 0)}%`;
+  if (format === "compact") {
+    return new Intl.NumberFormat("en-US", {
+      notation: "compact",
+      maximumFractionDigits: precise ? 2 : 1,
+    }).format(value);
   }
-  if (absolute >= 1_000_000_000) {
-    return `${trim(value / 1_000_000_000)}B`;
-  }
-  if (absolute >= 1_000_000) {
-    return `${trim(value / 1_000_000)}M`;
-  }
-  if (absolute >= 1_000) {
-    return `${trim(value / 1_000)}K`;
-  }
-  if (absolute >= 10) {
-    return trim(value);
-  }
-  return value.toFixed(2);
-}
-
-function trim(value: number): string {
-  return Number(value.toFixed(2)).toString();
+  return value.toFixed(precise ? 4 : 2);
 }
