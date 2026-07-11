@@ -18,9 +18,10 @@ volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 @app.function(
     image=modal.Image.debian_slim(python_version="3.14"),
     volumes={REMOTE_DATA_PATH: volume},
-    timeout=8 * 60 * 60,
+    timeout=24 * 60 * 60,
 )
-def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
+def sync_files(start_day: str, file_count: int) -> list[tuple[str, str, int]]:
+    import datetime
     import os
     import shutil
     import time
@@ -28,9 +29,12 @@ def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
     import urllib.request
 
     os.makedirs(REMOTE_DATA_PATH, exist_ok=True)
-    names = [f"training-run1-test80-{day}-{hour:02d}17.tar" for hour in range(24)]
-    if limit is not None:
-        names = names[:limit]
+    start = datetime.datetime.strptime(start_day, "%Y%m%d").date()
+    names = [
+        f"training-run1-test80-{start + datetime.timedelta(days=index // 24):%Y%m%d}-"
+        f"{index % 24:02d}17.tar"
+        for index in range(file_count)
+    ]
 
     def sync_file(name: str) -> tuple[str, str, int]:
         path = os.path.join(REMOTE_DATA_PATH, name)
@@ -59,20 +63,26 @@ def sync_day(day: str, limit: int | None = None) -> list[tuple[str, str, int]]:
         os.replace(tmp_path, path)
         return name, "downloaded", os.path.getsize(path)
 
-    results = [sync_file(name) for name in names]
-
-    volume.commit()
+    results = []
+    for index, name in enumerate(names, start=1):
+        result = sync_file(name)
+        results.append(result)
+        print(f"{result[1]} {result[2]} {result[0]}", flush=True)
+        if index % 24 == 0 or index == len(names):
+            volume.commit()
+        if result[1] == "downloaded" and index != len(names):
+            time.sleep(5)
     return results
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--day", default="20240401")
-    parser.add_argument("--limit", type=int, default=24)
+    parser.add_argument("--start-day", default="20240401")
+    parser.add_argument("--file-count", type=int, default=24)
     args = parser.parse_args()
 
     with app.run():
-        rows = sync_day.remote(args.day, args.limit)
+        rows = sync_files.remote(args.start_day, args.file_count)
     for name, status, size in rows:
         print(f"{status} {size} {name}")
 
