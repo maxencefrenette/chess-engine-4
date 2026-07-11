@@ -21,20 +21,47 @@ volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
     timeout=24 * 60 * 60,
 )
 def sync_files(start_day: str, file_count: int) -> list[tuple[str, str, int]]:
-    import datetime
     import os
+    import re
     import shutil
     import time
     import urllib.error
     import urllib.request
+    from html.parser import HTMLParser
 
     os.makedirs(REMOTE_DATA_PATH, exist_ok=True)
-    start = datetime.datetime.strptime(start_day, "%Y%m%d").date()
-    names = [
-        f"training-run1-test80-{start + datetime.timedelta(days=index // 24):%Y%m%d}-"
-        f"{index % 24:02d}17.tar"
-        for index in range(file_count)
-    ]
+
+    class LinkParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.hrefs: list[str] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            if tag != "a":
+                return
+            href = dict(attrs).get("href")
+            if href is not None:
+                self.hrefs.append(href)
+
+    listing_request = urllib.request.Request(
+        f"{BASE_URL}/",
+        headers={"User-Agent": "Mozilla/5.0 chess-engine-4-data-sync"},
+    )
+    with urllib.request.urlopen(listing_request) as response:
+        parser = LinkParser()
+        parser.feed(response.read().decode("utf-8"))
+
+    filename_pattern = re.compile(r"training-run1-test80-(\d{8})-\d{4}\.tar$")
+    names = sorted(
+        href.rsplit("/", 1)[-1]
+        for href in parser.hrefs
+        if (match := filename_pattern.fullmatch(href.rsplit("/", 1)[-1]))
+        and match.group(1) >= start_day
+    )[:file_count]
+    if len(names) < file_count:
+        raise RuntimeError(
+            f"requested {file_count} files from {start_day}, but listing contains {len(names)}"
+        )
 
     def sync_file(name: str) -> tuple[str, str, int]:
         path = os.path.join(REMOTE_DATA_PATH, name)
