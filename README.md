@@ -73,14 +73,18 @@ To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
 uv run train-modal --config configs/dense/1e18.toml --save-checkpoints
 ```
 
-To convert a saved checkpoint into an lc0 ONNX weights file:
+To export a saved Modal checkpoint with Transformer Engine and package it as an
+lc0 ONNX weights file:
 
 ```sh
 uv run checkpoint2leela checkpoints/run-final.pt --output artifacts/leela/run.pb.gz
 ```
 
-Conversion reconstructs a portable inference model from the Transformer Engine
-checkpoint. The resulting ONNX graph has no Transformer Engine dependency.
+Export runs on a Modal B200 using Transformer Engine's native ONNX export context.
+It writes an FP32 graph for lc0's TensorRT-backed `onnx-trt` backend by default.
+Use `--export-dtype fp16` for a smaller experimental artifact; FP16 was weaker in
+paired engine testing. ONNX Runtime does not register Transformer Engine's
+MXFP8-specific TensorRT operators.
 
 To run a small lc0-vs-BT4 match on Modal with fastchess:
 
@@ -88,6 +92,9 @@ To run a small lc0-vs-BT4 match on Modal with fastchess:
 uv run prepare-lc0-modal
 uv run eval-modal artifacts/leela/run.pb.gz --nodes 64 --games 2 --rounds 1
 ```
+
+Evaluation always uses the official Stockfish `noob_2moves.epd` book with a
+fixed random seed. Fastchess repeats each selected opening with colors reversed.
 
 `prepare-lc0-modal` builds the Linux CUDA/ONNX lc0 binary once on Modal and
 caches it under `/artifacts/bin/lc0`. The eval command uploads the candidate

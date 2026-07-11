@@ -1,41 +1,34 @@
-from dataclasses import asdict
+from pathlib import Path
 
+import pytest
 import torch
 
-from chess_engine_4.model import DenseChessNetConfig
-from chess_engine_4.training.checkpoint2leela import _model_from_checkpoint
+from chess_engine_4.training.checkpoint2leela import (
+    DEFAULT_EXPORT_DTYPE,
+    _default_onnx_path,
+    _mounted_artifact_path,
+    _torch_export_dtype,
+    _volume_path,
+)
 
 
-def test_loads_dense_checkpoint() -> None:
-    model_config = DenseChessNetConfig(d_model=8, depth=1, expansion_ratio=2.0)
-    loaded = _model_from_checkpoint(
-        {
-            "config": {"model": asdict(model_config)},
-            "model_state_dict": _dense_te_state_dict(model_config),
-        }
+def test_modal_artifact_paths() -> None:
+    assert _mounted_artifact_path(Path("checkpoints/run-final.pt")) == Path(
+        "/artifacts/checkpoints/run-final.pt"
     )
+    assert _mounted_artifact_path(Path("/checkpoints/run-final.pt")) == Path(
+        "/artifacts/checkpoints/run-final.pt"
+    )
+    assert _mounted_artifact_path(Path("/artifacts/checkpoints/run-final.pt")) == Path(
+        "/artifacts/checkpoints/run-final.pt"
+    )
+    assert _volume_path(Path("/artifacts/leela/run.onnx")) == "/leela/run.onnx"
+    assert _default_onnx_path(Path("artifacts/leela/run.pb.gz")) == Path("artifacts/leela/run.onnx")
 
-    output = loaded(torch.zeros(2, 112, 8, 8))
-    assert output.policy_logits.shape == (2, 1858)
 
-
-def _dense_te_state_dict(config: DenseChessNetConfig) -> dict[str, torch.Tensor]:
-    input_dim = config.input_planes * config.board_size * config.board_size
-    hidden_dim = int(config.d_model * config.expansion_ratio)
-    state = {
-        "input.weight": torch.randn(config.d_model, input_dim),
-        "input.bias": torch.randn(config.d_model),
-        "norm.weight": torch.ones(config.d_model),
-        "policy_head.weight": torch.randn(config.policy_size, config.d_model),
-        "policy_head.bias": torch.randn(config.policy_size),
-        "wdl_head.weight": torch.randn(3, config.d_model),
-        "wdl_head.bias": torch.randn(3),
-        "moves_left_head.weight": torch.randn(1, config.d_model),
-        "moves_left_head.bias": torch.randn(1),
-    }
-    for layer in range(config.depth):
-        prefix = f"blocks.{layer}.layer"
-        state[f"{prefix}.layer_norm_weight"] = torch.ones(config.d_model)
-        state[f"{prefix}.fc1_weight"] = torch.randn(2 * hidden_dim, config.d_model)
-        state[f"{prefix}.fc2_weight"] = torch.randn(config.d_model, hidden_dim)
-    return state
+def test_export_dtype() -> None:
+    assert DEFAULT_EXPORT_DTYPE == "fp32"
+    assert _torch_export_dtype("fp16") == torch.float16
+    assert _torch_export_dtype("fp32") == torch.float32
+    with pytest.raises(ValueError, match="unknown export dtype"):
+        _torch_export_dtype("bf16")

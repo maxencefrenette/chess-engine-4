@@ -17,6 +17,8 @@ ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
+OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.epd"
+OPENING_BOOK_SEED = 1
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
@@ -28,7 +30,11 @@ FASTCHESS_URL = (
     "fastchess-linux-x86-64.tar"
 )
 DEFAULT_LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0"
-RUNTIME_LIBRARY_PATH = "/opt/onnxruntime/lib:/usr/local/cuda/lib64"
+RUNTIME_LIBRARY_PATH = (
+    "/opt/onnxruntime/lib:"
+    "/usr/local/lib/python3.12/site-packages/tensorrt_libs:"
+    "/usr/local/cuda/lib64"
+)
 
 app = modal.App(APP_NAME)
 artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME, create_if_missing=True)
@@ -46,6 +52,11 @@ image = (
         "libprotobuf32t64",
         "unzip",
         "zlib1g",
+    )
+    .pip_install("tensorrt-cu12==10.13.3.9")
+    .run_commands(
+        "find /usr/local/lib/python3.12/site-packages -type d -name '*libs' "
+        "> /etc/ld.so.conf.d/python-wheel-libs.conf && ldconfig"
     )
     .run_commands(
         f"curl -L https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/"
@@ -116,7 +127,7 @@ def eval_modal() -> None:
     parser.add_argument("--baseline-nodes", type=int, default=None)
     parser.add_argument("--startup-ms", type=int, default=120_000)
     parser.add_argument("--ping-ms", type=int, default=120_000)
-    parser.add_argument("--candidate-backend", default="onnx-cuda")
+    parser.add_argument("--candidate-backend", default="onnx-trt")
     parser.add_argument("--baseline-backend", default="cuda")
     parser.add_argument("--candidate-name", default="candidate")
     parser.add_argument("--baseline-name", default="BT4-1740")
@@ -201,6 +212,8 @@ def _volume_relative_path(mounted_path: Path) -> str:
 
 def _run_eval_remote(payload: dict[str, Any]) -> dict[str, str]:
     _require_lc0(payload)
+    if not OPENING_BOOK_PATH.exists():
+        raise FileNotFoundError(f"Missing evaluation opening book: {OPENING_BOOK_PATH}")
     REMOTE_LEELA_PATH.mkdir(parents=True, exist_ok=True)
     REMOTE_EVAL_PATH.mkdir(parents=True, exist_ok=True)
     baseline_weights = Path(payload["baseline_weights"])
@@ -284,6 +297,12 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         str(payload["rounds"]),
         "-concurrency",
         str(payload["concurrency"]),
+        "-srand",
+        str(OPENING_BOOK_SEED),
+        "-openings",
+        f"file={OPENING_BOOK_PATH}",
+        "format=epd",
+        "order=random",
         "-report",
         "penta=true",
         "-startup-ms",
