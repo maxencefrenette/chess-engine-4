@@ -53,7 +53,11 @@ image = (
         "unzip",
         "zlib1g",
     )
-    .pip_install("tensorrt-cu12==10.13.3.9")
+    .pip_install(
+        "numpy>=2.2",
+        "python-dotenv>=1.2.2",
+        "tensorrt-cu12==10.13.3.9",
+    )
     .run_commands(
         "find /usr/local/lib/python3.12/site-packages -type d -name '*libs' "
         "> /etc/ld.so.conf.d/python-wheel-libs.conf && ldconfig"

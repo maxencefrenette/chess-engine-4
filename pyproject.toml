@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "GPL-3.0-only" }
 dependencies = [
+    "chess>=1.11",
     "modal>=1.4.2",
     "ninja>=1.13; sys_platform == 'linux'",
     "numpy>=2.2",
@@ -23,6 +24,7 @@ dependencies = [
 train-modal = "chess_engine_4.modal_train:train_modal"
 profile-training = "chess_engine_4.modal_profile:profile_training"
 eval-modal = "chess_engine_4.modal_eval:eval_modal"
+eval-inference-modal = "chess_engine_4.modal_inference_eval:eval_inference_modal"
 prepare-lc0-modal = "chess_engine_4.modal_eval:prepare_lc0_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 scaling-laws = "chess_engine_4.training.scaling_laws:scaling_laws"

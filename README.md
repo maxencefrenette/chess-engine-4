@@ -101,6 +101,18 @@ caches it under `/artifacts/bin/lc0`. The eval command uploads the candidate
 weights, downloads the prebuilt fastchess release into the Modal image, uses the
 cached lc0 binary, and writes PGNs under `/artifacts/evals/<name>/games.pgn`.
 
+To compare a checkpoint's native Transformer Engine outputs with one or more
+lc0 ONNX exports over `1,000` training positions:
+
+```sh
+uv run eval-inference-modal checkpoints/run-final.pt \
+  leela/run-fp32.pb.gz leela/run-fp16.pb.gz
+```
+
+The command preserves the eight-position input history, evaluates each export
+through lc0 at one node, and stores its JSON summary under
+`/artifacts/evals/inference-mismatch/`.
+
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
 
