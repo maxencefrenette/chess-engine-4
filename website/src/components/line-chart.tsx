@@ -25,7 +25,7 @@ type LineChartProps = {
   xLabel: string;
   yLabel: string;
   stroke?: string;
-  valueFormat?: "decimal" | "percent" | "compact";
+  valueFormat?: "decimal" | "percent" | "compact" | "scientific";
   yScale?: "linear" | "log";
 };
 
@@ -78,9 +78,7 @@ export function LineChart({
       (value): value is number => value !== undefined,
     ),
   );
-  const yMin = Math.min(...yValues);
-  const yMax = Math.max(...yValues);
-  const yPadding = Math.max((yMax - yMin) * 0.06, Math.abs(yMin) * 0.01, 0.01);
+  const yTicks = niceTicks(yValues, yScale);
 
   return (
     <div aria-label={label} className="h-[360px] w-full" role="img">
@@ -95,8 +93,9 @@ export function LineChart({
             type="number"
           />
           <YAxis
-            domain={[yMin - yPadding, yMax + yPadding]}
+            domain={[yTicks[0], yTicks.at(-1)!]}
             label={{ value: yLabel, angle: -90, position: "insideLeft" }}
+            ticks={yTicks}
             tickFormatter={(value: number) =>
               formatValue(yScale === "log" ? 10 ** value : value, valueFormat)
             }
@@ -192,17 +191,55 @@ function plotY(value: number, scale: NonNullable<LineChartProps["yScale"]>): num
   return value;
 }
 
+function niceTicks(
+  values: number[],
+  scale: NonNullable<LineChartProps["yScale"]>,
+): number[] {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  if (scale === "linear") return niceLinearTicks(min, max);
+
+  if (max - min >= 1.5) {
+    return Array.from(
+      { length: Math.ceil(max) - Math.floor(min) + 1 },
+      (_, index) => Math.floor(min) + index,
+    );
+  }
+  return niceLinearTicks(10 ** min, 10 ** max)
+    .filter((value) => value > 0)
+    .map(Math.log10);
+}
+
+function niceLinearTicks(min: number, max: number, targetCount = 6): number[] {
+  if (min === max) {
+    const padding = Math.abs(min) * 0.1 || 1;
+    return [min - padding, min, min + padding];
+  }
+  const roughStep = (max - min) / (targetCount - 1);
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalized = roughStep / magnitude;
+  const multiplier = [1, 2, 2.5, 5, 10].find((candidate) => candidate >= normalized) ?? 10;
+  const step = multiplier * magnitude;
+  const start = Math.floor(min / step) * step;
+  const end = Math.ceil(max / step) * step;
+  const count = Math.round((end - start) / step) + 1;
+  return Array.from({ length: count }, (_, index) => start + index * step);
+}
+
 function formatValue(
   value: number,
   format: NonNullable<LineChartProps["valueFormat"]>,
   precise = false,
 ): string {
   if (format === "percent") return `${(value * 100).toFixed(precise ? 2 : 0)}%`;
+  if (format === "scientific") return value.toExponential(precise ? 2 : 1);
   if (format === "compact") {
     return new Intl.NumberFormat("en-US", {
       notation: "compact",
       maximumFractionDigits: precise ? 2 : 1,
     }).format(value);
   }
-  return value.toFixed(precise ? 4 : 2);
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: precise ? 4 : 2,
+  }).format(value);
 }

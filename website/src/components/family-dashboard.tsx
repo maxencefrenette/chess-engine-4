@@ -6,11 +6,12 @@ import type { CurvePoint, ExtrapolatedRun, ScalingFamily } from "@/data/best-run
 
 type XAxisMode = "compute" | "flops";
 type MetricKey =
-  | "lossUpper1sd"
+  | "loss"
   | "policyTop1"
   | "params"
   | "samplesSeen"
-  | "samplesPerParam";
+  | "samplesPerParam"
+  | "lr";
 
 export function FamilyDashboard({ family }: { family: ScalingFamily }) {
   const [xAxisMode, setXAxisMode] = useState<XAxisMode>("compute");
@@ -43,11 +44,11 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
 
       <section className="mt-5 grid grid-cols-2 gap-5">
         <ChartCard
-          title="Loss score"
-          yLabel="Loss upper 1 SD"
-          observed={metricPoints(family, "lossUpper1sd", xValue)}
-          extrapolated={extrapolatedPoints(family.extrapolated, "lossUpper1sd", xValue)}
-          curve={curvePoints(family.curves.lossScore, xValue)}
+          title="Loss"
+          yLabel="Loss"
+          observed={metricPoints(family, "loss", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "loss", xValue)}
+          curve={curvePoints(family.curves.loss, xValue)}
           xLabel={xLabel}
         />
         <ChartCard
@@ -83,7 +84,6 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           yScale="log"
         />
         <ChartCard
-          className="col-span-2"
           title="Samples per parameter"
           yLabel="Samples / parameter"
           observed={metricPoints(family, "samplesPerParam", xValue)}
@@ -91,6 +91,17 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           curve={curvePoints(family.curves.samplesPerParam, xValue)}
           stroke="#0891b2"
           xLabel={xLabel}
+        />
+        <ChartCard
+          title="Learning rate"
+          yLabel="Learning rate"
+          observed={metricPoints(family, "lr", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "lr", xValue)}
+          curve={curvePoints(family.curves.lr, xValue)}
+          stroke="#dc2626"
+          valueFormat="scientific"
+          xLabel={xLabel}
+          yScale="log"
         />
       </section>
     </>
@@ -147,7 +158,7 @@ function ChartCard({
   extrapolated: { x: number; y: number; budget: string }[];
   curve: { x: number; y: number }[];
   stroke?: string;
-  valueFormat?: "decimal" | "percent" | "compact";
+  valueFormat?: "decimal" | "percent" | "compact" | "scientific";
   xLabel: string;
   yScale?: "linear" | "log";
 }) {

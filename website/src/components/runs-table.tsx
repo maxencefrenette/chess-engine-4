@@ -23,7 +23,6 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
             <Th numeric>Samples</Th>
             <Th numeric>Samples / param</Th>
             <Th numeric>Loss</Th>
-            <Th numeric>Loss + 1 SD</Th>
             <Th numeric>Policy top-1</Th>
             <Th numeric>Runtime</Th>
           </tr>
@@ -61,7 +60,6 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
               <Td numeric>{formatCompactNumber(run.samplesSeen)}</Td>
               <Td numeric>{formatDecimal(run.samplesSeen / run.params, 1)}</Td>
               <Td numeric>{formatDecimal(run.loss)}</Td>
-              <Td numeric>{formatDecimal(run.lossUpper1sd ?? run.loss)}</Td>
               <Td numeric>{formatPercent(run.policyTop1)}</Td>
               <Td numeric>{formatDuration(run.runtimeSec)}</Td>
             </tr>

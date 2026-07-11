@@ -19,7 +19,6 @@ export type BestRun = {
   samplesSeen: number;
   samplesPerParam: number;
   loss: number;
-  lossUpper1sd: number;
   policyTop1: number;
   runtimeSec: number;
 };
@@ -31,8 +30,9 @@ export type ExtrapolatedRun = {
   params: number;
   samplesSeen: number;
   samplesPerParam: number;
-  lossUpper1sd: number;
+  loss: number;
   policyTop1: number;
+  lr: number;
 };
 
 export type CurvePoint = {
@@ -48,11 +48,12 @@ export type ScalingFamily = {
   observed: BestRun[];
   extrapolated: ExtrapolatedRun[];
   curves: {
-    lossScore: CurvePoint[];
+    loss: CurvePoint[];
     policyTop1: CurvePoint[];
     params: CurvePoint[];
     samples: CurvePoint[];
     samplesPerParam: CurvePoint[];
+    lr: CurvePoint[];
   };
 };
 

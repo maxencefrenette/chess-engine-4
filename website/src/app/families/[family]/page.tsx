@@ -70,9 +70,8 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
             <MetricCard label="Latest model" value={formatModel(latest)} detail={latest.budget} />
             <MetricCard label="Parameters" value={formatCompactNumber(latest.params)} />
             <MetricCard
-              label="Loss score"
-              value={formatDecimal(latest.lossUpper1sd ?? latest.loss)}
-              detail="Loss upper 1 SD when available"
+              label="Loss"
+              value={formatDecimal(latest.loss)}
             />
             <MetricCard label="Policy top-1" value={formatPercent(latest.policyTop1)} />
           </section>

@@ -20,7 +20,7 @@ export default function Home() {
 
   const bestLatestLoss = Math.min(
     ...families
-      .map(({ latest }) => latest?.lossUpper1sd ?? latest?.loss)
+      .map(({ latest }) => latest?.loss)
       .filter((loss): loss is number => loss !== undefined),
   );
   const largestBudget = families
@@ -45,7 +45,7 @@ export default function Home() {
               <div className="mt-1 text-xl font-semibold text-zinc-950">{families.length}</div>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase text-zinc-500">Best frontier score</div>
+              <div className="text-xs font-medium uppercase text-zinc-500">Best frontier loss</div>
               <div className="mt-1 text-xl font-semibold text-zinc-950">
                 {formatDecimal(bestLatestLoss)}
               </div>
@@ -90,9 +90,9 @@ export default function Home() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-zinc-500">Loss score</dt>
+                    <dt className="text-zinc-500">Loss</dt>
                     <dd className="mt-1 font-semibold text-zinc-950">
-                      {formatDecimal(latest.lossUpper1sd ?? latest.loss)}
+                      {formatDecimal(latest.loss)}
                     </dd>
                   </div>
                   <div>
@@ -110,7 +110,7 @@ export default function Home() {
                 label={`${family.name} loss trend`}
                 points={runs.map((run) => ({
                   x: run.compute,
-                  y: run.lossUpper1sd ?? run.loss,
+                  y: run.loss,
                 }))}
               />
             </div>

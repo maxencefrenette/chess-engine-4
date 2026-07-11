@@ -11,7 +11,6 @@ from typing import Any
 
 from chess_engine_4.training.scaling_laws import (
     fit_linear_law,
-    fit_loss_power_law,
     fit_power_law,
     fit_scaling_laws,
     read_best_runs,
@@ -60,13 +59,6 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         raw_runs = tomllib.load(handle)["runs"]
 
     laws = fit_scaling_laws(results)
-    loss_score_law = fit_loss_power_law(
-        (
-            result.compute,
-            float(raw_runs[result.budget].get("loss_upper_1sd", result.loss)),
-        )
-        for result in results
-    )
     physical_flops_law = fit_power_law(
         (result.compute, physical_flops(result.compute, result.samples_seen, result.batch_size))
         for result in results
@@ -94,7 +86,6 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
             "samplesSeen": result.samples_seen,
             "samplesPerParam": result.samples_seen / result.params,
             "loss": result.loss,
-            "lossUpper1sd": float(raw_runs[result.budget].get("loss_upper_1sd", result.loss)),
             "policyTop1": result.policy_top1,
             "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
         }
@@ -107,7 +98,6 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         extrapolated_point(
             compute,
             laws=laws,
-            loss_score_law=loss_score_law,
             physical_flops_law=physical_flops_law,
             policy_law=policy_law,
         )
@@ -122,10 +112,10 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         for index in range(CURVE_POINT_COUNT)
     ]
     curves = {
-        "lossScore": curve(
+        "loss": curve(
             curve_computes,
             physical_flops_law,
-            loss_score_law.predict,
+            laws.loss.predict,
         ),
         "policyTop1": curve(curve_computes, physical_flops_law, policy_law.predict),
         "params": curve(curve_computes, physical_flops_law, laws.params.predict),
@@ -135,6 +125,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
             physical_flops_law,
             lambda compute: laws.samples.predict(compute) / laws.params.predict(compute),
         ),
+        "lr": curve(curve_computes, physical_flops_law, laws.lr.predict),
     }
     return {
         "id": family_id,
@@ -150,7 +141,6 @@ def extrapolated_point(
     compute: float,
     *,
     laws: Any,
-    loss_score_law: Any,
     physical_flops_law: Any,
     policy_law: Any,
 ) -> dict[str, float | str]:
@@ -163,8 +153,9 @@ def extrapolated_point(
         "params": params,
         "samplesSeen": samples,
         "samplesPerParam": samples / params,
-        "lossUpper1sd": loss_score_law.predict(compute),
+        "loss": laws.loss.predict(compute),
         "policyTop1": policy_law.predict(compute),
+        "lr": laws.lr.predict(compute),
     }
 
 
