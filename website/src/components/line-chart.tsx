@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   Tooltip,
@@ -25,11 +26,15 @@ type LineChartProps = {
   stroke?: string;
   valueFormat?: "decimal" | "percent" | "compact";
   yScale?: "linear" | "log";
+  targetX?: number;
 };
 
-type ChartPoint = LineChartPoint & {
+type ChartPoint = {
+  budget: string;
   logX: number;
-  plotY: number;
+  plotY?: number;
+  x: number;
+  y?: number;
   fit?: number;
 };
 
@@ -41,6 +46,7 @@ export function LineChart({
   stroke = "#2563eb",
   valueFormat = "decimal",
   yScale = "linear",
+  targetX,
 }: LineChartProps) {
   if (points.length === 0) {
     return null;
@@ -53,6 +59,20 @@ export function LineChart({
     plotY: plotY(point.y, yScale),
     fit: fit(Math.log10(point.x)),
   }));
+  if (targetX && targetX > Math.max(...points.map((point) => point.x))) {
+    chartPoints.push({
+      budget: "Target",
+      x: targetX,
+      logX: Math.log10(targetX),
+      fit: fit(Math.log10(targetX)),
+    });
+  }
+  const yValues = chartPoints.flatMap((point) =>
+    [point.plotY, point.fit].filter((value): value is number => value !== undefined),
+  );
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const yPadding = Math.max((yMax - yMin) * 0.06, Math.abs(yMin) * 0.01, 0.01);
 
   return (
     <div aria-label={label} className="h-[360px] w-full" role="img">
@@ -68,7 +88,7 @@ export function LineChart({
           />
           <YAxis
             dataKey="plotY"
-            domain={["auto", "auto"]}
+            domain={[yMin - yPadding, yMax + yPadding]}
             label={{ value: yLabel, angle: -90, position: "insideLeft" }}
             tickFormatter={(value: number) =>
               formatValue(yScale === "log" ? 10 ** value : value, valueFormat)
@@ -81,7 +101,7 @@ export function LineChart({
               const point = payload?.find((entry) => entry.dataKey === "plotY")?.payload as
                 | ChartPoint
                 | undefined;
-              if (!active || !point) return null;
+              if (!active || !point || point.y === undefined) return null;
               return (
                 <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-lg">
                   <div className="font-semibold text-zinc-950">{point.budget}</div>
@@ -92,6 +112,14 @@ export function LineChart({
               );
             }}
           />
+          {targetX ? (
+            <ReferenceLine
+              label={{ value: "Target", fill: "#71717a", fontSize: 11, position: "insideTopRight" }}
+              stroke="#a1a1aa"
+              strokeDasharray="3 3"
+              x={Math.log10(targetX)}
+            />
+          ) : null}
           <Line
             dataKey="fit"
             dot={false}

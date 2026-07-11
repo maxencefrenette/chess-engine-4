@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LineChart } from "@/components/line-chart";
+import { FamilyDashboard } from "@/components/family-dashboard";
 import { MetricCard } from "@/components/metric-card";
 import { RunsTable } from "@/components/runs-table";
 import {
@@ -76,44 +76,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           </section>
         ) : null}
 
-        <section className="mt-5 grid gap-5 lg:grid-cols-2">
-          <ChartCard
-            title="Loss score"
-            yLabel="Loss upper 1 SD"
-            points={runs.map((run) => ({
-              x: run.compute,
-              y: run.lossUpper1sd ?? run.loss,
-              budget: run.budget,
-            }))}
-          />
-          <ChartCard
-            title="Policy top-1"
-            yLabel="Top-1 accuracy"
-            points={runs.map((run) => ({ x: run.compute, y: run.policyTop1, budget: run.budget }))}
-            stroke="#16a34a"
-            valueFormat="percent"
-          />
-          <ChartCard
-            title="Parameters"
-            yLabel="Total parameters"
-            points={runs.map((run) => ({ x: run.compute, y: run.params, budget: run.budget }))}
-            stroke="#9333ea"
-            valueFormat="compact"
-            yScale="log"
-          />
-          <ChartCard
-            title="Samples seen"
-            yLabel="Training samples"
-            points={runs.map((run) => ({
-              x: run.compute,
-              y: run.samplesSeen,
-              budget: run.budget,
-            }))}
-            stroke="#ea580c"
-            valueFormat="compact"
-            yScale="log"
-          />
-        </section>
+        <FamilyDashboard runs={runs} />
 
         <section className="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-5 py-4">
@@ -123,38 +86,5 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
         </section>
       </div>
     </main>
-  );
-}
-
-function ChartCard({
-  title,
-  yLabel,
-  points,
-  stroke,
-  valueFormat,
-  yScale,
-}: {
-  title: string;
-  yLabel: string;
-  points: { x: number; y: number; budget: string }[];
-  stroke?: string;
-  valueFormat?: "decimal" | "percent" | "compact";
-  yScale?: "linear" | "log";
-}) {
-  return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
-      <div className="mt-4">
-        <LineChart
-          label={title}
-          points={points}
-          stroke={stroke}
-          valueFormat={valueFormat}
-          yScale={yScale}
-          xLabel="Compute budget"
-          yLabel={yLabel}
-        />
-      </div>
-    </div>
   );
 }
