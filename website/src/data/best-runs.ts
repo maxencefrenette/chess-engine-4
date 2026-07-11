@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parse } from "smol-toml";
 
 export type ModelFamilyId = "mlp" | "mlp_moe16a2";
 
@@ -11,93 +10,84 @@ export type BestRun = {
   runName: string;
   wandbUrl: string;
   compute: number;
+  physicalFlops: number;
   dModel: number;
   depth: number;
   batchSize: number;
   lr: number;
   params: number;
   samplesSeen: number;
+  samplesPerParam: number;
   loss: number;
-  lossUpper1sd?: number;
+  lossUpper1sd: number;
   policyTop1: number;
   runtimeSec: number;
 };
 
-export type ModelFamily = {
+export type ExtrapolatedRun = {
+  budget: string;
+  compute: number;
+  physicalFlops: number;
+  params: number;
+  samplesSeen: number;
+  samplesPerParam: number;
+  lossUpper1sd: number;
+  policyTop1: number;
+};
+
+export type CurvePoint = {
+  compute: number;
+  physicalFlops: number;
+  value: number;
+};
+
+export type ScalingFamily = {
   id: ModelFamilyId;
   name: string;
   description: string;
-  bestRunsPath: string;
+  observed: BestRun[];
+  extrapolated: ExtrapolatedRun[];
+  curves: {
+    lossScore: CurvePoint[];
+    policyTop1: CurvePoint[];
+    params: CurvePoint[];
+    samples: CurvePoint[];
+    samplesPerParam: CurvePoint[];
+  };
 };
 
-export const modelFamilies: ModelFamily[] = [
-  {
-    id: "mlp",
-    name: "Dense MLP",
-    description: "Single-token dense SwiGLU MLP trained on lc0 planes.",
-    bestRunsPath: "experiments/best-runs-dense.toml",
-  },
-  {
-    id: "mlp_moe16a2",
-    name: "MLP-MoE 16a2",
-    description: "Single-token MoE with 16 experts and 2 active experts.",
-    bestRunsPath: "experiments/best-runs-mlp_moe16a2.toml",
-  },
-];
+export type ModelFamily = Pick<ScalingFamily, "id" | "name" | "description">;
 
-const repoRoot = path.resolve(process.cwd(), "..");
+type ScalingData = {
+  version: number;
+  families: Record<ModelFamilyId, ScalingFamily>;
+};
+
+let cachedData: ScalingData | undefined;
+
+export const modelFamilies: ModelFamily[] = Object.values(readScalingData().families).map(
+  ({ id, name, description }) => ({ id, name, description }),
+);
 
 export function getFamily(id: string): ModelFamily | undefined {
   return modelFamilies.find((family) => family.id === id);
 }
 
-export function readBestRuns(family: ModelFamily): BestRun[] {
-  const raw = fs.readFileSync(path.join(repoRoot, family.bestRunsPath), "utf8");
-  const parsed = parse(raw) as {
-    runs?: Record<string, Record<string, unknown>>;
-  };
+export function readScalingFamily(family: ModelFamily): ScalingFamily {
+  return readScalingData().families[family.id];
+}
 
-  return Object.entries(parsed.runs ?? {})
-    .map(([budget, run]) => normalizeRun(budget, run))
-    .sort((a, b) => a.compute - b.compute);
+export function readBestRuns(family: ModelFamily): BestRun[] {
+  return readScalingFamily(family).observed;
 }
 
 export function latestRun(runs: BestRun[]): BestRun | undefined {
   return runs.at(-1);
 }
 
-function normalizeRun(budget: string, run: Record<string, unknown>): BestRun {
-  return {
-    budget,
-    sourceExperiment: stringValue(run.source_experiment),
-    modelKind: stringValue(run.model_kind),
-    runName: stringValue(run.run_name),
-    wandbUrl: stringValue(run.wandb_url),
-    compute: numberValue(run.compute),
-    dModel: numberValue(run.d_model),
-    depth: numberValue(run.depth),
-    batchSize: numberValue(run.batch_size),
-    lr: numberValue(run.lr),
-    params: numberValue(run.params),
-    samplesSeen: numberValue(run.samples_seen),
-    loss: numberValue(run.loss),
-    lossUpper1sd:
-      run.loss_upper_1sd === undefined ? undefined : numberValue(run.loss_upper_1sd),
-    policyTop1: numberValue(run.policy_top1),
-    runtimeSec: numberValue(run.runtime_sec),
-  };
-}
-
-function numberValue(value: unknown): number {
-  if (typeof value !== "number") {
-    throw new TypeError(`Expected number, got ${typeof value}`);
-  }
-  return value;
-}
-
-function stringValue(value: unknown): string {
-  if (typeof value !== "string") {
-    throw new TypeError(`Expected string, got ${typeof value}`);
-  }
-  return value;
+function readScalingData(): ScalingData {
+  if (cachedData) return cachedData;
+  const generatedPath = path.join(process.cwd(), "src/generated/scaling-laws.json");
+  cachedData = JSON.parse(fs.readFileSync(generatedPath, "utf8")) as ScalingData;
+  return cachedData;
 }

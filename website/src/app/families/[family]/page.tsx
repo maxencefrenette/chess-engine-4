@@ -14,6 +14,7 @@ import {
   latestRun,
   modelFamilies,
   readBestRuns,
+  readScalingFamily,
 } from "@/data/best-runs";
 
 type FamilyPageProps = {
@@ -40,6 +41,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
   }
 
   const runs = readBestRuns(family);
+  const scalingFamily = readScalingFamily(family);
   const latest = latestRun(runs);
 
   return (
@@ -76,7 +78,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           </section>
         ) : null}
 
-        <FamilyDashboard runs={runs} />
+        <FamilyDashboard family={scalingFamily} />
 
         <section className="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-5 py-4">

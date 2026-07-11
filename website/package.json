@@ -4,7 +4,9 @@
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "scripts": {
+    "predev": "cd .. && uv run export-scaling-data",
     "dev": "next dev",
+    "prebuild": "cd .. && uv run export-scaling-data",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -13,8 +15,7 @@
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "recharts": "^3.9.2",
-    "smol-toml": "^1.6.1"
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

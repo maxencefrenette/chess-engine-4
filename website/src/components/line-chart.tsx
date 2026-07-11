@@ -6,7 +6,6 @@ import {
   Line,
   ReferenceLine,
   ResponsiveContainer,
-  Scatter,
   Tooltip,
   XAxis,
   YAxis,
@@ -20,55 +19,64 @@ type LineChartPoint = {
 
 type LineChartProps = {
   points: LineChartPoint[];
+  extrapolatedPoints: LineChartPoint[];
+  fitPoints: { x: number; y: number }[];
   label: string;
   xLabel: string;
   yLabel: string;
   stroke?: string;
   valueFormat?: "decimal" | "percent" | "compact";
   yScale?: "linear" | "log";
-  targetX?: number;
 };
 
 type ChartPoint = {
   budget: string;
+  extrapolated?: boolean;
+  fit?: number;
   logX: number;
   plotY?: number;
   x: number;
   y?: number;
-  fit?: number;
 };
 
 export function LineChart({
   points,
+  extrapolatedPoints,
+  fitPoints,
   label,
   xLabel,
   yLabel,
   stroke = "#2563eb",
   valueFormat = "decimal",
   yScale = "linear",
-  targetX,
 }: LineChartProps) {
   if (points.length === 0) {
     return null;
   }
 
-  const fit = linearFit(points, yScale);
-  const chartPoints: ChartPoint[] = points.map((point) => ({
+  const observedChartPoints: ChartPoint[] = points.map((point) => ({
     ...point,
     logX: Math.log10(point.x),
     plotY: plotY(point.y, yScale),
-    fit: fit(Math.log10(point.x)),
   }));
-  if (targetX && targetX > Math.max(...points.map((point) => point.x))) {
-    chartPoints.push({
-      budget: "Target",
-      x: targetX,
-      logX: Math.log10(targetX),
-      fit: fit(Math.log10(targetX)),
-    });
-  }
-  const yValues = chartPoints.flatMap((point) =>
-    [point.plotY, point.fit].filter((value): value is number => value !== undefined),
+  const extrapolatedChartPoints: ChartPoint[] = extrapolatedPoints.map((point) => ({
+    ...point,
+    extrapolated: true,
+    logX: Math.log10(point.x),
+    plotY: plotY(point.y, yScale),
+  }));
+  const curveChartPoints: ChartPoint[] = fitPoints.map((point) => ({
+    budget: "Fit",
+    x: point.x,
+    y: point.y,
+    logX: Math.log10(point.x),
+    fit: plotY(point.y, yScale),
+  }));
+  const chartPoints = mergeChartPoints([...observedChartPoints, ...extrapolatedChartPoints]);
+  const yValues = [...curveChartPoints, ...chartPoints].flatMap((point) =>
+    [point.plotY, point.fit].filter(
+      (value): value is number => value !== undefined,
+    ),
   );
   const yMin = Math.min(...yValues);
   const yMax = Math.max(...yValues);
@@ -87,7 +95,6 @@ export function LineChart({
             type="number"
           />
           <YAxis
-            dataKey="plotY"
             domain={[yMin - yPadding, yMax + yPadding]}
             label={{ value: yLabel, angle: -90, position: "insideLeft" }}
             tickFormatter={(value: number) =>
@@ -98,9 +105,9 @@ export function LineChart({
           <Tooltip
             cursor={{ stroke: "#a1a1aa", strokeDasharray: "3 3" }}
             content={({ active, payload }) => {
-              const point = payload?.find((entry) => entry.dataKey === "plotY")?.payload as
-                | ChartPoint
-                | undefined;
+              const point = payload?.find(
+                (entry) => entry.dataKey === "plotY" && entry.value !== undefined,
+              )?.payload as ChartPoint | undefined;
               if (!active || !point || point.y === undefined) return null;
               return (
                 <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-lg">
@@ -108,52 +115,73 @@ export function LineChart({
                   <div className="mt-1 text-zinc-600">
                     {yLabel}: {formatValue(point.y, valueFormat, true)}
                   </div>
+                  <div className="mt-1 text-zinc-500">
+                    {xLabel}: {point.x.toExponential(3)}
+                  </div>
                 </div>
               );
             }}
           />
-          {targetX ? (
+          {curveChartPoints.slice(1).map((point, index) => (
             <ReferenceLine
-              label={{ value: "Target", fill: "#71717a", fontSize: 11, position: "insideTopRight" }}
-              stroke="#a1a1aa"
-              strokeDasharray="3 3"
-              x={Math.log10(targetX)}
+              key={point.logX}
+              ifOverflow="extendDomain"
+              segment={[
+                { x: curveChartPoints[index].logX, y: curveChartPoints[index].fit },
+                { x: point.logX, y: point.fit },
+              ]}
+              stroke={stroke}
+              strokeDasharray="5 5"
+              strokeOpacity={0.65}
+              strokeWidth={1.5}
             />
-          ) : null}
+          ))}
           <Line
-            dataKey="fit"
-            dot={false}
+            activeDot={<ChartDot active stroke={stroke} />}
+            connectNulls={false}
+            dataKey="plotY"
+            dot={<ChartDot stroke={stroke} />}
             isAnimationActive={false}
-            stroke={stroke}
-            strokeDasharray="5 5"
-            strokeOpacity={0.65}
-            strokeWidth={1.5}
-            type="linear"
+            stroke="none"
           />
-          <Scatter dataKey="plotY" fill={stroke} isAnimationActive={false} r={5} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-function linearFit(
-  points: LineChartPoint[],
-  yScale: NonNullable<LineChartProps["yScale"]>,
-): (x: number) => number {
-  if (points.length < 2) {
-    return () => plotY(points[0].y, yScale);
-  }
+function ChartDot({
+  active = false,
+  cx = 0,
+  cy = 0,
+  payload,
+  stroke,
+}: {
+  active?: boolean;
+  cx?: number;
+  cy?: number;
+  payload?: ChartPoint;
+  stroke: string;
+}) {
+  const extrapolated = payload?.extrapolated === true;
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      fill={extrapolated ? "white" : stroke}
+      r={(extrapolated ? 5.5 : 5) + (active ? 1 : 0)}
+      stroke={stroke}
+      strokeWidth={extrapolated ? 2 : 1}
+    />
+  );
+}
 
-  const xs = points.map((point) => Math.log10(point.x));
-  const ys = points.map((point) => plotY(point.y, yScale));
-  const xMean = xs.reduce((sum, value) => sum + value, 0) / xs.length;
-  const yMean = ys.reduce((sum, value) => sum + value, 0) / ys.length;
-  const covariance = xs.reduce((sum, x, index) => sum + (x - xMean) * (ys[index] - yMean), 0);
-  const variance = xs.reduce((sum, x) => sum + (x - xMean) ** 2, 0);
-  const slope = variance === 0 ? 0 : covariance / variance;
-  const intercept = yMean - slope * xMean;
-  return (x) => intercept + slope * x;
+function mergeChartPoints(points: ChartPoint[]): ChartPoint[] {
+  const merged = new Map<number, ChartPoint>();
+  for (const point of points) {
+    merged.set(point.logX, { ...merged.get(point.logX), ...point });
+  }
+  return [...merged.values()].sort((left, right) => left.logX - right.logX);
 }
 
 function plotY(value: number, scale: NonNullable<LineChartProps["yScale"]>): number {

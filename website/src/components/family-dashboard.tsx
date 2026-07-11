@@ -2,127 +2,95 @@
 
 import { useState } from "react";
 import { LineChart } from "@/components/line-chart";
-import type { BestRun } from "@/data/best-runs";
-import { formatCompactNumber, formatDecimal, formatPercent } from "@/data/format";
+import type { CurvePoint, ExtrapolatedRun, ScalingFamily } from "@/data/best-runs";
 
 type XAxisMode = "compute" | "flops";
+type MetricKey =
+  | "lossUpper1sd"
+  | "policyTop1"
+  | "params"
+  | "samplesSeen"
+  | "samplesPerParam";
 
-export function FamilyDashboard({ runs }: { runs: BestRun[] }) {
+export function FamilyDashboard({ family }: { family: ScalingFamily }) {
   const [xAxisMode, setXAxisMode] = useState<XAxisMode>("compute");
-  const [showTarget, setShowTarget] = useState(true);
-  const [targetText, setTargetText] = useState("1e23");
-  const parsedTarget = Number(targetText);
-  const targetCompute = Number.isFinite(parsedTarget) && parsedTarget > 0 ? parsedTarget : null;
-  const xValue = (run: BestRun) => (xAxisMode === "compute" ? run.compute : physicalFlops(run));
-  const targetX =
-    showTarget && targetCompute
-      ? xAxisMode === "compute"
-        ? targetCompute
-        : predict(runs, targetCompute, physicalFlops, true)
-      : undefined;
-  const projection = showTarget && targetCompute ? projectTarget(runs, targetCompute) : null;
+  const xLabel = xAxisMode === "compute" ? "Compute budget" : "Physical FLOPs";
+  const xValue = (point: { compute: number; physicalFlops: number }) =>
+    xAxisMode === "compute" ? point.compute : point.physicalFlops;
 
   return (
     <>
-      <section className="mt-5 rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
-        <div className="flex items-center justify-between gap-8">
-          <div className="flex items-center gap-6">
-            <div>
-              <div className="mb-2 text-xs font-medium uppercase text-zinc-500">X-axis</div>
-              <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-1">
-                <ModeButton
-                  active={xAxisMode === "compute"}
-                  onClick={() => setXAxisMode("compute")}
-                >
-                  Compute budget
-                </ModeButton>
-                <ModeButton
-                  active={xAxisMode === "flops"}
-                  onClick={() => setXAxisMode("flops")}
-                >
-                  Physical FLOPs
-                </ModeButton>
-              </div>
-            </div>
-            <label className="flex items-center gap-2 pt-5 text-sm font-medium text-zinc-700">
-              <input
-                checked={showTarget}
-                className="size-4 accent-blue-600"
-                onChange={(event) => setShowTarget(event.target.checked)}
-                type="checkbox"
-              />
-              Extrapolate
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-medium uppercase text-zinc-500">
-                Target compute budget
-              </span>
-              <input
-                aria-invalid={showTarget && targetCompute === null}
-                className="h-9 w-32 rounded-md border border-zinc-300 bg-white px-3 font-mono text-sm text-zinc-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-zinc-100 disabled:text-zinc-400"
-                disabled={!showTarget}
-                onChange={(event) => setTargetText(event.target.value)}
-                spellCheck={false}
-                value={targetText}
-              />
-            </label>
+      <section className="mt-5 flex items-end justify-between rounded-lg border border-zinc-200 bg-white px-5 py-4 shadow-sm">
+        <div>
+          <div className="mb-2 text-xs font-medium uppercase text-zinc-500">X-axis</div>
+          <div className="inline-flex rounded-md border border-zinc-200 bg-zinc-100 p-1">
+            <ModeButton
+              active={xAxisMode === "compute"}
+              onClick={() => setXAxisMode("compute")}
+            >
+              Compute budget
+            </ModeButton>
+            <ModeButton active={xAxisMode === "flops"} onClick={() => setXAxisMode("flops")}>
+              Physical FLOPs
+            </ModeButton>
           </div>
-          <p className="max-w-sm text-right text-xs leading-5 text-zinc-500">
-            Physical FLOPs are derived from observed compute, batch size, and step count.
-          </p>
         </div>
-
-        {projection ? (
-          <dl className="mt-4 grid grid-cols-5 divide-x divide-zinc-200 border-t border-zinc-200 pt-4 tabular-nums">
-            <Projection label="Loss score" value={formatDecimal(projection.loss)} />
-            <Projection label="Policy top-1" value={formatPercent(projection.policyTop1)} />
-            <Projection label="Parameters" value={formatCompactNumber(projection.params)} />
-            <Projection label="Samples" value={formatCompactNumber(projection.samples)} />
-            <Projection label="Samples / param" value={formatDecimal(projection.samples / projection.params, 1)} />
-          </dl>
-        ) : null}
+        <div className="flex items-center gap-5 pb-1 text-sm text-zinc-600">
+          <LegendMarker filled label="Observed" />
+          <LegendMarker label="Extrapolated" />
+        </div>
       </section>
 
       <section className="mt-5 grid grid-cols-2 gap-5">
         <ChartCard
           title="Loss score"
           yLabel="Loss upper 1 SD"
-          points={runs.map((run) => ({
-            x: xValue(run),
-            y: run.lossUpper1sd ?? run.loss,
-            budget: run.budget,
-          }))}
-          targetX={targetX}
-          xLabel={xAxisMode === "compute" ? "Compute budget" : "Physical FLOPs"}
+          observed={metricPoints(family, "lossUpper1sd", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "lossUpper1sd", xValue)}
+          curve={curvePoints(family.curves.lossScore, xValue)}
+          xLabel={xLabel}
         />
         <ChartCard
           title="Policy top-1"
           yLabel="Top-1 accuracy"
-          points={runs.map((run) => ({ x: xValue(run), y: run.policyTop1, budget: run.budget }))}
+          observed={metricPoints(family, "policyTop1", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "policyTop1", xValue)}
+          curve={curvePoints(family.curves.policyTop1, xValue)}
           stroke="#16a34a"
-          targetX={targetX}
           valueFormat="percent"
-          xLabel={xAxisMode === "compute" ? "Compute budget" : "Physical FLOPs"}
+          xLabel={xLabel}
         />
         <ChartCard
           title="Parameters"
           yLabel="Total parameters"
-          points={runs.map((run) => ({ x: xValue(run), y: run.params, budget: run.budget }))}
+          observed={metricPoints(family, "params", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "params", xValue)}
+          curve={curvePoints(family.curves.params, xValue)}
           stroke="#9333ea"
-          targetX={targetX}
           valueFormat="compact"
-          xLabel={xAxisMode === "compute" ? "Compute budget" : "Physical FLOPs"}
+          xLabel={xLabel}
           yScale="log"
         />
         <ChartCard
           title="Samples seen"
           yLabel="Training samples"
-          points={runs.map((run) => ({ x: xValue(run), y: run.samplesSeen, budget: run.budget }))}
+          observed={metricPoints(family, "samplesSeen", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "samplesSeen", xValue)}
+          curve={curvePoints(family.curves.samples, xValue)}
           stroke="#ea580c"
-          targetX={targetX}
           valueFormat="compact"
-          xLabel={xAxisMode === "compute" ? "Compute budget" : "Physical FLOPs"}
+          xLabel={xLabel}
           yScale="log"
+        />
+        <ChartCard
+          className="col-span-2"
+          title="Samples per parameter"
+          yLabel="Samples / parameter"
+          observed={metricPoints(family, "samplesPerParam", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "samplesPerParam", xValue)}
+          curve={curvePoints(family.curves.samplesPerParam, xValue)}
+          stroke="#0891b2"
+          xLabel={xLabel}
         />
       </section>
     </>
@@ -149,43 +117,50 @@ function ModeButton({
   );
 }
 
-function Projection({ label, value }: { label: string; value: string }) {
+function LegendMarker({ filled = false, label }: { filled?: boolean; label: string }) {
   return (
-    <div className="px-4 first:pl-0">
-      <dt className="text-xs font-medium uppercase text-zinc-500">{label}</dt>
-      <dd className="mt-1 text-lg font-semibold text-zinc-950">{value}</dd>
-    </div>
+    <span className="flex items-center gap-2">
+      <span
+        className={`size-3 rounded-full border-2 border-blue-600 ${filled ? "bg-blue-600" : "bg-white"}`}
+      />
+      {label}
+    </span>
   );
 }
 
 function ChartCard({
+  className = "",
   title,
   yLabel,
-  points,
+  observed,
+  extrapolated,
+  curve,
   stroke,
-  targetX,
   valueFormat,
   xLabel,
   yScale,
 }: {
+  className?: string;
   title: string;
   yLabel: string;
-  points: { x: number; y: number; budget: string }[];
+  observed: { x: number; y: number; budget: string }[];
+  extrapolated: { x: number; y: number; budget: string }[];
+  curve: { x: number; y: number }[];
   stroke?: string;
-  targetX?: number;
   valueFormat?: "decimal" | "percent" | "compact";
   xLabel: string;
   yScale?: "linear" | "log";
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className={`rounded-lg border border-zinc-200 bg-white p-5 shadow-sm ${className}`}>
       <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
       <div className="mt-4">
         <LineChart
+          extrapolatedPoints={extrapolated}
+          fitPoints={curve}
           label={title}
-          points={points}
+          points={observed}
           stroke={stroke}
-          targetX={targetX}
           valueFormat={valueFormat}
           xLabel={xLabel}
           yLabel={yLabel}
@@ -196,36 +171,25 @@ function ChartCard({
   );
 }
 
-function physicalFlops(run: BestRun): number {
-  const steps = run.samplesSeen / run.batchSize;
-  return run.compute / steps;
+function metricPoints(
+  family: ScalingFamily,
+  metric: MetricKey,
+  xValue: (point: { compute: number; physicalFlops: number }) => number,
+) {
+  return family.observed.map((run) => ({ x: xValue(run), y: run[metric], budget: run.budget }));
 }
 
-function projectTarget(runs: BestRun[], targetCompute: number) {
-  const loss = predict(runs, targetCompute, (run) => run.lossUpper1sd ?? run.loss, false);
-  const policyTop1 = predict(runs, targetCompute, (run) => run.policyTop1, false);
-  const params = predict(runs, targetCompute, (run) => run.params, true);
-  const samples = predict(runs, targetCompute, (run) => run.samplesSeen, true);
-  return { loss, policyTop1, params, samples };
+function extrapolatedPoints(
+  runs: ExtrapolatedRun[],
+  metric: MetricKey,
+  xValue: (point: { compute: number; physicalFlops: number }) => number,
+) {
+  return runs.map((run) => ({ x: xValue(run), y: run[metric], budget: run.budget }));
 }
 
-function predict(
-  runs: BestRun[],
-  targetCompute: number,
-  value: (run: BestRun) => number,
-  logY: boolean,
-): number {
-  const xs = runs.map((run) => Math.log10(run.compute));
-  const ys = runs.map((run) => (logY ? Math.log10(value(run)) : value(run)));
-  const xMean = mean(xs);
-  const yMean = mean(ys);
-  const covariance = xs.reduce((sum, x, index) => sum + (x - xMean) * (ys[index] - yMean), 0);
-  const variance = xs.reduce((sum, x) => sum + (x - xMean) ** 2, 0);
-  const slope = variance === 0 ? 0 : covariance / variance;
-  const prediction = yMean + slope * (Math.log10(targetCompute) - xMean);
-  return logY ? 10 ** prediction : prediction;
-}
-
-function mean(values: number[]): number {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+function curvePoints(
+  points: CurvePoint[],
+  xValue: (point: { compute: number; physicalFlops: number }) => number,
+) {
+  return points.map((point) => ({ x: xValue(point), y: point.value }));
 }
