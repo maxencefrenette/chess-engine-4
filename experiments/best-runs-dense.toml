@@ -18,6 +18,26 @@ loss_upper_1sd = 3.7272632609810743
 policy_top1 = 0.29698181016253294
 runtime_sec = 24.862965513
 
+[runs.3e18]
+source_experiment = "experiments/2026-07-11.07-dense-intermediate-budgets"
+model_kind = "dense"
+run_name = "dense-3e18-tune-d128x2-b4096-lr145"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/7ohug58s"
+compute = 3.000487193173795e18
+d_model = 128
+depth = 2
+batch_size = 4096
+lr = 1.45e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1563040
+samples_seen = 35442688
+loss = 3.4743089411030894
+loss_std = 0.10006513690363698
+loss_upper_1sd = 3.5743740780067266
+policy_top1 = 0.3303107126251819
+runtime_sec = 25.901074174
+
 [runs.1e19]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
 model_kind = "dense"
@@ -37,6 +57,26 @@ loss_std = 0.07465967884471117
 loss_upper_1sd = 3.464022942627625
 policy_top1 = 0.35154238809440863
 runtime_sec = 45.614239049
+
+[runs.3e19]
+source_experiment = "experiments/2026-07-11.07-dense-intermediate-budgets"
+model_kind = "dense"
+run_name = "dense-3e19-final-d192x4-b12288-lr60"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/1gs863uo"
+compute = 3.000417367769233e19
+d_model = 192
+depth = 4
+batch_size = 12288
+lr = 6e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 3523616
+samples_seen = 130166784
+loss = 3.2661540190929736
+loss_std = 0.05329194464813965
+loss_upper_1sd = 3.319445963741113
+policy_top1 = 0.3820001652711371
+runtime_sec = 272.155486923
 
 [runs.1e20]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
