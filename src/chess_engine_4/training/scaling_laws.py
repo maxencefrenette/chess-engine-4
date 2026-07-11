@@ -9,10 +9,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from chess_engine_4.model import (
-    mlp_moe_parameter_count,
-    mlp_parameter_count,
-)
+from chess_engine_4.model import dense_parameter_count
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
 
@@ -132,7 +129,7 @@ def read_best_runs(path: Path) -> list[SweepResult]:
     results = [
         SweepResult(
             budget=budget,
-            model_kind=str(row.get("model_kind", "mlp")),
+            model_kind=str(row["model_kind"]),
             compute=float(row["compute"]),
             run_name=str(row["run_name"]),
             batch_size=int(row["batch_size"]),
@@ -157,11 +154,11 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
         raise ValueError("At least two best-run points are required for extrapolation.")
     model_kinds = {result.model_kind for result in best_results}
     if len(model_kinds) != 1:
-        raise ValueError(
-            f"Cannot fit one report across multiple model kinds: {sorted(model_kinds)}."
-        )
+        raise ValueError("Best-run points must belong to exactly one model family.")
+    model_kind = model_kinds.pop()
+    parameter_count(model_kind=model_kind, d_model=64, depth=2)
     return ScalingLaws(
-        model_kind=next(iter(model_kinds)),
+        model_kind=model_kind,
         loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
         policy_top1=fit_linear_law((r.compute, r.policy_top1) for r in best_results),
         d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
@@ -282,21 +279,18 @@ def closest_architecture(
 
 def parameter_count(
     *,
-    model_kind: str = "mlp",
+    model_kind: str = "dense",
     d_model: int,
     depth: int,
-    mlp_ratio: float = 4.0,
+    expansion_ratio: float = 4.0,
 ) -> int:
-    if model_kind == "mlp_moe":
-        return mlp_moe_parameter_count(
+    if model_kind == "dense":
+        return dense_parameter_count(
             d_model=d_model,
             depth=depth,
-            num_experts=16,
-            expert_mlp_ratio=2.0,
+            expansion_ratio=expansion_ratio,
         )
-    if model_kind != "mlp":
-        raise ValueError(f"unknown model kind: {model_kind}")
-    return mlp_parameter_count(d_model=d_model, depth=depth, mlp_ratio=mlp_ratio)
+    raise ValueError(f"unknown model kind: {model_kind}")
 
 
 def round_to_batch_ladder(value: float) -> int:
@@ -427,23 +421,9 @@ def format_config(suggestion: HparamSuggestion) -> str:
         f'kind = "{suggestion.model_kind}"',
         f"d_model = {suggestion.d_model}",
         f"depth = {suggestion.depth}",
+        "expansion_ratio = 4.0",
+        "rms_norm_eps = 1e-6",
     ]
-    if suggestion.model_kind == "mlp_moe":
-        model_lines.extend(
-            [
-                "expert_mlp_ratio = 2.0",
-                "num_experts = 16",
-                "num_experts_per_token = 2",
-                "rms_norm_eps = 1e-6",
-            ]
-        )
-    else:
-        model_lines.extend(
-            [
-                "mlp_ratio = 4.0",
-                "rms_norm_eps = 1e-6",
-            ]
-        )
     return "\n".join(
         [
             "[run]",
@@ -471,7 +451,6 @@ def format_config(suggestion: HparamSuggestion) -> str:
             "policy = 1.0",
             "value = 1.0",
             "moves_left = 1.0",
-            *(["router_aux = 0.01"] if suggestion.model_kind == "mlp_moe" else []),
             "",
         ]
     )

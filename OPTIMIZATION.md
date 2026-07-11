@@ -30,7 +30,7 @@ budget.
 
 Optimize final loss under the fixed `compute_budget` by changing:
 
-- `[model]`: architecture shape and model kind.
+- `[model]`: architecture shape.
 - `[data]`: batch size and loader settings.
 - `[optimizer]`: learning rate, weight decay, and optimizer implementation
   details.
@@ -42,13 +42,9 @@ allocation settings.
 
 ## Transformer Engine
 
-Training is CUDA-only and uses NVIDIA Transformer Engine for dense linear,
-RMSNorm, fused dense SwiGLU MLP, and grouped MoE expert operations. The packed
-input and dense model are captured with TE's high-level CUDA graph API. MoE
-keeps only the packed-plane expansion under `torch.compile`: TE's BF16 grouped
-expert path reads dynamic expert split sizes on the host, so the complete MoE
-model is not CUDA-graph safe. The fully fused graph-safe grouped expert kernel
-is currently available for TE's MXFP8 and NVFP4 recipes, not BF16.
+Training is CUDA-only and uses NVIDIA Transformer Engine for linear layers,
+RMSNorm, and fused dense SwiGLU blocks. The packed input and model are captured
+with TE's high-level CUDA graph API.
 
 Modal training reserves eight physical CPU cores and the baseline configs use
 eight Rust dataloader threads. This keeps batch decoding ahead of the captured

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import mlp_moe_parameter_count, mlp_parameter_count
+from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
@@ -25,7 +25,7 @@ dataloader_prefetch_per_thread = 3
 batch_size = 8
 
 [model]
-kind = "mlp"
+kind = "dense"
 d_model = 64
 depth = 2
 
@@ -48,9 +48,9 @@ moves_left = 0.5
     assert config.infra.dataloader_threads == 4
     assert config.infra.dataloader_prefetch_per_thread == 3
     assert config.data.batch_size == 8
+    assert config.model.kind == "dense"
     assert config.model.d_model == 64
     assert config.model.depth == 2
-    assert config.model.kind == "mlp"
     assert config.optimizer.lr == 0.001
     assert config.optimizer.max_grad_norm == 2.0
     assert config.optimizer.lr_warmup_steps == 50
@@ -99,29 +99,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.loss == config.loss
 
 
-def test_load_training_config_supports_mlp_moe() -> None:
-    config = load_training_config("configs/mlp_moe16a2/1e18.toml")
-
-    assert config.model.kind == "mlp_moe"
-    assert config.model.num_experts == 16
-    assert config.model.num_experts_per_token == 2
-    assert config.loss.router_aux == 0.03
-    assert mlp_moe_parameter_count(
-        d_model=config.model.d_model,
-        depth=config.model.depth,
-        num_experts=config.model.num_experts,
-        expert_mlp_ratio=config.model.expert_mlp_ratio,
-    ) > 0
-
-
-def test_with_overrides_supports_router_aux() -> None:
-    config = load_training_config("configs/mlp_moe16a2/1e18.toml")
-
-    overridden = with_overrides(config, router_aux=0.001)
-
-    assert overridden.loss.router_aux == 0.001
-
-
 def test_train_options_supports_max_steps() -> None:
     from chess_engine_4.training.cli import TrainOptions
 
@@ -145,20 +122,26 @@ def test_training_profile_config_validates_steps() -> None:
 def test_lr_cooldown_schedule() -> None:
     from chess_engine_4.training.cli import _scheduled_lr
 
-    assert _scheduled_lr(
-        base_lr=1.0,
-        warmup_steps=0,
-        cooldown_frac=0.1,
-        step=90,
-        total_steps=100,
-    ) == 1.0
-    assert _scheduled_lr(
-        base_lr=1.0,
-        warmup_steps=0,
-        cooldown_frac=0.1,
-        step=95,
-        total_steps=100,
-    ) == 0.5
+    assert (
+        _scheduled_lr(
+            base_lr=1.0,
+            warmup_steps=0,
+            cooldown_frac=0.1,
+            step=90,
+            total_steps=100,
+        )
+        == 1.0
+    )
+    assert (
+        _scheduled_lr(
+            base_lr=1.0,
+            warmup_steps=0,
+            cooldown_frac=0.1,
+            step=95,
+            total_steps=100,
+        )
+        == 0.5
+    )
     assert _scheduled_lr(
         base_lr=1.0,
         warmup_steps=0,
@@ -171,37 +154,49 @@ def test_lr_cooldown_schedule() -> None:
 def test_lr_warmup_schedule() -> None:
     from chess_engine_4.training.cli import _scheduled_lr
 
-    assert _scheduled_lr(
-        base_lr=1.0,
-        warmup_steps=50,
-        cooldown_frac=0.1,
-        step=1,
-        total_steps=100,
-    ) == 0.02
-    assert _scheduled_lr(
-        base_lr=1.0,
-        warmup_steps=50,
-        cooldown_frac=0.1,
-        step=50,
-        total_steps=100,
-    ) == 1.0
-    assert _scheduled_lr(
-        base_lr=1.0,
-        warmup_steps=50,
-        cooldown_frac=0.1,
-        step=51,
-        total_steps=100,
-    ) == 1.0
+    assert (
+        _scheduled_lr(
+            base_lr=1.0,
+            warmup_steps=50,
+            cooldown_frac=0.1,
+            step=1,
+            total_steps=100,
+        )
+        == 0.02
+    )
+    assert (
+        _scheduled_lr(
+            base_lr=1.0,
+            warmup_steps=50,
+            cooldown_frac=0.1,
+            step=50,
+            total_steps=100,
+        )
+        == 1.0
+    )
+    assert (
+        _scheduled_lr(
+            base_lr=1.0,
+            warmup_steps=50,
+            cooldown_frac=0.1,
+            step=51,
+            total_steps=100,
+        )
+        == 1.0
+    )
 
 
 def test_1e18_config_builds_expected_model_size() -> None:
     config = load_training_config("configs/dense/1e18.toml")
 
-    assert mlp_parameter_count(
-        d_model=config.model.d_model,
-        depth=config.model.depth,
-        mlp_ratio=config.model.mlp_ratio,
-    ) == 733_408
+    assert (
+        dense_parameter_count(
+            d_model=config.model.d_model,
+            depth=config.model.depth,
+            expansion_ratio=config.model.expansion_ratio,
+        )
+        == 733_408
+    )
 
 
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:

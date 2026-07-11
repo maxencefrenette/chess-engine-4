@@ -74,7 +74,6 @@ def train_modal() -> None:
     parser.add_argument("--max-grad-norm", type=float, default=None)
     parser.add_argument("--lr-warmup-steps", type=int, default=None)
     parser.add_argument("--lr-cooldown-frac", type=float, default=None)
-    parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument(
         "--quantization-recipe",
         choices=("bf16", "mxfp8", "nvfp4"),
@@ -100,7 +99,6 @@ def train_modal() -> None:
         "max_grad_norm": args.max_grad_norm,
         "lr_warmup_steps": args.lr_warmup_steps,
         "lr_cooldown_frac": args.lr_cooldown_frac,
-        "router_aux": args.router_aux,
         "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
@@ -158,12 +156,9 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             max_grad_norm=payload.get("max_grad_norm"),
             lr_warmup_steps=payload.get("lr_warmup_steps"),
             lr_cooldown_frac=payload.get("lr_cooldown_frac"),
-            router_aux=payload.get("router_aux"),
             quantization_recipe=payload.get("quantization_recipe"),
             dataloader_threads=payload.get("dataloader_threads"),
-            dataloader_prefetch_per_thread=payload.get(
-                "dataloader_prefetch_per_thread"
-            ),
+            dataloader_prefetch_per_thread=payload.get("dataloader_prefetch_per_thread"),
             max_steps=payload.get("max_steps"),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),

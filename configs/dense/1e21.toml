@@ -15,10 +15,10 @@ batch_size = 32768
 recipe = "mxfp8"
 
 [model]
-kind = "mlp"
+kind = "dense"
 d_model = 512
 depth = 5
-mlp_ratio = 4.0
+expansion_ratio = 4.0
 rms_norm_eps = 1e-6
 
 [optimizer]

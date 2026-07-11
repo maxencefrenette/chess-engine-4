@@ -14,8 +14,6 @@ from urllib.parse import urlparse
 LOSS_MEAN_KEY = "loss/task[ema=0.99]"
 LOSS_SECOND_MOMENT_KEY = "loss/task2[ema=0.99]"
 POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.99]"
-ROUTER_DEAD_EXPERTS_KEY = "router/dead_experts"
-ROUTER_DEAD_EXPERTS_MAX_KEY = "router/dead_experts_max"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,8 +23,6 @@ class WandbMetrics:
     loss_std: float
     loss_upper_1sd: float
     policy_top1: float
-    router_dead_experts: float | None = None
-    router_dead_experts_max: float | None = None
 
 
 def wandb_metrics() -> None:
@@ -76,8 +72,6 @@ def write_csv_rows(
         "loss_std",
         "loss_upper_1sd",
         "policy_top1",
-        "router_dead_experts",
-        "router_dead_experts_max",
     ):
         if fieldname not in fieldnames:
             fieldnames.append(fieldname)
@@ -88,8 +82,6 @@ def write_csv_rows(
         row["loss_std"] = str(metrics.loss_std)
         row["loss_upper_1sd"] = str(metrics.loss_upper_1sd)
         row["policy_top1"] = str(metrics.policy_top1)
-        row["router_dead_experts"] = optional_float_to_csv(metrics.router_dead_experts)
-        row["router_dead_experts_max"] = optional_float_to_csv(metrics.router_dead_experts_max)
 
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -104,8 +96,6 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
         "loss_std",
         "loss_upper_1sd",
         "policy_top1",
-        "router_dead_experts",
-        "router_dead_experts_max",
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
@@ -117,8 +107,6 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
                 "loss_std": row.loss_std,
                 "loss_upper_1sd": row.loss_upper_1sd,
                 "policy_top1": row.policy_top1,
-                "router_dead_experts": optional_float_to_csv(row.router_dead_experts),
-                "router_dead_experts_max": optional_float_to_csv(row.router_dead_experts_max),
             }
         )
 
@@ -174,24 +162,10 @@ def metrics_from_summary(
     loss_mean = float(loss_mean)
     variance = max(float(loss_second_moment) - loss_mean * loss_mean, 0.0)
     loss_std = math.sqrt(variance)
-    router_dead_experts = optional_summary_float(summary.get(ROUTER_DEAD_EXPERTS_KEY))
-    router_dead_experts_max = optional_summary_float(summary.get(ROUTER_DEAD_EXPERTS_MAX_KEY))
     return WandbMetrics(
         wandb_url=wandb_url,
         loss=loss_mean,
         loss_std=loss_std,
         loss_upper_1sd=loss_mean + loss_std,
         policy_top1=float(policy_top1),
-        router_dead_experts=router_dead_experts,
-        router_dead_experts_max=router_dead_experts_max,
     )
-
-
-def optional_summary_float(value: object) -> float | None:
-    if isinstance(value, int | float):
-        return float(value)
-    return None
-
-
-def optional_float_to_csv(value: float | None) -> str:
-    return "" if value is None else str(value)

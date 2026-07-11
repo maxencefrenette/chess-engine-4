@@ -21,7 +21,6 @@ def profile_training() -> None:
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
-    parser.add_argument("--router-aux", type=float, default=None)
     parser.add_argument(
         "--quantization-recipe",
         choices=("bf16", "mxfp8", "nvfp4"),
@@ -45,7 +44,6 @@ def profile_training() -> None:
         "d_model": args.d_model,
         "depth": args.depth,
         "lr": args.lr,
-        "router_aux": args.router_aux,
         "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
@@ -63,6 +61,7 @@ def profile_training() -> None:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
         _print_profile(result)
+
 
 def _print_profile(result: dict[str, Any]) -> None:
     print(

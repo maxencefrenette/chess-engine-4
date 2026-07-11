@@ -6,15 +6,11 @@ neural network.
 The goal is to create strong nets that can be run directly inside lc0 through
 the ONNX backend.
 
-## Models
+## Model
 
-The training loop supports multiple model kinds behind one output contract:
-LCZero-style policy logits, WDL value logits, and a moves-left prediction.
-
-The dense MLP model is a stack of pre-norm SwiGLU blocks over flattened LCZero
-input planes. The MoE family replaces each dense MLP block with a routed
-SwiGLU mixture of experts. Both training models use NVIDIA Transformer Engine;
-the MoE path uses its fused grouped-linear operation pipeline.
+The `dense` model is a stack of pre-norm SwiGLU blocks over flattened LCZero input
+planes with LCZero-style policy logits, WDL value logits, and a moves-left
+prediction. Training uses NVIDIA Transformer Engine.
 
 The models are trained on lc0 t80 data using supervised learning.
 
@@ -46,23 +42,21 @@ By default, `inspect-data` validates one batch. Pass `--batches N` for a bounded
 scan or `--all` to inspect every batch.
 
 Training runs on Modal. Modal builds the native dataloader into its image
-automatically. `uv run train-modal` trains the model selected by `[model].kind`
-and logs metrics to the W&B project configured in `.env`.
+automatically. `uv run train-modal` logs metrics to the W&B project configured
+in `.env`.
 
 ```sh
 uv run train-modal --config configs/dense/1e18.toml
 ```
 
 Training and evaluation are Blackwell-only and run on a Modal B200. Models use
-Transformer Engine MXFP8 block scaling and FP32 optimizer master weights. Dense
-training is CUDA-graphed; MoE routing remains eager because expert token counts
-are dynamic. The Modal image builds the pinned Transformer Engine version and
-its PyTorch extension automatically. Training reserves eight CPU cores for the
-background Rust dataloader.
+Transformer Engine MXFP8 block scaling and FP32 optimizer master weights.
+Training is CUDA-graphed. The Modal image builds the pinned Transformer Engine
+version and its PyTorch extension automatically. Training reserves eight CPU
+cores for the background Rust dataloader.
 
 MXFP8 projections are padded to 32-element boundaries and sliced back to the
-LC0 output contract. MoE expert batches are likewise padded per expert to a
-32-token boundary before grouped matrix multiplications.
+LC0 output contract.
 
 The `[precision].recipe` setting accepts `bf16`, `mxfp8`, or `nvfp4`. It can be
 overridden for profiling with `--quantization-recipe`.
@@ -86,8 +80,7 @@ uv run checkpoint2leela checkpoints/run-final.pt --output artifacts/leela/run.pb
 ```
 
 Conversion reconstructs a portable inference model from the Transformer Engine
-checkpoint. The resulting ONNX graph has no Transformer Engine dependency and
-keeps MoE top-k routing sparse by evaluating only the selected experts.
+checkpoint. The resulting ONNX graph has no Transformer Engine dependency.
 
 To run a small lc0-vs-BT4 match on Modal with fastchess:
 
@@ -107,7 +100,7 @@ Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 # Scaling Laws
 
 To fit scaling laws and extrapolate the next compute budget from the current best
-MLP W&B runs:
+dense W&B runs:
 
 ```sh
 uv run scaling-laws --target-compute-budget 1e16

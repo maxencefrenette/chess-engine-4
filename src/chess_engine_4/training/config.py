@@ -97,7 +97,6 @@ def with_overrides(
     max_grad_norm: float | None = None,
     lr_warmup_steps: int | None = None,
     lr_cooldown_frac: float | None = None,
-    router_aux: float | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: str | None = None,
@@ -127,8 +126,6 @@ def with_overrides(
             config,
             optimizer=replace(config.optimizer, lr_cooldown_frac=lr_cooldown_frac),
         )
-    if router_aux is not None:
-        config = replace(config, loss=replace(config.loss, router_aux=router_aux))
     if dataloader_threads is not None:
         config = replace(
             config,

@@ -1,4 +1,4 @@
-"""MLP-only chess network."""
+"""Dense chess network."""
 
 from __future__ import annotations
 
@@ -17,22 +17,22 @@ def mxfp8_aligned_size(size: int) -> int:
 
 
 @dataclass(frozen=True, slots=True)
-class MlpChessNetConfig:
-    kind: str = "mlp"
+class DenseChessNetConfig:
+    kind: str = "dense"
     input_planes: int = INPUT_PLANE_COUNT
     board_size: int = 8
     policy_size: int = POLICY_SIZE
     d_model: int = 1024
     depth: int = 8
-    mlp_ratio: float = 4.0
+    expansion_ratio: float = 4.0
     rms_norm_eps: float = 1e-6
 
 
-class MlpBlock(nn.Module):
+class DenseBlock(nn.Module):
     def __init__(self, d_model: int, hidden_dim: int, rms_norm_eps: float) -> None:
         super().__init__()
         transformer_engine = te()
-        self.mlp = transformer_engine.LayerNormMLP(
+        self.layer = transformer_engine.LayerNormMLP(
             d_model,
             hidden_dim,
             eps=rms_norm_eps,
@@ -43,19 +43,19 @@ class MlpBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.mlp(x)
+        return x + self.layer(x)
 
 
-class MlpChessNet(nn.Module):
-    """Single-token MLP model over flattened LCZero input planes."""
+class DenseChessNet(nn.Module):
+    """Single-token dense model over flattened LCZero input planes."""
 
-    def __init__(self, config: MlpChessNetConfig | None = None) -> None:
+    def __init__(self, config: DenseChessNetConfig | None = None) -> None:
         super().__init__()
         if config is None:
-            config = MlpChessNetConfig()
+            config = DenseChessNetConfig()
         self.config = config
         input_dim = config.input_planes * config.board_size * config.board_size
-        hidden_dim = int(config.d_model * config.mlp_ratio)
+        hidden_dim = int(config.d_model * config.expansion_ratio)
         transformer_engine = te()
 
         self.input = transformer_engine.Linear(
@@ -65,7 +65,7 @@ class MlpChessNet(nn.Module):
         )
         self.blocks = nn.Sequential(
             *[
-                MlpBlock(
+                DenseBlock(
                     d_model=config.d_model,
                     hidden_dim=hidden_dim,
                     rms_norm_eps=config.rms_norm_eps,
@@ -106,17 +106,17 @@ class MlpChessNet(nn.Module):
         )
 
 
-def mlp_parameter_count(
+def dense_parameter_count(
     *,
     input_planes: int = INPUT_PLANE_COUNT,
     board_size: int = 8,
     policy_size: int = POLICY_SIZE,
     d_model: int,
     depth: int,
-    mlp_ratio: float = 4.0,
+    expansion_ratio: float = 4.0,
 ) -> int:
     input_dim = input_planes * board_size * board_size
-    hidden_dim = int(d_model * mlp_ratio)
+    hidden_dim = int(d_model * expansion_ratio)
     block_params = depth * (3 * d_model * hidden_dim)
     norm_params = (depth + 1) * d_model
     input_params = input_dim * d_model + d_model
@@ -125,10 +125,5 @@ def mlp_parameter_count(
     wdl_params = d_model * 32 + 32
     moves_left_params = d_model * 32 + 32
     return (
-        input_params
-        + block_params
-        + norm_params
-        + policy_params
-        + wdl_params
-        + moves_left_params
+        input_params + block_params + norm_params + policy_params + wdl_params + moves_left_params
     )

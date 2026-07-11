@@ -19,15 +19,10 @@ from chess_engine_4.training.scaling_laws import (
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
 CURVE_POINT_COUNT = 61
 FAMILIES = {
-    "mlp": {
-        "name": "Dense MLP",
-        "description": "Single-token dense SwiGLU MLP trained on lc0 planes.",
+    "dense": {
+        "name": "Dense",
+        "description": "Single-token dense SwiGLU network trained on lc0 planes.",
         "best_runs": Path("experiments/best-runs-dense.toml"),
-    },
-    "mlp_moe16a2": {
-        "name": "MLP-MoE 16a2",
-        "description": "Single-token MoE with 16 experts and 2 active experts.",
-        "best_runs": Path("experiments/best-runs-mlp_moe16a2.toml"),
     },
 }
 

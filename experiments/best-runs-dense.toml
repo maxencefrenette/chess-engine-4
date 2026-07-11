@@ -1,6 +1,6 @@
 [runs.1e18]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
-model_kind = "mlp"
+model_kind = "dense"
 run_name = "dense-bw-tune-18-d64x3-b3072-lr10"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/vowzs4os"
 compute = 1.0001092180702004e18
@@ -20,7 +20,7 @@ runtime_sec = 31.066133054
 
 [runs.1e19]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
-model_kind = "mlp"
+model_kind = "dense"
 run_name = "dense-bw-shape-19-d160x4"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/aunrxaba"
 compute = 1.000065422163447e19
@@ -40,7 +40,7 @@ runtime_sec = 45.614239049
 
 [runs.1e20]
 source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
-model_kind = "mlp"
+model_kind = "dense"
 run_name = "dense-bw-shape-20-d320x4"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/rd27qx3g"
 compute = 1.000102677851681e20
@@ -60,7 +60,7 @@ runtime_sec = 86.02108341
 
 [runs.1e21]
 source_experiment = "experiments/2026-07-10.02-dense-more-data"
-model_kind = "mlp"
+model_kind = "dense"
 run_name = "dense-moredata-1e21-d512x5-b32768-lr2"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q46ovubj"
 compute = 1.0001197509177508e21
@@ -80,7 +80,7 @@ runtime_sec = 990.599938945
 
 [runs.1e22]
 source_experiment = "experiments/2026-07-11.01-dense-1e22-data-allocation"
-model_kind = "mlp"
+model_kind = "dense"
 run_name = "dense-data20-lr4-d896x6-b65536-lr50"
 wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eg1zhx9l"
 compute = 1.000049703386905e22

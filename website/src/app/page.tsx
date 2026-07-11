@@ -58,7 +58,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1500px] grid-cols-2 gap-5 px-8 py-6">
+      <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-5 px-8 py-6">
         {families.map(({ family, runs, latest }) => (
           <Link
             key={family.id}

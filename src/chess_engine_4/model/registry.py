@@ -5,28 +5,21 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import Any
 
-from torch import nn
+from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig
 
-from chess_engine_4.model.mlp import MlpChessNet, MlpChessNetConfig
-from chess_engine_4.model.mlp_moe import MlpMoeChessNet, MlpMoeChessNetConfig
-
-type ModelConfig = MlpChessNetConfig | MlpMoeChessNetConfig
+type ModelConfig = DenseChessNetConfig
 
 
 def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
-    kind = values.get("kind", "mlp")
-    if kind == "mlp":
-        return _build_model_section(MlpChessNetConfig, values, section_name="[model]")
-    if kind == "mlp_moe":
-        return _build_model_section(MlpMoeChessNetConfig, values, section_name="[model]")
+    kind = values.get("kind", "dense")
+    if kind == "dense":
+        return _build_model_section(DenseChessNetConfig, values, section_name="[model]")
     raise ValueError(f"unknown model kind: {kind}")
 
 
-def build_model(config: ModelConfig) -> nn.Module:
-    if isinstance(config, MlpChessNetConfig):
-        return MlpChessNet(config)
-    if isinstance(config, MlpMoeChessNetConfig):
-        return MlpMoeChessNet(config)
+def build_model(config: ModelConfig) -> DenseChessNet:
+    if isinstance(config, DenseChessNetConfig):
+        return DenseChessNet(config)
     raise TypeError(f"unsupported model config type: {type(config).__name__}")
 
 

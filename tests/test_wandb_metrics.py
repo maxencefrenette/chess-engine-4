@@ -20,8 +20,6 @@ def test_metrics_from_summary() -> None:
             "loss/task[ema=0.99]": 4.2,
             "loss/task2[ema=0.99]": 17.89,
             "metrics/policy_top1[ema=0.99]": 0.3,
-            "router/dead_experts": 0.25,
-            "router/dead_experts_max": 1.0,
         },
     )
 
@@ -29,5 +27,3 @@ def test_metrics_from_summary() -> None:
     assert metrics.loss_std == 0.5
     assert metrics.loss_upper_1sd == 4.7
     assert metrics.policy_top1 == 0.3
-    assert metrics.router_dead_experts == 0.25
-    assert metrics.router_dead_experts_max == 1.0

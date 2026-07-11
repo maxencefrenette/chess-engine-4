@@ -8,7 +8,6 @@ import torch
 from torch import nn
 
 from chess_engine_4.data.leela import BOARD_SIZE, HISTORY_PLANE_COUNT, INPUT_PLANE_COUNT
-from chess_engine_4.model.mlp_moe import MlpMoeChessNet
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import autocast_context, quantization_recipe, te
 
@@ -64,21 +63,8 @@ class _GraphedDenseTrainingModel(nn.Module):
         )
 
 
-class _EagerPackedModel(nn.Module):
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.input_expander = PlaneInputExpander()
-        self.model = model
-
-    def forward(self, planes: PackedPlaneInput) -> ChessNetOutput:
-        return self.model(self.input_expander(*planes))
-
-
 def build_training_model(model: nn.Module, *, batch_size: int, precision: str) -> nn.Module:
-    """Build the eager MoE or CUDA-graphed dense packed-input training model."""
-
-    if isinstance(model, MlpMoeChessNet):
-        return _EagerPackedModel(model).cuda()
+    """Build the CUDA-graphed packed-input training model."""
 
     sample_planes = _sample_packed_planes(batch_size)
     recipe = quantization_recipe(precision)

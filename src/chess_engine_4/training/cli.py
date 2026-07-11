@@ -60,7 +60,6 @@ class TrainOptions:
     max_grad_norm: float | None = None
     lr_warmup_steps: int | None = None
     lr_cooldown_frac: float | None = None
-    router_aux: float | None = None
     quantization_recipe: str | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
@@ -83,7 +82,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         max_grad_norm=options.max_grad_norm,
         lr_warmup_steps=options.lr_warmup_steps,
         lr_cooldown_frac=options.lr_cooldown_frac,
-        router_aux=options.router_aux,
         dataloader_threads=options.dataloader_threads,
         dataloader_prefetch_per_thread=options.dataloader_prefetch_per_thread,
         quantization_recipe=options.quantization_recipe,
@@ -188,7 +186,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         with autocast_context(config.precision.recipe):
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
-        loss.total.backward()
+        loss.task.backward()
         grad_norm_tensor = _clip_gradient_norm(
             model,
             max_grad_norm=config.optimizer.max_grad_norm,
@@ -257,16 +255,13 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             if wandb_run is not None and should_log:
                 wandb_run.log(metrics, step=step)
             if should_log:
-                mfu_text = (
-                    f" mfu={metrics['perf/mfu']:.3f}" if "perf/mfu" in metrics else ""
-                )
+                mfu_text = f" mfu={metrics['perf/mfu']:.3f}" if "perf/mfu" in metrics else ""
                 print(
                     f"step={step} "
                     f"loss={metrics['loss']:.4f} "
                     f"policy={metrics['loss/task/policy']:.4f} "
                     f"value={metrics['loss/task/value']:.4f} "
                     f"mlh={metrics['loss/task/moves_left']:.4f} "
-                    f"aux={metrics['loss/aux']:.4f} "
                     f"grad_norm={grad_norm:.2f} "
                     f"flops_seen={flops_seen:.3e} "
                     f"compute_seen={compute_seen:.3e} "
@@ -333,9 +328,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 "device_name": torch.cuda.get_device_name(device),
                 "batch_size": config.data.batch_size,
                 "dataloader_threads": config.infra.dataloader_threads,
-                "dataloader_prefetch_per_thread": (
-                    config.infra.dataloader_prefetch_per_thread
-                ),
+                "dataloader_prefetch_per_thread": (config.infra.dataloader_prefetch_per_thread),
             }
         )
         result.update(
@@ -616,22 +609,7 @@ def _init_wandb(
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,
-        **({"mlp_ratio": config.model.mlp_ratio} if hasattr(config.model, "mlp_ratio") else {}),
-        **(
-            {"expert_mlp_ratio": config.model.expert_mlp_ratio}
-            if hasattr(config.model, "expert_mlp_ratio")
-            else {}
-        ),
-        **(
-            {"num_experts": config.model.num_experts}
-            if hasattr(config.model, "num_experts")
-            else {}
-        ),
-        **(
-            {"num_experts_per_token": config.model.num_experts_per_token}
-            if hasattr(config.model, "num_experts_per_token")
-            else {}
-        ),
+        "expansion_ratio": config.model.expansion_ratio,
         "rms_norm_eps": config.model.rms_norm_eps,
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
@@ -642,7 +620,6 @@ def _init_wandb(
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,
-        "router_aux_loss_weight": config.loss.router_aux,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
     return wandb.init(
@@ -688,9 +665,7 @@ def _training_metrics(
     policy_indices, policy_probs = policy_target
     valid_policy = policy_indices >= 0
     policy_targets = policy_probs.float()
-    policy_entropy = -(
-        policy_targets * policy_targets.clamp_min(1e-30).log()
-    ).sum(dim=-1).mean()
+    policy_entropy = -(policy_targets * policy_targets.clamp_min(1e-30).log()).sum(dim=-1).mean()
     gathered_logits = output.policy_logits.gather(
         dim=-1,
         index=policy_indices.clamp_min(0).long(),
@@ -709,13 +684,10 @@ def _training_metrics(
     samples_per_sec = samples_seen / elapsed if elapsed > 0 else 0.0
     metrics = {
         "loss": loss.task.item(),
-        "loss/train": loss.total.item(),
         "loss/task": loss.task.item(),
         "loss/task/policy": loss.policy.item(),
         "loss/task/value": loss.value.item(),
         "loss/task/moves_left": loss.moves_left.item(),
-        "loss/aux": loss.aux.item(),
-        "loss/aux/router": loss.router_aux.item(),
         "metrics/policy_entropy": policy_entropy.item(),
         "metrics/policy_top1": policy_top1.item(),
         "metrics/value_q_mse": q_mse.item(),
@@ -725,10 +697,6 @@ def _training_metrics(
         "perf/samples_per_sec": samples_per_sec,
         "perf/samples_seen": samples_seen,
     }
-    if output.router_dead_experts is not None:
-        metrics["router/dead_experts"] = output.router_dead_experts.item()
-    if output.router_dead_experts_max is not None:
-        metrics["router/dead_experts_max"] = output.router_dead_experts_max.item()
     return metrics
 
 
@@ -754,8 +722,10 @@ def _update_ema_metric(
     value: float,
 ) -> None:
     previous = ema_metrics.get(ema_key)
-    next_value = value if previous is None else (
-        _METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * value
+    next_value = (
+        value
+        if previous is None
+        else (_METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * value)
     )
     ema_metrics[ema_key] = next_value
     metrics[ema_key] = next_value

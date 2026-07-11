@@ -16,8 +16,8 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
     """Measure physical train-step FLOPs using the portable equivalent model on meta.
 
     Transformer Engine does not implement meta kernels for all fused operations. The portable
-    model has the same active matrix operations, including top-k MoE routing, while using
-    standard PyTorch operators that the FLOPs profiler can inspect without a GPU allocation.
+    model has the same matrix operations while using standard PyTorch operators that the FLOPs
+    profiler can inspect without a GPU allocation.
     """
 
     profile_batch_size = min(batch_size, 8)
@@ -44,7 +44,7 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
             model(planes),
             (policy_indices, policy_probs),
             values,
-        ).total
+        ).task
         loss.backward()
 
     flops = sum(event.flops or 0 for event in profiler.key_averages())

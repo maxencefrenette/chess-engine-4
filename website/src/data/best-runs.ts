@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export type ModelFamilyId = "mlp" | "mlp_moe16a2";
+export type ModelFamilyId = "dense";
 
 export type BestRun = {
   budget: string;
