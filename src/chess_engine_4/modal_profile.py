@@ -9,9 +9,10 @@ from typing import Any
 
 from chess_engine_4.modal_train import (
     REMOTE_CONFIG_PATH,
-    _train,
     app,
+    training_function,
 )
+from chess_engine_4.training.config import load_training_config
 
 
 def profile_training() -> None:
@@ -54,8 +55,9 @@ def profile_training() -> None:
         },
     }
 
+    profile_function = training_function(load_training_config(args.config).infra.cpu_cores)
     with app.run():
-        result = _train.remote(payload)
+        result = profile_function.remote(payload)
 
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))

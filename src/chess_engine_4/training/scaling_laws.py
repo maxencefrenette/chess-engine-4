@@ -295,7 +295,7 @@ def parameter_count(
 
 def round_to_batch_ladder(value: float) -> int:
     ladder = sorted(
-        {round(multiplier * 2**power) for power in range(5, 15) for multiplier in (1, 1.5)}
+        {round(multiplier * 2**power) for power in range(5, 21) for multiplier in (1, 1.5)}
     )
     return min(ladder, key=lambda candidate: abs(math.log(candidate / value)))
 

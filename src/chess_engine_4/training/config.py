@@ -21,8 +21,13 @@ class RunConfig:
 
 @dataclass(frozen=True, slots=True)
 class InfraConfig:
+    cpu_cores: int = 8
     dataloader_threads: int = 4
     dataloader_prefetch_per_thread: int = 2
+
+    def __post_init__(self) -> None:
+        if self.cpu_cores <= 0:
+            raise ValueError("cpu_cores must be positive.")
 
 
 @dataclass(frozen=True, slots=True)

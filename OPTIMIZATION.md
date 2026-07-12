@@ -46,6 +46,7 @@ Training is CUDA-only and uses NVIDIA Transformer Engine for linear layers,
 RMSNorm, and fused dense SwiGLU blocks. The packed input and model are captured
 with TE's high-level CUDA graph API.
 
-Modal training reserves eight physical CPU cores and the baseline configs use
-eight Rust dataloader threads. This keeps batch decoding ahead of the captured
-dense model, where four loader threads became the end-to-end bottleneck.
+`[infra].cpu_cores` controls the physical CPU cores reserved by Modal, while
+`[infra].dataloader_threads` controls the Rust batch-loading workers. Baseline
+configs reserve eight cores and use eight workers; larger runs can reserve more
+CPU headroom without changing the data-loading topology.

@@ -10,6 +10,8 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
+from chess_engine_4.training.config import load_training_config
+
 APP_NAME = "chess-engine-4-train"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
 ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
@@ -110,8 +112,9 @@ def train_modal() -> None:
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
 
+    train_function = training_function(load_training_config(args.config).infra.cpu_cores)
     with app.run():
-        result = _train.remote(payload)
+        result = train_function.remote(payload)
     print(
         f"modal_run_complete run={result['run_name']} "
         f"steps={result['steps']} "
@@ -171,13 +174,13 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
     return result
 
 
-@app.function(
-    image=image,
-    gpu="B200",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
-    secrets=[wandb_secret],
-    timeout=24 * 60 * 60,
-)
-def _train(payload: dict[str, Any]) -> dict[str, float | int | str]:
-    return _run_training_remote(payload)
+def training_function(cpu_cores: int) -> modal.Function:
+    return app.function(
+        image=image,
+        gpu="B200",
+        cpu=cpu_cores,
+        volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
+        secrets=[wandb_secret],
+        timeout=24 * 60 * 60,
+        name=f"train_cpu_{cpu_cores}",
+    )(_run_training_remote)

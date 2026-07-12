@@ -33,7 +33,7 @@ def test_read_best_runs_and_extrapolate() -> None:
     assert 0.29 < laws.policy_top1.predict(1e18) < 0.31
     assert suggestion.d_model % 64 == 0
     assert suggestion.depth >= 5
-    assert suggestion.batch_size == 24576
+    assert suggestion.batch_size == 131072
     assert suggestion.lr == pytest.approx(0.0003)
     assert suggestion.actual_params > best_runs[-1].params
 
@@ -44,6 +44,7 @@ def test_parameter_count_formulas_match_current_baselines() -> None:
 
 def test_rounding_ladders() -> None:
     assert round_to_batch_ladder(1400) == 1536
+    assert round_to_batch_ladder(154_454) == 131_072
     assert round_to_lr_ladder(0.00019) == 0.0002
 
 

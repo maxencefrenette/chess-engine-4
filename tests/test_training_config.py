@@ -18,6 +18,7 @@ compute_budget = 1e12
 step_penalty_k = 1.1
 
 [infra]
+cpu_cores = 12
 dataloader_threads = 4
 dataloader_prefetch_per_thread = 3
 
@@ -45,6 +46,7 @@ moves_left = 0.5
     assert config.run.name == "audit"
     assert config.run.compute_budget == 1e12
     assert config.run.step_penalty_k == 1.1
+    assert config.infra.cpu_cores == 12
     assert config.infra.dataloader_threads == 4
     assert config.infra.dataloader_prefetch_per_thread == 3
     assert config.data.batch_size == 8
