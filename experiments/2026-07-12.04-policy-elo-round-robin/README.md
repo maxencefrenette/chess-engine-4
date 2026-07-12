@@ -50,6 +50,11 @@ inside the fitted confidence intervals.
 
 ![Policy Elo by estimated forward-pass FLOPs](elo-vs-forward-flops.svg)
 
+The same chart with dense models named by actual training FLOPs instead of
+step-adjusted compute budget:
+
+![Policy Elo with dense models named by actual training FLOPs](elo-vs-forward-flops-training-flops-labels.svg)
+
 | Engine | Estimated FLOPs / forward pass |
 | --- | ---: |
 | dense-1e20 | 15.2M |
