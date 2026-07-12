@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,7 @@ REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
 OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.epd"
+POLICY_OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.pgn"
 OPENING_BOOK_SEED = 1
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
@@ -187,6 +190,46 @@ def eval_modal() -> None:
     print(f"log_path={result['log_path']}")
 
 
+def eval_selfplay_modal() -> None:
+    parser = argparse.ArgumentParser(description="Run a batched lc0 self-play match on Modal.")
+    parser.add_argument("player1_weights")
+    parser.add_argument("player2_weights")
+    parser.add_argument("--name", required=True)
+    parser.add_argument("--games", type=int, default=256)
+    parser.add_argument("--policy-mode-size", type=int, default=256)
+    parser.add_argument("--visits", type=int, default=None)
+    parser.add_argument("--parallelism", type=int, default=32)
+    parser.add_argument("--gpu", choices=("T4", "L4", "B200"), default="T4")
+    parser.add_argument("--player1-backend", default="onnx-trt")
+    parser.add_argument("--player2-backend", default="cuda")
+    parser.add_argument("--lc0-path", default=str(DEFAULT_LC0_REMOTE_PATH))
+    args = parser.parse_args()
+    if args.games <= 0 or args.games % 2:
+        parser.error("--games must be a positive even number.")
+    payload = {
+        "run_name": args.name,
+        "games": args.games,
+        "policy_mode_size": args.policy_mode_size,
+        "visits": args.visits,
+        "parallelism": args.parallelism,
+        "gpu": args.gpu,
+        "player1": {
+            "weights": args.player1_weights,
+            "backend": args.player1_backend,
+        },
+        "player2": {
+            "weights": args.player2_weights,
+            "backend": args.player2_backend,
+        },
+        "lc0_path": args.lc0_path,
+    }
+    eval_function = selfplay_eval_function(args.gpu)
+    with app.run():
+        result = eval_function.remote(payload)
+    summary = {key: value for key, value in result.items() if key != "lc0_output"}
+    print(json.dumps(summary, indent=2))
+
+
 def _upload_candidate(local_path: Path, remote_path: Path) -> None:
     subprocess.run(
         [
@@ -248,6 +291,91 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, str]:
         )
     artifact_volume.commit()
     return {"stdout": completed.stdout, "pgn_path": str(pgn_path), "log_path": str(log_path)}
+
+
+def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
+    _require_lc0(payload)
+    if not POLICY_OPENING_BOOK_PATH.exists():
+        raise FileNotFoundError(f"Missing policy opening book: {POLICY_OPENING_BOOK_PATH}")
+    for player in (payload["player1"], payload["player2"]):
+        if not Path(player["weights"]).exists():
+            raise FileNotFoundError(player["weights"])
+    run_dir = REMOTE_EVAL_PATH / str(payload["run_name"])
+    run_dir.mkdir(parents=True, exist_ok=True)
+    results_path = run_dir / "selfplay-results.pgn"
+    results_path.unlink(missing_ok=True)
+    command = _selfplay_command(payload, results_path)
+    started_at = time.monotonic()
+    completed = subprocess.run(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env={**os.environ, "LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH},
+    )
+    runtime_sec = time.monotonic() - started_at
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "lc0 selfplay failed with exit code "
+            f"{completed.returncode}\ncommand={' '.join(command)}\n{completed.stdout}"
+        )
+    if not results_path.exists():
+        raise RuntimeError(
+            "lc0 selfplay completed without writing tournament results.\n"
+            f"command={' '.join(command)}\n{completed.stdout}"
+        )
+    result = {
+        "gpu": payload["gpu"],
+        "games": payload["games"],
+        "runtime_sec": runtime_sec,
+        "games_per_sec": payload["games"] / runtime_sec,
+        "results_path": str(results_path),
+        "results": results_path.read_text(),
+        "lc0_output": completed.stdout,
+    }
+    (run_dir / "results.json").write_text(json.dumps(result, indent=2) + "\n")
+    artifact_volume.commit()
+    return result
+
+
+def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
+    command = [
+        payload["lc0_path"],
+        "selfplay",
+        f"--games={payload['games']}",
+        f"--openings-pgn={POLICY_OPENING_BOOK_PATH}",
+        "--mirror-openings",
+        "--openings-mode=sequential",
+        f"--tournament-results-file={results_path}",
+        f"--player1.weights={payload['player1']['weights']}",
+        f"--player2.weights={payload['player2']['weights']}",
+    ]
+    if payload["visits"] is None:
+        command.extend(
+            [
+                "--parallelism=1",
+                f"--policy-mode-size={payload['policy_mode_size']}",
+                f"--player1.backend={payload['player1']['backend']}",
+                f"--player2.backend={payload['player2']['backend']}",
+            ]
+        )
+    else:
+        command.extend(
+            [
+                f"--parallelism={payload['parallelism']}",
+                f"--visits={payload['visits']}",
+                "--no-share-trees",
+                "--temperature=0.0",
+                "--noise-epsilon=0.0",
+                "--player1.backend=multiplexing",
+                "--player1.backend-opts=child(backend="
+                f"{payload['player1']['backend']},max_batch=256,threads=1)",
+                "--player2.backend=multiplexing",
+                "--player2.backend-opts=child(backend="
+                f"{payload['player2']['backend']},max_batch=256,threads=1)",
+            ]
+        )
+    return command
 
 
 def _require_lc0(payload: dict[str, Any]) -> None:
@@ -357,3 +485,13 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
 )
 def _eval(payload: dict[str, Any]) -> dict[str, str]:
     return _run_eval_remote(payload)
+
+
+def selfplay_eval_function(gpu: str) -> modal.Function:
+    return app.function(
+        image=image,
+        gpu=gpu,
+        volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+        timeout=24 * 60 * 60,
+        name=f"selfplay_eval_{gpu.lower()}",
+    )(_run_selfplay_eval_remote)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from chess_engine_4.modal_eval import OPENING_BOOK_PATH, _fastchess_command
+from chess_engine_4.modal_eval import OPENING_BOOK_PATH, _fastchess_command, _selfplay_command
 
 
 def test_fastchess_command_uses_fixed_paired_openings() -> None:
@@ -33,3 +33,25 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
         "format=epd",
         "order=random",
     ]
+
+
+def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
+    payload = {
+        "lc0_path": "/artifacts/bin/lc0",
+        "games": 64,
+        "policy_mode_size": 64,
+        "visits": 16,
+        "parallelism": 32,
+        "player1": {"weights": "/dense.pb.gz", "backend": "onnx-trt"},
+        "player2": {"weights": "/t74.pb.gz", "backend": "cuda"},
+    }
+
+    command = _selfplay_command(payload, Path("/results.pgn"))
+
+    assert "--visits=16" in command
+    assert "--parallelism=32" in command
+    assert "--no-share-trees" in command
+    assert "--temperature=0.0" in command
+    assert "--noise-epsilon=0.0" in command
+    assert "--player1.backend-opts=child(backend=onnx-trt,max_batch=256,threads=1)" in command
+    assert "--player2.backend-opts=child(backend=cuda,max_batch=256,threads=1)" in command
