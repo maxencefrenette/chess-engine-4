@@ -1,0 +1,337 @@
+{
+  "tournament": {
+    "name": "policy-elo",
+    "gpu": "L4",
+    "games_per_matchup": 64,
+    "max_concurrency": 8,
+    "policy_mode_size": 32,
+    "parallelism": 1,
+    "visits": null
+  },
+  "lc0_commit": "d8ce48258c39d331c119f8c8729374ceb3df8409",
+  "opening_book": "/artifacts/books/noob_2moves.pgn",
+  "engines": [
+    {
+      "name": "dense-1e20",
+      "weights": "/artifacts/leela/dense-policy-elo-1e20.pb.gz",
+      "backend": "onnx-trt",
+      "compute_budget": 1e+20
+    },
+    {
+      "name": "dense-1e21",
+      "weights": "/artifacts/leela/dense-policy-elo-1e21.pb.gz",
+      "backend": "onnx-trt",
+      "compute_budget": 1e+21
+    },
+    {
+      "name": "dense-1e22",
+      "weights": "/artifacts/leela/dense-policy-elo-1e22.pb.gz",
+      "backend": "onnx-trt",
+      "compute_budget": 1e+22
+    },
+    {
+      "name": "dense-1e23",
+      "weights": "/artifacts/leela/dense-policy-elo-1e23.pb.gz",
+      "backend": "onnx-trt",
+      "compute_budget": 1e+23
+    },
+    {
+      "name": "BT4-1740",
+      "weights": "/artifacts/leela/BT4-1740.pb.gz",
+      "backend": "cuda",
+      "compute_budget": null
+    },
+    {
+      "name": "T1-256x10",
+      "weights": "/artifacts/leela/t1-256x10-distilled-swa-2432500.pb.gz",
+      "backend": "cuda",
+      "compute_budget": null
+    },
+    {
+      "name": "T3-512x15",
+      "weights": "/artifacts/leela/t3-512x15x16h-distill-swa-2767500.pb.gz",
+      "backend": "cuda",
+      "compute_budget": null
+    },
+    {
+      "name": "T74-744706",
+      "weights": "/artifacts/leela/t74-744706.pb.gz",
+      "backend": "cuda",
+      "compute_budget": null
+    }
+  ],
+  "matches": [
+    {
+      "player1": "dense-1e20",
+      "player2": "dense-1e21",
+      "player1_wins": 4,
+      "player2_wins": 24,
+      "draws": 36,
+      "runtime_sec": 11.9750559
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "dense-1e22",
+      "player1_wins": 3,
+      "player2_wins": 42,
+      "draws": 19,
+      "runtime_sec": 12.507539114999998
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "dense-1e23",
+      "player1_wins": 1,
+      "player2_wins": 53,
+      "draws": 10,
+      "runtime_sec": 30.496850795
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 64,
+      "draws": 0,
+      "runtime_sec": 15.179841548000002
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "T1-256x10",
+      "player1_wins": 0,
+      "player2_wins": 64,
+      "draws": 0,
+      "runtime_sec": 11.903839354999999
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "T3-512x15",
+      "player1_wins": 0,
+      "player2_wins": 63,
+      "draws": 1,
+      "runtime_sec": 14.125051430000001
+    },
+    {
+      "player1": "dense-1e20",
+      "player2": "T74-744706",
+      "player1_wins": 0,
+      "player2_wins": 61,
+      "draws": 3,
+      "runtime_sec": 7.764718821000002
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "dense-1e22",
+      "player1_wins": 3,
+      "player2_wins": 31,
+      "draws": 30,
+      "runtime_sec": 15.597985837000001
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "dense-1e23",
+      "player1_wins": 1,
+      "player2_wins": 46,
+      "draws": 17,
+      "runtime_sec": 32.282058815
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 63,
+      "draws": 1,
+      "runtime_sec": 20.644261654
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "T1-256x10",
+      "player1_wins": 0,
+      "player2_wins": 62,
+      "draws": 2,
+      "runtime_sec": 11.098379664999996
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "T3-512x15",
+      "player1_wins": 0,
+      "player2_wins": 64,
+      "draws": 0,
+      "runtime_sec": 17.748230838
+    },
+    {
+      "player1": "dense-1e21",
+      "player2": "T74-744706",
+      "player1_wins": 0,
+      "player2_wins": 55,
+      "draws": 9,
+      "runtime_sec": 9.410023428999999
+    },
+    {
+      "player1": "dense-1e22",
+      "player2": "dense-1e23",
+      "player1_wins": 7,
+      "player2_wins": 24,
+      "draws": 33,
+      "runtime_sec": 19.612812225000003
+    },
+    {
+      "player1": "dense-1e22",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 63,
+      "draws": 1,
+      "runtime_sec": 21.28995695
+    },
+    {
+      "player1": "dense-1e22",
+      "player2": "T1-256x10",
+      "player1_wins": 0,
+      "player2_wins": 62,
+      "draws": 2,
+      "runtime_sec": 13.855555877
+    },
+    {
+      "player1": "dense-1e22",
+      "player2": "T3-512x15",
+      "player1_wins": 0,
+      "player2_wins": 64,
+      "draws": 0,
+      "runtime_sec": 18.160854331000003
+    },
+    {
+      "player1": "dense-1e22",
+      "player2": "T74-744706",
+      "player1_wins": 4,
+      "player2_wins": 42,
+      "draws": 18,
+      "runtime_sec": 12.467222585000002
+    },
+    {
+      "player1": "dense-1e23",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 57,
+      "draws": 7,
+      "runtime_sec": 37.28561371
+    },
+    {
+      "player1": "dense-1e23",
+      "player2": "T1-256x10",
+      "player1_wins": 0,
+      "player2_wins": 48,
+      "draws": 16,
+      "runtime_sec": 25.622996616000002
+    },
+    {
+      "player1": "dense-1e23",
+      "player2": "T3-512x15",
+      "player1_wins": 0,
+      "player2_wins": 57,
+      "draws": 7,
+      "runtime_sec": 30.070688941999997
+    },
+    {
+      "player1": "dense-1e23",
+      "player2": "T74-744706",
+      "player1_wins": 9,
+      "player2_wins": 37,
+      "draws": 18,
+      "runtime_sec": 16.796692696999997
+    },
+    {
+      "player1": "BT4-1740",
+      "player2": "T1-256x10",
+      "player1_wins": 48,
+      "player2_wins": 3,
+      "draws": 13,
+      "runtime_sec": 18.935400711
+    },
+    {
+      "player1": "BT4-1740",
+      "player2": "T3-512x15",
+      "player1_wins": 29,
+      "player2_wins": 8,
+      "draws": 27,
+      "runtime_sec": 22.62945697
+    },
+    {
+      "player1": "BT4-1740",
+      "player2": "T74-744706",
+      "player1_wins": 62,
+      "player2_wins": 0,
+      "draws": 2,
+      "runtime_sec": 12.349045218999997
+    },
+    {
+      "player1": "T1-256x10",
+      "player2": "T3-512x15",
+      "player1_wins": 15,
+      "player2_wins": 29,
+      "draws": 20,
+      "runtime_sec": 12.595836677000008
+    },
+    {
+      "player1": "T1-256x10",
+      "player2": "T74-744706",
+      "player1_wins": 55,
+      "player2_wins": 1,
+      "draws": 8,
+      "runtime_sec": 5.044936725999996
+    },
+    {
+      "player1": "T3-512x15",
+      "player2": "T74-744706",
+      "player1_wins": 63,
+      "player2_wins": 0,
+      "draws": 1,
+      "runtime_sec": 8.698278623
+    }
+  ],
+  "ratings": [
+    {
+      "name": "BT4-1740",
+      "elo": 590.3056117561638,
+      "elo_95ci": 69.51728307352629
+    },
+    {
+      "name": "T3-512x15",
+      "elo": 461.37927217611787,
+      "elo_95ci": 61.887416459742134
+    },
+    {
+      "name": "T1-256x10",
+      "elo": 340.70598588954124,
+      "elo_95ci": 56.58191054054541
+    },
+    {
+      "name": "T74-744706",
+      "elo": -20.689394971409257,
+      "elo_95ci": 47.03293005755725
+    },
+    {
+      "name": "dense-1e23",
+      "elo": -130.85769345788947,
+      "elo_95ci": 47.1555040155487
+    },
+    {
+      "name": "dense-1e22",
+      "elo": -265.82230540420244,
+      "elo_95ci": 48.98951152959154
+    },
+    {
+      "name": "dense-1e21",
+      "elo": -433.655959971691,
+      "elo_95ci": 54.78058606115811
+    },
+    {
+      "name": "dense-1e20",
+      "elo": -541.3655160166306,
+      "elo_95ci": 61.33547193092202
+    }
+  ],
+  "compute_scaling_law": {
+    "elo_per_decade": 139.93571222437149,
+    "intercept": -3351.543181536592
+  },
+  "total_games": 1792,
+  "total_gpu_runtime_sec": 486.149186061
+}

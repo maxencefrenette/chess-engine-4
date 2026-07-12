@@ -1,0 +1,50 @@
+[tournament]
+name = "policy-elo"
+gpu = "L4"
+games_per_matchup = 64
+max_concurrency = 8
+policy_mode_size = 32
+
+[[engines]]
+name = "dense-1e20"
+weights = "/artifacts/leela/dense-policy-elo-1e20.pb.gz"
+backend = "onnx-trt"
+compute_budget = 1e20
+
+[[engines]]
+name = "dense-1e21"
+weights = "/artifacts/leela/dense-policy-elo-1e21.pb.gz"
+backend = "onnx-trt"
+compute_budget = 1e21
+
+[[engines]]
+name = "dense-1e22"
+weights = "/artifacts/leela/dense-policy-elo-1e22.pb.gz"
+backend = "onnx-trt"
+compute_budget = 1e22
+
+[[engines]]
+name = "dense-1e23"
+weights = "/artifacts/leela/dense-policy-elo-1e23.pb.gz"
+backend = "onnx-trt"
+compute_budget = 1e23
+
+[[engines]]
+name = "BT4-1740"
+weights = "/artifacts/leela/BT4-1740.pb.gz"
+backend = "cuda"
+
+[[engines]]
+name = "T1-256x10"
+weights = "/artifacts/leela/t1-256x10-distilled-swa-2432500.pb.gz"
+backend = "cuda"
+
+[[engines]]
+name = "T3-512x15"
+weights = "/artifacts/leela/t3-512x15x16h-distill-swa-2767500.pb.gz"
+backend = "cuda"
+
+[[engines]]
+name = "T74-744706"
+weights = "/artifacts/leela/t74-744706.pb.gz"
+backend = "cuda"

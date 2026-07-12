@@ -1,0 +1,10 @@
+[
+  {"name": "dense-1e20", "forward_flops": 15206400, "elo": -541.3655, "elo_95ci": 61.3355, "family": "dense"},
+  {"name": "dense-1e21", "forward_flops": 50319360, "elo": -433.6560, "elo_95ci": 54.7806, "family": "dense"},
+  {"name": "dense-1e22", "forward_flops": 131948544, "elo": -265.8223, "elo_95ci": 48.9895, "family": "dense"},
+  {"name": "dense-1e23", "forward_flops": 442871808, "elo": -130.8577, "elo_95ci": 47.1555, "family": "dense"},
+  {"name": "T74-744706", "forward_flops": 405798912, "elo": -20.6894, "elo_95ci": 47.0329, "family": "lc0"},
+  {"name": "T1-256x10", "forward_flops": 1052246016, "elo": 340.7060, "elo_95ci": 56.5819, "family": "lc0"},
+  {"name": "T3-512x15", "forward_flops": 4159700992, "elo": 461.3793, "elo_95ci": 61.8874, "family": "lc0"},
+  {"name": "BT4-1740", "forward_flops": 14359199744, "elo": 590.3056, "elo_95ci": 69.5173, "family": "lc0"}
+]

@@ -26,7 +26,7 @@ BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
 ORT_VERSION = "1.23.2"
-LC0_VERSION = "0.32.1"
+LC0_COMMIT = "d8ce48258c39d331c119f8c8729374ceb3df8409"
 FASTCHESS_VERSION = "1.8.0-alpha"
 FASTCHESS_URL = (
     f"https://github.com/Disservin/fastchess/releases/download/v{FASTCHESS_VERSION}/"
@@ -97,8 +97,10 @@ lc0_builder_image = (
         f"curl -L https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/"
         f"onnxruntime-linux-x64-gpu-{ORT_VERSION}.tgz | tar -xz -C /opt",
         f"mv /opt/onnxruntime-linux-x64-gpu-{ORT_VERSION} /opt/onnxruntime",
-        f"git clone --depth 1 --branch v{LC0_VERSION} --recurse-submodules "
+        "git clone --filter=blob:none --no-checkout "
         "https://github.com/LeelaChessZero/lc0.git /opt/lc0",
+        f"cd /opt/lc0 && git checkout {LC0_COMMIT} && "
+        "git submodule update --init --recursive --depth 1",
         "cd /opt/lc0 && ./build.sh release -Dgtest=false -Donnx=true "
         "-Donnx_libdir=/opt/onnxruntime/lib -Donnx_include=/opt/onnxruntime/include "
         "-Dnative_arch=false -Dnative_cuda=false -Ddefault_backend=cuda",
@@ -487,11 +489,16 @@ def _eval(payload: dict[str, Any]) -> dict[str, str]:
     return _run_eval_remote(payload)
 
 
-def selfplay_eval_function(gpu: str) -> modal.Function:
+def selfplay_eval_function(gpu: str, *, max_containers: int | None = None) -> modal.Function:
+    options: dict[str, Any] = {
+        "image": image,
+        "gpu": gpu,
+        "volumes": {REMOTE_ARTIFACT_PATH: artifact_volume},
+        "timeout": 24 * 60 * 60,
+        "name": f"selfplay_eval_{gpu.lower()}",
+    }
+    if max_containers is not None:
+        options["max_containers"] = max_containers
     return app.function(
-        image=image,
-        gpu=gpu,
-        volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-        timeout=24 * 60 * 60,
-        name=f"selfplay_eval_{gpu.lower()}",
+        **options,
     )(_run_selfplay_eval_remote)
