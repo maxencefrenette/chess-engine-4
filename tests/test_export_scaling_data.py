@@ -13,7 +13,7 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
 
     dense = payload["families"]["dense"]
     assert set(payload["families"]) == {"dense"}
-    assert [point["budget"] for point in dense["extrapolated"]] == ["1e23", "1e24"]
+    assert [point["budget"] for point in dense["extrapolated"]] == ["1e24", "1e25"]
 
     assert len(dense["curves"]["samplesPerParam"]) == 61
     assert len(dense["curves"]["lr"]) == 61

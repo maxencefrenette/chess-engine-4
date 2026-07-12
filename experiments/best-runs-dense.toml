@@ -137,3 +137,23 @@ loss_std = 0.02537846067819049
 loss_upper_1sd = 2.859702735486475
 policy_top1 = 0.5107734414355058
 runtime_sec = 801.137830072
+
+[runs.1e23]
+source_experiment = "experiments/2026-07-12.02-dense-1e23-hero"
+model_kind = "dense"
+run_name = "dense-1e23-hero"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/zi6v0iq8"
+compute = 1.0000573729640408e23
+d_model = 1472
+depth = 8
+batch_size = 131072
+lr = 3e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 221452576
+samples_seen = 3135111168
+loss = 2.7149770518085585
+loss_std = 0.035100738817278904
+loss_upper_1sd = 2.7500777906258373
+policy_top1 = 0.5495166871982974
+runtime_sec = 3568.242464666
