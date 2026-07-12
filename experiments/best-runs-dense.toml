@@ -39,24 +39,24 @@ policy_top1 = 0.3303107126251819
 runtime_sec = 25.901074174
 
 [runs.1e19]
-source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
+source_experiment = "experiments/2026-07-12.01-dense-1e19-1e20-retune"
 model_kind = "dense"
-run_name = "dense-bw-shape-19-d160x4"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/aunrxaba"
-compute = 1.000065422163447e19
-d_model = 160
+run_name = "dense-retune2-19-tune-d128x4-b8192-lr110"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/903a3xgb"
+compute = 1.0000321217215594e19
+d_model = 128
 depth = 4
-batch_size = 4096
-lr = 5e-4
+batch_size = 8192
+lr = 1.1e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
-params = 2690912
-samples_seen = 49586176
-loss = 3.3893632637829136
-loss_std = 0.07465967884471117
-loss_upper_1sd = 3.464022942627625
-policy_top1 = 0.35154238809440863
-runtime_sec = 45.614239049
+params = 1956512
+samples_seen = 82116608
+loss = 3.3628703556892177
+loss_std = 0.06317285836528043
+loss_upper_1sd = 3.426043214054498
+policy_top1 = 0.35776106919487943
+runtime_sec = 53.789453396
 
 [runs.3e19]
 source_experiment = "experiments/2026-07-11.07-dense-intermediate-budgets"
@@ -79,24 +79,24 @@ policy_top1 = 0.3820001652711371
 runtime_sec = 272.155486923
 
 [runs.1e20]
-source_experiment = "experiments/2026-07-10.01-dense-blackwell-scaling"
+source_experiment = "experiments/2026-07-12.01-dense-1e19-1e20-retune"
 model_kind = "dense"
-run_name = "dense-bw-shape-20-d320x4"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/rd27qx3g"
-compute = 1.000102677851681e20
-d_model = 320
-depth = 4
-batch_size = 8192
-lr = 4e-4
+run_name = "dense-retune2-20-final-d288x5-b16384-lr75"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/oisz5ib0"
+compute = 1.0001695541985018e20
+d_model = 288
+depth = 5
+batch_size = 16384
+lr = 7.5e-4
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
-params = 7837472
-samples_seen = 130564096
-loss = 3.1949670613329255
-loss_std = 0.048014424081674126
-loss_upper_1sd = 3.2429814854145995
-policy_top1 = 0.4073527127308262
-runtime_sec = 86.02108341
+params = 7607168
+samples_seen = 187564032
+loss = 3.1441448886228653
+loss_std = 0.04314087788514127
+loss_upper_1sd = 3.1872857665080065
+policy_top1 = 0.4184628195052521
+runtime_sec = 114.385152418
 
 [runs.1e21]
 source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"

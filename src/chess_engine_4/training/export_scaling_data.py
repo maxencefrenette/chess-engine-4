@@ -76,6 +76,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
             "dModel": result.d_model,
             "depth": result.depth,
             "batchSize": result.batch_size,
+            "steps": result.samples_seen / result.batch_size,
             "lr": result.lr,
             "params": result.params,
             "samplesSeen": result.samples_seen,
@@ -121,6 +122,12 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
             lambda compute: laws.samples.predict(compute) / laws.params.predict(compute),
         ),
         "lr": curve(curve_computes, physical_flops_law, laws.lr.predict),
+        "steps": curve(
+            curve_computes,
+            physical_flops_law,
+            lambda compute: laws.samples.predict(compute) / laws.batch_size.predict(compute),
+        ),
+        "batchSize": curve(curve_computes, physical_flops_law, laws.batch_size.predict),
     }
     return {
         "id": family_id,
@@ -151,6 +158,8 @@ def extrapolated_point(
         "loss": laws.loss.predict(compute),
         "policyTop1": policy_law.predict(compute),
         "lr": laws.lr.predict(compute),
+        "steps": samples / laws.batch_size.predict(compute),
+        "batchSize": laws.batch_size.predict(compute),
     }
 
 

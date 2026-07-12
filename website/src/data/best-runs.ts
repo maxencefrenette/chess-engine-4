@@ -14,6 +14,7 @@ export type BestRun = {
   dModel: number;
   depth: number;
   batchSize: number;
+  steps: number;
   lr: number;
   params: number;
   samplesSeen: number;
@@ -33,6 +34,8 @@ export type ExtrapolatedRun = {
   loss: number;
   policyTop1: number;
   lr: number;
+  steps: number;
+  batchSize: number;
 };
 
 export type CurvePoint = {
@@ -54,6 +57,8 @@ export type ScalingFamily = {
     samples: CurvePoint[];
     samplesPerParam: CurvePoint[];
     lr: CurvePoint[];
+    steps: CurvePoint[];
+    batchSize: CurvePoint[];
   };
 };
 

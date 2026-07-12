@@ -11,7 +11,9 @@ type MetricKey =
   | "params"
   | "samplesSeen"
   | "samplesPerParam"
-  | "lr";
+  | "lr"
+  | "steps"
+  | "batchSize";
 
 export function FamilyDashboard({ family }: { family: ScalingFamily }) {
   const [xAxisMode, setXAxisMode] = useState<XAxisMode>("compute");
@@ -100,6 +102,28 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           curve={curvePoints(family.curves.lr, xValue)}
           stroke="#dc2626"
           valueFormat="scientific"
+          xLabel={xLabel}
+          yScale="log"
+        />
+        <ChartCard
+          title="Steps"
+          yLabel="Optimization steps"
+          observed={metricPoints(family, "steps", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "steps", xValue)}
+          curve={curvePoints(family.curves.steps, xValue)}
+          stroke="#ca8a04"
+          valueFormat="compact"
+          xLabel={xLabel}
+          yScale="log"
+        />
+        <ChartCard
+          title="Batch size"
+          yLabel="Batch size"
+          observed={metricPoints(family, "batchSize", xValue)}
+          extrapolated={extrapolatedPoints(family.extrapolated, "batchSize", xValue)}
+          curve={curvePoints(family.curves.batchSize, xValue)}
+          stroke="#db2777"
+          valueFormat="compact"
           xLabel={xLabel}
           yScale="log"
         />
