@@ -67,10 +67,11 @@ To profile the Modal training loop:
 uv run profile-training --config configs/dense/1e18.toml
 ```
 
-To save Modal checkpoints into the `chess-engine-4-artifacts` Volume:
+Modal training always writes checkpoints to the `chess-engine-4-artifacts`
+Volume every 50,000 steps and at the end of the run:
 
 ```sh
-uv run train-modal --config configs/dense/1e18.toml --save-checkpoints
+uv run train-modal --config configs/dense/1e18.toml
 ```
 
 To export a saved Modal checkpoint with Transformer Engine and package it as an

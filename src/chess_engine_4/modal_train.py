@@ -18,6 +18,7 @@ REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 REMOTE_CONFIG_PATH = Path("configs/dense/1e18.toml")
+CHECKPOINT_EVERY_STEPS = 50_000
 
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
@@ -84,9 +85,6 @@ def train_modal() -> None:
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
-    parser.add_argument("--save-checkpoints", action="store_true")
-    parser.add_argument("--checkpoint-dir", type=Path, default=REMOTE_CHECKPOINT_PATH)
-    parser.add_argument("--checkpoint-every", type=int, default=None)
     args = parser.parse_args()
 
     payload = {
@@ -108,8 +106,8 @@ def train_modal() -> None:
         "wandb_entity": os.environ.get("WANDB_ENTITY"),
         "wandb_mode": os.environ.get("WANDB_MODE"),
         "wandb_name": args.wandb_name,
-        "checkpoint_dir": str(args.checkpoint_dir) if args.save_checkpoints else None,
-        "checkpoint_every": args.checkpoint_every,
+        "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
+        "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
 
     with app.run():
@@ -166,11 +164,10 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
                 Path(payload["checkpoint_dir"]) if payload.get("checkpoint_dir") else None
             ),
             checkpoint_every=payload.get("checkpoint_every"),
+            checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
         )
     )
-    if result["checkpoint_path"]:
-        artifact_volume.commit()
     return result
 
 

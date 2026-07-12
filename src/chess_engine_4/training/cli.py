@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import asdict, dataclass
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,7 @@ class TrainOptions:
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
     checkpoint_every: int | None = None
+    checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
 
 
@@ -289,6 +291,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     final=step == steps,
                 )
             )
+            if options.checkpoint_commit is not None:
+                options.checkpoint_commit()
     if options.checkpoint_dir is not None and completed_steps > 0 and not final_checkpoint_saved:
         checkpoint_paths.append(
             _save_checkpoint(
@@ -304,6 +308,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 final=True,
             )
         )
+        if options.checkpoint_commit is not None:
+            options.checkpoint_commit()
     if wandb_run is not None:
         wandb_run.finish()
     result: dict[str, Any] = {
