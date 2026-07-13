@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from chess_engine_4.training.scaling_laws import (
     extrapolate,
     fit_scaling_laws,
+    fit_sigmoid_law,
     format_report,
     parameter_count,
     read_best_runs,
@@ -42,6 +44,17 @@ def test_read_best_runs_and_extrapolate() -> None:
 
 def test_parameter_count_formulas_match_current_baselines() -> None:
     assert parameter_count(d_model=32, depth=1) == 306176
+
+
+def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:
+    law = fit_sigmoid_law(
+        (10.0**exponent, 0.7 / (1.0 + math.exp(-0.5 * (exponent - 15))))
+        for exponent in range(12, 19)
+    )
+
+    assert law.ceiling == pytest.approx(0.7)
+    assert law.predict(1e30) <= law.ceiling
+    assert law.rmse < 1e-8
 
 
 def test_rounding_ladders() -> None:

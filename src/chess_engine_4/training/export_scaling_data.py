@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from chess_engine_4.training.scaling_laws import (
-    fit_linear_law,
     fit_loss_power_law,
     fit_power_law,
+    fit_sigmoid_law,
     read_best_runs,
 )
 
@@ -55,7 +55,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
 
     result_flops = {result.budget: physical_flops(result) for result in results}
     loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
-    policy_law = fit_linear_law((result_flops[r.budget], r.policy_top1) for r in results)
+    policy_law = fit_sigmoid_law((result_flops[r.budget], r.policy_top1) for r in results)
     params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
     samples_law = fit_power_law((result_flops[r.budget], r.samples_seen) for r in results)
     batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)

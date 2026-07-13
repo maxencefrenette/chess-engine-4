@@ -9,6 +9,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+from scipy.optimize import curve_fit
+from scipy.special import expit
+
 from chess_engine_4.model import dense_parameter_count
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
@@ -58,6 +62,24 @@ class LinearLaw:
 
 
 @dataclass(frozen=True, slots=True)
+class SigmoidLaw:
+    ceiling: float
+    slope: float
+    midpoint: float
+    rmse: float
+
+    def predict(self, x: float) -> float:
+        exponent = -self.slope * (math.log10(x) - self.midpoint)
+        return self.ceiling / (1.0 + math.exp(exponent))
+
+    def format(self, variable: str, input_variable: str = "log10(C)") -> str:
+        return (
+            f"{variable} = {self.ceiling:.4g} / "
+            f"(1 + exp(-{self.slope:.4g} * ({input_variable} - {self.midpoint:.4g})))"
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class LossPowerLaw:
     floor: float
     coefficient: float
@@ -80,7 +102,7 @@ class LossPowerLaw:
 class ScalingLaws:
     model_kind: str
     loss: LossPowerLaw
-    policy_top1: LinearLaw
+    policy_top1: SigmoidLaw
     d_model: PowerLaw
     depth: PowerLaw
     params: PowerLaw
@@ -170,7 +192,7 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     return ScalingLaws(
         model_kind=model_kind,
         loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
-        policy_top1=fit_linear_law((r.compute, r.policy_top1) for r in best_results),
+        policy_top1=fit_sigmoid_law((r.compute, r.policy_top1) for r in best_results),
         d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
         depth=fit_power_law((r.compute, r.depth) for r in best_results),
         params=fit_power_law((r.compute, r.params) for r in best_results),
@@ -235,6 +257,32 @@ def fit_linear_law(points: Iterable[tuple[float, float]]) -> LinearLaw:
     slope = covariance / variance_x
     intercept = mean_y - slope * mean_x
     return LinearLaw(intercept=intercept, slope=slope)
+
+
+def fit_sigmoid_law(points: Iterable[tuple[float, float]]) -> SigmoidLaw:
+    values = [(math.log10(x), y) for x, y in points]
+    if len(values) < 3:
+        raise ValueError("At least three points are required to fit a sigmoid law.")
+    if any(not 0 < y < 1 for _, y in values):
+        raise ValueError("Sigmoid-law values must be between zero and one.")
+
+    x_values = np.array([x for x, _ in values])
+    y_values = np.array([y for _, y in values])
+
+    def sigmoid(x: np.ndarray, ceiling: float, slope: float, midpoint: float) -> np.ndarray:
+        return ceiling * expit(slope * (x - midpoint))
+
+    parameters, _ = curve_fit(
+        sigmoid,
+        x_values,
+        y_values,
+        p0=(0.7, 0.4, 15.0),
+        bounds=((max(y_values) + 1e-6, 0.0, -np.inf), (1.0, np.inf, np.inf)),
+        maxfev=10_000,
+    )
+    ceiling, slope, midpoint = (float(value) for value in parameters)
+    rmse = float(np.sqrt(np.mean(np.square(sigmoid(x_values, *parameters) - y_values))))
+    return SigmoidLaw(ceiling=ceiling, slope=slope, midpoint=midpoint, rmse=rmse)
 
 
 def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
