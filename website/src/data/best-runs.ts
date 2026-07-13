@@ -1,5 +1,4 @@
-import fs from "node:fs";
-import path from "node:path";
+import scalingData from "@/generated/scaling-laws.json";
 
 export type ModelFamilyId = "dense";
 
@@ -67,8 +66,6 @@ type ScalingData = {
   families: Record<ModelFamilyId, ScalingFamily>;
 };
 
-let cachedData: ScalingData | undefined;
-
 export const modelFamilies: ModelFamily[] = Object.values(readScalingData().families).map(
   ({ id, name, description }) => ({ id, name, description }),
 );
@@ -90,8 +87,5 @@ export function latestRun(runs: BestRun[]): BestRun | undefined {
 }
 
 function readScalingData(): ScalingData {
-  if (cachedData) return cachedData;
-  const generatedPath = path.join(process.cwd(), "src/generated/scaling-laws.json");
-  cachedData = JSON.parse(fs.readFileSync(generatedPath, "utf8")) as ScalingData;
-  return cachedData;
+  return scalingData as ScalingData;
 }

@@ -44,7 +44,9 @@ def write_scaling_data(output: Path) -> None:
         },
     }
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary_output = output.with_suffix(f"{output.suffix}.tmp")
+    temporary_output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temporary_output.replace(output)
 
 
 def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
