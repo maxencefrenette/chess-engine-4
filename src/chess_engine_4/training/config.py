@@ -97,6 +97,7 @@ def with_overrides(
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
+    expansion_ratio: float | None = None,
     activation: str | None = None,
     lr: float | None = None,
     max_grad_norm: float | None = None,
@@ -114,6 +115,11 @@ def with_overrides(
         config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
         config = replace(config, model=replace(config.model, depth=depth))
+    if expansion_ratio is not None:
+        config = replace(
+            config,
+            model=replace(config.model, expansion_ratio=expansion_ratio),
+        )
     if activation is not None:
         config = replace(config, model=replace(config.model, activation=activation))
     if lr is not None:

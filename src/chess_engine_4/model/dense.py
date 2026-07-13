@@ -40,6 +40,8 @@ class DenseChessNetConfig:
     rms_norm_eps: float = 1e-6
 
     def __post_init__(self) -> None:
+        if self.expansion_ratio <= 0:
+            raise ValueError("expansion_ratio must be positive")
         if self.activation not in SUPPORTED_ACTIVATIONS:
             choices = ", ".join(sorted(SUPPORTED_ACTIVATIONS))
             raise ValueError(f"unsupported activation {self.activation!r}; choose from {choices}")

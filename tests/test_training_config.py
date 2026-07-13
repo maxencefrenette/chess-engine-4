@@ -80,6 +80,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         batch_size=4,
         d_model=64,
         depth=2,
+        expansion_ratio=2.0,
         activation="silu",
         lr=0.001,
         max_grad_norm=3.0,
@@ -91,6 +92,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.run.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
+    assert overridden.model.expansion_ratio == 2.0
     assert overridden.model.activation == "silu"
     assert overridden.optimizer.lr == 0.001
     assert overridden.optimizer.max_grad_norm == 3.0

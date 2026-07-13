@@ -73,6 +73,7 @@ def train_modal() -> None:
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument("--expansion-ratio", type=float, default=None)
     parser.add_argument(
         "--activation",
         choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
@@ -99,6 +100,7 @@ def train_modal() -> None:
         "steps": args.steps,
         "d_model": args.d_model,
         "depth": args.depth,
+        "expansion_ratio": args.expansion_ratio,
         "activation": args.activation,
         "lr": args.lr,
         "max_grad_norm": args.max_grad_norm,
@@ -156,6 +158,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             steps=payload.get("steps"),
             d_model=payload.get("d_model"),
             depth=payload.get("depth"),
+            expansion_ratio=payload.get("expansion_ratio"),
             activation=payload.get("activation"),
             lr=payload.get("lr"),
             max_grad_norm=payload.get("max_grad_norm"),

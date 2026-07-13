@@ -56,6 +56,7 @@ class TrainOptions:
     steps: int | None = None
     d_model: int | None = None
     depth: int | None = None
+    expansion_ratio: float | None = None
     activation: str | None = None
     lr: float | None = None
     max_grad_norm: float | None = None
@@ -79,6 +80,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
+        expansion_ratio=options.expansion_ratio,
         activation=options.activation,
         lr=options.lr,
         max_grad_norm=options.max_grad_norm,
