@@ -14,6 +14,7 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
     dense = payload["families"]["dense"]
     assert set(payload["families"]) == {"dense"}
     assert [point["name"] for point in dense["observed"]] == [
+        "d32",
         "d64",
         "d96",
         "d128",

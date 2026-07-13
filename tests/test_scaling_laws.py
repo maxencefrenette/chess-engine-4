@@ -18,6 +18,7 @@ from chess_engine_4.training.scaling_laws import (
 def test_read_best_runs_and_extrapolate() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-dense.toml"))
     assert [run.budget for run in best_runs] == [
+        "2e17",
         "1e18",
         "3e18",
         "1e19",

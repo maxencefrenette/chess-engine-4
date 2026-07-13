@@ -1,3 +1,24 @@
+[runs.2e17]
+source_experiment = "experiments/2026-07-12.09-d32-tuning"
+model_kind = "dense"
+run_name = "d32-grid-b2048-lr17"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/l0qiw2dj"
+compute = 2.312070912e17
+d_model = 32
+depth = 2
+activation = "swiglu"
+batch_size = 2048
+lr = 1.7e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 318496
+samples_seen = 15360000
+loss = 3.792635747459343
+loss_std = 0.1581609510303544
+loss_upper_1sd = 3.9507966984896976
+policy_top1 = 0.25437949214427047
+runtime_sec = 20.230301145
+
 [runs.1e18]
 source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"
 model_kind = "dense"
