@@ -29,7 +29,6 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
     assert len(dense["curves"]["lr"]) == 61
     assert len(dense["curves"]["steps"]) == 61
     assert len(dense["curves"]["batchSize"]) == 61
-    assert "lossUpper1sd" not in dense["observed"][0]
     assert all(point["physicalFlops"] > 0 for point in dense["observed"])
     assert all("compute" not in point for point in dense["observed"])
     assert all("compute" not in point for point in dense["curves"]["loss"])

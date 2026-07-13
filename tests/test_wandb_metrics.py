@@ -19,14 +19,11 @@ def test_metrics_from_summary() -> None:
         "https://wandb.ai/entity/project/runs/runid",
         {
             "loss/task[ema=0.99]": 4.2,
-            "loss/task2[ema=0.99]": 17.89,
             "metrics/policy_top1[ema=0.99]": 0.3,
             LOSS_SPIKE_COUNT_KEY: 0,
         },
     )
 
     assert metrics.loss == 4.2
-    assert metrics.loss_std == 0.5
-    assert metrics.loss_upper_1sd == 4.7
     assert metrics.policy_top1 == 0.3
     assert metrics.loss_spike_count == 0

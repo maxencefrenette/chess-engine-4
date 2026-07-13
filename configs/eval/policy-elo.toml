@@ -9,25 +9,25 @@ policy_mode_size = 32
 name = "dense-1e20"
 weights = "/artifacts/leela/dense-policy-elo-1e20.pb.gz"
 backend = "onnx-trt"
-compute_budget = 1e20
+training_flops = 8.73663132598272e15
 
 [[engines]]
 name = "dense-1e21"
 weights = "/artifacts/leela/dense-policy-elo-1e21.pb.gz"
 backend = "onnx-trt"
-compute_budget = 1e21
+training_flops = 7.077744413376512e16
 
 [[engines]]
 name = "dense-1e22"
 weights = "/artifacts/leela/dense-policy-elo-1e22.pb.gz"
 backend = "onnx-trt"
-compute_budget = 1e22
+training_flops = 5.1127285449228275e17
 
 [[engines]]
 name = "dense-1e23"
 weights = "/artifacts/leela/dense-policy-elo-1e23.pb.gz"
 backend = "onnx-trt"
-compute_budget = 1e23
+training_flops = 4.1810166518836106e18
 
 [[engines]]
 name = "BT4-1740"

@@ -128,7 +128,6 @@ def train_modal() -> None:
         f"steps={result['steps']} "
         f"samples_seen={result['samples_seen']} "
         f"flops_seen={result['flops_seen']:.3e} "
-        f"compute_seen={result['compute_seen']:.3e} "
         f"final_loss={result['final_loss']:.4f} "
         f"device={result['device']} "
         f"precision={result['precision']} "

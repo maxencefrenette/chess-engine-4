@@ -31,7 +31,6 @@ larger run that is too expensive to repeat immediately may set `stale = true`
 until it can be replaced. Tooling excludes stale rows from comparisons, fits,
 extrapolation, and website data.
 
-Experiment reports should contain the command, W&B URL, physical-FLOPs efficiency
-multiplier, promotion verdict, and notable observations. Include the
-modified-compute multiplier only for experiments about batch size, step count, or
-score stability.
+Experiment reports should contain the command, W&B URL, `EG_flops`, promotion
+verdict, and notable observations. `EG_flops` is the fitted training FLOPs required
+to reach the observed loss divided by the run's actual training FLOPs.

@@ -56,8 +56,8 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     with path.open("rb") as handle:
         raw_runs = tomllib.load(handle)["runs"]
 
-    result_flops = {result.budget: physical_flops(result) for result in results}
-    stale_flops = {result.budget: physical_flops(result) for result in stale_results}
+    result_flops = {result.budget: result.flops for result in results}
+    stale_flops = {result.budget: result.flops for result in stale_results}
     loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
     policy_law = fit_sigmoid_law((result_flops[r.budget], r.policy_top1) for r in results)
     params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
@@ -175,12 +175,5 @@ def curve(flops_values: list[float], predict: Any) -> list[dict[str, float]]:
         }
         for flops in flops_values
     ]
-
-
-def physical_flops(result: Any) -> float:
-    steps = result.samples_seen / result.batch_size
-    return result.compute / steps
-
-
 if __name__ == "__main__":
     export_scaling_data()

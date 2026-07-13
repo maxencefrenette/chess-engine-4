@@ -18,10 +18,7 @@ from chess_engine_4.data.leela import (
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
-from chess_engine_4.training.flops import (
-    measure_training_flops_per_sample,
-    modified_compute,
-)
+from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.losses import PolicyTarget, lczero_loss
 from chess_engine_4.training.packed_input import (
     PackedPlaneInput,
@@ -36,7 +33,6 @@ _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
-_LOSS_TASK2_EMA_KEY = "loss/task2[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
 _B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
 
@@ -209,11 +205,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         seen += _input_batch_size(planes)
         completed_steps = step
         flops_seen = seen * flops_per_sample
-        compute_seen = modified_compute(
-            flops_per_sample=flops_per_sample,
-            batch_size=config.run.batch_size,
-            steps=step,
-        )
 
         if should_log or should_checkpoint:
             pending_loss_values = torch.stack(pending_losses)
@@ -236,7 +227,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 lr=current_lr,
             )
             metrics["perf/flops_seen"] = flops_seen
-            metrics["perf/compute_seen"] = compute_seen
             metrics["stability/loss_spike_count"] = loss_spike_detector.count
             metrics["perf/step_time_sec"] = interval_elapsed / interval_steps
             metrics["perf/samples_per_sec_interval"] = interval_samples / interval_elapsed
@@ -260,7 +250,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     f"mlh={metrics['loss/task/moves_left']:.4f} "
                     f"grad_norm={grad_norm:.2f} "
                     f"flops_seen={flops_seen:.3e} "
-                    f"compute_seen={compute_seen:.3e} "
                     f"samples_per_sec={metrics['perf/samples_per_sec_interval']:.1f}"
                     f"{mfu_text}"
                 )
@@ -312,7 +301,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss", 0.0)),
         "flops_seen": int(last_metrics.get("perf/flops_seen", 0)),
-        "compute_seen": float(last_metrics.get("perf/compute_seen", 0.0)),
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.precision.recipe,
@@ -703,7 +691,6 @@ def _update_ema_metrics(
 ) -> None:
     loss_task = float(metrics["loss/task"])
     _update_ema_metric(metrics, ema_metrics, _LOSS_TASK_EMA_KEY, loss_task)
-    _update_ema_metric(metrics, ema_metrics, _LOSS_TASK2_EMA_KEY, loss_task * loss_task)
     _update_ema_metric(
         metrics,
         ema_metrics,

@@ -25,9 +25,9 @@ def test_read_best_runs_and_extrapolate() -> None:
     ]
 
     laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e24)
+    suggestion = extrapolate(laws, 1e18)
 
-    assert 0.29 < laws.policy_top1.predict(1e18) < 0.31
+    assert 0.28 < laws.policy_top1.predict(1e14) < 0.30
     assert suggestion.d_model % 32 == 0
     assert suggestion.depth >= 5
     assert suggestion.batch_size > best_runs[-1].batch_size

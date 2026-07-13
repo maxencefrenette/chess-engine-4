@@ -35,7 +35,7 @@ class Engine:
     name: str
     weights: str
     backend: str
-    compute_budget: float | None = None
+    training_flops: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,7 +84,7 @@ def eval_roundrobin_modal() -> None:
         "engines": [asdict(engine) for engine in engines],
         "matches": [asdict(match) for match in matches],
         "ratings": ratings,
-        "compute_scaling_law": fit_compute_scaling_law(engines, ratings),
+        "flops_scaling_law": fit_flops_scaling_law(engines, ratings),
         "total_games": sum(
             match.player1_wins + match.player2_wins + match.draws for match in matches
         ),
@@ -209,17 +209,17 @@ def _elo_derivatives(
     return gradient, hessian
 
 
-def fit_compute_scaling_law(
+def fit_flops_scaling_law(
     engines: list[Engine], ratings: list[dict[str, float | str]]
 ) -> dict[str, float] | None:
     rating_by_name = {str(row["name"]): float(row["elo"]) for row in ratings}
     points = [
-        (engine.compute_budget, rating_by_name[engine.name])
+        (engine.training_flops, rating_by_name[engine.name])
         for engine in engines
-        if engine.compute_budget is not None
+        if engine.training_flops is not None
     ]
     if len(points) < 2:
         return None
-    compute, elo = (np.asarray(values, dtype=np.float64) for values in zip(*points, strict=True))
-    slope, intercept = np.polyfit(np.log10(compute), elo, 1)
+    flops, elo = (np.asarray(values, dtype=np.float64) for values in zip(*points, strict=True))
+    slope, intercept = np.polyfit(np.log10(flops), elo, 1)
     return {"elo_per_decade": float(slope), "intercept": float(intercept)}

@@ -24,7 +24,7 @@ DEFAULT_CONFIG = Path("configs/dense.py")
 class SweepResult:
     budget: str
     model_kind: str
-    compute: float
+    flops: float
     run_name: str
     batch_size: int
     lr: float
@@ -33,8 +33,6 @@ class SweepResult:
     params: int
     samples_seen: int
     loss: float
-    loss_std: float
-    loss_upper_1sd: float
     policy_top1: float
     wandb_url: str
     stale: bool
@@ -92,7 +90,7 @@ class LossPowerLaw:
     def predict(self, x: float) -> float:
         return self.floor + self.coefficient * x ** (-self.exponent)
 
-    def compute_for_loss(self, loss: float) -> float:
+    def flops_for_loss(self, loss: float) -> float:
         if loss <= self.floor:
             return math.inf
         return (self.coefficient / (loss - self.floor)) ** (1.0 / self.exponent)
@@ -118,7 +116,7 @@ class ScalingLaws:
 @dataclass(frozen=True, slots=True)
 class HparamSuggestion:
     model_kind: str
-    modified_compute: float
+    flops: float
     d_model: int
     depth: int
     batch_size: int
@@ -131,14 +129,14 @@ class HparamSuggestion:
 
 def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-modified-compute", type=float, default=1e24)
+    parser.add_argument("--target-flops", type=float, default=1e18)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     args = parser.parse_args()
 
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
-    suggestion = extrapolate(laws, args.target_modified_compute, config=args.config)
+    suggestion = extrapolate(laws, args.target_flops, config=args.config)
     gpu = "b200"
     report = format_report(
         best_results=best_results,
@@ -165,7 +163,7 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
             SweepResult(
                 budget=budget,
                 model_kind=str(row["model_kind"]),
-                compute=float(row["compute"]),
+                flops=float(row["flops"]),
                 run_name=str(row["run_name"]),
                 batch_size=int(row["batch_size"]),
                 lr=float(row["lr"]),
@@ -174,8 +172,6 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
                 params=int(row["params"]),
                 samples_seen=int(row["samples_seen"]),
                 loss=float(row["loss"]),
-                loss_std=float(row["loss_std"]),
-                loss_upper_1sd=float(row["loss_upper_1sd"]),
                 policy_top1=float(row["policy_top1"]),
                 wandb_url=str(row["wandb_url"]),
                 stale=stale,
@@ -183,7 +179,7 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
         )
     if not results:
         raise ValueError(f"No current best-run rows found in {path}.")
-    return sorted(results, key=lambda result: result.compute)
+    return sorted(results, key=lambda result: result.flops)
 
 
 def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
@@ -196,30 +192,30 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     parameter_count(model_kind=model_kind, d_model=64, depth=2)
     return ScalingLaws(
         model_kind=model_kind,
-        loss=fit_loss_power_law((r.compute, r.loss) for r in best_results),
-        policy_top1=fit_sigmoid_law((r.compute, r.policy_top1) for r in best_results),
-        d_model=fit_power_law((r.compute, r.d_model) for r in best_results),
-        depth=fit_power_law((r.compute, r.depth) for r in best_results),
-        params=fit_power_law((r.compute, r.params) for r in best_results),
+        loss=fit_loss_power_law((r.flops, r.loss) for r in best_results),
+        policy_top1=fit_sigmoid_law((r.flops, r.policy_top1) for r in best_results),
+        d_model=fit_power_law((r.flops, r.d_model) for r in best_results),
+        depth=fit_power_law((r.flops, r.depth) for r in best_results),
+        params=fit_power_law((r.flops, r.params) for r in best_results),
         datapoints_per_parameter=fit_linear_law(
-            (r.compute, r.samples_seen / r.params) for r in best_results
+            (r.flops, r.samples_seen / r.params) for r in best_results
         ),
-        samples=fit_power_law((r.compute, r.samples_seen) for r in best_results),
-        batch_size=fit_power_law((r.compute, r.batch_size) for r in best_results),
-        lr=fit_power_law((r.compute, r.lr) for r in best_results),
+        samples=fit_power_law((r.flops, r.samples_seen) for r in best_results),
+        batch_size=fit_power_law((r.flops, r.batch_size) for r in best_results),
+        lr=fit_power_law((r.flops, r.lr) for r in best_results),
     )
 
 
 def extrapolate(
     laws: ScalingLaws,
-    modified_compute: float,
+    flops: float,
     *,
     config: Path = DEFAULT_CONFIG,
 ) -> HparamSuggestion:
-    if modified_compute <= 0:
-        raise ValueError("target compute must be positive.")
+    if flops <= 0:
+        raise ValueError("target FLOPs must be positive.")
 
-    target_params = round(laws.params.predict(modified_compute))
+    target_params = round(laws.params.predict(flops))
     family, actual_params = closest_family_config(
         config=config,
         model_kind=laws.model_kind,
@@ -227,7 +223,7 @@ def extrapolate(
     )
     return HparamSuggestion(
         model_kind=laws.model_kind,
-        modified_compute=modified_compute,
+        flops=flops,
         d_model=family.model.d_model,
         depth=family.model.depth,
         batch_size=family.run.batch_size,
@@ -384,17 +380,17 @@ def format_report(
         "# Hyperparameter Scaling Report",
         "",
         "This is a repo-local extrapolation from the current best W&B runs, not a claim that "
-        "the true scaling law is identified. With only a small number of compute budgets, "
+        "the true scaling law is identified. With only a small number of FLOPs scales, "
         "the fitted curves are useful for choosing the next run and fragile as forecasts.",
         "",
         "## Best Observed Points",
         "",
-        "| Budget | Compute | Model | Batch | LR | Samples | Loss | Policy Top-1 | W&B |",
+        "| Budget | Training FLOPs | Model | Batch | LR | Samples | Loss | Policy Top-1 | W&B |",
         "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for result in best_results:
         lines.append(
-            f"| `{result.budget}` | {result.compute:.1e} | {format_model_label(result)} | "
+            f"| `{result.budget}` | {result.flops:.1e} | {format_model_label(result)} | "
             f"{result.batch_size} | {result.lr:g} | {result.samples_seen:,} | "
             f"{result.loss:.4f} | {result.policy_top1:.4f} | "
             f"{result.wandb_url} |"
@@ -412,8 +408,8 @@ def format_report(
             f"```text\n{laws.loss.format()}\n```",
             "",
             f"- RMSE on the observed loss points: `{laws.loss.rmse:.4f}`",
-            f"- Predicted loss at `{suggestion.modified_compute:.0e}` modified compute: "
-            f"`{laws.loss.predict(suggestion.modified_compute):.4f}`",
+            f"- Predicted loss at `{suggestion.flops:.0e}` training FLOPs: "
+            f"`{laws.loss.predict(suggestion.flops):.4f}`",
             "",
         ]
     )
@@ -421,7 +417,7 @@ def format_report(
         [
             "## Model And Data Fits",
             "",
-            "These fit model size and data size as power laws of training compute.",
+            "These fit model size and data size as power laws of training FLOPs.",
             "",
             f"```text\n{laws.d_model.format('d_model')}\n```",
             "",
@@ -452,7 +448,7 @@ def format_report(
             "",
             "## Extrapolated Target",
             "",
-            f"- Modified compute: `{suggestion.modified_compute:.0e}`",
+            f"- Training FLOPs: `{suggestion.flops:.0e}`",
             f"- Model: `{format_suggestion_model_label(suggestion)}`",
             f"- GPU type: `{gpu}`",
             f"- Batch size: `{suggestion.batch_size}`",

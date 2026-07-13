@@ -16,8 +16,8 @@ The models are trained on lc0 t80 data using supervised learning.
 
 ## Optimization
 
-See [OPTIMIZATION.md](OPTIMIZATION.md) for the modified-compute convention and the
-protocol used to decide whether an experiment improves the training frontier.
+See [OPTIMIZATION.md](OPTIMIZATION.md) for the protocol used to decide whether an
+experiment improves the training frontier.
 
 ## Prerequisites
 
@@ -128,7 +128,7 @@ To fit scaling laws and extrapolate from the current best
 dense W&B runs:
 
 ```sh
-uv run scaling-laws --target-modified-compute 1e24
+uv run scaling-laws --target-flops 1e18
 ```
 
 The command prints the fitted laws, observed runs, extrapolated target, and a

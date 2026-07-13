@@ -67,7 +67,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
         {latest ? (
           <section className="mt-5 grid grid-cols-4 gap-4">
             <MetricCard
-              label="Training compute"
+              label="Training FLOPs"
               value={`${latest.physicalFlops.toExponential(0).replace("e+", "e")} FLOPs`}
             />
             <MetricCard label="Parameters" value={formatCompactNumber(latest.params)} />

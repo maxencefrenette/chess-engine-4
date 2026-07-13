@@ -1,4 +1,4 @@
-"""Training compute accounting."""
+"""Training FLOPs accounting."""
 
 from __future__ import annotations
 
@@ -10,8 +10,6 @@ from chess_engine_4.data.leela import COMPACT_POLICY_SIZE
 from chess_engine_4.model import ModelConfig
 from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import lczero_loss
-
-STEP_PENALTY_K = 2
 
 
 def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -> int:
@@ -53,18 +51,3 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
     if flops <= 0:
         raise RuntimeError("PyTorch profiler did not report FLOPs for the training step.")
     return math.ceil(flops / profile_batch_size)
-
-
-def modified_compute(
-    *,
-    flops_per_sample: int,
-    batch_size: int,
-    steps: int,
-) -> float:
-    if flops_per_sample <= 0:
-        raise ValueError("flops_per_sample must be positive.")
-    if batch_size <= 0:
-        raise ValueError("batch_size must be positive.")
-    if steps < 0:
-        raise ValueError("steps must be non-negative.")
-    return flops_per_sample * batch_size * steps**STEP_PENALTY_K
