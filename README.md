@@ -8,7 +8,7 @@ the ONNX backend.
 
 ## Model
 
-The `dense` model is a stack of pre-norm SwiGLU blocks over flattened LCZero input
+The `dense` model is a stack of MLP layers over flattened LCZero input
 planes with LCZero-style policy logits, WDL value logits, and a moves-left
 prediction. Training uses NVIDIA Transformer Engine.
 

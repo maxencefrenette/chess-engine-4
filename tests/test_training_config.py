@@ -26,6 +26,7 @@ dataloader_prefetch_per_thread = 3
 kind = "dense"
 d_model = 64
 depth = 2
+activation = "gelu"
 
 [optimizer]
 lr = 0.001
@@ -49,6 +50,7 @@ moves_left = 0.5
     assert config.model.kind == "dense"
     assert config.model.d_model == 64
     assert config.model.depth == 2
+    assert config.model.activation == "gelu"
     assert config.optimizer.lr == 0.001
     assert config.optimizer.max_grad_norm == 2.0
     assert config.optimizer.lr_warmup_steps == 50
@@ -78,6 +80,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         batch_size=4,
         d_model=64,
         depth=2,
+        activation="silu",
         lr=0.001,
         max_grad_norm=3.0,
         lr_warmup_steps=25,
@@ -88,6 +91,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.run.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
+    assert overridden.model.activation == "silu"
     assert overridden.optimizer.lr == 0.001
     assert overridden.optimizer.max_grad_norm == 3.0
     assert overridden.optimizer.lr_warmup_steps == 25
@@ -183,6 +187,7 @@ def test_d64_config_builds_expected_model_size() -> None:
             d_model=config.model.d_model,
             depth=config.model.depth,
             expansion_ratio=config.model.expansion_ratio,
+            activation=config.model.activation,
         )
         == 733_408
     )

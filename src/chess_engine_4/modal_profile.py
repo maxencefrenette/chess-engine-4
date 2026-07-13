@@ -21,6 +21,11 @@ def profile_training() -> None:
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument(
+        "--activation",
+        choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
+        default=None,
+    )
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument(
         "--quantization-recipe",
@@ -44,6 +49,7 @@ def profile_training() -> None:
         "batch_size": args.batch_size,
         "d_model": args.d_model,
         "depth": args.depth,
+        "activation": args.activation,
         "lr": args.lr,
         "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,

@@ -1,0 +1,13 @@
+activation,width,flops,loss,wandb_url
+swiglu,d64,118890777231360,3.6099936068050353,https://wandb.ai/maxence-frenette/chess-engine-4/runs/vzu3es4b
+geglu,d64,119148780404736,3.6130773880437177,https://wandb.ai/maxence-frenette/chess-engine-4/runs/cv8h4906
+swiglu,d96,317985119723520,3.4911117556148334,https://wandb.ai/maxence-frenette/chess-engine-4/runs/mm157911
+geglu,d96,318756798259200,3.4949543533882017,https://wandb.ai/maxence-frenette/chess-engine-4/runs/q6hlm667
+swiglu,d128,997637791023104,3.3628703556892177,https://wandb.ai/maxence-frenette/chess-engine-4/runs/903a3xgb
+geglu,d128,999824063594496,3.3611392341839665,https://wandb.ai/maxence-frenette/chess-engine-4/runs/edy5sn69
+swiglu,d192,2832452910194688,3.2661540190929736,https://wandb.ai/maxence-frenette/chess-engine-4/runs/1gs863uo
+geglu,d192,2837651250880512,3.2619788074142626,https://wandb.ai/maxence-frenette/chess-engine-4/runs/vt68azvm
+swiglu,d288,8736631325982720,3.1441448886228653,https://wandb.ai/maxence-frenette/chess-engine-4/runs/oisz5ib0
+geglu,d288,8750676120698880,3.1363063676286385,https://wandb.ai/maxence-frenette/chess-engine-4/runs/4g4vkfr7
+swiglu,d576,70777444133765120,2.9949533463124527,https://wandb.ai/maxence-frenette/chess-engine-4/runs/men5iops
+geglu,d576,70846779879587840,2.989373060204708,https://wandb.ai/maxence-frenette/chess-engine-4/runs/4nkrvy7t

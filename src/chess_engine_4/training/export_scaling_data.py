@@ -21,7 +21,7 @@ CURVE_POINT_COUNT = 61
 FAMILIES = {
     "dense": {
         "name": "Dense",
-        "description": "Single-token dense SwiGLU network trained on lc0 planes.",
+        "description": "Stacked MLP trained on lc0 planes.",
         "best_runs": Path("experiments/best-runs-dense.toml"),
     },
 }

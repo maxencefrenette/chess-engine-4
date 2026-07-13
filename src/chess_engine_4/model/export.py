@@ -6,21 +6,37 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from chess_engine_4.model.dense import normalize_lc0_planes
+from chess_engine_4.model.dense import GATED_ACTIVATIONS, normalize_lc0_planes
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.registry import ModelConfig
 
 
 class _DenseBlock(nn.Module):
-    def __init__(self, d_model: int, hidden_dim: int, eps: float) -> None:
+    def __init__(self, d_model: int, hidden_dim: int, eps: float, activation: str) -> None:
         super().__init__()
+        self.activation = activation
         self.norm = nn.RMSNorm(d_model, eps=eps)
-        self.gate_up = nn.Linear(d_model, 2 * hidden_dim, bias=False)
+        projection_size = 2 * hidden_dim if activation in GATED_ACTIVATIONS else hidden_dim
+        self.gate_up = nn.Linear(d_model, projection_size, bias=False)
         self.down = nn.Linear(hidden_dim, d_model, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        gate, up = self.gate_up(self.norm(x)).chunk(2, dim=-1)
-        return x + self.down(F.silu(gate) * up)
+        projected = self.gate_up(self.norm(x))
+        if self.activation == "swiglu":
+            gate, up = projected.chunk(2, dim=-1)
+            hidden = F.silu(gate) * up
+        elif self.activation == "geglu":
+            gate, up = projected.chunk(2, dim=-1)
+            hidden = F.gelu(gate) * up
+        elif self.activation == "gelu":
+            hidden = F.gelu(projected)
+        elif self.activation == "silu":
+            hidden = F.silu(projected)
+        elif self.activation == "srelu":
+            hidden = F.relu(projected).square()
+        else:
+            raise ValueError(f"unsupported activation: {self.activation}")
+        return x + self.down(hidden)
 
 
 class PortableChessNet(nn.Module):
@@ -35,7 +51,12 @@ class PortableChessNet(nn.Module):
         hidden_dim = int(config.d_model * config.expansion_ratio)
         self.blocks = nn.ModuleList(
             [
-                _DenseBlock(config.d_model, hidden_dim, config.rms_norm_eps)
+                _DenseBlock(
+                    config.d_model,
+                    hidden_dim,
+                    config.rms_norm_eps,
+                    config.activation,
+                )
                 for _ in range(config.depth)
             ]
         )

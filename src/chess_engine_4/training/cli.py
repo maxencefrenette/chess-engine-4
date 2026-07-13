@@ -56,6 +56,7 @@ class TrainOptions:
     steps: int | None = None
     d_model: int | None = None
     depth: int | None = None
+    activation: str | None = None
     lr: float | None = None
     max_grad_norm: float | None = None
     lr_warmup_steps: int | None = None
@@ -78,6 +79,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
+        activation=options.activation,
         lr=options.lr,
         max_grad_norm=options.max_grad_norm,
         lr_warmup_steps=options.lr_warmup_steps,
@@ -595,6 +597,7 @@ def _init_wandb(
         "d_model": config.model.d_model,
         "depth": config.model.depth,
         "expansion_ratio": config.model.expansion_ratio,
+        "activation": config.model.activation,
         "rms_norm_eps": config.model.rms_norm_eps,
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,

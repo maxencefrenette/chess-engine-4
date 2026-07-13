@@ -11,6 +11,9 @@ from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE, RULE50_PLA
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
+SUPPORTED_ACTIVATIONS = frozenset({"geglu", "gelu", "silu", "srelu", "swiglu"})
+GATED_ACTIVATIONS = frozenset({"geglu", "swiglu"})
+
 
 def mxfp8_aligned_size(size: int) -> int:
     return (size + 31) // 32 * 32
@@ -32,11 +35,24 @@ class DenseChessNetConfig:
     d_model: int = 1024
     depth: int = 8
     expansion_ratio: float = 4.0
+    # Checkpoints created before activation was configurable implicitly used SwiGLU.
+    activation: str = "swiglu"
     rms_norm_eps: float = 1e-6
+
+    def __post_init__(self) -> None:
+        if self.activation not in SUPPORTED_ACTIVATIONS:
+            choices = ", ".join(sorted(SUPPORTED_ACTIVATIONS))
+            raise ValueError(f"unsupported activation {self.activation!r}; choose from {choices}")
 
 
 class DenseBlock(nn.Module):
-    def __init__(self, d_model: int, hidden_dim: int, rms_norm_eps: float) -> None:
+    def __init__(
+        self,
+        d_model: int,
+        hidden_dim: int,
+        rms_norm_eps: float,
+        activation: str,
+    ) -> None:
         super().__init__()
         transformer_engine = te()
         self.layer = transformer_engine.LayerNormMLP(
@@ -45,7 +61,7 @@ class DenseBlock(nn.Module):
             eps=rms_norm_eps,
             bias=False,
             normalization="RMSNorm",
-            activation="swiglu",
+            activation=activation,
             params_dtype=torch.bfloat16,
         )
 
@@ -76,6 +92,7 @@ class DenseChessNet(nn.Module):
                     d_model=config.d_model,
                     hidden_dim=hidden_dim,
                     rms_norm_eps=config.rms_norm_eps,
+                    activation=config.activation,
                 )
                 for _ in range(config.depth)
             ]
@@ -121,10 +138,12 @@ def dense_parameter_count(
     d_model: int,
     depth: int,
     expansion_ratio: float = 4.0,
+    activation: str = "geglu",
 ) -> int:
     input_dim = input_planes * board_size * board_size
     hidden_dim = int(d_model * expansion_ratio)
-    block_params = depth * (3 * d_model * hidden_dim)
+    projection_count = 3 if activation in GATED_ACTIVATIONS else 2
+    block_params = depth * (projection_count * d_model * hidden_dim)
     norm_params = (depth + 1) * d_model
     input_params = input_dim * d_model + d_model
     aligned_policy_size = mxfp8_aligned_size(policy_size)

@@ -17,6 +17,7 @@ kind = "dense"
 d_model = 96
 depth = 4
 expansion_ratio = 4.0
+activation = "swiglu"
 rms_norm_eps = 1e-6
 
 [optimizer]

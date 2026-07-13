@@ -38,6 +38,7 @@ checkpoint2leela = "chess_engine_4.training.checkpoint2leela:checkpoint2leela"
 
 [dependency-groups]
 dev = [
+    "matplotlib>=3.11.0",
     "maturin>=1.13.3",
     "pytest>=8.3",
     "ruff>=0.9",

@@ -39,9 +39,8 @@ allocation settings.
 
 ## Transformer Engine
 
-Training is CUDA-only and uses NVIDIA Transformer Engine for linear layers,
-RMSNorm, and fused dense SwiGLU blocks. The packed input and model are captured
-with TE's high-level CUDA graph API.
+Training is CUDA-only and uses NVIDIA Transformer Engine for MLP layers. The
+packed input and model are captured with TE's high-level CUDA graph API.
 
 `[infra].cpu_cores` controls the physical CPU cores reserved by Modal, while
 `[infra].dataloader_threads` controls the Rust batch-loading workers. Baseline

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import math
 
+import pytest
 import torch
 
 from chess_engine_4.data.leela import (
     HISTORY_PLANE_COUNT,
     INPUT_PLANE_COUNT,
+    POLICY_SIZE,
     RULE50_PLANE_INDEX,
 )
 from chess_engine_4.model import DenseChessNetConfig
@@ -137,3 +139,26 @@ def _compact_policy(
         policy_indices[:, offset] = index
         policy_probs[:, offset] = probability
     return policy_indices, policy_probs
+
+
+@pytest.mark.parametrize("activation", ["geglu", "gelu", "silu", "srelu", "swiglu"])
+def test_portable_model_supports_dense_activations(activation: str) -> None:
+    model = PortableChessNet(
+        DenseChessNetConfig(
+            d_model=32,
+            depth=1,
+            expansion_ratio=2.0,
+            activation=activation,
+        )
+    )
+
+    output = model(torch.zeros(2, INPUT_PLANE_COUNT, 8, 8))
+
+    assert output.policy_logits.shape == (2, POLICY_SIZE)
+    assert output.wdl_logits.shape == (2, 3)
+    assert output.moves_left.shape == (2,)
+
+
+def test_dense_config_rejects_unknown_activation() -> None:
+    with pytest.raises(ValueError, match="unsupported activation"):
+        DenseChessNetConfig(activation="mish")

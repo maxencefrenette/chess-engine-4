@@ -437,6 +437,7 @@ def format_config(suggestion: HparamSuggestion) -> str:
         f"d_model = {suggestion.d_model}",
         f"depth = {suggestion.depth}",
         "expansion_ratio = 4.0",
+        'activation = "swiglu"',
         "rms_norm_eps = 1e-6",
     ]
     return "\n".join(

@@ -73,6 +73,11 @@ def train_modal() -> None:
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
+    parser.add_argument(
+        "--activation",
+        choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
+        default=None,
+    )
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--max-grad-norm", type=float, default=None)
     parser.add_argument("--lr-warmup-steps", type=int, default=None)
@@ -94,6 +99,7 @@ def train_modal() -> None:
         "steps": args.steps,
         "d_model": args.d_model,
         "depth": args.depth,
+        "activation": args.activation,
         "lr": args.lr,
         "max_grad_norm": args.max_grad_norm,
         "lr_warmup_steps": args.lr_warmup_steps,
@@ -150,6 +156,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             steps=payload.get("steps"),
             d_model=payload.get("d_model"),
             depth=payload.get("depth"),
+            activation=payload.get("activation"),
             lr=payload.get("lr"),
             max_grad_norm=payload.get("max_grad_norm"),
             lr_warmup_steps=payload.get("lr_warmup_steps"),
