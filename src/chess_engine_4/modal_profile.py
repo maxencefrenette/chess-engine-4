@@ -19,7 +19,7 @@ def profile_training() -> None:
     parser = argparse.ArgumentParser(description="Profile a training loop on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--d-model", type=int, default=None)
+    parser.add_argument("--d-model", type=int, default=64)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--expansion-ratio", type=float, default=None)
     parser.add_argument(
@@ -63,7 +63,9 @@ def profile_training() -> None:
         },
     }
 
-    profile_function = training_function(load_training_config(args.config).infra.cpu_cores)
+    profile_function = training_function(
+        load_training_config(args.config, d_model=args.d_model).infra.cpu_cores
+    )
     with app.run():
         result = profile_function.remote(payload)
 

@@ -31,7 +31,7 @@ from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_p
 from chess_engine_4.training.stability import LossSpikeDetector
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/dense/d64.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/dense.py")
 _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
@@ -55,7 +55,7 @@ class TrainOptions:
     data: str | None = None
     batch_size: int | None = None
     steps: int | None = None
-    d_model: int | None = None
+    d_model: int = 64
     depth: int | None = None
     expansion_ratio: float | None = None
     activation: str | None = None
@@ -76,10 +76,9 @@ class TrainOptions:
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
     config = with_overrides(
-        load_training_config(options.config),
+        load_training_config(options.config, d_model=options.d_model),
         steps=options.steps,
         batch_size=options.batch_size,
-        d_model=options.d_model,
         depth=options.depth,
         expansion_ratio=options.expansion_ratio,
         activation=options.activation,

@@ -1,11 +1,10 @@
-"""Training configuration loading."""
+"""Training configuration loading and command-line overrides."""
 
 from __future__ import annotations
 
-import tomllib
-from dataclasses import dataclass, fields, replace
+import importlib.util
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
 
 from chess_engine_4.model import ModelConfig, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
@@ -64,30 +63,25 @@ class TrainingConfig:
     loss: LossWeights = LossWeights()
 
 
-def load_training_config(path: str | Path) -> TrainingConfig:
+def load_training_config(path: str | Path, *, d_model: int) -> TrainingConfig:
     config_path = Path(path)
-    with config_path.open("rb") as handle:
-        raw = tomllib.load(handle)
+    if config_path.suffix != ".py":
+        raise ValueError(f"{config_path}: training configs must be Python files.")
 
-    _reject_unknown_sections(raw, config_path)
-    return TrainingConfig(
-        run=_build_section(RunConfig, raw.get("run", {}), config_path, "run"),
-        infra=_build_section(InfraConfig, raw.get("infra", {}), config_path, "infra"),
-        precision=_build_section(
-            PrecisionConfig,
-            raw.get("precision", {}),
-            config_path,
-            "precision",
-        ),
-        model=_build_model_config(raw.get("model", {}), config_path),
-        optimizer=_build_section(
-            OptimizerConfig,
-            raw.get("optimizer", {}),
-            config_path,
-            "optimizer",
-        ),
-        loss=_build_section(LossWeights, raw.get("loss", {}), config_path, "loss"),
-    )
+    module_name = f"_chess_engine_4_config_{abs(hash(config_path.resolve()))}"
+    spec = importlib.util.spec_from_file_location(module_name, config_path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"Could not load training config {config_path}.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    factory = getattr(module, "config", None)
+    if not callable(factory):
+        raise ValueError(f"{config_path}: expected callable config(*, d_model: int).")
+    result = factory(d_model=d_model)
+    if not isinstance(result, TrainingConfig):
+        raise ValueError(f"{config_path}: config() must return TrainingConfig.")
+    return result
 
 
 def with_overrides(
@@ -95,7 +89,6 @@ def with_overrides(
     *,
     steps: int | None = None,
     batch_size: int | None = None,
-    d_model: int | None = None,
     depth: int | None = None,
     expansion_ratio: float | None = None,
     activation: str | None = None,
@@ -111,8 +104,6 @@ def with_overrides(
         config = replace(config, run=replace(config.run, steps=steps))
     if batch_size is not None:
         config = replace(config, run=replace(config.run, batch_size=batch_size))
-    if d_model is not None:
-        config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
         config = replace(config, model=replace(config.model, depth=depth))
     if expansion_ratio is not None:
@@ -160,38 +151,3 @@ def with_overrides(
             precision=replace(config.precision, recipe=quantization_recipe),
         )
     return config
-
-
-def _build_model_config(values: object, path: Path) -> ModelConfig:
-    if not isinstance(values, dict):
-        raise ValueError(f"{path}: [model] must be a table.")
-    try:
-        return model_config_from_dict(values)
-    except ValueError as exc:
-        raise ValueError(f"{path}: {exc}") from exc
-
-
-def _build_section[ConfigT](
-    section_type: type[ConfigT],
-    values: object,
-    path: Path,
-    section_name: str,
-) -> ConfigT:
-    if not isinstance(values, dict):
-        raise ValueError(f"{path}: [{section_name}] must be a table.")
-
-    field_names = {field.name for field in fields(section_type)}
-    unknown = sorted(set(values) - field_names)
-    if unknown:
-        unknown_names = ", ".join(unknown)
-        raise ValueError(f"{path}: [{section_name}] has unknown key(s): {unknown_names}.")
-
-    return section_type(**values)
-
-
-def _reject_unknown_sections(raw: dict[str, Any], path: Path) -> None:
-    allowed = {"run", "infra", "precision", "model", "optimizer", "loss"}
-    unknown = sorted(set(raw) - allowed)
-    if unknown:
-        unknown_names = ", ".join(unknown)
-        raise ValueError(f"{path}: unknown section(s): {unknown_names}.")

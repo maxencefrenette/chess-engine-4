@@ -19,7 +19,7 @@ WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
-REMOTE_CONFIG_PATH = Path("configs/dense/d64.toml")
+REMOTE_CONFIG_PATH = Path("configs/dense.py")
 CHECKPOINT_EVERY_STEPS = 50_000
 
 app = modal.App(APP_NAME)
@@ -71,7 +71,7 @@ def train_modal() -> None:
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--steps", type=int, default=None)
-    parser.add_argument("--d-model", type=int, default=None)
+    parser.add_argument("--d-model", type=int, default=64)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--expansion-ratio", type=float, default=None)
     parser.add_argument(
@@ -118,7 +118,9 @@ def train_modal() -> None:
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
 
-    train_function = training_function(load_training_config(args.config).infra.cpu_cores)
+    train_function = training_function(
+        load_training_config(args.config, d_model=args.d_model).infra.cpu_cores
+    )
     with app.run():
         result = train_function.remote(payload)
     print(

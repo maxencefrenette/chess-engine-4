@@ -8,77 +8,21 @@ from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import load_training_config, with_overrides
 
 
-def test_load_training_config_reads_sections(tmp_path: Path) -> None:
-    config_path = tmp_path / "train.toml"
-    config_path.write_text(
-        """
-[run]
-name = "audit"
-steps = 123
-batch_size = 8
+def test_load_training_config_requires_factory(tmp_path: Path) -> None:
+    config_path = tmp_path / "train.py"
+    config_path.write_text("value = 1\n", encoding="utf-8")
 
-[infra]
-cpu_cores = 12
-dataloader_threads = 4
-dataloader_prefetch_per_thread = 3
-
-[model]
-kind = "dense"
-d_model = 64
-depth = 2
-activation = "gelu"
-
-[optimizer]
-lr = 0.001
-max_grad_norm = 2.0
-lr_warmup_steps = 50
-lr_cooldown_frac = 0.1
-
-[loss]
-moves_left = 0.5
-""".strip()
-    )
-
-    config = load_training_config(config_path)
-
-    assert config.run.name == "audit"
-    assert config.run.steps == 123
-    assert config.infra.cpu_cores == 12
-    assert config.infra.dataloader_threads == 4
-    assert config.infra.dataloader_prefetch_per_thread == 3
-    assert config.run.batch_size == 8
-    assert config.model.kind == "dense"
-    assert config.model.d_model == 64
-    assert config.model.depth == 2
-    assert config.model.activation == "gelu"
-    assert config.optimizer.lr == 0.001
-    assert config.optimizer.max_grad_norm == 2.0
-    assert config.optimizer.lr_warmup_steps == 50
-    assert config.optimizer.lr_cooldown_frac == 0.1
-    assert config.loss.moves_left == 0.5
-
-
-def test_load_training_config_rejects_unknown_keys(tmp_path: Path) -> None:
-    config_path = tmp_path / "train.toml"
-    config_path.write_text(
-        """
-[model]
-width = 64
-""".strip()
-    )
-
-    with pytest.raises(ValueError, match="unknown key"):
-        load_training_config(config_path)
+    with pytest.raises(ValueError, match="expected callable config"):
+        load_training_config(config_path, d_model=64)
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/dense/d64.toml")
+    config = load_training_config("configs/dense.py", d_model=64)
 
     overridden = with_overrides(
         config,
         steps=321,
         batch_size=4,
-        d_model=64,
         depth=2,
         expansion_ratio=2.0,
         activation="silu",
@@ -182,7 +126,7 @@ def test_lr_warmup_schedule() -> None:
 
 
 def test_d64_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/dense/d64.toml")
+    config = load_training_config("configs/dense.py", d_model=64)
 
     assert (
         dense_parameter_count(
@@ -195,9 +139,41 @@ def test_d64_config_builds_expected_model_size() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("d_model", "depth", "batch_size"),
+    [
+        (32, 2, 2_048),
+        (64, 3, 4_096),
+        (128, 4, 8_192),
+        (256, 5, 16_384),
+        (512, 5, 32_768),
+        (1_024, 6, 65_536),
+        (1_536, 7, 98_304),
+    ],
+)
+def test_dense_family_recipe(d_model: int, depth: int, batch_size: int) -> None:
+    config = load_training_config("configs/dense.py", d_model=d_model)
+
+    assert config.run.name == f"d{d_model}"
+    assert config.model.depth == depth
+    assert config.run.batch_size == batch_size
+
+
+def test_dense_family_requires_aligned_width() -> None:
+    with pytest.raises(ValueError, match="multiple of 32"):
+        load_training_config("configs/dense.py", d_model=100)
+
+
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:
-    config_path = tmp_path / "invalid-precision.toml"
-    config_path.write_text('[precision]\nrecipe = "fp8"\n', encoding="utf-8")
+    config_path = tmp_path / "invalid_precision.py"
+    config_path.write_text(
+        """from chess_engine_4.training.config import PrecisionConfig, TrainingConfig
+
+def config(*, d_model: int) -> TrainingConfig:
+    return TrainingConfig(precision=PrecisionConfig(recipe="fp8"))
+""",
+        encoding="utf-8",
+    )
 
     with pytest.raises(ValueError, match="unknown quantization recipe: fp8"):
-        load_training_config(config_path)
+        load_training_config(config_path, d_model=64)

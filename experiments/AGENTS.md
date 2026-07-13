@@ -15,26 +15,22 @@ chronological order.
 
 ## Promotion protocol
 
-Canonical model configs are named for residual-stream width, such as
-`configs/dense/d128.toml`. After an experimental run finishes:
+Each model family has one programmable scaling recipe. For dense models,
+`configs/dense.py` takes `d_model` as its scaling argument and derives the rest
+of the baseline configuration. After an experimental run finishes:
 
 1. Run `uv run compare-run WANDB_URL`.
-2. Promote the run as the new default for its width when its physical-FLOPs
-   compute-efficiency multiplier is higher than the best incumbent multiplier for
-   that same `d_model`.
-3. Separately compare `loss_upper_1sd` with the fitted current-default curve at the
-   candidate's derived modified compute: `flops_per_sample * batch_size * steps^2`.
-4. Treat a negative residual as beating the global trend, not as a prerequisite
-   for same-width promotion.
-5. If promoted, update the matching width config and the best-runs data, regenerate
-   scaling data, and record the command, W&B URL, modified compute, fitted score,
-   residual, both compute-efficiency multipliers, and decision in the experiment
-   report.
+2. If it reports `PROMOTE`, mark the previous run at that width stale and add the
+   candidate to the best-runs file.
+3. Regenerate the website scaling data.
+4. Change the family recipe only when a multi-width experiment supports changing
+   the scaling law, not for a one-off width result.
 
-The same-width incumbent and cross-width trend answer different questions. Always
-report both decisions when they disagree.
+Best-run rows may set `stale = true` when they no longer represent the current
+family tune. Tooling excludes stale rows from comparisons, fits, extrapolation,
+and website data.
 
-When reporting experiment results to the user, headline the compute-efficiency
-multiplier from the `loss` versus physical-FLOPs fit. Prefer the
-`loss_upper_1sd` versus modified-compute multiplier only when the experiment is
-specifically about step allocation, batch efficiency, or score stability.
+Experiment reports should contain the command, W&B URL, physical-FLOPs efficiency
+multiplier, promotion verdict, and notable observations. Include the
+modified-compute multiplier only for experiments about batch size, step count, or
+score stability.

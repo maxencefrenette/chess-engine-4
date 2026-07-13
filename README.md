@@ -46,8 +46,13 @@ automatically. `uv run train-modal` logs metrics to the W&B project configured
 in `.env`.
 
 ```sh
-uv run train-modal --config configs/dense/d64.toml
+uv run train-modal --d-model 64
 ```
+
+`configs/dense.py` is the canonical dense-family recipe. Width is its scaling
+argument; the recipe derives depth, batch size, steps, learning rate, and the
+remaining training configuration. CLI flags can override those derived values
+for controlled experiments.
 
 Training and evaluation are Blackwell-only and run on a Modal B200. Models use
 Transformer Engine MXFP8 block scaling and FP32 optimizer master weights.
@@ -58,20 +63,20 @@ cores for the background Rust dataloader.
 MXFP8 projections are padded to 32-element boundaries and sliced back to the
 LC0 output contract.
 
-The `[precision].recipe` setting accepts `bf16`, `mxfp8`, or `nvfp4`. It can be
+The recipe's precision setting accepts `bf16`, `mxfp8`, or `nvfp4`. It can be
 overridden for profiling with `--quantization-recipe`.
 
 To profile the Modal training loop:
 
 ```sh
-uv run profile-training --config configs/dense/d64.toml
+uv run profile-training --d-model 64
 ```
 
 Modal training always writes checkpoints to the `chess-engine-4-artifacts`
 Volume every 50,000 steps and at the end of the run:
 
 ```sh
-uv run train-modal --config configs/dense/d64.toml
+uv run train-modal --d-model 64
 ```
 
 To export a saved Modal checkpoint with Transformer Engine and package it as an
@@ -126,5 +131,5 @@ dense W&B runs:
 uv run scaling-laws --target-modified-compute 1e24
 ```
 
-The command prints the fitted laws, observed runs, extrapolated target, and launch
-command. Use `--write-config PATH` to write the suggested TOML configuration.
+The command prints the fitted laws, observed runs, extrapolated target, and a
+launch command resolved through the canonical dense-family recipe.

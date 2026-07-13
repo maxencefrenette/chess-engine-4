@@ -14,8 +14,10 @@ from scipy.optimize import curve_fit
 from scipy.special import expit
 
 from chess_engine_4.model import dense_parameter_count
+from chess_engine_4.training.config import TrainingConfig, load_training_config
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
+DEFAULT_CONFIG = Path("configs/dense.py")
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +37,7 @@ class SweepResult:
     loss_upper_1sd: float
     policy_top1: float
     wandb_url: str
+    stale: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,60 +133,62 @@ def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target-modified-compute", type=float, default=1e24)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--config", default="configs/dense/d128.toml")
-    parser.add_argument("--write-config", type=Path, default=None)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     args = parser.parse_args()
 
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
-    suggestion = extrapolate(laws, args.target_modified_compute)
+    suggestion = extrapolate(laws, args.target_modified_compute, config=args.config)
     gpu = "b200"
     report = format_report(
         best_results=best_results,
         laws=laws,
         suggestion=suggestion,
-        config=args.config,
+        config=str(args.config),
         gpu=gpu,
     )
     print(report)
 
-    if args.write_config is not None:
-        args.write_config.write_text(format_config(suggestion), encoding="utf-8")
-        print(f"\nwrote {args.write_config}")
 
-
-def read_best_runs(path: Path) -> list[SweepResult]:
+def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResult]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
     raw_runs = data.get("runs", {})
-    results = [
-        SweepResult(
-            budget=budget,
-            model_kind=str(row["model_kind"]),
-            compute=float(row["compute"]),
-            run_name=str(row["run_name"]),
-            batch_size=int(row["batch_size"]),
-            lr=float(row["lr"]),
-            d_model=int(row["d_model"]),
-            depth=int(row["depth"]),
-            params=int(row["params"]),
-            samples_seen=int(row["samples_seen"]),
-            loss=float(row["loss"]),
-            loss_std=float(row["loss_std"]),
-            loss_upper_1sd=float(row["loss_upper_1sd"]),
-            policy_top1=float(row["policy_top1"]),
-            wandb_url=str(row["wandb_url"]),
+    results = []
+    for budget, row in raw_runs.items():
+        stale = row.get("stale", False)
+        if not isinstance(stale, bool):
+            raise ValueError(f"{path}: runs.{budget}.stale must be a boolean.")
+        if stale and not include_stale:
+            continue
+        results.append(
+            SweepResult(
+                budget=budget,
+                model_kind=str(row["model_kind"]),
+                compute=float(row["compute"]),
+                run_name=str(row["run_name"]),
+                batch_size=int(row["batch_size"]),
+                lr=float(row["lr"]),
+                d_model=int(row["d_model"]),
+                depth=int(row["depth"]),
+                params=int(row["params"]),
+                samples_seen=int(row["samples_seen"]),
+                loss=float(row["loss"]),
+                loss_std=float(row["loss_std"]),
+                loss_upper_1sd=float(row["loss_upper_1sd"]),
+                policy_top1=float(row["policy_top1"]),
+                wandb_url=str(row["wandb_url"]),
+                stale=stale,
+            )
         )
-        for budget, row in raw_runs.items()
-    ]
     if not results:
-        raise ValueError(f"No rows found in {path}.")
+        raise ValueError(f"No current best-run rows found in {path}.")
     return sorted(results, key=lambda result: result.compute)
 
 
 def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
-    if len(best_results) < 2:
-        raise ValueError("At least two best-run points are required for extrapolation.")
+    if len(best_results) < 3:
+        raise ValueError("At least three current best-run points are required for extrapolation.")
     model_kinds = {result.model_kind for result in best_results}
     if len(model_kinds) != 1:
         raise ValueError("Best-run points must belong to exactly one model family.")
@@ -205,31 +210,32 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     )
 
 
-def extrapolate(laws: ScalingLaws, modified_compute: float) -> HparamSuggestion:
+def extrapolate(
+    laws: ScalingLaws,
+    modified_compute: float,
+    *,
+    config: Path = DEFAULT_CONFIG,
+) -> HparamSuggestion:
     if modified_compute <= 0:
         raise ValueError("target compute must be positive.")
 
     target_params = round(laws.params.predict(modified_compute))
-    d_model, depth, actual_params = closest_architecture(
+    family, actual_params = closest_family_config(
+        config=config,
         model_kind=laws.model_kind,
         target_params=target_params,
-        target_d_model=laws.d_model.predict(modified_compute),
-        target_depth=laws.depth.predict(modified_compute),
     )
     return HparamSuggestion(
         model_kind=laws.model_kind,
         modified_compute=modified_compute,
-        d_model=d_model,
-        depth=depth,
-        batch_size=round_to_batch_ladder(laws.batch_size.predict(modified_compute)),
-        lr=round_to_lr_ladder(laws.lr.predict(modified_compute)),
+        d_model=family.model.d_model,
+        depth=family.model.depth,
+        batch_size=family.run.batch_size,
+        lr=family.optimizer.lr,
         target_params=target_params,
         actual_params=actual_params,
-        samples_seen=round_to_int(laws.samples.predict(modified_compute)),
-        steps=round_to_int(
-            laws.samples.predict(modified_compute)
-            / round_to_batch_ladder(laws.batch_size.predict(modified_compute))
-        ),
+        samples_seen=family.run.batch_size * family.run.steps,
+        steps=family.run.steps,
     )
 
 
@@ -318,61 +324,52 @@ def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
     return best
 
 
-def closest_architecture(
-    *,
-    model_kind: str,
-    target_params: int,
-    target_d_model: float | None = None,
-    target_depth: float | None = None,
-) -> tuple[int, int, int]:
-    candidates: list[tuple[float, int, int, int]] = []
-    for d_model in range(64, 2049, 64):
-        for depth in range(2, 25):
-            params = parameter_count(model_kind=model_kind, d_model=d_model, depth=depth)
-            distance = abs(math.log(params / target_params))
-            if target_d_model is not None:
-                distance += 0.5 * abs(math.log(d_model / target_d_model))
-            if target_depth is not None:
-                distance += 0.5 * abs(math.log(depth / target_depth))
-            candidates.append((distance, d_model, depth, params))
-    _, d_model, depth, params = min(candidates)
-    return d_model, depth, params
-
-
 def parameter_count(
     *,
     model_kind: str = "dense",
     d_model: int,
     depth: int,
     expansion_ratio: float = 4.0,
+    activation: str = "swiglu",
 ) -> int:
     if model_kind == "dense":
         return dense_parameter_count(
             d_model=d_model,
             depth=depth,
             expansion_ratio=expansion_ratio,
+            activation=activation,
         )
     raise ValueError(f"unknown model kind: {model_kind}")
 
 
-def round_to_batch_ladder(value: float) -> int:
-    ladder = sorted(
-        {round(multiplier * 2**power) for power in range(5, 21) for multiplier in (1, 1.5)}
-    )
-    return min(ladder, key=lambda candidate: abs(math.log(candidate / value)))
+def closest_family_config(
+    *,
+    config: Path,
+    model_kind: str,
+    target_params: int,
+) -> tuple[TrainingConfig, int]:
+    candidates = []
+    d_model = 32
+    while True:
+        family = load_training_config(config, d_model=d_model)
+        if family.model.kind != model_kind:
+            raise ValueError(
+                f"{config} generated model kind {family.model.kind!r}, expected {model_kind!r}."
+            )
+        params = parameter_count(
+            model_kind=model_kind,
+            d_model=family.model.d_model,
+            depth=family.model.depth,
+            expansion_ratio=family.model.expansion_ratio,
+            activation=family.model.activation,
+        )
+        candidates.append((abs(math.log(params / target_params)), family, params))
+        if params >= target_params:
+            break
+        d_model += 32
 
-
-def round_to_lr_ladder(value: float) -> float:
-    ladder = sorted(
-        mantissa * 10**exponent
-        for exponent in range(-6, -1)
-        for mantissa in (1.0, 1.5, 2.0, 3.0, 5.0, 7.0)
-    )
-    return min(ladder, key=lambda candidate: abs(math.log(candidate / value)))
-
-
-def round_to_int(value: float) -> int:
-    return int(round(value))
+    _, family, params = min(candidates, key=lambda candidate: candidate[0])
+    return family, params
 
 
 def format_report(
@@ -403,11 +400,7 @@ def format_report(
             f"{result.wandb_url} |"
         )
 
-    command = (
-        f"uv run train-modal --config {config} --steps {suggestion.steps} "
-        f"--d-model {suggestion.d_model} --depth {suggestion.depth} "
-        f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g}"
-    )
+    command = f"uv run train-modal --config {config} --d-model {suggestion.d_model}"
 
     lines.extend(
         [
@@ -475,47 +468,6 @@ def format_report(
         ]
     )
     return "\n".join(lines)
-
-
-def format_config(suggestion: HparamSuggestion) -> str:
-    name = f"d{suggestion.d_model}"
-    model_lines = [
-        "[model]",
-        f'kind = "{suggestion.model_kind}"',
-        f"d_model = {suggestion.d_model}",
-        f"depth = {suggestion.depth}",
-        "expansion_ratio = 4.0",
-        'activation = "swiglu"',
-        "rms_norm_eps = 1e-6",
-    ]
-    return "\n".join(
-        [
-            "[run]",
-            f'name = "{name}"',
-            "seed = 1",
-            f"steps = {suggestion.steps}",
-            f"batch_size = {suggestion.batch_size}",
-            "",
-            "[infra]",
-            "dataloader_threads = 4",
-            "dataloader_prefetch_per_thread = 2",
-            "",
-            "[precision]",
-            'recipe = "mxfp8"',
-            "",
-            *model_lines,
-            "",
-            "[optimizer]",
-            f"lr = {suggestion.lr:g}",
-            "weight_decay = 0.01",
-            "",
-            "[loss]",
-            "policy = 1.0",
-            "value = 1.0",
-            "moves_left = 1.0",
-            "",
-        ]
-    )
 
 
 def format_model_label(result: SweepResult) -> str:

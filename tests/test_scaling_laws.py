@@ -12,8 +12,6 @@ from chess_engine_4.training.scaling_laws import (
     format_report,
     parameter_count,
     read_best_runs,
-    round_to_batch_ladder,
-    round_to_lr_ladder,
 )
 
 
@@ -35,10 +33,10 @@ def test_read_best_runs_and_extrapolate() -> None:
     suggestion = extrapolate(laws, 1e24)
 
     assert 0.29 < laws.policy_top1.predict(1e18) < 0.31
-    assert suggestion.d_model % 64 == 0
+    assert suggestion.d_model % 32 == 0
     assert suggestion.depth >= 5
-    assert suggestion.batch_size == 262144
-    assert suggestion.lr == pytest.approx(0.0002)
+    assert suggestion.batch_size > best_runs[-1].batch_size
+    assert suggestion.lr < best_runs[-1].lr
     assert suggestion.actual_params > best_runs[-1].params
 
 
@@ -57,12 +55,6 @@ def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:
     assert law.rmse < 1e-8
 
 
-def test_rounding_ladders() -> None:
-    assert round_to_batch_ladder(1400) == 1536
-    assert round_to_batch_ladder(154_454) == 131_072
-    assert round_to_lr_ladder(0.00019) == 0.0002
-
-
 def test_format_report() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-dense.toml"))
     laws = fit_scaling_laws(best_runs)
@@ -72,9 +64,22 @@ def test_format_report() -> None:
         best_results=best_runs,
         laws=laws,
         suggestion=suggestion,
-        config="configs/dense/d128.toml",
+        config="configs/dense.py",
         gpu="l4",
     )
 
     assert "L(C) =" in report
     assert "uv run train-modal" in report
+
+
+def test_read_best_runs_excludes_stale_rows(tmp_path: Path) -> None:
+    source = Path("experiments/best-runs-dense.toml").read_text(encoding="utf-8")
+    source = source.replace("[runs.2e17]", "[runs.2e17]\nstale = true", 1)
+    path = tmp_path / "best-runs.toml"
+    path.write_text(source, encoding="utf-8")
+
+    current = read_best_runs(path)
+    historical = read_best_runs(path, include_stale=True)
+
+    assert all(result.budget != "2e17" for result in current)
+    assert next(result for result in historical if result.budget == "2e17").stale

@@ -21,28 +21,17 @@ is derived after choosing the model, batch size, and run length.
 
 ## Experiment Rules
 
-When running a controlled experiment, keep `[loss]` fixed unless the training
-target itself is under study. Keep the experiment interpretable and avoid changing
-unrelated variables without a clear hypothesis.
-
-Improve training efficiency by changing:
-
-- `[model]`: architecture shape.
-- `[run]`: batch size and steps.
-- `[optimizer]`: learning rate, weight decay, and optimizer implementation
-  details.
-
-Use `[infra]` for cost optimization, not model-quality tuning. The goal of the
-infra section is to reduce the dollar cost and wall-clock time of a full run
-given the rest of the config. Examples include GPU type and future hardware
-allocation settings.
+Keep the loss configuration fixed unless the training target itself is under
+study. Model-quality experiments may change the model, run, and optimizer.
+Infrastructure settings should only reduce cost or wall-clock time for an
+otherwise identical run.
 
 ## Transformer Engine
 
 Training is CUDA-only and uses NVIDIA Transformer Engine for MLP layers. The
 packed input and model are captured with TE's high-level CUDA graph API.
 
-`[infra].cpu_cores` controls the physical CPU cores reserved by Modal, while
-`[infra].dataloader_threads` controls the Rust batch-loading workers. Baseline
+`infra.cpu_cores` controls the physical CPU cores reserved by Modal, while
+`infra.dataloader_threads` controls the Rust batch-loading workers. Baseline
 configs reserve eight cores and use eight workers; larger runs can reserve more
 CPU headroom without changing the data-loading topology.
