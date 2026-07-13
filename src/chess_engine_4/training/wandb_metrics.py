@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 LOSS_MEAN_KEY = "loss/task[ema=0.99]"
 LOSS_SECOND_MOMENT_KEY = "loss/task2[ema=0.99]"
 POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.99]"
+LOSS_SPIKE_COUNT_KEY = "stability/loss_spike_count"
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,7 @@ class WandbMetrics:
     loss_std: float
     loss_upper_1sd: float
     policy_top1: float
+    loss_spike_count: int
 
 
 def wandb_metrics() -> None:
@@ -72,6 +74,7 @@ def write_csv_rows(
         "loss_std",
         "loss_upper_1sd",
         "policy_top1",
+        "loss_spike_count",
     ):
         if fieldname not in fieldnames:
             fieldnames.append(fieldname)
@@ -82,6 +85,7 @@ def write_csv_rows(
         row["loss_std"] = str(metrics.loss_std)
         row["loss_upper_1sd"] = str(metrics.loss_upper_1sd)
         row["policy_top1"] = str(metrics.policy_top1)
+        row["loss_spike_count"] = str(metrics.loss_spike_count)
 
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -96,6 +100,7 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
         "loss_std",
         "loss_upper_1sd",
         "policy_top1",
+        "loss_spike_count",
     ]
     writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
@@ -107,6 +112,7 @@ def write_metrics_csv(metrics: Iterable[WandbMetrics]) -> None:
                 "loss_std": row.loss_std,
                 "loss_upper_1sd": row.loss_upper_1sd,
                 "policy_top1": row.policy_top1,
+                "loss_spike_count": row.loss_spike_count,
             }
         )
 
@@ -150,14 +156,19 @@ def metrics_from_summary(
     loss_mean = summary.get(LOSS_MEAN_KEY)
     loss_second_moment = summary.get(LOSS_SECOND_MOMENT_KEY)
     policy_top1 = summary.get(POLICY_TOP1_KEY)
+    loss_spike_count = summary.get(LOSS_SPIKE_COUNT_KEY)
     if (
         not isinstance(loss_mean, int | float)
         or not isinstance(loss_second_moment, int | float)
         or not isinstance(policy_top1, int | float)
+        or not isinstance(loss_spike_count, int | float)
+        or loss_spike_count < 0
+        or int(loss_spike_count) != loss_spike_count
     ):
         raise ValueError(
             f"{wandb_url} summary has no {LOSS_MEAN_KEY!r}, "
-            f"{LOSS_SECOND_MOMENT_KEY!r}, and {POLICY_TOP1_KEY!r} values."
+            f"{LOSS_SECOND_MOMENT_KEY!r}, {POLICY_TOP1_KEY!r}, and "
+            f"{LOSS_SPIKE_COUNT_KEY!r} values."
         )
     loss_mean = float(loss_mean)
     variance = max(float(loss_second_moment) - loss_mean * loss_mean, 0.0)
@@ -168,4 +179,5 @@ def metrics_from_summary(
         loss_std=loss_std,
         loss_upper_1sd=loss_mean + loss_std,
         policy_top1=float(policy_top1),
+        loss_spike_count=int(loss_spike_count),
     )

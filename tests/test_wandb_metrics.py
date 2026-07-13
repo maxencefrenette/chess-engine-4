@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from chess_engine_4.training.wandb_metrics import (
+    LOSS_SPIKE_COUNT_KEY,
     metrics_from_summary,
     wandb_run_path_from_url,
 )
@@ -20,6 +21,7 @@ def test_metrics_from_summary() -> None:
             "loss/task[ema=0.99]": 4.2,
             "loss/task2[ema=0.99]": 17.89,
             "metrics/policy_top1[ema=0.99]": 0.3,
+            LOSS_SPIKE_COUNT_KEY: 0,
         },
     )
 
@@ -27,3 +29,4 @@ def test_metrics_from_summary() -> None:
     assert metrics.loss_std == 0.5
     assert metrics.loss_upper_1sd == 4.7
     assert metrics.policy_top1 == 0.3
+    assert metrics.loss_spike_count == 0

@@ -112,6 +112,10 @@ def compare_run_data(
         steps=steps,
     )
     metrics = metrics_from_summary(wandb_url, summary)
+    if metrics.loss_spike_count:
+        raise ValueError(
+            f"W&B run is invalid: detected {metrics.loss_spike_count} loss spike(s)."
+        )
     defaults = read_best_runs(best_runs_path)
     loss_curve = fit_loss_power_law(
         (result.compute / (result.samples_seen / result.batch_size), result.loss)

@@ -28,6 +28,7 @@ from chess_engine_4.training.packed_input import (
     build_training_model,
 )
 from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
+from chess_engine_4.training.stability import LossSpikeDetector
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _DEFAULT_CONFIG_PATH = Path("configs/dense/d64.toml")
@@ -140,6 +141,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     completed_steps = 0
     last_metrics: dict[str, float | int] = {}
     ema_metrics: dict[str, float] = {}
+    loss_spike_detector = LossSpikeDetector()
+    pending_losses: list[torch.Tensor] = []
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
     iterator = iter(dataset)
@@ -176,6 +179,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         with autocast_context(config.precision.recipe):
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
+        pending_losses.append(loss.task.detach())
         loss.task.backward()
         grad_norm_tensor = _clip_gradient_norm(
             model,
@@ -213,7 +217,10 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
 
         if should_log or should_checkpoint:
+            pending_loss_values = torch.stack(pending_losses)
             torch.cuda.synchronize(device)
+            loss_spike_detector.update_many(pending_loss_values.cpu().tolist())
+            pending_losses.clear()
             now = time.perf_counter()
             elapsed = now - start
             interval_elapsed = now - interval_start
@@ -231,6 +238,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             )
             metrics["perf/flops_seen"] = flops_seen
             metrics["perf/compute_seen"] = compute_seen
+            metrics["stability/loss_spike_count"] = loss_spike_detector.count
             metrics["perf/step_time_sec"] = interval_elapsed / interval_steps
             metrics["perf/samples_per_sec_interval"] = interval_samples / interval_elapsed
             if theoretical_tflops is not None:
