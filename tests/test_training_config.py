@@ -151,12 +151,24 @@ def test_d64_config_builds_expected_model_size() -> None:
         (1_536, 7, 98_304),
     ],
 )
-def test_dense_family_recipe(d_model: int, depth: int, batch_size: int) -> None:
+def test_dense_family_recipe(
+    d_model: int,
+    depth: int,
+    batch_size: int,
+) -> None:
     config = load_training_config("configs/dense.py", d_model=d_model)
+    parameter_count = dense_parameter_count(
+        d_model=config.model.d_model,
+        depth=config.model.depth,
+        expansion_ratio=config.model.expansion_ratio,
+        activation=config.model.activation,
+    )
 
     assert config.run.name == f"d{d_model}"
     assert config.model.depth == depth
     assert config.run.batch_size == batch_size
+    assert config.run.steps == round(50 * parameter_count / batch_size)
+    assert config.run.steps * batch_size / parameter_count == pytest.approx(50, rel=1e-3)
 
 
 def test_dense_family_requires_aligned_width() -> None:

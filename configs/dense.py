@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from chess_engine_4.model import DenseChessNetConfig
+from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
@@ -17,8 +17,7 @@ from chess_engine_4.training.losses import LossWeights
 _BASE_WIDTH = 32
 _DEPTH_INTERCEPT = 2.5
 _DEPTH_PER_WIDTH_DOUBLING = 0.85
-_BASE_STEPS = 7_500
-_STEPS_WIDTH_EXPONENT = 0.30
+_SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 64
 _BASE_LR = 1.9e-3
 _LR_WIDTH_EXPONENT = -0.46
@@ -31,12 +30,23 @@ def config(*, d_model: int) -> TrainingConfig:
         raise ValueError("d_model must be a positive multiple of 32.")
 
     width_scale = d_model / _BASE_WIDTH
+    depth = max(
+        2,
+        math.floor(_DEPTH_INTERCEPT + _DEPTH_PER_WIDTH_DOUBLING * math.log2(width_scale)),
+    )
+    batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
+    parameter_count = dense_parameter_count(
+        d_model=d_model,
+        depth=depth,
+        expansion_ratio=4.0,
+        activation="swiglu",
+    )
     return TrainingConfig(
         run=RunConfig(
             name=f"d{d_model}",
             seed=1,
-            steps=round(_BASE_STEPS * width_scale**_STEPS_WIDTH_EXPONENT),
-            batch_size=_round_batch_size(_BATCH_PER_WIDTH * d_model),
+            steps=round(_SAMPLES_PER_PARAMETER * parameter_count / batch_size),
+            batch_size=batch_size,
         ),
         infra=InfraConfig(
             cpu_cores=8,
@@ -46,10 +56,7 @@ def config(*, d_model: int) -> TrainingConfig:
         precision=PrecisionConfig(recipe="mxfp8"),
         model=DenseChessNetConfig(
             d_model=d_model,
-            depth=max(
-                2,
-                math.floor(_DEPTH_INTERCEPT + _DEPTH_PER_WIDTH_DOUBLING * math.log2(width_scale)),
-            ),
+            depth=depth,
             expansion_ratio=4.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
