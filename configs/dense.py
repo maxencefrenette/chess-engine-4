@@ -19,9 +19,9 @@ _DEPTH_INTERCEPT = 2.5
 _DEPTH_PER_WIDTH_DOUBLING = 0.85
 _SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 64
-_BASE_LR = 1.9e-3
-_LR_WIDTH_EXPONENT = -0.46
-_LR_TRAINING_RATIO_EXPONENT = -math.log(1.5) / math.log(4.0)
+_LR_PARAMETER_COEFFICIENT = 0.96
+_LR_PARAMETER_EXPONENT = -0.45
+_LR_TRAINING_RATIO_EXPONENT = -0.3
 
 
 def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
@@ -69,8 +69,8 @@ def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
         ),
         optimizer=OptimizerConfig(
             lr=_round_significant(
-                _BASE_LR
-                * width_scale**_LR_WIDTH_EXPONENT
+                _LR_PARAMETER_COEFFICIENT
+                * parameter_count**_LR_PARAMETER_EXPONENT
                 * training_ratio**_LR_TRAINING_RATIO_EXPONENT,
                 digits=2,
             ),

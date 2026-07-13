@@ -59,23 +59,23 @@ policy_top1 = 0.5495166871982974
 runtime_sec = 3568.242464666
 
 [runs.d32]
-source_experiment = "experiments/2026-07-13.01-dense-data-ratio"
+source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
 model_kind = "dense"
-run_name = "dense-data-ratio-d32-r50"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/yi6fauit"
+run_name = "dense-marin-refit-validate-d32"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eubeiyki"
 flops = 31962068287488
 d_model = 32
 depth = 2
 activation = "swiglu"
 batch_size = 2048
-lr = 1.9e-3
+lr = 3.1e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 318496
 samples_seen = 15925248
-loss = 3.7876560324314217
-policy_top1 = 0.2545249646610843
-runtime_sec = 22.148717948
+loss = 3.7779993724370695
+policy_top1 = 0.254491300397948
+runtime_sec = 20.797634017
 
 [runs."d32-r0.25"]
 frontier = false
@@ -99,23 +99,23 @@ policy_top1 = 0.1872806622773012
 runtime_sec = 14.296869548
 
 [runs.d64]
-source_experiment = "experiments/2026-07-13.01-dense-data-ratio"
+source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
 model_kind = "dense"
-run_name = "dense-data-ratio-d64-r50"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/mtppahc9"
+run_name = "dense-marin-refit-validate-d64"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/cmm3vgac"
 flops = 168715981701120
 d_model = 64
 depth = 3
 activation = "swiglu"
 batch_size = 4096
-lr = 1.4e-3
+lr = 2.1e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 733408
 samples_seen = 36671488
-loss = 3.576998118683959
-policy_top1 = 0.3038946580550745
-runtime_sec = 46.437585523
+loss = 3.5696311240122385
+policy_top1 = 0.30571743127627055
+runtime_sec = 30.281902584
 
 [runs."d64-r0.25"]
 frontier = false
@@ -139,23 +139,23 @@ policy_top1 = 0.2302030645998959
 runtime_sec = 9.788391336
 
 [runs.d128]
-source_experiment = "experiments/2026-07-13.01-dense-data-ratio"
+source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
 model_kind = "dense"
-run_name = "dense-data-ratio-d128-r50"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/j2bqne56"
+run_name = "dense-marin-control-d128"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/xabwy2o4"
 flops = 1188526586232832
 d_model = 128
 depth = 4
 activation = "swiglu"
 batch_size = 8192
-lr = 1e-3
+lr = 1.4e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 1956512
 samples_seen = 97828864
-loss = 3.3467315274183846
-policy_top1 = 0.3616412040325542
-runtime_sec = 68.478124611
+loss = 3.3414582097117784
+policy_top1 = 0.36420043919653966
+runtime_sec = 146.28233028
 
 [runs."d128-r0.25"]
 frontier = false
@@ -179,23 +179,23 @@ policy_top1 = 0.29241288855155645
 runtime_sec = 19.899552037
 
 [runs.d256]
-source_experiment = "experiments/2026-07-13.01-dense-data-ratio"
+source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
 model_kind = "dense"
-run_name = "dense-data-ratio-d256-r50"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/0dg5f55u"
+run_name = "dense-marin-validate-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/nj3mat7f"
 flops = 12056686902640640
 d_model = 256
 depth = 5
 activation = "swiglu"
 batch_size = 16384
-lr = 7.3e-4
+lr = 8e-4
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 6270624
 samples_seen = 313524224
-loss = 3.097006168728998
-policy_top1 = 0.4279946054181193
-runtime_sec = 394.9483415
+loss = 3.096408491600261
+policy_top1 = 0.4277455917720363
+runtime_sec = 449.862652901
 
 [runs."d256-r0.25"]
 frontier = false
