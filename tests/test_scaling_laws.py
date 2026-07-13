@@ -18,15 +18,10 @@ from chess_engine_4.training.scaling_laws import (
 def test_read_best_runs_and_extrapolate() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-dense.toml"))
     assert [run.budget for run in best_runs] == [
-        "2e17",
-        "1e18",
-        "3e18",
-        "1e19",
-        "3e19",
-        "1e20",
-        "1e21",
-        "1e22",
-        "1e23",
+        "d32",
+        "d64",
+        "d128",
+        "d256",
     ]
 
     laws = fit_scaling_laws(best_runs)
@@ -74,12 +69,12 @@ def test_format_report() -> None:
 
 def test_read_best_runs_excludes_stale_rows(tmp_path: Path) -> None:
     source = Path("experiments/best-runs-dense.toml").read_text(encoding="utf-8")
-    source = source.replace("[runs.2e17]", "[runs.2e17]\nstale = true", 1)
+    source = source.replace("[runs.d32]", "[runs.d32]\nstale = true", 1)
     path = tmp_path / "best-runs.toml"
     path.write_text(source, encoding="utf-8")
 
     current = read_best_runs(path)
     historical = read_best_runs(path, include_stale=True)
 
-    assert all(result.budget != "2e17" for result in current)
-    assert next(result for result in historical if result.budget == "2e17").stale
+    assert all(result.budget != "d32" for result in current)
+    assert next(result for result in historical if result.budget == "d32").stale

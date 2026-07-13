@@ -37,7 +37,7 @@ def export_scaling_data() -> None:
 
 def write_scaling_data(output: Path) -> None:
     payload = {
-        "version": 1,
+        "version": 2,
         "families": {
             family_id: build_family_payload(family_id, metadata)
             for family_id, metadata in FAMILIES.items()
@@ -50,10 +50,12 @@ def write_scaling_data(output: Path) -> None:
 def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
     path = metadata["best_runs"]
     results = read_best_runs(path)
+    stale_results = [result for result in read_best_runs(path, include_stale=True) if result.stale]
     with path.open("rb") as handle:
         raw_runs = tomllib.load(handle)["runs"]
 
     result_flops = {result.budget: physical_flops(result) for result in results}
+    stale_flops = {result.budget: physical_flops(result) for result in stale_results}
     loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
     policy_law = fit_sigmoid_law((result_flops[r.budget], r.policy_top1) for r in results)
     params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
@@ -61,27 +63,9 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)
     lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
 
-    observed = [
-        {
-            "name": f"d{result.d_model}",
-            "sourceExperiment": str(raw_runs[result.budget]["source_experiment"]),
-            "modelKind": result.model_kind,
-            "runName": result.run_name,
-            "wandbUrl": result.wandb_url,
-            "physicalFlops": result_flops[result.budget],
-            "dModel": result.d_model,
-            "depth": result.depth,
-            "batchSize": result.batch_size,
-            "steps": result.samples_seen / result.batch_size,
-            "lr": result.lr,
-            "params": result.params,
-            "samplesSeen": result.samples_seen,
-            "samplesPerParam": result.samples_seen / result.params,
-            "loss": result.loss,
-            "policyTop1": result.policy_top1,
-            "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
-        }
-        for result in results
+    observed = [observed_point(result, result_flops[result.budget], raw_runs) for result in results]
+    stale_observed = [
+        observed_point(result, stale_flops[result.budget], raw_runs) for result in stale_results
     ]
 
     frontier_exponent = round(math.log10(max(result_flops.values())))
@@ -100,10 +84,10 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     ]
 
     min_log_flops = math.log10(min(result_flops.values()))
-    max_log_flops = math.log10(target_flops[-1])
+    max_display_flops = max([target_flops[-1], *stale_flops.values()])
+    max_log_flops = math.log10(max_display_flops)
     curve_flops = [
-        10
-        ** (min_log_flops + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1))
+        10 ** (min_log_flops + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1))
         for index in range(CURVE_POINT_COUNT)
     ]
     curves = {
@@ -127,8 +111,31 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         "name": metadata["name"],
         "description": metadata["description"],
         "observed": observed,
+        "staleObserved": stale_observed,
         "extrapolated": extrapolated,
         "curves": curves,
+    }
+
+
+def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": f"d{result.d_model}",
+        "sourceExperiment": str(raw_runs[result.budget]["source_experiment"]),
+        "modelKind": result.model_kind,
+        "runName": result.run_name,
+        "wandbUrl": result.wandb_url,
+        "physicalFlops": flops,
+        "dModel": result.d_model,
+        "depth": result.depth,
+        "batchSize": result.batch_size,
+        "steps": result.samples_seen / result.batch_size,
+        "lr": result.lr,
+        "params": result.params,
+        "samplesSeen": result.samples_seen,
+        "samplesPerParam": result.samples_seen / result.params,
+        "loss": result.loss,
+        "policyTop1": result.policy_top1,
+        "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
     }
 
 

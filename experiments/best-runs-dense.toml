@@ -1,130 +1,5 @@
-[runs.2e17]
-source_experiment = "experiments/2026-07-12.09-d32-tuning"
-model_kind = "dense"
-run_name = "d32-grid-b2048-lr17"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/l0qiw2dj"
-compute = 2.312070912e17
-d_model = 32
-depth = 2
-activation = "swiglu"
-batch_size = 2048
-lr = 1.7e-3
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 318496
-samples_seen = 15360000
-loss = 3.792635747459343
-loss_std = 0.1581609510303544
-loss_upper_1sd = 3.9507966984896976
-policy_top1 = 0.25437949214427047
-runtime_sec = 20.230301145
-
-[runs.1e18]
-source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"
-model_kind = "dense"
-run_name = "dense-retune-18-d64x3-b3072-lr14"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/vzu3es4b"
-compute = 1.0001092180702004e18
-d_model = 64
-depth = 3
-activation = "swiglu"
-batch_size = 3072
-lr = 1.4e-3
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 733408
-samples_seen = 25841664
-loss = 3.6099936068050353
-loss_std = 0.11726965417603889
-loss_upper_1sd = 3.7272632609810743
-policy_top1 = 0.29698181016253294
-runtime_sec = 24.862965513
-
-[runs.3e18]
-source_experiment = "experiments/2026-07-12.08-geglu-canonical-cutover"
-model_kind = "dense"
-run_name = "dense-policy-elo-3e18"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/mm157911"
-compute = 3.0001896045914112e18
-d_model = 96
-depth = 4
-activation = "swiglu"
-batch_size = 4096
-lr = 1.45e-3
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 1320416
-samples_seen = 38645760
-loss = 3.4911117556148334
-loss_std = 0.08549772222279331
-loss_upper_1sd = 3.5766094778376267
-policy_top1 = 0.329212336592841
-runtime_sec = 54.997084107
-
-[runs.1e19]
-source_experiment = "experiments/2026-07-12.01-dense-1e19-1e20-retune"
-model_kind = "dense"
-run_name = "dense-retune2-19-tune-d128x4-b8192-lr110"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/903a3xgb"
-compute = 1.0000321217215594e19
-d_model = 128
-depth = 4
-activation = "swiglu"
-batch_size = 8192
-lr = 1.1e-3
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 1956512
-samples_seen = 82116608
-loss = 3.3628703556892177
-loss_std = 0.06317285836528043
-loss_upper_1sd = 3.426043214054498
-policy_top1 = 0.35776106919487943
-runtime_sec = 53.789453396
-
-[runs.3e19]
-source_experiment = "experiments/2026-07-11.07-dense-intermediate-budgets"
-model_kind = "dense"
-run_name = "dense-3e19-final-d192x4-b12288-lr60"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/1gs863uo"
-compute = 3.000417367769233e19
-d_model = 192
-depth = 4
-activation = "swiglu"
-batch_size = 12288
-lr = 6e-4
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 3523616
-samples_seen = 130166784
-loss = 3.2661540190929736
-loss_std = 0.05329194464813965
-loss_upper_1sd = 3.319445963741113
-policy_top1 = 0.3820001652711371
-runtime_sec = 272.155486923
-
-[runs.1e20]
-source_experiment = "experiments/2026-07-12.01-dense-1e19-1e20-retune"
-model_kind = "dense"
-run_name = "dense-retune2-20-final-d288x5-b16384-lr75"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/oisz5ib0"
-compute = 1.0001695541985018e20
-d_model = 288
-depth = 5
-activation = "swiglu"
-batch_size = 16384
-lr = 7.5e-4
-lr_cooldown_frac = 0.1
-max_grad_norm = 1.0
-params = 7607168
-samples_seen = 187564032
-loss = 3.1441448886228653
-loss_std = 0.04314087788514127
-loss_upper_1sd = 3.1872857665080065
-policy_top1 = 0.4184628195052521
-runtime_sec = 114.385152418
-
 [runs.1e21]
+stale = true
 source_experiment = "experiments/2026-07-11.06-dense-1e18-1e21-retune"
 model_kind = "dense"
 run_name = "dense-retune-21-d576x5-b32768-lr45"
@@ -146,6 +21,7 @@ policy_top1 = 0.46285301071621826
 runtime_sec = 948.326094408
 
 [runs.1e22]
+stale = true
 source_experiment = "experiments/2026-07-11.01-dense-1e22-data-allocation"
 model_kind = "dense"
 run_name = "dense-data20-lr4-d896x6-b65536-lr50"
@@ -167,6 +43,7 @@ policy_top1 = 0.5107734414355058
 runtime_sec = 801.137830072
 
 [runs.1e23]
+stale = true
 source_experiment = "experiments/2026-07-12.02-dense-1e23-hero"
 model_kind = "dense"
 run_name = "dense-1e23-hero"
@@ -186,3 +63,87 @@ loss_std = 0.035100738817278904
 loss_upper_1sd = 2.7500777906258373
 policy_top1 = 0.5495166871982974
 runtime_sec = 3568.242464666
+
+[runs.d32]
+source_experiment = "experiments/2026-07-12.12-dense-family-baseline"
+model_kind = "dense"
+run_name = "dense-family-baseline-d32"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/72c3f49e"
+compute = 2.312070912e17
+d_model = 32
+depth = 2
+activation = "swiglu"
+batch_size = 2048
+lr = 1.9e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 318496
+samples_seen = 15360000
+loss = 3.7907904746775993
+loss_std = 0.16302746304832405
+loss_upper_1sd = 3.9538179377259235
+policy_top1 = 0.2532710301921916
+runtime_sec = 19.835811357
+
+[runs.d64]
+source_experiment = "experiments/2026-07-12.12-dense-family-baseline"
+model_kind = "dense"
+run_name = "dense-family-baseline-d64"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/bzyu2wem"
+compute = 1.6068205567977062e18
+d_model = 64
+depth = 3
+activation = "swiglu"
+batch_size = 4096
+lr = 1.4e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 733408
+samples_seen = 37822464
+loss = 3.566360463377338
+loss_std = 0.09120335534990184
+loss_upper_1sd = 3.6575638187272395
+policy_top1 = 0.3047448882399286
+runtime_sec = 31.777699278
+
+[runs.d128]
+source_experiment = "experiments/2026-07-12.12-dense-family-baseline"
+model_kind = "dense"
+run_name = "dense-family-baseline-d128"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ws5uysef"
+compute = 1.2861747044107158e19
+d_model = 128
+depth = 4
+activation = "swiglu"
+batch_size = 8192
+lr = 1e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1956512
+samples_seen = 93126656
+loss = 3.3536125528628915
+loss_std = 0.05773083117918635
+loss_upper_1sd = 3.4113433840420777
+policy_top1 = 0.36047327525673617
+runtime_sec = 113.726379842
+
+[runs.d256]
+source_experiment = "experiments/2026-07-12.12-dense-family-baseline"
+model_kind = "dense"
+run_name = "dense-family-baseline-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/d4u870kc"
+compute = 1.2340212155980186e20
+d_model = 256
+depth = 5
+activation = "swiglu"
+batch_size = 16384
+lr = 7.3e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 6270624
+samples_seen = 229294080
+loss = 3.1348849447669114
+loss_std = 0.040076253646743734
+loss_upper_1sd = 3.174961198413655
+policy_top1 = 0.4181582776540041
+runtime_sec = 294.879047253

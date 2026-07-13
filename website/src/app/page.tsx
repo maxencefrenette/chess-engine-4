@@ -10,12 +10,14 @@ import {
   latestRun,
   modelFamilies,
   readBestRuns,
+  readScalingFamily,
 } from "@/data/best-runs";
 
 export default function Home() {
   const families = modelFamilies.map((family) => {
     const runs = readBestRuns(family);
-    return { family, runs, latest: latestRun(runs) };
+    const scaling = readScalingFamily(family);
+    return { family, runs, staleRuns: scaling.staleObserved, latest: latestRun(runs) };
   });
 
   const bestLatestLoss = Math.min(
@@ -61,7 +63,7 @@ export default function Home() {
       </section>
 
       <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-5 px-8 py-6">
-        {families.map(({ family, runs, latest }) => (
+        {families.map(({ family, runs, staleRuns, latest }) => (
           <Link
             key={family.id}
             href={`/families/${family.id}`}
@@ -111,6 +113,10 @@ export default function Home() {
               <Sparkline
                 label={`${family.name} loss trend`}
                 points={runs.map((run) => ({
+                  x: run.physicalFlops,
+                  y: run.loss,
+                }))}
+                stalePoints={staleRuns.map((run) => ({
                   x: run.physicalFlops,
                   y: run.loss,
                 }))}

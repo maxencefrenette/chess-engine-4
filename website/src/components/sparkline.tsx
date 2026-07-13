@@ -1,10 +1,16 @@
 type SparklineProps = {
   points: { x: number; y: number }[];
+  stalePoints: { x: number; y: number }[];
   label: string;
   stroke?: string;
 };
 
-export function Sparkline({ points, label, stroke = "#2563eb" }: SparklineProps) {
+export function Sparkline({
+  points,
+  stalePoints,
+  label,
+  stroke = "#2563eb",
+}: SparklineProps) {
   if (points.length === 0) {
     return null;
   }
@@ -12,8 +18,9 @@ export function Sparkline({ points, label, stroke = "#2563eb" }: SparklineProps)
   const width = 220;
   const height = 72;
   const padding = 6;
-  const xValues = points.map((point) => Math.log10(point.x));
-  const yValues = points.map((point) => point.y);
+  const allPoints = [...points, ...stalePoints];
+  const xValues = allPoints.map((point) => Math.log10(point.x));
+  const yValues = allPoints.map((point) => point.y);
   const minX = Math.min(...xValues);
   const maxX = Math.max(...xValues);
   const minY = Math.min(...yValues);
@@ -46,6 +53,18 @@ export function Sparkline({ points, label, stroke = "#2563eb" }: SparklineProps)
           fill="white"
           r="3.5"
           stroke={stroke}
+          strokeWidth="1.5"
+        />
+      ))}
+      {stalePoints.map((point) => (
+        <circle
+          key={`stale-${point.x}-${point.y}`}
+          cx={scaleX(point.x)}
+          cy={scaleY(point.y)}
+          fill="#d4d4d8"
+          opacity="0.8"
+          r="3.5"
+          stroke="#a1a1aa"
           strokeWidth="1.5"
         />
       ))}

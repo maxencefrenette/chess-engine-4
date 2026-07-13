@@ -20,15 +20,16 @@ Each model family has one programmable scaling recipe. For dense models,
 of the baseline configuration. After an experimental run finishes:
 
 1. Run `uv run compare-run WANDB_URL`.
-2. If it reports `PROMOTE`, mark the previous run at that width stale and add the
-   candidate to the best-runs file.
+2. If it reports `PROMOTE`, replace the previous run at that width in the
+   best-runs file.
 3. Regenerate the website scaling data.
 4. Change the family recipe only when a multi-width experiment supports changing
    the scaling law, not for a one-off width result.
 
-Best-run rows may set `stale = true` when they no longer represent the current
-family tune. Tooling excludes stale rows from comparisons, fits, extrapolation,
-and website data.
+When a family recipe changes, delete superseded cheap runs and rerun them. A
+larger run that is too expensive to repeat immediately may set `stale = true`
+until it can be replaced. Tooling excludes stale rows from comparisons, fits,
+extrapolation, and website data.
 
 Experiment reports should contain the command, W&B URL, physical-FLOPs efficiency
 multiplier, promotion verdict, and notable observations. Include the
