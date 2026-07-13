@@ -14,7 +14,7 @@ import {
 type LineChartPoint = {
   x: number;
   y: number;
-  budget: string;
+  name: string;
 };
 
 type LineChartProps = {
@@ -30,7 +30,7 @@ type LineChartProps = {
 };
 
 type ChartPoint = {
-  budget: string;
+  name: string;
   extrapolated?: boolean;
   fit?: number;
   logX: number;
@@ -66,7 +66,7 @@ export function LineChart({
     plotY: plotY(point.y, yScale),
   }));
   const curveChartPoints: ChartPoint[] = fitPoints.map((point) => ({
-    budget: "Fit",
+    name: "Fit",
     x: point.x,
     y: point.y,
     logX: Math.log10(point.x),
@@ -110,7 +110,7 @@ export function LineChart({
               if (!active || !point || point.y === undefined) return null;
               return (
                 <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-lg">
-                  <div className="font-semibold text-zinc-950">{point.budget}</div>
+                  <div className="font-semibold text-zinc-950">{point.name}</div>
                   <div className="mt-1 text-zinc-600">
                     {yLabel}: {formatValue(point.y, valueFormat, true)}
                   </div>

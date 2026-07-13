@@ -6,7 +6,6 @@ import { RunsTable } from "@/components/runs-table";
 import {
   formatCompactNumber,
   formatDecimal,
-  formatModel,
   formatPercent,
 } from "@/data/format";
 import {
@@ -60,14 +59,17 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           {latest ? (
             <div className="text-right">
               <div className="text-xs font-medium uppercase text-zinc-500">Current frontier</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">{latest.budget}</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-950">{latest.name}</div>
             </div>
           ) : null}
         </header>
 
         {latest ? (
           <section className="mt-5 grid grid-cols-4 gap-4">
-            <MetricCard label="Latest model" value={formatModel(latest)} detail={latest.budget} />
+            <MetricCard
+              label="Training compute"
+              value={`${latest.physicalFlops.toExponential(0).replace("e+", "e")} FLOPs`}
+            />
             <MetricCard label="Parameters" value={formatCompactNumber(latest.params)} />
             <MetricCard
               label="Loss"

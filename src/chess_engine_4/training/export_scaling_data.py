@@ -11,8 +11,8 @@ from typing import Any
 
 from chess_engine_4.training.scaling_laws import (
     fit_linear_law,
+    fit_loss_power_law,
     fit_power_law,
-    fit_scaling_laws,
     read_best_runs,
 )
 
@@ -53,26 +53,22 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     with path.open("rb") as handle:
         raw_runs = tomllib.load(handle)["runs"]
 
-    laws = fit_scaling_laws(results)
-    physical_flops_law = fit_power_law(
-        (result.compute, physical_flops(result.compute, result.samples_seen, result.batch_size))
-        for result in results
-    )
-    policy_law = fit_linear_law((result.compute, result.policy_top1) for result in results)
+    result_flops = {result.budget: physical_flops(result) for result in results}
+    loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
+    policy_law = fit_linear_law((result_flops[r.budget], r.policy_top1) for r in results)
+    params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
+    samples_law = fit_power_law((result_flops[r.budget], r.samples_seen) for r in results)
+    batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)
+    lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
 
     observed = [
         {
-            "budget": result.budget,
+            "name": f"d{result.d_model}",
             "sourceExperiment": str(raw_runs[result.budget]["source_experiment"]),
             "modelKind": result.model_kind,
             "runName": result.run_name,
             "wandbUrl": result.wandb_url,
-            "compute": result.compute,
-            "physicalFlops": physical_flops(
-                result.compute,
-                result.samples_seen,
-                result.batch_size,
-            ),
+            "physicalFlops": result_flops[result.budget],
             "dModel": result.d_model,
             "depth": result.depth,
             "batchSize": result.batch_size,
@@ -88,46 +84,43 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         for result in results
     ]
 
-    frontier_exponent = round(math.log10(max(result.compute for result in results)))
-    target_computes = [10.0 ** (frontier_exponent + offset) for offset in (1, 2)]
+    frontier_exponent = round(math.log10(max(result_flops.values())))
+    target_flops = [10.0 ** (frontier_exponent + offset) for offset in (1, 2)]
     extrapolated = [
         extrapolated_point(
-            compute,
-            laws=laws,
-            physical_flops_law=physical_flops_law,
+            flops,
+            loss_law=loss_law,
             policy_law=policy_law,
+            params_law=params_law,
+            samples_law=samples_law,
+            batch_size_law=batch_size_law,
+            lr_law=lr_law,
         )
-        for compute in target_computes
+        for flops in target_flops
     ]
 
-    min_log_compute = math.log10(min(result.compute for result in results))
-    max_log_compute = math.log10(target_computes[-1])
-    curve_computes = [
+    min_log_flops = math.log10(min(result_flops.values()))
+    max_log_flops = math.log10(target_flops[-1])
+    curve_flops = [
         10
-        ** (min_log_compute + (max_log_compute - min_log_compute) * index / (CURVE_POINT_COUNT - 1))
+        ** (min_log_flops + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1))
         for index in range(CURVE_POINT_COUNT)
     ]
     curves = {
-        "loss": curve(
-            curve_computes,
-            physical_flops_law,
-            laws.loss.predict,
-        ),
-        "policyTop1": curve(curve_computes, physical_flops_law, policy_law.predict),
-        "params": curve(curve_computes, physical_flops_law, laws.params.predict),
-        "samples": curve(curve_computes, physical_flops_law, laws.samples.predict),
+        "loss": curve(curve_flops, loss_law.predict),
+        "policyTop1": curve(curve_flops, policy_law.predict),
+        "params": curve(curve_flops, params_law.predict),
+        "samples": curve(curve_flops, samples_law.predict),
         "samplesPerParam": curve(
-            curve_computes,
-            physical_flops_law,
-            lambda compute: laws.samples.predict(compute) / laws.params.predict(compute),
+            curve_flops,
+            lambda flops: samples_law.predict(flops) / params_law.predict(flops),
         ),
-        "lr": curve(curve_computes, physical_flops_law, laws.lr.predict),
+        "lr": curve(curve_flops, lr_law.predict),
         "steps": curve(
-            curve_computes,
-            physical_flops_law,
-            lambda compute: laws.samples.predict(compute) / laws.batch_size.predict(compute),
+            curve_flops,
+            lambda flops: samples_law.predict(flops) / batch_size_law.predict(flops),
         ),
-        "batchSize": curve(curve_computes, physical_flops_law, laws.batch_size.predict),
+        "batchSize": curve(curve_flops, batch_size_law.predict),
     }
     return {
         "id": family_id,
@@ -140,43 +133,44 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
 
 
 def extrapolated_point(
-    compute: float,
+    flops: float,
     *,
-    laws: Any,
-    physical_flops_law: Any,
+    loss_law: Any,
     policy_law: Any,
+    params_law: Any,
+    samples_law: Any,
+    batch_size_law: Any,
+    lr_law: Any,
 ) -> dict[str, float | str]:
-    params = laws.params.predict(compute)
-    samples = laws.samples.predict(compute)
+    params = params_law.predict(flops)
+    samples = samples_law.predict(flops)
     return {
-        "budget": f"1e{round(math.log10(compute))}",
-        "compute": compute,
-        "physicalFlops": physical_flops_law.predict(compute),
+        "name": f"1e{round(math.log10(flops))} FLOPs",
+        "physicalFlops": flops,
         "params": params,
         "samplesSeen": samples,
         "samplesPerParam": samples / params,
-        "loss": laws.loss.predict(compute),
-        "policyTop1": policy_law.predict(compute),
-        "lr": laws.lr.predict(compute),
-        "steps": samples / laws.batch_size.predict(compute),
-        "batchSize": laws.batch_size.predict(compute),
+        "loss": loss_law.predict(flops),
+        "policyTop1": policy_law.predict(flops),
+        "lr": lr_law.predict(flops),
+        "steps": samples / batch_size_law.predict(flops),
+        "batchSize": batch_size_law.predict(flops),
     }
 
 
-def curve(computes: list[float], physical_flops_law: Any, predict: Any) -> list[dict[str, float]]:
+def curve(flops_values: list[float], predict: Any) -> list[dict[str, float]]:
     return [
         {
-            "compute": compute,
-            "physicalFlops": physical_flops_law.predict(compute),
-            "value": predict(compute),
+            "physicalFlops": flops,
+            "value": predict(flops),
         }
-        for compute in computes
+        for flops in flops_values
     ]
 
 
-def physical_flops(compute: float, samples_seen: int, batch_size: int) -> float:
-    steps = samples_seen / batch_size
-    return compute / steps
+def physical_flops(result: Any) -> float:
+    steps = result.samples_seen / result.batch_size
+    return result.compute / steps
 
 
 if __name__ == "__main__":

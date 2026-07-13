@@ -4,12 +4,11 @@ import path from "node:path";
 export type ModelFamilyId = "dense";
 
 export type BestRun = {
-  budget: string;
+  name: string;
   sourceExperiment: string;
   modelKind: string;
   runName: string;
   wandbUrl: string;
-  compute: number;
   physicalFlops: number;
   dModel: number;
   depth: number;
@@ -25,8 +24,7 @@ export type BestRun = {
 };
 
 export type ExtrapolatedRun = {
-  budget: string;
-  compute: number;
+  name: string;
   physicalFlops: number;
   params: number;
   samplesSeen: number;
@@ -39,7 +37,6 @@ export type ExtrapolatedRun = {
 };
 
 export type CurvePoint = {
-  compute: number;
   physicalFlops: number;
   value: number;
 };

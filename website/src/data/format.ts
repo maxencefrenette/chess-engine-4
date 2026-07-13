@@ -1,7 +1,7 @@
 import type { BestRun } from "@/data/best-runs";
 
 export function formatModel(run: BestRun): string {
-  return `d${run.dModel}x${run.depth}`;
+  return `d${run.dModel}`;
 }
 
 export function formatCompactNumber(value: number): string {

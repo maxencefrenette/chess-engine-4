@@ -23,9 +23,11 @@ export default function Home() {
       .map(({ latest }) => latest?.loss)
       .filter((loss): loss is number => loss !== undefined),
   );
-  const largestBudget = families
+  const largestRun = families
     .flatMap(({ runs }) => runs)
-    .reduce((largest, run) => (run.compute > largest.compute ? run : largest)).budget;
+    .reduce((largest, run) =>
+      run.physicalFlops > largest.physicalFlops ? run : largest,
+    ).name;
 
   return (
     <main className="min-h-screen bg-zinc-50">
@@ -51,8 +53,8 @@ export default function Home() {
               </div>
             </div>
             <div>
-              <div className="text-xs font-medium uppercase text-zinc-500">Largest budget</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">{largestBudget}</div>
+              <div className="text-xs font-medium uppercase text-zinc-500">Largest run</div>
+              <div className="mt-1 text-xl font-semibold text-zinc-950">{largestRun}</div>
             </div>
           </div>
         </div>
@@ -70,7 +72,7 @@ export default function Home() {
                 <h2 className="text-2xl font-semibold text-zinc-950">{family.name}</h2>
                 {latest ? (
                   <span className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700">
-                    latest {latest.budget}
+                    latest {latest.name}
                   </span>
                 ) : null}
               </div>
@@ -105,11 +107,11 @@ export default function Home() {
               ) : null}
             </div>
             <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
-              <div className="mb-2 text-sm font-medium text-zinc-500">Loss by compute</div>
+              <div className="mb-2 text-sm font-medium text-zinc-500">Loss by training FLOPs</div>
               <Sparkline
                 label={`${family.name} loss trend`}
                 points={runs.map((run) => ({
-                  x: run.compute,
+                  x: run.physicalFlops,
                   y: run.loss,
                 }))}
               />

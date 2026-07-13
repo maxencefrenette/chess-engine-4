@@ -5,7 +5,6 @@ import {
   formatCompactNumber,
   formatDecimal,
   formatDuration,
-  formatModel,
   formatPercent,
 } from "@/data/format";
 
@@ -15,8 +14,8 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
       <table className="w-full min-w-[1080px] text-sm tabular-nums">
         <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-500 shadow-[0_1px_0_#e4e4e7]">
           <tr>
-            <Th>Budget</Th>
-            <Th>Model</Th>
+            <Th>Run</Th>
+            <Th numeric>Depth</Th>
             <Th numeric>Batch</Th>
             <Th numeric>LR</Th>
             <Th numeric>Params</Th>
@@ -30,7 +29,7 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
         <tbody className="divide-y divide-zinc-100">
           {runs.map((run) => (
             <tr
-              key={run.budget}
+              key={`${run.name}-${run.physicalFlops}`}
               className="cursor-pointer text-zinc-700 transition-colors hover:bg-blue-50"
               onClick={() => window.open(run.wandbUrl, "_blank", "noopener,noreferrer")}
               onKeyDown={(event) => {
@@ -50,10 +49,10 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  {run.budget}
+                  {run.name}
                 </a>
               </Td>
-              <Td>{formatModel(run)}</Td>
+              <Td numeric>{run.depth}</Td>
               <Td numeric>{formatCompactNumber(run.batchSize)}</Td>
               <Td numeric>{run.lr.toExponential(1)}</Td>
               <Td numeric>{formatCompactNumber(run.params)}</Td>

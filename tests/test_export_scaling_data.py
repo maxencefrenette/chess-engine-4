@@ -13,7 +13,16 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
 
     dense = payload["families"]["dense"]
     assert set(payload["families"]) == {"dense"}
-    assert [point["budget"] for point in dense["extrapolated"]] == ["1e24", "1e25"]
+    assert [point["name"] for point in dense["observed"]] == [
+        "d64",
+        "d128",
+        "d128",
+        "d192",
+        "d288",
+        "d576",
+        "d896",
+        "d1472",
+    ]
 
     assert len(dense["curves"]["samplesPerParam"]) == 61
     assert len(dense["curves"]["lr"]) == 61
@@ -21,6 +30,8 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
     assert len(dense["curves"]["batchSize"]) == 61
     assert "lossUpper1sd" not in dense["observed"][0]
     assert all(point["physicalFlops"] > 0 for point in dense["observed"])
+    assert all("compute" not in point for point in dense["observed"])
+    assert all("compute" not in point for point in dense["curves"]["loss"])
     assert all(point["samplesPerParam"] > 0 for point in dense["extrapolated"])
     assert all(point["steps"] > 0 for point in dense["observed"])
     assert all(point["batchSize"] > 0 for point in dense["extrapolated"])
