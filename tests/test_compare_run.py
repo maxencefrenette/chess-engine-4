@@ -24,6 +24,7 @@ flops = 1e4
 d_model = 64
 depth = 2
 batch_size = 10
+training_ratio = 0.25
 lr = 1e-3
 params = 100
 samples_seen = 1000
@@ -38,6 +39,7 @@ flops = 1e6
 d_model = 128
 depth = 2
 batch_size = 10
+training_ratio = 1.0
 lr = 1e-3
 params = 200
 samples_seen = 2000
@@ -48,7 +50,13 @@ policy_top1 = 0.3
     )
     comparison = compare_run_data(
         wandb_url="https://wandb.ai/e/p/runs/candidate",
-        config={"flops_per_sample": 10, "batch_size": 5, "steps": 20, "d_model": 64},
+        config={
+            "flops_per_sample": 10,
+            "batch_size": 5,
+            "steps": 20,
+            "d_model": 64,
+            "training_ratio": 0.25,
+        },
         summary={
             LOSS_MEAN_KEY: 2.9,
             POLICY_TOP1_KEY: 0.4,
@@ -58,6 +66,7 @@ policy_top1 = 0.3
     )
 
     assert comparison.flops == 1_000
+    assert comparison.training_ratio == 0.25
     assert comparison.eg_flops > 0
     assert comparison.improves_width_default
     assert comparison.beats_trend
@@ -72,7 +81,13 @@ def test_compare_run_rejects_loss_spikes(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="detected 1 loss spike"):
         compare_run_data(
             wandb_url="https://wandb.ai/e/p/runs/candidate",
-            config={"flops_per_sample": 10, "batch_size": 5, "steps": 20, "d_model": 64},
+            config={
+                "flops_per_sample": 10,
+                "batch_size": 5,
+                "steps": 20,
+                "d_model": 64,
+                "training_ratio": 0.25,
+            },
             summary={
                 LOSS_MEAN_KEY: 2.9,
                 POLICY_TOP1_KEY: 0.4,

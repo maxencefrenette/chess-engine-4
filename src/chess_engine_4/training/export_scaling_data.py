@@ -121,13 +121,14 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
 
 def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[str, Any]:
     return {
-        "name": f"d{result.d_model}",
+        "name": _recipe_name(result.d_model, result.training_ratio),
         "sourceExperiment": str(raw_runs[result.budget]["source_experiment"]),
         "modelKind": result.model_kind,
         "runName": result.run_name,
         "wandbUrl": result.wandb_url,
         "physicalFlops": flops,
         "dModel": result.d_model,
+        "trainingRatio": result.training_ratio,
         "depth": result.depth,
         "batchSize": result.batch_size,
         "steps": result.samples_seen / result.batch_size,
@@ -139,6 +140,12 @@ def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[
         "policyTop1": result.policy_top1,
         "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
     }
+
+
+def _recipe_name(d_model: int, training_ratio: float) -> str:
+    if training_ratio == 1.0:
+        return f"d{d_model}"
+    return f"d{d_model} · {training_ratio:g}x"
 
 
 def extrapolated_point(

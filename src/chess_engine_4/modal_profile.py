@@ -20,6 +20,7 @@ def profile_training() -> None:
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=64)
+    parser.add_argument("--training-ratio", type=float, default=1.0)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--expansion-ratio", type=float, default=None)
     parser.add_argument(
@@ -49,6 +50,7 @@ def profile_training() -> None:
         "config": str(args.config),
         "batch_size": args.batch_size,
         "d_model": args.d_model,
+        "training_ratio": args.training_ratio,
         "depth": args.depth,
         "expansion_ratio": args.expansion_ratio,
         "activation": args.activation,
@@ -64,7 +66,11 @@ def profile_training() -> None:
     }
 
     profile_function = training_function(
-        load_training_config(args.config, d_model=args.d_model).infra.cpu_cores
+        load_training_config(
+            args.config,
+            d_model=args.d_model,
+            training_ratio=args.training_ratio,
+        ).infra.cpu_cores
     )
     with app.run():
         result = profile_function.remote(payload)

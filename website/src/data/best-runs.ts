@@ -10,6 +10,7 @@ export type BestRun = {
   wandbUrl: string;
   physicalFlops: number;
   dModel: number;
+  trainingRatio: number;
   depth: number;
   batchSize: number;
   steps: number;

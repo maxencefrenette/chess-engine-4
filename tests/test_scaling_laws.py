@@ -39,6 +39,21 @@ def test_parameter_count_formulas_match_current_baselines() -> None:
     assert parameter_count(d_model=32, depth=1) == 306176
 
 
+def test_read_best_runs_tracks_non_frontier_ratios_separately() -> None:
+    path = Path("experiments/best-runs-dense.toml")
+
+    frontier = read_best_runs(path)
+    tracked = read_best_runs(path, include_non_frontier=True)
+
+    assert all(run.training_ratio == 1.0 for run in frontier)
+    assert {run.budget for run in tracked if not run.frontier} == {
+        "d32-r0.25",
+        "d64-r0.25",
+        "d128-r0.25",
+        "d256-r0.25",
+    }
+
+
 def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:
     law = fit_sigmoid_law(
         (10.0**exponent, 0.7 / (1.0 + math.exp(-0.5 * (exponent - 15))))

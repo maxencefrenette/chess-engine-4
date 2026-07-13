@@ -21,13 +21,16 @@ _SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 64
 _BASE_LR = 1.9e-3
 _LR_WIDTH_EXPONENT = -0.46
+_LR_TRAINING_RATIO_EXPONENT = -math.log(1.5) / math.log(4.0)
 
 
-def config(*, d_model: int) -> TrainingConfig:
+def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
     """Generate the current dense scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
         raise ValueError("d_model must be a positive multiple of 32.")
+    if training_ratio <= 0:
+        raise ValueError("training_ratio must be positive.")
 
     width_scale = d_model / _BASE_WIDTH
     depth = max(
@@ -43,10 +46,13 @@ def config(*, d_model: int) -> TrainingConfig:
     )
     return TrainingConfig(
         run=RunConfig(
-            name=f"d{d_model}",
+            name=_run_name(d_model, training_ratio),
             seed=1,
-            steps=round(_SAMPLES_PER_PARAMETER * parameter_count / batch_size),
+            steps=round(
+                training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch_size
+            ),
             batch_size=batch_size,
+            training_ratio=training_ratio,
         ),
         infra=InfraConfig(
             cpu_cores=8,
@@ -63,7 +69,9 @@ def config(*, d_model: int) -> TrainingConfig:
         ),
         optimizer=OptimizerConfig(
             lr=_round_significant(
-                _BASE_LR * width_scale**_LR_WIDTH_EXPONENT,
+                _BASE_LR
+                * width_scale**_LR_WIDTH_EXPONENT
+                * training_ratio**_LR_TRAINING_RATIO_EXPONENT,
                 digits=2,
             ),
             weight_decay=0.01,
@@ -73,6 +81,12 @@ def config(*, d_model: int) -> TrainingConfig:
         ),
         loss=LossWeights(policy=1.0, value=1.0, moves_left=1.0),
     )
+
+
+def _run_name(d_model: int, training_ratio: float) -> str:
+    if training_ratio == 1.0:
+        return f"d{d_model}"
+    return f"d{d_model}-r{training_ratio:g}"
 
 
 def _round_batch_size(value: float) -> int:

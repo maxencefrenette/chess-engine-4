@@ -52,6 +52,7 @@ class TrainOptions:
     batch_size: int | None = None
     steps: int | None = None
     d_model: int = 64
+    training_ratio: float = 1.0
     depth: int | None = None
     expansion_ratio: float | None = None
     activation: str | None = None
@@ -72,7 +73,11 @@ class TrainOptions:
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
     config = with_overrides(
-        load_training_config(options.config, d_model=options.d_model),
+        load_training_config(
+            options.config,
+            d_model=options.d_model,
+            training_ratio=options.training_ratio,
+        ),
         steps=options.steps,
         batch_size=options.batch_size,
         depth=options.depth,
@@ -583,6 +588,7 @@ def _init_wandb(
         "flops_per_sample": flops_per_sample,
         "log_every": _LOG_EVERY,
         "batch_size": config.run.batch_size,
+        "training_ratio": config.run.training_ratio,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
         "precision": config.precision.recipe,

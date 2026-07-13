@@ -176,12 +176,30 @@ def test_dense_family_requires_aligned_width() -> None:
         load_training_config("configs/dense.py", d_model=100)
 
 
+def test_dense_family_scales_training_horizon() -> None:
+    baseline = load_training_config("configs/dense.py", d_model=128)
+    undertrained = load_training_config(
+        "configs/dense.py",
+        d_model=128,
+        training_ratio=0.25,
+    )
+
+    assert undertrained.run.name == "d128-r0.25"
+    assert undertrained.run.training_ratio == 0.25
+    assert undertrained.run.steps * undertrained.run.batch_size / 1_956_512 == pytest.approx(
+        12.5,
+        rel=1e-3,
+    )
+    assert baseline.optimizer.lr == 0.001
+    assert undertrained.optimizer.lr == 0.0015
+
+
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:
     config_path = tmp_path / "invalid_precision.py"
     config_path.write_text(
         """from chess_engine_4.training.config import PrecisionConfig, TrainingConfig
 
-def config(*, d_model: int) -> TrainingConfig:
+def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
     return TrainingConfig(precision=PrecisionConfig(recipe="fp8"))
 """,
         encoding="utf-8",

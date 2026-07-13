@@ -26,6 +26,7 @@ class SweepResult:
     model_kind: str
     flops: float
     run_name: str
+    training_ratio: float
     batch_size: int
     lr: float
     d_model: int
@@ -36,6 +37,7 @@ class SweepResult:
     policy_top1: float
     wandb_url: str
     stale: bool
+    frontier: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +150,12 @@ def scaling_laws() -> None:
     print(report)
 
 
-def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResult]:
+def read_best_runs(
+    path: Path,
+    *,
+    include_stale: bool = False,
+    include_non_frontier: bool = False,
+) -> list[SweepResult]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
     raw_runs = data.get("runs", {})
@@ -157,7 +164,12 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
         stale = row.get("stale", False)
         if not isinstance(stale, bool):
             raise ValueError(f"{path}: runs.{budget}.stale must be a boolean.")
+        frontier = row.get("frontier", True)
+        if not isinstance(frontier, bool):
+            raise ValueError(f"{path}: runs.{budget}.frontier must be a boolean.")
         if stale and not include_stale:
+            continue
+        if not frontier and not include_non_frontier:
             continue
         results.append(
             SweepResult(
@@ -165,6 +177,7 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
                 model_kind=str(row["model_kind"]),
                 flops=float(row["flops"]),
                 run_name=str(row["run_name"]),
+                training_ratio=float(row.get("training_ratio", 1.0)),
                 batch_size=int(row["batch_size"]),
                 lr=float(row["lr"]),
                 d_model=int(row["d_model"]),
@@ -175,6 +188,7 @@ def read_best_runs(path: Path, *, include_stale: bool = False) -> list[SweepResu
                 policy_top1=float(row["policy_top1"]),
                 wandb_url=str(row["wandb_url"]),
                 stale=stale,
+                frontier=frontier,
             )
         )
     if not results:

@@ -49,10 +49,10 @@ in `.env`.
 uv run train-modal --d-model 64
 ```
 
-`configs/dense.py` is the canonical dense-family recipe. Width is its scaling
-argument; the recipe derives depth, batch size, steps, learning rate, and the
-remaining training configuration. CLI flags can override those derived values
-for controlled experiments.
+`configs/dense.py` is the canonical dense-family recipe. Width and training
+ratio are its scaling arguments; the recipe derives depth, batch size, steps,
+learning rate, and the remaining training configuration. CLI flags can override
+those derived values for controlled experiments.
 
 Training and evaluation are Blackwell-only and run on a Modal B200. Models use
 Transformer Engine MXFP8 block scaling and FP32 optimizer master weights.

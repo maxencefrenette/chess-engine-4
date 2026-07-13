@@ -16,8 +16,10 @@ chronological order.
 ## Promotion protocol
 
 Each model family has one programmable scaling recipe. For dense models,
-`configs/dense.py` takes `d_model` as its scaling argument and derives the rest
-of the baseline configuration. After an experimental run finishes:
+`configs/dense.py` takes `d_model` and `training_ratio` as scaling arguments and
+derives the rest of the baseline configuration. The `1x` ratio is the current
+compute-optimal allocation; lower ratios track deliberately undertrained runs.
+After an experimental run finishes:
 
 1. Run `uv run compare-run WANDB_URL`.
 2. If it reports `PROMOTE`, replace the previous run at that width in the
@@ -30,6 +32,10 @@ When a family recipe changes, delete superseded cheap runs and rerun them. A
 larger run that is too expensive to repeat immediately may set `stale = true`
 until it can be replaced. Tooling excludes stale rows from comparisons, fits,
 extrapolation, and website data.
+
+Set `frontier = false` on retained undertrained runs. They remain available as
+incumbents for the same `(d_model, training_ratio)` cell, but do not influence
+the compute-optimal loss/FLOPs fit.
 
 Experiment reports should contain the command, W&B URL, `EG_flops`, promotion
 verdict, and notable observations. `EG_flops` is the fitted training FLOPs required

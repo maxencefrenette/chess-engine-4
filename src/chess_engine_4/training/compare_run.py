@@ -19,6 +19,7 @@ from chess_engine_4.training.wandb_metrics import metrics_from_summary, wandb_ru
 class RunComparison:
     wandb_url: str
     d_model: int
+    training_ratio: float
     flops: float
     loss: float
     predicted_loss: float
@@ -57,6 +58,7 @@ def compare_run() -> None:
     print(f"width_verdict: {width_verdict}")
     print(f"trend_verdict: {trend_verdict}")
     print(f"d_model: {comparison.d_model}")
+    print(f"training_ratio: {comparison.training_ratio:g}")
     print(f"flops: {comparison.flops:.6e}")
     print(f"loss: {comparison.loss:.6f}")
     print(f"fitted_loss: {comparison.predicted_loss:.6f}")
@@ -82,6 +84,7 @@ def compare_run_data(
     batch_size = _positive_int(config, "batch_size")
     steps = _positive_int(config, "steps")
     d_model = _positive_int(config, "d_model")
+    training_ratio = _positive_float(config, "training_ratio")
     candidate_flops = flops_per_sample * batch_size * steps
     metrics = metrics_from_summary(wandb_url, summary)
     if metrics.loss_spike_count:
@@ -89,8 +92,13 @@ def compare_run_data(
             f"W&B run is invalid: detected {metrics.loss_spike_count} loss spike(s)."
         )
     defaults = read_best_runs(best_runs_path)
+    tracked_runs = read_best_runs(best_runs_path, include_non_frontier=True)
     loss_curve = fit_loss_power_law((result.flops, result.loss) for result in defaults)
-    same_width = [result for result in defaults if result.d_model == d_model]
+    same_width = [
+        result
+        for result in tracked_runs
+        if result.d_model == d_model and result.training_ratio == training_ratio
+    ]
     incumbent_eg_flops = (
         max(loss_curve.flops_for_loss(result.loss) / result.flops for result in same_width)
         if same_width
@@ -99,6 +107,7 @@ def compare_run_data(
     return RunComparison(
         wandb_url=wandb_url,
         d_model=d_model,
+        training_ratio=training_ratio,
         flops=candidate_flops,
         loss=metrics.loss,
         predicted_loss=loss_curve.predict(candidate_flops),
@@ -112,3 +121,10 @@ def _positive_int(values: Mapping[str, object], key: str) -> int:
     if not isinstance(value, int | float) or value <= 0 or int(value) != value:
         raise ValueError(f"W&B run config has no positive integer {key!r} value.")
     return int(value)
+
+
+def _positive_float(values: Mapping[str, object], key: str) -> float:
+    value = values.get(key)
+    if not isinstance(value, int | float) or value <= 0:
+        raise ValueError(f"W&B run config has no positive {key!r} value.")
+    return float(value)

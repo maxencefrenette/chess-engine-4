@@ -16,12 +16,15 @@ class RunConfig:
     seed: int = 1
     steps: int = 1_000
     batch_size: int = 1_024
+    training_ratio: float = 1.0
 
     def __post_init__(self) -> None:
         if self.steps <= 0:
             raise ValueError("steps must be positive.")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be positive.")
+        if self.training_ratio <= 0:
+            raise ValueError("training_ratio must be positive.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +66,12 @@ class TrainingConfig:
     loss: LossWeights = LossWeights()
 
 
-def load_training_config(path: str | Path, *, d_model: int) -> TrainingConfig:
+def load_training_config(
+    path: str | Path,
+    *,
+    d_model: int,
+    training_ratio: float = 1.0,
+) -> TrainingConfig:
     config_path = Path(path)
     if config_path.suffix != ".py":
         raise ValueError(f"{config_path}: training configs must be Python files.")
@@ -77,8 +85,10 @@ def load_training_config(path: str | Path, *, d_model: int) -> TrainingConfig:
 
     factory = getattr(module, "config", None)
     if not callable(factory):
-        raise ValueError(f"{config_path}: expected callable config(*, d_model: int).")
-    result = factory(d_model=d_model)
+        raise ValueError(
+            f"{config_path}: expected callable config(*, d_model: int, training_ratio: float)."
+        )
+    result = factory(d_model=d_model, training_ratio=training_ratio)
     if not isinstance(result, TrainingConfig):
         raise ValueError(f"{config_path}: config() must return TrainingConfig.")
     return result

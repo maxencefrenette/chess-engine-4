@@ -72,6 +72,7 @@ def train_modal() -> None:
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=64)
+    parser.add_argument("--training-ratio", type=float, default=1.0)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--expansion-ratio", type=float, default=None)
     parser.add_argument(
@@ -99,6 +100,7 @@ def train_modal() -> None:
         "batch_size": args.batch_size,
         "steps": args.steps,
         "d_model": args.d_model,
+        "training_ratio": args.training_ratio,
         "depth": args.depth,
         "expansion_ratio": args.expansion_ratio,
         "activation": args.activation,
@@ -119,7 +121,11 @@ def train_modal() -> None:
     }
 
     train_function = training_function(
-        load_training_config(args.config, d_model=args.d_model).infra.cpu_cores
+        load_training_config(
+            args.config,
+            d_model=args.d_model,
+            training_ratio=args.training_ratio,
+        ).infra.cpu_cores
     )
     with app.run():
         result = train_function.remote(payload)
@@ -158,6 +164,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             batch_size=payload.get("batch_size"),
             steps=payload.get("steps"),
             d_model=payload.get("d_model"),
+            training_ratio=payload.get("training_ratio", 1.0),
             depth=payload.get("depth"),
             expansion_ratio=payload.get("expansion_ratio"),
             activation=payload.get("activation"),
