@@ -1,37 +1,34 @@
 # Optimization Notes
 
-## `step_penalty_k`
+## Modified Compute
 
-`step_penalty_k` is intentionally unusual. The training budget is not plain
-FLOPs when `k > 1`; it is a step-adjusted compute budget:
+Experiments use an intentionally unusual modified-compute metric:
 
 ```text
-compute_budget = flops_per_sample * batch_size * steps^k
+modified_compute = flops_per_sample * batch_size * steps^2
 ```
 
-With `k = 1`, this is ordinary physical training FLOPs. With `k > 1`, higher
-step counts are softly penalized. This reflects the fact that tiny steps are
+The exponent is fixed at 2 and is not a hyperparameter. Higher step counts are
+softly penalized. This reflects the fact that tiny steps are
 not as efficient on real hardware as spending more of the budget on larger
 batches or larger models. More steps mean more Python loop overhead, more
 optimizer launches, more logging/checkpoint boundaries, and more small kernels
 that fail to saturate the GPU.
 
-This is not a claim that physical FLOPs stop mattering. It is a pragmatic
-budgeting convention for experiments where wall-clock cost and hardware
-efficiency matter. Actual FLOPs are still logged separately as `perf/flops_seen`;
-`compute_budget` is the optimization budget used to choose the number of steps.
+This is not a claim that physical FLOPs stop mattering. Actual FLOPs are logged
+separately as `perf/flops_seen`. Steps are configured directly; modified compute
+is derived after choosing the model, batch size, and run length.
 
 ## Experiment Rules
 
-When running experiments to improve pretraining efficiency, keep `[run]` and
-`[loss]` fixed. In particular, do not change the target signal, loss weights,
-`compute_budget`, or `step_penalty_k` while comparing recipes within the same
-budget.
+When running a controlled experiment, keep `[loss]` fixed unless the training
+target itself is under study. Keep the experiment interpretable and avoid changing
+unrelated variables without a clear hypothesis.
 
-Optimize final loss under the fixed `compute_budget` by changing:
+Improve training efficiency by changing:
 
 - `[model]`: architecture shape.
-- `[data]`: batch size and loader settings.
+- `[run]`: batch size and steps.
 - `[optimizer]`: learning rate, weight decay, and optimizer implementation
   details.
 

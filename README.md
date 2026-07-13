@@ -16,8 +16,8 @@ The models are trained on lc0 t80 data using supervised learning.
 
 ## Optimization
 
-See [OPTIMIZATION.md](OPTIMIZATION.md) for the compute-budget convention and the
-config rules used when tuning model quality versus run cost.
+See [OPTIMIZATION.md](OPTIMIZATION.md) for the modified-compute convention and the
+protocol used to decide whether an experiment improves the training frontier.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ automatically. `uv run train-modal` logs metrics to the W&B project configured
 in `.env`.
 
 ```sh
-uv run train-modal --config configs/dense/1e18.toml
+uv run train-modal --config configs/dense/d64.toml
 ```
 
 Training and evaluation are Blackwell-only and run on a Modal B200. Models use
@@ -64,14 +64,14 @@ overridden for profiling with `--quantization-recipe`.
 To profile the Modal training loop:
 
 ```sh
-uv run profile-training --config configs/dense/1e18.toml
+uv run profile-training --config configs/dense/d64.toml
 ```
 
 Modal training always writes checkpoints to the `chess-engine-4-artifacts`
 Volume every 50,000 steps and at the end of the run:
 
 ```sh
-uv run train-modal --config configs/dense/1e18.toml
+uv run train-modal --config configs/dense/d64.toml
 ```
 
 To export a saved Modal checkpoint with Transformer Engine and package it as an
@@ -119,11 +119,11 @@ Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 
 # Scaling Laws
 
-To fit scaling laws and extrapolate the next compute budget from the current best
+To fit scaling laws and extrapolate from the current best
 dense W&B runs:
 
 ```sh
-uv run scaling-laws --target-compute-budget 1e16
+uv run scaling-laws --target-modified-compute 1e24
 ```
 
 The command prints the fitted laws, observed runs, extrapolated target, and launch

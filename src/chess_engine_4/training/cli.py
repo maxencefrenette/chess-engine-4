@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import time
-from dataclasses import asdict, dataclass
 from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +20,7 @@ from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
 from chess_engine_4.training.flops import (
     measure_training_flops_per_sample,
-    step_adjusted_compute,
-    steps_for_compute_budget,
+    modified_compute,
 )
 from chess_engine_4.training.losses import PolicyTarget, lczero_loss
 from chess_engine_4.training.packed_input import (
@@ -31,7 +30,7 @@ from chess_engine_4.training.packed_input import (
 from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_profile
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/dense/1e18.toml")
+_DEFAULT_CONFIG_PATH = Path("configs/dense/d64.toml")
 _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
@@ -54,7 +53,7 @@ class TrainOptions:
     config: Path = _DEFAULT_CONFIG_PATH
     data: str | None = None
     batch_size: int | None = None
-    compute_budget: float | None = None
+    steps: int | None = None
     d_model: int | None = None
     depth: int | None = None
     lr: float | None = None
@@ -64,7 +63,6 @@ class TrainOptions:
     quantization_recipe: str | None = None
     dataloader_threads: int | None = None
     dataloader_prefetch_per_thread: int | None = None
-    max_steps: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -76,7 +74,7 @@ class TrainOptions:
 def run_training(options: TrainOptions) -> dict[str, Any]:
     config = with_overrides(
         load_training_config(options.config),
-        compute_budget=options.compute_budget,
+        steps=options.steps,
         batch_size=options.batch_size,
         d_model=options.d_model,
         depth=options.depth,
@@ -93,29 +91,15 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
 
     flops_per_sample = measure_training_flops_per_sample(
         config.model,
-        batch_size=config.data.batch_size,
+        batch_size=config.run.batch_size,
     )
-    if options.profile is not None and options.max_steps is not None:
-        raise ValueError("max_steps and profile cannot be used together.")
-    if options.profile is not None:
-        steps = options.profile.total_steps
-    else:
-        steps = steps_for_compute_budget(
-            compute_budget=config.run.compute_budget,
-            flops_per_sample=flops_per_sample,
-            batch_size=config.data.batch_size,
-            step_penalty_k=config.run.step_penalty_k,
-        )
-        if options.max_steps is not None:
-            if options.max_steps <= 0:
-                raise ValueError("max_steps must be positive.")
-            steps = min(steps, options.max_steps)
+    steps = options.profile.total_steps if options.profile is not None else config.run.steps
 
     device = torch.device("cuda")
     _require_blackwell(device)
     dataset = LeelaTarDataset(
         options.data,
-        batch_size=config.data.batch_size,
+        batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
     )
@@ -123,7 +107,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
         model,
-        batch_size=config.data.batch_size,
+        batch_size=config.run.batch_size,
         precision=config.precision.recipe,
     )
     theoretical_tflops = _theoretical_tflops(device, precision=config.precision.recipe)
@@ -218,11 +202,10 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         seen += _input_batch_size(planes)
         completed_steps = step
         flops_seen = seen * flops_per_sample
-        compute_seen = step_adjusted_compute(
+        compute_seen = modified_compute(
             flops_per_sample=flops_per_sample,
-            batch_size=config.data.batch_size,
+            batch_size=config.run.batch_size,
             steps=step,
-            step_penalty_k=config.run.step_penalty_k,
         )
 
         if should_log or should_checkpoint:
@@ -317,10 +300,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "steps": completed_steps,
         "samples_seen": seen,
         "final_loss": float(last_metrics.get("loss", 0.0)),
-        "compute_budget": config.run.compute_budget,
         "flops_seen": int(last_metrics.get("perf/flops_seen", 0)),
         "compute_seen": float(last_metrics.get("perf/compute_seen", 0.0)),
-        "step_penalty_k": config.run.step_penalty_k,
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.precision.recipe,
@@ -332,7 +313,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 "config": str(options.config),
                 "model_kind": config.model.kind,
                 "device_name": torch.cuda.get_device_name(device),
-                "batch_size": config.data.batch_size,
+                "batch_size": config.run.batch_size,
                 "dataloader_threads": config.infra.dataloader_threads,
                 "dataloader_prefetch_per_thread": (config.infra.dataloader_prefetch_per_thread),
             }
@@ -344,7 +325,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 measured_wall_start=profile_measured_wall_start,
                 overall_wall_start=start,
                 device=device,
-                batch_size=config.data.batch_size,
+                batch_size=config.run.batch_size,
                 flops_per_sample=flops_per_sample,
                 theoretical_tflops=theoretical_tflops,
             )
@@ -599,12 +580,10 @@ def _init_wandb(
     wandb_config = {
         "run_name": config.run.name,
         "seed": config.run.seed,
-        "compute_budget": config.run.compute_budget,
-        "computed_steps": steps,
+        "steps": steps,
         "flops_per_sample": flops_per_sample,
-        "step_penalty_k": config.run.step_penalty_k,
         "log_every": _LOG_EVERY,
-        "batch_size": config.data.batch_size,
+        "batch_size": config.run.batch_size,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
         "precision": config.precision.recipe,

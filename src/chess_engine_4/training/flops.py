@@ -11,6 +11,8 @@ from chess_engine_4.model import ModelConfig
 from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import lczero_loss
 
+STEP_PENALTY_K = 2
+
 
 def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -> int:
     """Measure physical train-step FLOPs using the portable equivalent model on meta.
@@ -53,30 +55,11 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
     return math.ceil(flops / profile_batch_size)
 
 
-def steps_for_compute_budget(
-    *,
-    compute_budget: float,
-    flops_per_sample: int,
-    batch_size: int,
-    step_penalty_k: float = 1.0,
-) -> int:
-    if compute_budget <= 0:
-        raise ValueError("compute_budget must be positive.")
-    if flops_per_sample <= 0:
-        raise ValueError("flops_per_sample must be positive.")
-    if batch_size <= 0:
-        raise ValueError("batch_size must be positive.")
-    if step_penalty_k < 1.0:
-        raise ValueError("step_penalty_k must be at least 1.0.")
-    return math.ceil((compute_budget / (flops_per_sample * batch_size)) ** (1.0 / step_penalty_k))
-
-
-def step_adjusted_compute(
+def modified_compute(
     *,
     flops_per_sample: int,
     batch_size: int,
     steps: int,
-    step_penalty_k: float,
 ) -> float:
     if flops_per_sample <= 0:
         raise ValueError("flops_per_sample must be positive.")
@@ -84,6 +67,4 @@ def step_adjusted_compute(
         raise ValueError("batch_size must be positive.")
     if steps < 0:
         raise ValueError("steps must be non-negative.")
-    if step_penalty_k < 1.0:
-        raise ValueError("step_penalty_k must be at least 1.0.")
-    return flops_per_sample * batch_size * steps**step_penalty_k
+    return flops_per_sample * batch_size * steps**STEP_PENALTY_K

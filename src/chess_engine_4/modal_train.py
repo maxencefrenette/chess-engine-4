@@ -19,7 +19,7 @@ WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
-REMOTE_CONFIG_PATH = Path("configs/dense/1e18.toml")
+REMOTE_CONFIG_PATH = Path("configs/dense/d64.toml")
 CHECKPOINT_EVERY_STEPS = 50_000
 
 app = modal.App(APP_NAME)
@@ -70,7 +70,7 @@ def train_modal() -> None:
     parser = argparse.ArgumentParser(description="Train a chess neural network on Modal.")
     parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
     parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--compute-budget", type=float, default=None)
+    parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--d-model", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
@@ -84,7 +84,6 @@ def train_modal() -> None:
     )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
-    parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
     args = parser.parse_args()
@@ -92,7 +91,7 @@ def train_modal() -> None:
     payload = {
         "config": str(args.config),
         "batch_size": args.batch_size,
-        "compute_budget": args.compute_budget,
+        "steps": args.steps,
         "d_model": args.d_model,
         "depth": args.depth,
         "lr": args.lr,
@@ -102,7 +101,6 @@ def train_modal() -> None:
         "quantization_recipe": args.quantization_recipe,
         "dataloader_threads": args.dataloader_threads,
         "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
-        "max_steps": args.max_steps,
         "wandb": args.wandb,
         "wandb_project": os.environ.get("WANDB_PROJECT"),
         "wandb_entity": os.environ.get("WANDB_ENTITY"),
@@ -121,7 +119,6 @@ def train_modal() -> None:
         f"samples_seen={result['samples_seen']} "
         f"flops_seen={result['flops_seen']:.3e} "
         f"compute_seen={result['compute_seen']:.3e} "
-        f"step_penalty_k={result['step_penalty_k']:.3f} "
         f"final_loss={result['final_loss']:.4f} "
         f"device={result['device']} "
         f"precision={result['precision']} "
@@ -150,7 +147,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             config=Path(payload["config"]),
             data=REMOTE_DATA_PATH,
             batch_size=payload.get("batch_size"),
-            compute_budget=payload.get("compute_budget"),
+            steps=payload.get("steps"),
             d_model=payload.get("d_model"),
             depth=payload.get("depth"),
             lr=payload.get("lr"),
@@ -160,7 +157,6 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             quantization_recipe=payload.get("quantization_recipe"),
             dataloader_threads=payload.get("dataloader_threads"),
             dataloader_prefetch_per_thread=payload.get("dataloader_prefetch_per_thread"),
-            max_steps=payload.get("max_steps"),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(

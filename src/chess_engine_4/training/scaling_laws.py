@@ -27,6 +27,8 @@ class SweepResult:
     params: int
     samples_seen: int
     loss: float
+    loss_std: float
+    loss_upper_1sd: float
     policy_top1: float
     wandb_url: str
 
@@ -65,6 +67,11 @@ class LossPowerLaw:
     def predict(self, x: float) -> float:
         return self.floor + self.coefficient * x ** (-self.exponent)
 
+    def compute_for_loss(self, loss: float) -> float:
+        if loss <= self.floor:
+            return math.inf
+        return (self.coefficient / (loss - self.floor)) ** (1.0 / self.exponent)
+
     def format(self) -> str:
         return f"L(C) = {self.floor:.4f} + {self.coefficient:.4g} * C^-{self.exponent:.4f}"
 
@@ -86,7 +93,7 @@ class ScalingLaws:
 @dataclass(frozen=True, slots=True)
 class HparamSuggestion:
     model_kind: str
-    compute_budget: float
+    modified_compute: float
     d_model: int
     depth: int
     batch_size: int
@@ -94,19 +101,20 @@ class HparamSuggestion:
     target_params: int
     actual_params: int
     samples_seen: int
+    steps: int
 
 
 def scaling_laws() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target-compute-budget", type=float, default=1e16)
+    parser.add_argument("--target-modified-compute", type=float, default=1e24)
     parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--config", default="configs/dense/1e19.toml")
+    parser.add_argument("--config", default="configs/dense/d128.toml")
     parser.add_argument("--write-config", type=Path, default=None)
     args = parser.parse_args()
 
     best_results = read_best_runs(args.best_runs)
     laws = fit_scaling_laws(best_results)
-    suggestion = extrapolate(laws, args.target_compute_budget)
+    suggestion = extrapolate(laws, args.target_modified_compute)
     gpu = "b200"
     report = format_report(
         best_results=best_results,
@@ -139,6 +147,8 @@ def read_best_runs(path: Path) -> list[SweepResult]:
             params=int(row["params"]),
             samples_seen=int(row["samples_seen"]),
             loss=float(row["loss"]),
+            loss_std=float(row["loss_std"]),
+            loss_upper_1sd=float(row["loss_upper_1sd"]),
             policy_top1=float(row["policy_top1"]),
             wandb_url=str(row["wandb_url"]),
         )
@@ -173,27 +183,31 @@ def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
     )
 
 
-def extrapolate(laws: ScalingLaws, compute_budget: float) -> HparamSuggestion:
-    if compute_budget <= 0:
+def extrapolate(laws: ScalingLaws, modified_compute: float) -> HparamSuggestion:
+    if modified_compute <= 0:
         raise ValueError("target compute must be positive.")
 
-    target_params = round(laws.params.predict(compute_budget))
+    target_params = round(laws.params.predict(modified_compute))
     d_model, depth, actual_params = closest_architecture(
         model_kind=laws.model_kind,
         target_params=target_params,
-        target_d_model=laws.d_model.predict(compute_budget),
-        target_depth=laws.depth.predict(compute_budget),
+        target_d_model=laws.d_model.predict(modified_compute),
+        target_depth=laws.depth.predict(modified_compute),
     )
     return HparamSuggestion(
         model_kind=laws.model_kind,
-        compute_budget=compute_budget,
+        modified_compute=modified_compute,
         d_model=d_model,
         depth=depth,
-        batch_size=round_to_batch_ladder(laws.batch_size.predict(compute_budget)),
-        lr=round_to_lr_ladder(laws.lr.predict(compute_budget)),
+        batch_size=round_to_batch_ladder(laws.batch_size.predict(modified_compute)),
+        lr=round_to_lr_ladder(laws.lr.predict(modified_compute)),
         target_params=target_params,
         actual_params=actual_params,
-        samples_seen=round_to_int(laws.samples.predict(compute_budget)),
+        samples_seen=round_to_int(laws.samples.predict(modified_compute)),
+        steps=round_to_int(
+            laws.samples.predict(modified_compute)
+            / round_to_batch_ladder(laws.batch_size.predict(modified_compute))
+        ),
     )
 
 
@@ -342,7 +356,7 @@ def format_report(
         )
 
     command = (
-        f"uv run train-modal --config {config} --compute-budget {suggestion.compute_budget:.0e} "
+        f"uv run train-modal --config {config} --steps {suggestion.steps} "
         f"--d-model {suggestion.d_model} --depth {suggestion.depth} "
         f"--batch-size {suggestion.batch_size} --lr {suggestion.lr:g}"
     )
@@ -357,8 +371,8 @@ def format_report(
             f"```text\n{laws.loss.format()}\n```",
             "",
             f"- RMSE on the observed loss points: `{laws.loss.rmse:.4f}`",
-            f"- Predicted loss at `{suggestion.compute_budget:.0e}` compute: "
-            f"`{laws.loss.predict(suggestion.compute_budget):.4f}`",
+            f"- Predicted loss at `{suggestion.modified_compute:.0e}` modified compute: "
+            f"`{laws.loss.predict(suggestion.modified_compute):.4f}`",
             "",
         ]
     )
@@ -397,7 +411,7 @@ def format_report(
             "",
             "## Extrapolated Target",
             "",
-            f"- Compute budget: `{suggestion.compute_budget:.0e}`",
+            f"- Modified compute: `{suggestion.modified_compute:.0e}`",
             f"- Model: `{format_suggestion_model_label(suggestion)}`",
             f"- GPU type: `{gpu}`",
             f"- Batch size: `{suggestion.batch_size}`",
@@ -405,6 +419,7 @@ def format_report(
             f"- Target params: `{suggestion.target_params:,}`",
             f"- Actual params: `{suggestion.actual_params:,}`",
             f"- Estimated samples: `{suggestion.samples_seen:,}`",
+            f"- Steps: `{suggestion.steps:,}`",
             "",
             "## Launch Command",
             "",
@@ -415,7 +430,7 @@ def format_report(
 
 
 def format_config(suggestion: HparamSuggestion) -> str:
-    name = f"{suggestion.compute_budget:.0e}".replace("+", "")
+    name = f"d{suggestion.d_model}"
     model_lines = [
         "[model]",
         f'kind = "{suggestion.model_kind}"',
@@ -429,14 +444,12 @@ def format_config(suggestion: HparamSuggestion) -> str:
             "[run]",
             f'name = "{name}"',
             "seed = 1",
-            f"compute_budget = {suggestion.compute_budget:.0e}",
+            f"steps = {suggestion.steps}",
+            f"batch_size = {suggestion.batch_size}",
             "",
             "[infra]",
             "dataloader_threads = 4",
             "dataloader_prefetch_per_thread = 2",
-            "",
-            "[data]",
-            f"batch_size = {suggestion.batch_size}",
             "",
             "[precision]",
             'recipe = "mxfp8"',
@@ -457,8 +470,8 @@ def format_config(suggestion: HparamSuggestion) -> str:
 
 
 def format_model_label(result: SweepResult) -> str:
-    return f"d{result.d_model}x{result.depth}"
+    return f"d{result.d_model}"
 
 
 def format_suggestion_model_label(suggestion: HparamSuggestion) -> str:
-    return f"d{suggestion.d_model}x{suggestion.depth}"
+    return f"d{suggestion.d_model}"

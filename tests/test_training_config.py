@@ -14,16 +14,13 @@ def test_load_training_config_reads_sections(tmp_path: Path) -> None:
         """
 [run]
 name = "audit"
-compute_budget = 1e12
-step_penalty_k = 1.1
+steps = 123
+batch_size = 8
 
 [infra]
 cpu_cores = 12
 dataloader_threads = 4
 dataloader_prefetch_per_thread = 3
-
-[data]
-batch_size = 8
 
 [model]
 kind = "dense"
@@ -44,12 +41,11 @@ moves_left = 0.5
     config = load_training_config(config_path)
 
     assert config.run.name == "audit"
-    assert config.run.compute_budget == 1e12
-    assert config.run.step_penalty_k == 1.1
+    assert config.run.steps == 123
     assert config.infra.cpu_cores == 12
     assert config.infra.dataloader_threads == 4
     assert config.infra.dataloader_prefetch_per_thread == 3
-    assert config.data.batch_size == 8
+    assert config.run.batch_size == 8
     assert config.model.kind == "dense"
     assert config.model.d_model == 64
     assert config.model.depth == 2
@@ -74,11 +70,11 @@ width = 64
 
 
 def test_with_overrides_keeps_config_as_source_of_truth() -> None:
-    config = load_training_config("configs/dense/1e18.toml")
+    config = load_training_config("configs/dense/d64.toml")
 
     overridden = with_overrides(
         config,
-        compute_budget=1e11,
+        steps=321,
         batch_size=4,
         d_model=64,
         depth=2,
@@ -88,9 +84,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         lr_cooldown_frac=0.2,
     )
 
-    assert overridden.run.compute_budget == 1e11
-    assert overridden.run.step_penalty_k == config.run.step_penalty_k
-    assert overridden.data.batch_size == 4
+    assert overridden.run.steps == 321
+    assert overridden.run.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
     assert overridden.optimizer.lr == 0.001
@@ -99,14 +94,6 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.optimizer.lr_cooldown_frac == 0.2
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
-
-
-def test_train_options_supports_max_steps() -> None:
-    from chess_engine_4.training.cli import TrainOptions
-
-    options = TrainOptions(max_steps=200)
-
-    assert options.max_steps == 200
 
 
 def test_training_profile_config_validates_steps() -> None:
@@ -188,8 +175,8 @@ def test_lr_warmup_schedule() -> None:
     )
 
 
-def test_1e18_config_builds_expected_model_size() -> None:
-    config = load_training_config("configs/dense/1e18.toml")
+def test_d64_config_builds_expected_model_size() -> None:
+    config = load_training_config("configs/dense/d64.toml")
 
     assert (
         dense_parameter_count(

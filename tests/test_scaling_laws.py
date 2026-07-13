@@ -58,7 +58,7 @@ def test_format_report() -> None:
         best_results=best_runs,
         laws=laws,
         suggestion=suggestion,
-        config="configs/dense/1e19.toml",
+        config="configs/dense/d128.toml",
         gpu="l4",
     )
 

@@ -13,10 +13,16 @@ from chess_engine_4.training.losses import LossWeights
 
 @dataclass(frozen=True, slots=True)
 class RunConfig:
-    name: str = "1e14"
+    name: str = "d64"
     seed: int = 1
-    compute_budget: float = 1e14
-    step_penalty_k: float = 1.0
+    steps: int = 1_000
+    batch_size: int = 1_024
+
+    def __post_init__(self) -> None:
+        if self.steps <= 0:
+            raise ValueError("steps must be positive.")
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,11 +34,6 @@ class InfraConfig:
     def __post_init__(self) -> None:
         if self.cpu_cores <= 0:
             raise ValueError("cpu_cores must be positive.")
-
-
-@dataclass(frozen=True, slots=True)
-class DataConfig:
-    batch_size: int = 1024
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +58,6 @@ class OptimizerConfig:
 class TrainingConfig:
     run: RunConfig = RunConfig()
     infra: InfraConfig = InfraConfig()
-    data: DataConfig = DataConfig()
     precision: PrecisionConfig = PrecisionConfig()
     model: ModelConfig = model_config_from_dict({})
     optimizer: OptimizerConfig = OptimizerConfig()
@@ -73,7 +73,6 @@ def load_training_config(path: str | Path) -> TrainingConfig:
     return TrainingConfig(
         run=_build_section(RunConfig, raw.get("run", {}), config_path, "run"),
         infra=_build_section(InfraConfig, raw.get("infra", {}), config_path, "infra"),
-        data=_build_section(DataConfig, raw.get("data", {}), config_path, "data"),
         precision=_build_section(
             PrecisionConfig,
             raw.get("precision", {}),
@@ -94,7 +93,7 @@ def load_training_config(path: str | Path) -> TrainingConfig:
 def with_overrides(
     config: TrainingConfig,
     *,
-    compute_budget: float | None = None,
+    steps: int | None = None,
     batch_size: int | None = None,
     d_model: int | None = None,
     depth: int | None = None,
@@ -106,10 +105,10 @@ def with_overrides(
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: str | None = None,
 ) -> TrainingConfig:
-    if compute_budget is not None:
-        config = replace(config, run=replace(config.run, compute_budget=compute_budget))
+    if steps is not None:
+        config = replace(config, run=replace(config.run, steps=steps))
     if batch_size is not None:
-        config = replace(config, data=replace(config.data, batch_size=batch_size))
+        config = replace(config, run=replace(config.run, batch_size=batch_size))
     if d_model is not None:
         config = replace(config, model=replace(config.model, d_model=d_model))
     if depth is not None:
@@ -182,7 +181,7 @@ def _build_section[ConfigT](
 
 
 def _reject_unknown_sections(raw: dict[str, Any], path: Path) -> None:
-    allowed = {"run", "infra", "data", "precision", "model", "optimizer", "loss"}
+    allowed = {"run", "infra", "precision", "model", "optimizer", "loss"}
     unknown = sorted(set(raw) - allowed)
     if unknown:
         unknown_names = ", ".join(unknown)
