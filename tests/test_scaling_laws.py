@@ -24,6 +24,8 @@ def test_read_best_runs_and_extrapolate() -> None:
         "d64",
         "d128",
         "d256",
+        "d512",
+        "d1024",
     ]
     assert all(run.training_ratio == 0.2 for run in best_runs)
 

@@ -25,8 +25,8 @@ non-monotonic optima into the family recipe.
 | d64 | 3 | 3.8052 | 27.15% | 0.718x | 1.055x | [run](https://wandb.ai/maxence-frenette/chess-engine-4/runs/l2ceek0g) |
 | d128 | 4 | 3.4849 | 33.26% | 1.062x | 1.335x | [run](https://wandb.ai/maxence-frenette/chess-engine-4/runs/votcuh04) |
 | d256 | 5 | 3.2311 | 39.56% | 1.256x | 1.420x | [run](https://wandb.ai/maxence-frenette/chess-engine-4/runs/f25b7mud) |
-| d512 | 5 | not run | - | 1.059x | - | - |
-| d1024 | 6 | not run | - | 0.874x | - | - |
+| d512 | 5 | 3.0317 | 45.22% | 1.059x | 1.315x | [run](https://wandb.ai/maxence-frenette/chess-engine-4/runs/nd28y2wg) |
+| d1024 | 6 | 2.8882 | 49.73% | 0.874x | 0.906x | [run](https://wandb.ai/maxence-frenette/chess-engine-4/runs/mx52cvvn) |
 
 `EG_flops` values use the pre-experiment loss/FLOPs curve, so every candidate is
 compared against one fixed reference. A star marks the depth-8 run promoted into
@@ -41,10 +41,12 @@ parameters and FLOPs quadratically, and the sweep provides no evidence for
 compounding that growth with a monotonic depth law. Constant depth is also much
 less likely to overfit inter-run variance than the per-width winners.
 
-The d512 and d1024 depth-7 results remain in the best-runs registry with
-`stale = true`, so they are retained without participating in canonical fits or
-promotion comparisons. They should be replaced by depth-8 runs when those
-scales are next needed.
+The d512 and d1024 depth-8 refreshes completed after the initial sweep. Both
+improved raw loss over depth 7. Under the current post-sweep frontier, d512's
+same-width `EG_flops` was effectively unchanged (`0.564x` to `0.567x`) and
+d1024 regressed (`0.224x` to `0.209x`). They are nevertheless canonical because
+the family deliberately uses one constant depth rather than per-width optima.
+The two refreshes added 1,860 seconds of B200 runtime, or approximately `$3.23`.
 
 `experiments/throughput-dense.toml` measures the superseded shallower shapes and
 is now stale. Rerun the throughput sweep before using it for dollar-cost
