@@ -1,8 +1,7 @@
-"""Scaling-law fitting and hyperparameter extrapolation."""
+"""Scaling-law fitting primitives and canonical run loading."""
 
 from __future__ import annotations
 
-import argparse
 import math
 import tomllib
 from collections.abc import Iterable
@@ -13,11 +12,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 from scipy.special import expit
 
-from chess_engine_4.model import dense_parameter_count
-from chess_engine_4.training.config import TrainingConfig, load_training_config
-
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
-DEFAULT_CONFIG = Path("configs/dense.py")
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,7 +32,6 @@ class SweepResult:
     policy_top1: float
     wandb_url: str
     stale: bool
-    frontier: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,18 +44,6 @@ class PowerLaw:
 
     def format(self, variable: str, input_variable: str = "C") -> str:
         return f"{variable} = {10**self.intercept:.4g} * {input_variable}^{self.slope:.4f}"
-
-
-@dataclass(frozen=True, slots=True)
-class LinearLaw:
-    intercept: float
-    slope: float
-
-    def predict(self, x: float) -> float:
-        return self.intercept + self.slope * math.log10(x)
-
-    def format(self, variable: str, input_variable: str = "log10(C)") -> str:
-        return f"{variable} = {self.intercept:.4g} + {self.slope:.4g} * {input_variable}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,60 +104,10 @@ class UndertrainingLossLaw:
         return self.baseline.predict(one_x_flops) + penalty
 
 
-@dataclass(frozen=True, slots=True)
-class ScalingLaws:
-    model_kind: str
-    loss: LossPowerLaw
-    policy_top1: SigmoidLaw
-    d_model: PowerLaw
-    depth: PowerLaw
-    params: PowerLaw
-    datapoints_per_parameter: LinearLaw
-    samples: PowerLaw
-    batch_size: PowerLaw
-    lr: PowerLaw
-
-
-@dataclass(frozen=True, slots=True)
-class HparamSuggestion:
-    model_kind: str
-    flops: float
-    d_model: int
-    depth: int
-    batch_size: int
-    lr: float
-    target_params: int
-    actual_params: int
-    samples_seen: int
-    steps: int
-
-
-def scaling_laws() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--target-flops", type=float, default=1e18)
-    parser.add_argument("--best-runs", type=Path, default=DEFAULT_BEST_RUNS)
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    args = parser.parse_args()
-
-    best_results = read_best_runs(args.best_runs)
-    laws = fit_scaling_laws(best_results)
-    suggestion = extrapolate(laws, args.target_flops, config=args.config)
-    gpu = "b200"
-    report = format_report(
-        best_results=best_results,
-        laws=laws,
-        suggestion=suggestion,
-        config=str(args.config),
-        gpu=gpu,
-    )
-    print(report)
-
-
 def read_best_runs(
     path: Path,
     *,
     include_stale: bool = False,
-    include_non_frontier: bool = False,
 ) -> list[SweepResult]:
     with path.open("rb") as handle:
         data = tomllib.load(handle)
@@ -185,12 +117,7 @@ def read_best_runs(
         stale = row.get("stale", False)
         if not isinstance(stale, bool):
             raise ValueError(f"{path}: runs.{budget}.stale must be a boolean.")
-        frontier = row.get("frontier", True)
-        if not isinstance(frontier, bool):
-            raise ValueError(f"{path}: runs.{budget}.frontier must be a boolean.")
         if stale and not include_stale:
-            continue
-        if not frontier and not include_non_frontier:
             continue
         results.append(
             SweepResult(
@@ -209,65 +136,11 @@ def read_best_runs(
                 policy_top1=float(row["policy_top1"]),
                 wandb_url=str(row["wandb_url"]),
                 stale=stale,
-                frontier=frontier,
             )
         )
     if not results:
         raise ValueError(f"No current best-run rows found in {path}.")
     return sorted(results, key=lambda result: result.flops)
-
-
-def fit_scaling_laws(best_results: list[SweepResult]) -> ScalingLaws:
-    if len(best_results) < 3:
-        raise ValueError("At least three current best-run points are required for extrapolation.")
-    model_kinds = {result.model_kind for result in best_results}
-    if len(model_kinds) != 1:
-        raise ValueError("Best-run points must belong to exactly one model family.")
-    model_kind = model_kinds.pop()
-    parameter_count(model_kind=model_kind, d_model=64, depth=2)
-    return ScalingLaws(
-        model_kind=model_kind,
-        loss=fit_loss_power_law((r.flops, r.loss) for r in best_results),
-        policy_top1=fit_sigmoid_law((r.flops, r.policy_top1) for r in best_results),
-        d_model=fit_power_law((r.flops, r.d_model) for r in best_results),
-        depth=fit_power_law((r.flops, r.depth) for r in best_results),
-        params=fit_power_law((r.flops, r.params) for r in best_results),
-        datapoints_per_parameter=fit_linear_law(
-            (r.flops, r.samples_seen / r.params) for r in best_results
-        ),
-        samples=fit_power_law((r.flops, r.samples_seen) for r in best_results),
-        batch_size=fit_power_law((r.flops, r.batch_size) for r in best_results),
-        lr=fit_power_law((r.flops, r.lr) for r in best_results),
-    )
-
-
-def extrapolate(
-    laws: ScalingLaws,
-    flops: float,
-    *,
-    config: Path = DEFAULT_CONFIG,
-) -> HparamSuggestion:
-    if flops <= 0:
-        raise ValueError("target FLOPs must be positive.")
-
-    target_params = round(laws.params.predict(flops))
-    family, actual_params = closest_family_config(
-        config=config,
-        model_kind=laws.model_kind,
-        target_params=target_params,
-    )
-    return HparamSuggestion(
-        model_kind=laws.model_kind,
-        flops=flops,
-        d_model=family.model.d_model,
-        depth=family.model.depth,
-        batch_size=family.run.batch_size,
-        lr=family.optimizer.lr,
-        target_params=target_params,
-        actual_params=actual_params,
-        samples_seen=family.run.batch_size * family.run.steps,
-        steps=family.run.steps,
-    )
 
 
 def fit_power_law(points: Iterable[tuple[float, float]]) -> PowerLaw:
@@ -281,19 +154,6 @@ def fit_power_law(points: Iterable[tuple[float, float]]) -> PowerLaw:
     slope = covariance / variance_x
     intercept = mean_y - slope * mean_x
     return PowerLaw(intercept=intercept, slope=slope)
-
-
-def fit_linear_law(points: Iterable[tuple[float, float]]) -> LinearLaw:
-    values = [(math.log10(x), y) for x, y in points]
-    mean_x = sum(x for x, _ in values) / len(values)
-    mean_y = sum(y for _, y in values) / len(values)
-    variance_x = sum((x - mean_x) ** 2 for x, _ in values)
-    if variance_x == 0:
-        raise ValueError("Cannot fit a linear law with identical x values.")
-    covariance = sum((x - mean_x) * (y - mean_y) for x, y in values)
-    slope = covariance / variance_x
-    intercept = mean_y - slope * mean_x
-    return LinearLaw(intercept=intercept, slope=slope)
 
 
 def fit_sigmoid_law(points: Iterable[tuple[float, float]]) -> SigmoidLaw:
@@ -399,157 +259,3 @@ def fit_undertraining_loss_law(
         ratio_exponent=ratio_exponent,
         rmse=rmse,
     )
-
-
-def parameter_count(
-    *,
-    model_kind: str = "dense",
-    d_model: int,
-    depth: int,
-    expansion_ratio: float = 4.0,
-    activation: str = "swiglu",
-) -> int:
-    if model_kind == "dense":
-        return dense_parameter_count(
-            d_model=d_model,
-            depth=depth,
-            expansion_ratio=expansion_ratio,
-            activation=activation,
-        )
-    raise ValueError(f"unknown model kind: {model_kind}")
-
-
-def closest_family_config(
-    *,
-    config: Path,
-    model_kind: str,
-    target_params: int,
-) -> tuple[TrainingConfig, int]:
-    candidates = []
-    d_model = 32
-    while True:
-        family = load_training_config(config, d_model=d_model)
-        if family.model.kind != model_kind:
-            raise ValueError(
-                f"{config} generated model kind {family.model.kind!r}, expected {model_kind!r}."
-            )
-        params = parameter_count(
-            model_kind=model_kind,
-            d_model=family.model.d_model,
-            depth=family.model.depth,
-            expansion_ratio=family.model.expansion_ratio,
-            activation=family.model.activation,
-        )
-        candidates.append((abs(math.log(params / target_params)), family, params))
-        if params >= target_params:
-            break
-        d_model += 32
-
-    _, family, params = min(candidates, key=lambda candidate: candidate[0])
-    return family, params
-
-
-def format_report(
-    *,
-    best_results: list[SweepResult],
-    laws: ScalingLaws,
-    suggestion: HparamSuggestion,
-    config: str,
-    gpu: str,
-) -> str:
-    lines = [
-        "# Hyperparameter Scaling Report",
-        "",
-        "This is a repo-local extrapolation from the current best W&B runs, not a claim that "
-        "the true scaling law is identified. With only a small number of FLOPs scales, "
-        "the fitted curves are useful for choosing the next run and fragile as forecasts.",
-        "",
-        "## Best Observed Points",
-        "",
-        "| Budget | Training FLOPs | Model | Batch | LR | Samples | Loss | Policy Top-1 | W&B |",
-        "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- |",
-    ]
-    for result in best_results:
-        lines.append(
-            f"| `{result.budget}` | {result.flops:.1e} | {format_model_label(result)} | "
-            f"{result.batch_size} | {result.lr:g} | {result.samples_seen:,} | "
-            f"{result.loss:.4f} | {result.policy_top1:.4f} | "
-            f"{result.wandb_url} |"
-        )
-
-    command = f"uv run train-modal --config {config} --d-model {suggestion.d_model}"
-
-    lines.extend(
-        [
-            "",
-            "## Loss Fit",
-            "",
-            "Fitted form:",
-            "",
-            f"```text\n{laws.loss.format()}\n```",
-            "",
-            f"- RMSE on the observed loss points: `{laws.loss.rmse:.4f}`",
-            f"- Predicted loss at `{suggestion.flops:.0e}` training FLOPs: "
-            f"`{laws.loss.predict(suggestion.flops):.4f}`",
-            "",
-        ]
-    )
-    lines.extend(
-        [
-            "## Model And Data Fits",
-            "",
-            "These fit model size and data size as power laws of training FLOPs.",
-            "",
-            f"```text\n{laws.d_model.format('d_model')}\n```",
-            "",
-            f"```text\n{laws.depth.format('depth')}\n```",
-            "",
-            f"```text\n{laws.params.format('params')}\n```",
-            "",
-            f"```text\n{laws.samples.format('D_samples')}\n```",
-            "",
-            f"- Width exponent: `{laws.d_model.slope:.4f}`",
-            f"- Depth exponent: `{laws.depth.slope:.4f}`",
-            f"- Model-size exponent: `{laws.params.slope:.4f}`",
-            f"- Data-size exponent: `{laws.samples.slope:.4f}`",
-            f"- Predicted sample/parameter ratio at target: "
-            f"`{suggestion.samples_seen / suggestion.actual_params:.4f}`",
-            "",
-            "## Policy And Allocation Fits",
-            "",
-            f"```text\n{laws.policy_top1.format('policy_top1')}\n```",
-            "",
-            f"```text\n{laws.datapoints_per_parameter.format('datapoints_per_parameter')}\n```",
-            "",
-            "## Training Hyperparameter Fits",
-            "",
-            f"```text\n{laws.batch_size.format('batch_size')}\n```",
-            "",
-            f"```text\n{laws.lr.format('lr')}\n```",
-            "",
-            "## Extrapolated Target",
-            "",
-            f"- Training FLOPs: `{suggestion.flops:.0e}`",
-            f"- Model: `{format_suggestion_model_label(suggestion)}`",
-            f"- GPU type: `{gpu}`",
-            f"- Batch size: `{suggestion.batch_size}`",
-            f"- LR: `{suggestion.lr:g}`",
-            f"- Target params: `{suggestion.target_params:,}`",
-            f"- Actual params: `{suggestion.actual_params:,}`",
-            f"- Estimated samples: `{suggestion.samples_seen:,}`",
-            f"- Steps: `{suggestion.steps:,}`",
-            "",
-            "## Launch Command",
-            "",
-            f"```bash\n{command}\n```",
-        ]
-    )
-    return "\n".join(lines)
-
-
-def format_model_label(result: SweepResult) -> str:
-    return f"d{result.d_model}"
-
-
-def format_suggestion_model_label(suggestion: HparamSuggestion) -> str:
-    return f"d{suggestion.d_model}"

@@ -43,7 +43,8 @@ scan or `--all` to inspect every batch.
 
 Training runs on Modal. Modal builds the native dataloader into its image
 automatically. `uv run train-modal` logs metrics to the W&B project configured
-in `.env`.
+in `.env`. Routine runs default to `0.2x` Chinchilla; pass
+`--training-ratio 1` explicitly for a full-training run.
 
 ```sh
 uv run train-modal --d-model 64
@@ -53,10 +54,13 @@ uv run train-modal --d-model 64
 ratio are its scaling arguments; the recipe derives depth, batch size, steps,
 learning rate, and the remaining training configuration. CLI flags can override
 those derived values for controlled experiments. The baseline batch size is
-`32 * d_model`.
+`32 * d_model`. Before submitting work to Modal, training commands print the
+fully resolved shape, parameter count, batch size, steps, samples, FLOPs,
+precision, and CPU allocation.
 
-Training and evaluation are Blackwell-only and run on a Modal B200. Models use
-Transformer Engine MXFP8 block scaling and FP32 optimizer master weights.
+Training is Blackwell-only and runs on a Modal B200. Evaluation may use cheaper
+Modal GPUs when its backend supports them. Models use Transformer Engine MXFP8
+block scaling and FP32 optimizer master weights.
 Training is CUDA-graphed. The Modal image builds the pinned Transformer Engine
 version and its PyTorch extension automatically. Training reserves eight CPU
 cores for the background Rust dataloader.
@@ -133,14 +137,15 @@ through lc0 at one node, and stores its JSON summary under
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.
 
-# Scaling Laws
+## Website
 
-To fit scaling laws and extrapolate from the current best
-dense W&B runs:
+The static dashboard derives its curves and next-width projection from the
+canonical best-runs registry and family recipe. Generate its input explicitly
+with:
 
 ```sh
-uv run scaling-laws --target-flops 1e18
+uv run export-scaling-data
 ```
 
-The command prints the fitted laws, observed runs, extrapolated target, and a
-launch command resolved through the canonical dense-family recipe.
+The website development and production build commands regenerate this data
+automatically.

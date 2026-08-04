@@ -6,13 +6,19 @@ import argparse
 import subprocess
 import tomllib
 from collections import defaultdict
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import tomli_w
 
-from chess_engine_4.modal_train import REMOTE_CONFIG_PATH, app, training_function
+from chess_engine_4.modal_train import (
+    DEFAULT_CONFIG_PATH,
+    app,
+    print_launch_summary,
+    training_function,
+)
 from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.training.config import TrainingConfig, load_training_config
 
@@ -25,7 +31,7 @@ def throughput_sweep() -> None:
     parser = argparse.ArgumentParser(
         description="Benchmark and cache dense training throughput on Modal."
     )
-    parser.add_argument("--config", type=Path, default=REMOTE_CONFIG_PATH)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--widths", type=int, nargs="+", default=list(DEFAULT_WIDTHS))
     parser.add_argument("--warmup-steps", type=int, default=50)
@@ -66,10 +72,14 @@ def throughput_sweep() -> None:
     errors: list[str] = []
     if pending:
         print("profiling widths: " + ", ".join(model_key(width) for width in pending))
+        for width in pending:
+            print_launch_summary(
+                configs[width],
+                steps=args.warmup_steps + args.profile_steps,
+            )
         results, errors = run_modal_profiles(
             pending,
             configs,
-            config_path=args.config,
             warmup_steps=args.warmup_steps,
             profile_steps=args.profile_steps,
         )
@@ -101,24 +111,13 @@ def model_key(width: int) -> str:
 
 
 def profile_payload(
-    width: int,
+    config: TrainingConfig,
     *,
-    config_path: Path,
     warmup_steps: int,
     profile_steps: int,
 ) -> dict[str, Any]:
     return {
-        "config": str(config_path),
-        "batch_size": None,
-        "d_model": width,
-        "training_ratio": 1.0,
-        "depth": None,
-        "expansion_ratio": None,
-        "activation": None,
-        "lr": None,
-        "quantization_recipe": None,
-        "dataloader_threads": None,
-        "dataloader_prefetch_per_thread": None,
+        "config": asdict(config),
         "wandb": False,
         "profile": {
             "warmup_steps": warmup_steps,
@@ -131,7 +130,6 @@ def run_modal_profiles(
     widths: list[int],
     configs: dict[int, TrainingConfig],
     *,
-    config_path: Path,
     warmup_steps: int,
     profile_steps: int,
 ) -> tuple[dict[int, dict[str, Any]], list[str]]:
@@ -147,8 +145,7 @@ def run_modal_profiles(
             function = functions[cpu_cores]
             payloads = [
                 profile_payload(
-                    width,
-                    config_path=config_path,
+                    configs[width],
                     warmup_steps=warmup_steps,
                     profile_steps=profile_steps,
                 )

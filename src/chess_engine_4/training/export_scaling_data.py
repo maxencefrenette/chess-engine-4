@@ -9,13 +9,13 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
     fit_loss_power_law,
     fit_power_law,
     fit_sigmoid_law,
-    parameter_count,
     read_best_runs,
 )
 
@@ -163,13 +163,7 @@ def extrapolated_recipe_point(
     loss_law: Any,
     policy_law: Any,
 ) -> dict[str, float | str]:
-    params = parameter_count(
-        model_kind=config.model.kind,
-        d_model=config.model.d_model,
-        depth=config.model.depth,
-        expansion_ratio=config.model.expansion_ratio,
-        activation=config.model.activation,
-    )
+    params = model_parameter_count(config.model)
     samples = config.run.batch_size * config.run.steps
     return {
         "name": f"d{config.model.d_model}",

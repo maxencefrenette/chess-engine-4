@@ -6,18 +6,14 @@ from pathlib import Path
 import pytest
 
 from chess_engine_4.training.scaling_laws import (
-    extrapolate,
     fit_loss_power_law,
-    fit_scaling_laws,
     fit_sigmoid_law,
     fit_undertraining_loss_law,
-    format_report,
-    parameter_count,
     read_best_runs,
 )
 
 
-def test_read_best_runs_and_extrapolate() -> None:
+def test_read_best_runs() -> None:
     best_runs = read_best_runs(Path("experiments/best-runs-dense.toml"))
     assert [run.budget for run in best_runs] == [
         "d32",
@@ -28,30 +24,6 @@ def test_read_best_runs_and_extrapolate() -> None:
         "d1024",
     ]
     assert all(run.training_ratio == 0.2 for run in best_runs)
-
-    laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e18)
-
-    assert 0.28 < laws.policy_top1.predict(1e14) < 0.30
-    assert suggestion.d_model % 32 == 0
-    assert suggestion.depth >= 5
-    assert suggestion.batch_size >= best_runs[-1].batch_size
-    assert suggestion.lr < best_runs[-1].lr
-    assert suggestion.actual_params > best_runs[-1].params
-
-
-def test_parameter_count_formulas_match_current_baselines() -> None:
-    assert parameter_count(d_model=32, depth=1) == 306176
-
-
-def test_read_best_runs_contains_only_canonical_ratio() -> None:
-    path = Path("experiments/best-runs-dense.toml")
-
-    canonical = read_best_runs(path)
-    all_runs = read_best_runs(path, include_non_frontier=True)
-
-    assert canonical == all_runs
-    assert all(run.training_ratio == 0.2 for run in canonical)
 
 
 def test_undertraining_loss_law_penalizes_shorter_runs() -> None:
@@ -79,23 +51,6 @@ def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:
     assert law.ceiling == pytest.approx(0.7)
     assert law.predict(1e30) <= law.ceiling
     assert law.rmse < 1e-8
-
-
-def test_format_report() -> None:
-    best_runs = read_best_runs(Path("experiments/best-runs-dense.toml"))
-    laws = fit_scaling_laws(best_runs)
-    suggestion = extrapolate(laws, 1e20)
-
-    report = format_report(
-        best_results=best_runs,
-        laws=laws,
-        suggestion=suggestion,
-        config="configs/dense.py",
-        gpu="l4",
-    )
-
-    assert "L(C) =" in report
-    assert "uv run train-modal" in report
 
 
 def test_read_best_runs_excludes_stale_rows(tmp_path: Path) -> None:

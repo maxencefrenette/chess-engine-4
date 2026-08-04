@@ -17,7 +17,7 @@ from chess_engine_4.data.leela import (
 )
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
-from chess_engine_4.training.config import TrainingConfig, load_training_config, with_overrides
+from chess_engine_4.training.config import TrainingConfig
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.losses import PolicyTarget, lczero_loss
 from chess_engine_4.training.packed_input import (
@@ -28,7 +28,6 @@ from chess_engine_4.training.profiling import TrainingProfileConfig, summarize_p
 from chess_engine_4.training.stability import LossSpikeDetector
 
 _DATA_HELP = f"Leela tar path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
-_DEFAULT_CONFIG_PATH = Path("configs/dense.py")
 _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
 _METRIC_EMA_DECAY = 0.99
@@ -47,22 +46,8 @@ type NativeBatch = tuple[
 
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
-    config: Path = _DEFAULT_CONFIG_PATH
+    config: TrainingConfig
     data: str | None = None
-    batch_size: int | None = None
-    steps: int | None = None
-    d_model: int = 64
-    training_ratio: float = 1.0
-    depth: int | None = None
-    expansion_ratio: float | None = None
-    activation: str | None = None
-    lr: float | None = None
-    max_grad_norm: float | None = None
-    lr_warmup_steps: int | None = None
-    lr_cooldown_frac: float | None = None
-    quantization_recipe: str | None = None
-    dataloader_threads: int | None = None
-    dataloader_prefetch_per_thread: int | None = None
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -72,25 +57,7 @@ class TrainOptions:
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
-    config = with_overrides(
-        load_training_config(
-            options.config,
-            d_model=options.d_model,
-            training_ratio=options.training_ratio,
-        ),
-        steps=options.steps,
-        batch_size=options.batch_size,
-        depth=options.depth,
-        expansion_ratio=options.expansion_ratio,
-        activation=options.activation,
-        lr=options.lr,
-        max_grad_norm=options.max_grad_norm,
-        lr_warmup_steps=options.lr_warmup_steps,
-        lr_cooldown_frac=options.lr_cooldown_frac,
-        dataloader_threads=options.dataloader_threads,
-        dataloader_prefetch_per_thread=options.dataloader_prefetch_per_thread,
-        quantization_recipe=options.quantization_recipe,
-    )
+    config = options.config
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)
 
@@ -314,7 +281,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     if options.profile is not None:
         result.update(
             {
-                "config": str(options.config),
                 "model_kind": config.model.kind,
                 "device_name": torch.cuda.get_device_name(device),
                 "batch_size": config.run.batch_size,

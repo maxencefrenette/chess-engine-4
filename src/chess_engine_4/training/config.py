@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from chess_engine_4.model import ModelConfig, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
@@ -16,7 +17,7 @@ class RunConfig:
     seed: int = 1
     steps: int = 1_000
     batch_size: int = 1_024
-    training_ratio: float = 1.0
+    training_ratio: float = 0.2
 
     def __post_init__(self) -> None:
         if self.steps <= 0:
@@ -70,7 +71,7 @@ def load_training_config(
     path: str | Path,
     *,
     d_model: int,
-    training_ratio: float = 1.0,
+    training_ratio: float = 0.2,
 ) -> TrainingConfig:
     config_path = Path(path)
     if config_path.suffix != ".py":
@@ -92,6 +93,17 @@ def load_training_config(
     if not isinstance(result, TrainingConfig):
         raise ValueError(f"{config_path}: config() must return TrainingConfig.")
     return result
+
+
+def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
+    return TrainingConfig(
+        run=RunConfig(**values.get("run", {})),
+        infra=InfraConfig(**values.get("infra", {})),
+        precision=PrecisionConfig(**values.get("precision", {})),
+        model=model_config_from_dict(values.get("model", {})),
+        optimizer=OptimizerConfig(**values.get("optimizer", {})),
+        loss=LossWeights(**values.get("loss", {})),
+    )
 
 
 def with_overrides(

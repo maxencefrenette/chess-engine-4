@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
 from chess_engine_4.model import dense_parameter_count
-from chess_engine_4.training.config import load_training_config, with_overrides
+from chess_engine_4.training.config import (
+    load_training_config,
+    training_config_from_dict,
+    with_overrides,
+)
 
 
 def test_load_training_config_requires_factory(tmp_path: Path) -> None:
@@ -44,6 +49,12 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.optimizer.lr_cooldown_frac == 0.2
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
+
+
+def test_training_config_round_trips_through_dict() -> None:
+    config = load_training_config("configs/dense.py", d_model=64)
+
+    assert training_config_from_dict(asdict(config)) == config
 
 
 def test_training_profile_config_validates_steps() -> None:
@@ -164,11 +175,12 @@ def test_dense_family_recipe(
         activation=config.model.activation,
     )
 
-    assert config.run.name == f"d{d_model}"
+    assert config.run.name == f"d{d_model}-r0.2"
+    assert config.run.training_ratio == 0.2
     assert config.model.depth == depth
     assert config.run.batch_size == batch_size
-    assert config.run.steps == round(50 * parameter_count / batch_size)
-    assert config.run.steps * batch_size / parameter_count == pytest.approx(50, rel=1e-3)
+    assert config.run.steps == round(10 * parameter_count / batch_size)
+    assert config.run.steps * batch_size / parameter_count == pytest.approx(10, rel=1e-3)
 
 
 def test_dense_family_requires_aligned_width() -> None:
@@ -177,7 +189,7 @@ def test_dense_family_requires_aligned_width() -> None:
 
 
 def test_dense_family_scales_training_horizon() -> None:
-    baseline = load_training_config("configs/dense.py", d_model=128)
+    baseline = load_training_config("configs/dense.py", d_model=128, training_ratio=1.0)
     undertrained = load_training_config(
         "configs/dense.py",
         d_model=128,

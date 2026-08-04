@@ -92,11 +92,10 @@ def compare_run_data(
             f"W&B run is invalid: detected {metrics.loss_spike_count} loss spike(s)."
         )
     defaults = read_best_runs(best_runs_path)
-    tracked_runs = read_best_runs(best_runs_path, include_non_frontier=True)
     loss_curve = fit_loss_power_law((result.flops, result.loss) for result in defaults)
     same_width = [
         result
-        for result in tracked_runs
+        for result in defaults
         if result.d_model == d_model and result.training_ratio == training_ratio
     ]
     incumbent_eg_flops = (

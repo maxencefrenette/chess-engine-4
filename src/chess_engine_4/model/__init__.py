@@ -2,7 +2,12 @@
 
 from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.model.output import ChessNetOutput
-from chess_engine_4.model.registry import ModelConfig, build_model, model_config_from_dict
+from chess_engine_4.model.registry import (
+    ModelConfig,
+    build_model,
+    model_config_from_dict,
+    model_parameter_count,
+)
 
 __all__ = [
     "ChessNetOutput",
@@ -12,4 +17,5 @@ __all__ = [
     "build_model",
     "dense_parameter_count",
     "model_config_from_dict",
+    "model_parameter_count",
 ]

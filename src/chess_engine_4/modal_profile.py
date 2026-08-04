@@ -4,38 +4,21 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
+from dataclasses import asdict
 from typing import Any
 
 from chess_engine_4.modal_train import (
-    REMOTE_CONFIG_PATH,
+    add_training_config_arguments,
     app,
+    print_launch_summary,
+    resolve_training_config,
     training_function,
 )
-from chess_engine_4.training.config import load_training_config
 
 
 def profile_training() -> None:
     parser = argparse.ArgumentParser(description="Profile a training loop on Modal.")
-    parser.add_argument("--config", default=REMOTE_CONFIG_PATH, type=Path)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--d-model", type=int, default=64)
-    parser.add_argument("--training-ratio", type=float, default=1.0)
-    parser.add_argument("--depth", type=int, default=None)
-    parser.add_argument("--expansion-ratio", type=float, default=None)
-    parser.add_argument(
-        "--activation",
-        choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
-        default=None,
-    )
-    parser.add_argument("--lr", type=float, default=None)
-    parser.add_argument(
-        "--quantization-recipe",
-        choices=("bf16", "mxfp8", "nvfp4"),
-        default=None,
-    )
-    parser.add_argument("--dataloader-threads", type=int, default=None)
-    parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
+    add_training_config_arguments(parser, include_steps=False)
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
     parser.add_argument("--json", action="store_true", help="Print only the JSON result.")
@@ -45,19 +28,11 @@ def profile_training() -> None:
         parser.error("warmup-steps must be non-negative.")
     if args.profile_steps <= 0:
         parser.error("profile-steps must be positive.")
+    config = resolve_training_config(args)
+    print_launch_summary(config, steps=args.warmup_steps + args.profile_steps)
 
     payload = {
-        "config": str(args.config),
-        "batch_size": args.batch_size,
-        "d_model": args.d_model,
-        "training_ratio": args.training_ratio,
-        "depth": args.depth,
-        "expansion_ratio": args.expansion_ratio,
-        "activation": args.activation,
-        "lr": args.lr,
-        "quantization_recipe": args.quantization_recipe,
-        "dataloader_threads": args.dataloader_threads,
-        "dataloader_prefetch_per_thread": args.dataloader_prefetch_per_thread,
+        "config": asdict(config),
         "wandb": False,
         "profile": {
             "warmup_steps": args.warmup_steps,
@@ -65,13 +40,7 @@ def profile_training() -> None:
         },
     }
 
-    profile_function = training_function(
-        load_training_config(
-            args.config,
-            d_model=args.d_model,
-            training_ratio=args.training_ratio,
-        ).infra.cpu_cores
-    )
+    profile_function = training_function(config.infra.cpu_cores)
     with app.run():
         result = profile_function.remote(payload)
 
@@ -83,7 +52,7 @@ def profile_training() -> None:
 
 def _print_profile(result: dict[str, Any]) -> None:
     print(
-        f"profile_complete config={result['config']} gpu={result['device_name']} "
+        f"profile_complete run={result['run_name']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
         f"batch_size={result['batch_size']} "
         f"threads={result['dataloader_threads']} "

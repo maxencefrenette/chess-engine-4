@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import Any
 
-from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig
+from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig, dense_parameter_count
 
 type ModelConfig = DenseChessNetConfig
 
@@ -20,6 +20,20 @@ def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
 def build_model(config: ModelConfig) -> DenseChessNet:
     if isinstance(config, DenseChessNetConfig):
         return DenseChessNet(config)
+    raise TypeError(f"unsupported model config type: {type(config).__name__}")
+
+
+def model_parameter_count(config: ModelConfig) -> int:
+    if isinstance(config, DenseChessNetConfig):
+        return dense_parameter_count(
+            input_planes=config.input_planes,
+            board_size=config.board_size,
+            policy_size=config.policy_size,
+            d_model=config.d_model,
+            depth=config.depth,
+            expansion_ratio=config.expansion_ratio,
+            activation=config.activation,
+        )
     raise TypeError(f"unsupported model config type: {type(config).__name__}")
 
 

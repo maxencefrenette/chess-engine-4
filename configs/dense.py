@@ -23,7 +23,7 @@ _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
 
 
-def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
+def config(*, d_model: int, training_ratio: float = 0.2) -> TrainingConfig:
     """Generate the current dense scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
