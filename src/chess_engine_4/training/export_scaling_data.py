@@ -21,13 +21,13 @@ from chess_engine_4.training.scaling_laws import (
 
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
 CURVE_POINT_COUNT = 61
-DISPLAY_TRAINING_RATIO = 0.2
 FAMILIES = {
     "dense": {
         "name": "Dense",
         "description": "Stacked MLP trained on lc0 planes.",
         "best_runs": Path("experiments/best-runs-dense.toml"),
         "config": Path("configs/dense.py"),
+        "training_ratio": 0.2,
     },
 }
 
@@ -56,11 +56,10 @@ def write_scaling_data(output: Path) -> None:
 
 def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
     path = metadata["best_runs"]
-    results = [
-        result
-        for result in read_best_runs(path, include_non_frontier=True)
-        if result.training_ratio == DISPLAY_TRAINING_RATIO
-    ]
+    results = read_best_runs(path)
+    training_ratio = float(metadata["training_ratio"])
+    if any(result.training_ratio != training_ratio for result in results):
+        raise ValueError(f"{path}: every active run must use training_ratio={training_ratio:g}.")
     with path.open("rb") as handle:
         raw_runs = tomllib.load(handle)["runs"]
 
@@ -77,7 +76,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     target_config = load_training_config(
         metadata["config"],
         d_model=target_width,
-        training_ratio=DISPLAY_TRAINING_RATIO,
+        training_ratio=training_ratio,
     )
     target_flops_per_sample = measure_training_flops_per_sample(
         target_config.model,
@@ -119,7 +118,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         "id": family_id,
         "name": metadata["name"],
         "description": metadata["description"],
-        "trainingRatio": DISPLAY_TRAINING_RATIO,
+        "trainingRatio": training_ratio,
         "observed": observed,
         "extrapolated": extrapolated,
         "curves": curves,

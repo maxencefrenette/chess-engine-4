@@ -23,6 +23,10 @@ Use `0.2x` as the default for routine experiments. Reserve `1x` for establishing
 the full-training frontier or when training ratio is itself under study; choose
 width and ratio jointly for final runs.
 
+The family best-runs file contains only the current default-ratio run at each
+width. Historical ratios and superseded recipes remain in their experiment
+reports rather than the canonical registry.
+
 After an experimental run finishes:
 
 1. Run `uv run compare-run WANDB_URL`.
@@ -36,10 +40,6 @@ When a family recipe changes, delete superseded cheap runs and rerun them. A
 larger run that is too expensive to repeat immediately may set `stale = true`
 until it can be replaced. Tooling excludes stale rows from comparisons, fits,
 extrapolation, and website data.
-
-Set `frontier = false` on retained undertrained runs. They remain available as
-incumbents for the same `(d_model, training_ratio)` cell, but do not influence
-the compute-optimal loss/FLOPs fit.
 
 Experiment reports should contain the command, W&B URL, `EG_flops`, promotion
 verdict, and notable observations. `EG_flops` is the fitted training FLOPs required

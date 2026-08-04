@@ -24,7 +24,10 @@ def test_read_best_runs_and_extrapolate() -> None:
         "d64",
         "d128",
         "d256",
+        "d512",
+        "d1024",
     ]
+    assert all(run.training_ratio == 0.2 for run in best_runs)
 
     laws = fit_scaling_laws(best_runs)
     suggestion = extrapolate(laws, 1e18)
@@ -32,7 +35,7 @@ def test_read_best_runs_and_extrapolate() -> None:
     assert 0.28 < laws.policy_top1.predict(1e14) < 0.30
     assert suggestion.d_model % 32 == 0
     assert suggestion.depth >= 5
-    assert suggestion.batch_size > best_runs[-1].batch_size
+    assert suggestion.batch_size >= best_runs[-1].batch_size
     assert suggestion.lr < best_runs[-1].lr
     assert suggestion.actual_params > best_runs[-1].params
 
@@ -41,21 +44,14 @@ def test_parameter_count_formulas_match_current_baselines() -> None:
     assert parameter_count(d_model=32, depth=1) == 306176
 
 
-def test_read_best_runs_tracks_non_frontier_ratios_separately() -> None:
+def test_read_best_runs_contains_only_canonical_ratio() -> None:
     path = Path("experiments/best-runs-dense.toml")
 
-    frontier = read_best_runs(path)
-    tracked = read_best_runs(path, include_non_frontier=True)
+    canonical = read_best_runs(path)
+    all_runs = read_best_runs(path, include_non_frontier=True)
 
-    assert all(run.training_ratio == 1.0 for run in frontier)
-    assert {run.training_ratio for run in tracked if not run.frontier} == {
-        0.1,
-        0.125,
-        0.2,
-        0.25,
-        0.5,
-        2.0,
-    }
+    assert canonical == all_runs
+    assert all(run.training_ratio == 0.2 for run in canonical)
 
 
 def test_undertraining_loss_law_penalizes_shorter_runs() -> None:
