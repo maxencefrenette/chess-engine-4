@@ -17,8 +17,12 @@ chronological order.
 
 Each model family has one programmable scaling recipe. For dense models,
 `configs/dense.py` takes `d_model` and `training_ratio` as scaling arguments and
-derives the rest of the baseline configuration. The `1x` ratio is the current
-compute-optimal allocation; lower ratios track deliberately undertrained runs.
+derives the rest of the baseline configuration. The `1x` ratio defines the
+canonical full-training horizon; lower ratios track deliberately undertrained runs.
+Use `0.2x` as the default for routine experiments. Reserve `1x` for establishing
+the full-training frontier or when training ratio is itself under study; choose
+width and ratio jointly for final runs.
+
 After an experimental run finishes:
 
 1. Run `uv run compare-run WANDB_URL`.
