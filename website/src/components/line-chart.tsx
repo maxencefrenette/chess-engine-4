@@ -19,7 +19,6 @@ type LineChartPoint = {
 
 type LineChartProps = {
   points: LineChartPoint[];
-  stalePoints: LineChartPoint[];
   extrapolatedPoints: LineChartPoint[];
   fitPoints: { x: number; y: number }[];
   label: string;
@@ -33,7 +32,6 @@ type LineChartProps = {
 type ChartPoint = {
   name: string;
   extrapolated?: boolean;
-  stale?: boolean;
   fit?: number;
   logX: number;
   plotY?: number;
@@ -43,7 +41,6 @@ type ChartPoint = {
 
 export function LineChart({
   points,
-  stalePoints,
   extrapolatedPoints,
   fitPoints,
   label,
@@ -68,12 +65,6 @@ export function LineChart({
     logX: Math.log10(point.x),
     plotY: plotY(point.y, yScale),
   }));
-  const staleChartPoints: ChartPoint[] = stalePoints.map((point) => ({
-    ...point,
-    stale: true,
-    logX: Math.log10(point.x),
-    plotY: plotY(point.y, yScale),
-  }));
   const curveChartPoints: ChartPoint[] = fitPoints.map((point) => ({
     name: "Fit",
     x: point.x,
@@ -82,7 +73,6 @@ export function LineChart({
     fit: plotY(point.y, yScale),
   }));
   const chartPoints = mergeChartPoints([
-    ...staleChartPoints,
     ...observedChartPoints,
     ...extrapolatedChartPoints,
   ]);
@@ -125,7 +115,6 @@ export function LineChart({
                 <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-lg">
                   <div className="font-semibold text-zinc-950">
                     {point.name}
-                    {point.stale ? <span className="ml-1 font-normal text-zinc-400">Stale</span> : null}
                   </div>
                   <div className="mt-1 text-zinc-600">
                     {yLabel}: {formatValue(point.y, valueFormat, true)}
@@ -179,16 +168,13 @@ function ChartDot({
   stroke: string;
 }) {
   const extrapolated = payload?.extrapolated === true;
-  const stale = payload?.stale === true;
-  const pointStroke = stale ? "#a1a1aa" : stroke;
   return (
     <circle
       cx={cx}
       cy={cy}
-      fill={extrapolated ? "white" : stale ? "#d4d4d8" : stroke}
-      opacity={stale ? 0.8 : 1}
+      fill={extrapolated ? "white" : stroke}
       r={(extrapolated ? 5.5 : 5) + (active ? 1 : 0)}
-      stroke={pointStroke}
+      stroke={stroke}
       strokeWidth={extrapolated ? 2 : 1}
     />
   );

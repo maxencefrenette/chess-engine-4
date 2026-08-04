@@ -470,6 +470,48 @@ loss = 3.158220625303896
 policy_top1 = 0.4134680958897275
 runtime_sec = 247.587903038
 
+[runs."d512-r0.2"]
+frontier = false
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-04.02-dense-model-data-cost"
+model_kind = "dense"
+run_name = "lnd32d-d512-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/w53iuy0q"
+flops = 2.5318484803584e16
+d_model = 512
+depth = 5
+activation = "swiglu"
+batch_size = 16384
+lr = 3.4e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 20403616
+samples_seen = 204029952
+loss = 3.10623046845019
+policy_top1 = 0.43062986952572185
+runtime_sec = 319.817464263
+
+[runs."d1024-r0.2"]
+frontier = false
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-04.02-dense-model-data-cost"
+model_kind = "dense"
+run_name = "lnd32d-d1024-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/bb2ts3z3"
+flops = 4.3479009576124416e17
+d_model = 1024
+depth = 6
+activation = "swiglu"
+batch_size = 32768
+lr = 1.2e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 84846496
+samples_seen = 848461824
+loss = 2.9205494556242813
+policy_top1 = 0.4868308696517685
+runtime_sec = 561.342778245
+
 # Accepted for the undertraining fit despite one detected loss spike.
 [runs."d512-r0.25"]
 frontier = false

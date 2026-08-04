@@ -55,10 +55,15 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
               {family.name}
             </h1>
             <p className="mt-2 text-sm text-zinc-600">{family.description}</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              All runs use {scalingFamily.trainingRatio}x Chinchilla to reduce experiment cost.
+            </p>
           </div>
           {latest ? (
             <div className="text-right">
-              <div className="text-xs font-medium uppercase text-zinc-500">Current frontier</div>
+              <div className="text-xs font-medium uppercase text-zinc-500">
+                Current curve
+              </div>
               <div className="mt-1 text-xl font-semibold text-zinc-950">{latest.name}</div>
             </div>
           ) : null}
@@ -83,7 +88,9 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
 
         <section className="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-5 py-4">
-            <h2 className="text-lg font-semibold text-zinc-950">Best observed runs</h2>
+            <h2 className="text-lg font-semibold text-zinc-950">
+              Selected runs
+            </h2>
           </div>
           <RunsTable runs={runs} />
         </section>

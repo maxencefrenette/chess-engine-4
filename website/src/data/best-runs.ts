@@ -45,8 +45,8 @@ export type ScalingFamily = {
   id: ModelFamilyId;
   name: string;
   description: string;
+  trainingRatio: number;
   observed: BestRun[];
-  staleObserved: BestRun[];
   extrapolated: ExtrapolatedRun[];
   curves: {
     loss: CurvePoint[];

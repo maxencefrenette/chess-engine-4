@@ -9,20 +9,25 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from chess_engine_4.training.config import load_training_config
+from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
     fit_loss_power_law,
     fit_power_law,
     fit_sigmoid_law,
+    parameter_count,
     read_best_runs,
 )
 
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
 CURVE_POINT_COUNT = 61
+DISPLAY_TRAINING_RATIO = 0.2
 FAMILIES = {
     "dense": {
         "name": "Dense",
         "description": "Stacked MLP trained on lc0 planes.",
         "best_runs": Path("experiments/best-runs-dense.toml"),
+        "config": Path("configs/dense.py"),
     },
 }
 
@@ -37,7 +42,7 @@ def export_scaling_data() -> None:
 
 def write_scaling_data(output: Path) -> None:
     payload = {
-        "version": 2,
+        "version": 3,
         "families": {
             family_id: build_family_payload(family_id, metadata)
             for family_id, metadata in FAMILIES.items()
@@ -51,13 +56,15 @@ def write_scaling_data(output: Path) -> None:
 
 def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
     path = metadata["best_runs"]
-    results = read_best_runs(path)
-    stale_results = [result for result in read_best_runs(path, include_stale=True) if result.stale]
+    results = [
+        result
+        for result in read_best_runs(path, include_non_frontier=True)
+        if result.training_ratio == DISPLAY_TRAINING_RATIO
+    ]
     with path.open("rb") as handle:
         raw_runs = tomllib.load(handle)["runs"]
 
     result_flops = {result.budget: result.flops for result in results}
-    stale_flops = {result.budget: result.flops for result in stale_results}
     loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
     policy_law = fit_sigmoid_law((result_flops[r.budget], r.policy_top1) for r in results)
     params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
@@ -66,28 +73,28 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
 
     observed = [observed_point(result, result_flops[result.budget], raw_runs) for result in results]
-    stale_observed = [
-        observed_point(result, stale_flops[result.budget], raw_runs) for result in stale_results
-    ]
-
-    frontier_exponent = round(math.log10(max(result_flops.values())))
-    target_flops = [10.0 ** (frontier_exponent + offset) for offset in (1, 2)]
+    target_width = max(result.d_model for result in results) * 2
+    target_config = load_training_config(
+        metadata["config"],
+        d_model=target_width,
+        training_ratio=DISPLAY_TRAINING_RATIO,
+    )
+    target_flops_per_sample = measure_training_flops_per_sample(
+        target_config.model,
+        batch_size=target_config.run.batch_size,
+    )
+    target_flops = target_flops_per_sample * target_config.run.batch_size * target_config.run.steps
     extrapolated = [
-        extrapolated_point(
-            flops,
+        extrapolated_recipe_point(
+            target_config,
+            target_flops,
             loss_law=loss_law,
             policy_law=policy_law,
-            params_law=params_law,
-            samples_law=samples_law,
-            batch_size_law=batch_size_law,
-            lr_law=lr_law,
         )
-        for flops in target_flops
     ]
 
     min_log_flops = math.log10(min(result_flops.values()))
-    max_display_flops = max([target_flops[-1], *stale_flops.values()])
-    max_log_flops = math.log10(max_display_flops)
+    max_log_flops = math.log10(target_flops)
     curve_flops = [
         10 ** (min_log_flops + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1))
         for index in range(CURVE_POINT_COUNT)
@@ -112,8 +119,8 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         "id": family_id,
         "name": metadata["name"],
         "description": metadata["description"],
+        "trainingRatio": DISPLAY_TRAINING_RATIO,
         "observed": observed,
-        "staleObserved": stale_observed,
         "extrapolated": extrapolated,
         "curves": curves,
     }
@@ -143,34 +150,35 @@ def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[
 
 
 def _recipe_name(d_model: int, training_ratio: float) -> str:
-    if training_ratio == 1.0:
-        return f"d{d_model}"
-    return f"d{d_model} · {training_ratio:g}x"
+    return f"d{d_model}"
 
 
-def extrapolated_point(
+def extrapolated_recipe_point(
+    config: Any,
     flops: float,
     *,
     loss_law: Any,
     policy_law: Any,
-    params_law: Any,
-    samples_law: Any,
-    batch_size_law: Any,
-    lr_law: Any,
 ) -> dict[str, float | str]:
-    params = params_law.predict(flops)
-    samples = samples_law.predict(flops)
+    params = parameter_count(
+        model_kind=config.model.kind,
+        d_model=config.model.d_model,
+        depth=config.model.depth,
+        expansion_ratio=config.model.expansion_ratio,
+        activation=config.model.activation,
+    )
+    samples = config.run.batch_size * config.run.steps
     return {
-        "name": f"1e{round(math.log10(flops))} FLOPs",
+        "name": f"d{config.model.d_model}",
         "physicalFlops": flops,
         "params": params,
         "samplesSeen": samples,
         "samplesPerParam": samples / params,
         "loss": loss_law.predict(flops),
         "policyTop1": policy_law.predict(flops),
-        "lr": lr_law.predict(flops),
-        "steps": samples / batch_size_law.predict(flops),
-        "batchSize": batch_size_law.predict(flops),
+        "lr": config.optimizer.lr,
+        "steps": config.run.steps,
+        "batchSize": config.run.batch_size,
     }
 
 
@@ -182,5 +190,7 @@ def curve(flops_values: list[float], predict: Any) -> list[dict[str, float]]:
         }
         for flops in flops_values
     ]
+
+
 if __name__ == "__main__":
     export_scaling_data()
