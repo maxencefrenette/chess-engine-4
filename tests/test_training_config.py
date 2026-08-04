@@ -190,8 +190,8 @@ def test_dense_family_scales_training_horizon() -> None:
         12.5,
         rel=1e-3,
     )
-    assert baseline.optimizer.lr == 0.0014
-    assert undertrained.optimizer.lr == 0.0021
+    assert baseline.optimizer.lr == 0.0007
+    assert undertrained.optimizer.lr == 0.0017
 
 
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:

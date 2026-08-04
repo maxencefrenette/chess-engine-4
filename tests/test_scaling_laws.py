@@ -49,7 +49,9 @@ def test_read_best_runs_tracks_non_frontier_ratios_separately() -> None:
 
     assert all(run.training_ratio == 1.0 for run in frontier)
     assert {run.training_ratio for run in tracked if not run.frontier} == {
+        0.1,
         0.125,
+        0.2,
         0.25,
         0.5,
         2.0,

@@ -1,0 +1,9 @@
+name,id,wandb_url,width,law,replicate,lr,loss,policy_top1,loss_spike_count,runtime_sec,flops
+dense-lr-law-r1-d32-gamma,r1cwgaa7,https://wandb.ai/maxence-frenette/chess-engine-4/runs/r1cwgaa7,32,gamma,1,0.0014691044254532607,3.772860222714684,0.2596622260715703,0,53.091216253,31962068287488
+dense-lr-law-r1-d32-gamma-rep2,nrc9b4u6,https://wandb.ai/maxence-frenette/chess-engine-4/runs/nrc9b4u6,32,gamma,2,0.0014691044254532607,3.772860222714684,0.2596622260715703,0,42.803610168,31962068287488
+dense-lr-law-r1-d32-simple,ppp6ody1,https://wandb.ai/maxence-frenette/chess-engine-4/runs/ppp6ody1,32,simple,1,0.0027409018434213575,3.7719064949839423,0.259532950463238,0,118.133615566,31962068287488
+dense-lr-law-r1-d32-simple-rep2,lk022zc7,https://wandb.ai/maxence-frenette/chess-engine-4/runs/lk022zc7,32,simple,2,0.0027409018434213575,3.7719064949839423,0.259532950463238,0,37.772326968,31962068287488
+dense-lr-law-r1-d64-gamma,b5ovs775,https://wandb.ai/maxence-frenette/chess-engine-4/runs/b5ovs775,64,gamma,1,0.0011228691123948893,3.556911799653179,0.31110124590409033,0,61.550649337,168706559385600
+dense-lr-law-r1-d64-gamma-rep2,44r3tglr,https://wandb.ai/maxence-frenette/chess-engine-4/runs/44r3tglr,64,gamma,2,0.0011228691123948893,3.5544762381728794,0.3110942743442671,0,110.466988963,168706559385600
+dense-lr-law-r1-d64-simple,k0m2hvdi,https://wandb.ai/maxence-frenette/chess-engine-4/runs/k0m2hvdi,64,simple,1,0.0014804411507601302,3.553675114383534,0.31181352561086695,0,95.162008568,168706559385600
+dense-lr-law-r1-d64-simple-rep2,xpe6ee6q,https://wandb.ai/maxence-frenette/chess-engine-4/runs/xpe6ee6q,64,simple,2,0.0014804411507601302,3.553675114383534,0.31181352561086695,0,105.68965711,168706559385600
