@@ -15,8 +15,7 @@ from chess_engine_4.training.config import (
 from chess_engine_4.training.losses import LossWeights
 
 _BASE_WIDTH = 32
-_DEPTH_INTERCEPT = 2.5
-_DEPTH_PER_WIDTH_DOUBLING = 0.85
+_DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 32
 _LR_PARAMETER_COEFFICIENT = 31.75
@@ -32,11 +31,7 @@ def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
     if training_ratio <= 0:
         raise ValueError("training_ratio must be positive.")
 
-    width_scale = d_model / _BASE_WIDTH
-    depth = max(
-        2,
-        math.floor(_DEPTH_INTERCEPT + _DEPTH_PER_WIDTH_DOUBLING * math.log2(width_scale)),
-    )
+    depth = _DEPTH
     batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
     parameter_count = dense_parameter_count(
         d_model=d_model,
@@ -48,9 +43,7 @@ def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
         run=RunConfig(
             name=_run_name(d_model, training_ratio),
             seed=1,
-            steps=round(
-                training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch_size
-            ),
+            steps=round(training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch_size),
             batch_size=batch_size,
             training_ratio=training_ratio,
         ),

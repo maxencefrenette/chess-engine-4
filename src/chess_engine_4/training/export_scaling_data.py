@@ -42,7 +42,7 @@ def export_scaling_data() -> None:
 
 def write_scaling_data(output: Path) -> None:
     payload = {
-        "version": 3,
+        "version": 4,
         "families": {
             family_id: build_family_payload(family_id, metadata)
             for family_id, metadata in FAMILIES.items()
@@ -57,6 +57,7 @@ def write_scaling_data(output: Path) -> None:
 def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
     path = metadata["best_runs"]
     results = read_best_runs(path)
+    stale_results = [result for result in read_best_runs(path, include_stale=True) if result.stale]
     training_ratio = float(metadata["training_ratio"])
     if any(result.training_ratio != training_ratio for result in results):
         raise ValueError(f"{path}: every active run must use training_ratio={training_ratio:g}.")
@@ -72,6 +73,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
 
     observed = [observed_point(result, result_flops[result.budget], raw_runs) for result in results]
+    stale_observed = [observed_point(result, result.flops, raw_runs) for result in stale_results]
     target_width = max(result.d_model for result in results) * 2
     target_config = load_training_config(
         metadata["config"],
@@ -120,6 +122,7 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         "description": metadata["description"],
         "trainingRatio": training_ratio,
         "observed": observed,
+        "staleObserved": stale_observed,
         "extrapolated": extrapolated,
         "curves": curves,
     }
@@ -145,6 +148,7 @@ def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[
         "loss": result.loss,
         "policyTop1": result.policy_top1,
         "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
+        "stale": result.stale,
     }
 
 

@@ -21,6 +21,7 @@ export type BestRun = {
   loss: number;
   policyTop1: number;
   runtimeSec: number;
+  stale: boolean;
 };
 
 export type ExtrapolatedRun = {
@@ -47,6 +48,7 @@ export type ScalingFamily = {
   description: string;
   trainingRatio: number;
   observed: BestRun[];
+  staleObserved: BestRun[];
   extrapolated: ExtrapolatedRun[];
   curves: {
     loss: CurvePoint[];

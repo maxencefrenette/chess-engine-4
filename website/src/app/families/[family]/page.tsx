@@ -92,7 +92,11 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
               Selected runs
             </h2>
           </div>
-          <RunsTable runs={runs} />
+          <RunsTable
+            runs={[...runs, ...scalingFamily.staleObserved].sort(
+              (left, right) => left.physicalFlops - right.physicalFlops,
+            )}
+          />
         </section>
       </div>
     </main>

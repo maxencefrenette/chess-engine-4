@@ -135,20 +135,20 @@ def test_d64_config_builds_expected_model_size() -> None:
             expansion_ratio=config.model.expansion_ratio,
             activation=config.model.activation,
         )
-        == 733_408
+        == 979_488
     )
 
 
 @pytest.mark.parametrize(
     ("d_model", "depth", "batch_size"),
     [
-        (32, 2, 1_024),
-        (64, 3, 2_048),
-        (128, 4, 4_096),
-        (256, 5, 8_192),
-        (512, 5, 16_384),
-        (1_024, 6, 32_768),
-        (1_536, 7, 49_152),
+        (32, 8, 1_024),
+        (64, 8, 2_048),
+        (128, 8, 4_096),
+        (256, 8, 8_192),
+        (512, 8, 16_384),
+        (1_024, 8, 32_768),
+        (1_536, 8, 49_152),
     ],
 )
 def test_dense_family_recipe(
@@ -186,12 +186,12 @@ def test_dense_family_scales_training_horizon() -> None:
 
     assert undertrained.run.name == "d128-r0.25"
     assert undertrained.run.training_ratio == 0.25
-    assert undertrained.run.steps * undertrained.run.batch_size / 1_956_512 == pytest.approx(
+    assert undertrained.run.steps * undertrained.run.batch_size / 2_743_456 == pytest.approx(
         12.5,
         rel=1e-3,
     )
-    assert baseline.optimizer.lr == 0.0007
-    assert undertrained.optimizer.lr == 0.0017
+    assert baseline.optimizer.lr == 0.00055
+    assert undertrained.optimizer.lr == 0.0013
 
 
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:

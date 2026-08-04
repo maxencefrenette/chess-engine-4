@@ -30,7 +30,7 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
           {runs.map((run) => (
             <tr
               key={`${run.name}-${run.physicalFlops}`}
-              className="cursor-pointer text-zinc-700 transition-colors hover:bg-blue-50"
+              className={`cursor-pointer transition-colors hover:bg-blue-50 ${run.stale ? "bg-zinc-50/60 text-zinc-400" : "text-zinc-700"}`}
               onClick={() => window.open(run.wandbUrl, "_blank", "noopener,noreferrer")}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -42,7 +42,7 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
               tabIndex={0}
               title={`Open ${run.runName} in W&B`}
             >
-              <Td strong>
+              <Td strong={!run.stale}>
                 <a
                   href={run.wandbUrl}
                   onClick={(event) => event.stopPropagation()}
@@ -51,6 +51,11 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
                 >
                   {run.name}
                 </a>
+                {run.stale ? (
+                  <span className="ml-2 text-xs font-medium uppercase text-zinc-400">
+                    stale
+                  </span>
+                ) : null}
               </Td>
               <Td numeric>{run.depth}</Td>
               <Td numeric>{formatCompactNumber(run.batchSize)}</Td>

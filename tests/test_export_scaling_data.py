@@ -18,12 +18,11 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
         "d64",
         "d128",
         "d256",
-        "d512",
-        "d1024",
     ]
     assert dense["trainingRatio"] == 0.2
-    assert "historicalObserved" not in dense
-    assert [point["name"] for point in dense["extrapolated"]] == ["d2048"]
+    assert [point["name"] for point in dense["staleObserved"]] == ["d512", "d1024"]
+    assert all(point["stale"] for point in dense["staleObserved"])
+    assert [point["name"] for point in dense["extrapolated"]] == ["d512"]
 
     assert len(dense["curves"]["samplesPerParam"]) == 61
     assert len(dense["curves"]["lr"]) == 61

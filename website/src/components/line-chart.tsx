@@ -19,6 +19,7 @@ type LineChartPoint = {
 
 type LineChartProps = {
   points: LineChartPoint[];
+  stalePoints: LineChartPoint[];
   extrapolatedPoints: LineChartPoint[];
   fitPoints: { x: number; y: number }[];
   label: string;
@@ -32,6 +33,7 @@ type LineChartProps = {
 type ChartPoint = {
   name: string;
   extrapolated?: boolean;
+  stale?: boolean;
   fit?: number;
   logX: number;
   plotY?: number;
@@ -41,6 +43,7 @@ type ChartPoint = {
 
 export function LineChart({
   points,
+  stalePoints,
   extrapolatedPoints,
   fitPoints,
   label,
@@ -65,6 +68,12 @@ export function LineChart({
     logX: Math.log10(point.x),
     plotY: plotY(point.y, yScale),
   }));
+  const staleChartPoints: ChartPoint[] = stalePoints.map((point) => ({
+    ...point,
+    stale: true,
+    logX: Math.log10(point.x),
+    plotY: plotY(point.y, yScale),
+  }));
   const curveChartPoints: ChartPoint[] = fitPoints.map((point) => ({
     name: "Fit",
     x: point.x,
@@ -74,6 +83,7 @@ export function LineChart({
   }));
   const chartPoints = mergeChartPoints([
     ...observedChartPoints,
+    ...staleChartPoints,
     ...extrapolatedChartPoints,
   ]);
   const yValues = [...curveChartPoints, ...chartPoints].flatMap((point) =>
@@ -168,13 +178,16 @@ function ChartDot({
   stroke: string;
 }) {
   const extrapolated = payload?.extrapolated === true;
+  const stale = payload?.stale === true;
+  const pointStroke = stale ? "#a1a1aa" : stroke;
   return (
     <circle
       cx={cx}
       cy={cy}
-      fill={extrapolated ? "white" : stroke}
+      fill={extrapolated ? "white" : pointStroke}
+      opacity={stale ? 0.7 : 1}
       r={(extrapolated ? 5.5 : 5) + (active ? 1 : 0)}
-      stroke={stroke}
+      stroke={pointStroke}
       strokeWidth={extrapolated ? 2 : 1}
     />
   );

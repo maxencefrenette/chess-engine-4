@@ -21,6 +21,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
       <section className="mt-5 flex justify-end">
         <div className="flex items-center gap-5 text-sm text-zinc-600">
           <LegendMarker filled label="Observed" />
+          <LegendMarker filled label="Stale" muted />
           <LegendMarker label="Extrapolated" />
         </div>
       </section>
@@ -30,6 +31,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Loss"
           yLabel="Loss"
           observed={metricPoints(family, "loss")}
+          stale={staleMetricPoints(family, "loss")}
           extrapolated={extrapolatedPoints(family.extrapolated, "loss")}
           curve={curvePoints(family.curves.loss)}
           xLabel={xLabel}
@@ -38,6 +40,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Policy top-1"
           yLabel="Top-1 accuracy"
           observed={metricPoints(family, "policyTop1")}
+          stale={staleMetricPoints(family, "policyTop1")}
           extrapolated={extrapolatedPoints(family.extrapolated, "policyTop1")}
           curve={curvePoints(family.curves.policyTop1)}
           stroke="#16a34a"
@@ -48,6 +51,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Parameters"
           yLabel="Total parameters"
           observed={metricPoints(family, "params")}
+          stale={staleMetricPoints(family, "params")}
           extrapolated={extrapolatedPoints(family.extrapolated, "params")}
           curve={curvePoints(family.curves.params)}
           stroke="#9333ea"
@@ -59,6 +63,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Samples seen"
           yLabel="Training samples"
           observed={metricPoints(family, "samplesSeen")}
+          stale={staleMetricPoints(family, "samplesSeen")}
           extrapolated={extrapolatedPoints(family.extrapolated, "samplesSeen")}
           curve={curvePoints(family.curves.samples)}
           stroke="#ea580c"
@@ -70,6 +75,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Samples per parameter"
           yLabel="Samples / parameter"
           observed={metricPoints(family, "samplesPerParam")}
+          stale={staleMetricPoints(family, "samplesPerParam")}
           extrapolated={extrapolatedPoints(family.extrapolated, "samplesPerParam")}
           curve={curvePoints(family.curves.samplesPerParam)}
           stroke="#0891b2"
@@ -79,6 +85,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Learning rate"
           yLabel="Learning rate"
           observed={metricPoints(family, "lr")}
+          stale={staleMetricPoints(family, "lr")}
           extrapolated={extrapolatedPoints(family.extrapolated, "lr")}
           curve={curvePoints(family.curves.lr)}
           stroke="#dc2626"
@@ -90,6 +97,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Steps"
           yLabel="Optimization steps"
           observed={metricPoints(family, "steps")}
+          stale={staleMetricPoints(family, "steps")}
           extrapolated={extrapolatedPoints(family.extrapolated, "steps")}
           curve={curvePoints(family.curves.steps)}
           stroke="#ca8a04"
@@ -101,6 +109,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
           title="Batch size"
           yLabel="Batch size"
           observed={metricPoints(family, "batchSize")}
+          stale={staleMetricPoints(family, "batchSize")}
           extrapolated={extrapolatedPoints(family.extrapolated, "batchSize")}
           curve={curvePoints(family.curves.batchSize)}
           stroke="#db2777"
@@ -116,14 +125,16 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
 function LegendMarker({
   filled = false,
   label,
+  muted = false,
 }: {
   filled?: boolean;
   label: string;
+  muted?: boolean;
 }) {
   return (
     <span className="flex items-center gap-2">
       <span
-        className={`size-3 rounded-full border-2 border-blue-600 ${filled ? "bg-blue-600" : "bg-white"}`}
+        className={`size-3 rounded-full border-2 ${muted ? "border-zinc-400 bg-zinc-400 opacity-70" : `border-blue-600 ${filled ? "bg-blue-600" : "bg-white"}`}`}
       />
       {label}
     </span>
@@ -135,6 +146,7 @@ function ChartCard({
   title,
   yLabel,
   observed,
+  stale,
   extrapolated,
   curve,
   stroke,
@@ -146,6 +158,7 @@ function ChartCard({
   title: string;
   yLabel: string;
   observed: { x: number; y: number; name: string }[];
+  stale: { x: number; y: number; name: string }[];
   extrapolated: { x: number; y: number; name: string }[];
   curve: { x: number; y: number }[];
   stroke?: string;
@@ -162,6 +175,7 @@ function ChartCard({
           fitPoints={curve}
           label={title}
           points={observed}
+          stalePoints={stale}
           stroke={stroke}
           valueFormat={valueFormat}
           xLabel={xLabel}
@@ -175,6 +189,14 @@ function ChartCard({
 
 function metricPoints(family: ScalingFamily, metric: MetricKey) {
   return family.observed.map((run) => ({
+    x: run.physicalFlops,
+    y: run[metric],
+    name: run.name,
+  }));
+}
+
+function staleMetricPoints(family: ScalingFamily, metric: MetricKey) {
+  return family.staleObserved.map((run) => ({
     x: run.physicalFlops,
     y: run[metric],
     name: run.name,
