@@ -80,23 +80,44 @@ runtime_sec = 20.797634017
 [runs."d32-r0.25"]
 frontier = false
 training_ratio = 0.25
-source_experiment = "experiments/2026-07-13.02-dense-r025-learning-rate"
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
 model_kind = "dense"
-run_name = "dense-r025-lr-d32-m800"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/dm6xqeek"
+run_name = "dense-undertraining-law-d32-r0.25"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/idopsso7"
 flops = 7990517071872
 d_model = 32
 depth = 2
 activation = "swiglu"
 batch_size = 2048
-lr = 0.0152
+lr = 4.9e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 318496
 samples_seen = 3981312
-loss = 4.599651430207455
-policy_top1 = 0.1872806622773012
-runtime_sec = 14.296869548
+loss = 4.67027930711252
+policy_top1 = 0.18024542248791636
+runtime_sec = 7.264373042
+
+[runs."d32-r0.5"]
+frontier = false
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d32-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/cyupzlq2"
+flops = 1.5981034143744e13
+d_model = 32
+depth = 2
+activation = "swiglu"
+batch_size = 2048
+lr = 3.9e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 318496
+samples_seen = 7962624
+loss = 4.007307802652633
+policy_top1 = 0.23075419062988944
+runtime_sec = 16.039801576
 
 [runs.d64]
 source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
@@ -120,23 +141,44 @@ runtime_sec = 30.281902584
 [runs."d64-r0.25"]
 frontier = false
 training_ratio = 0.25
-source_experiment = "experiments/2026-07-13.02-dense-r025-learning-rate"
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
 model_kind = "dense"
-run_name = "dense-r025-lr-d64-m800"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/o2ypf3ks"
+run_name = "dense-undertraining-law-d64-r0.25"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/udz5pkl7"
 flops = 42174284267520
 d_model = 64
 depth = 3
 activation = "swiglu"
 batch_size = 4096
-lr = 0.0112
+lr = 3.3e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 733408
 samples_seen = 9166848
-loss = 4.23406534468372
-policy_top1 = 0.2302030645998959
-runtime_sec = 9.788391336
+loss = 4.304096475624479
+policy_top1 = 0.2274002347441089
+runtime_sec = 9.897511031
+
+[runs."d64-r0.5"]
+frontier = false
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d64-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/asoo4jxp"
+flops = 8.434856853504e13
+d_model = 64
+depth = 3
+activation = "swiglu"
+batch_size = 4096
+lr = 2.7e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 733408
+samples_seen = 18333696
+loss = 3.731141826711294
+policy_top1 = 0.28182685372949967
+runtime_sec = 31.64021309
 
 [runs.d128]
 source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
@@ -160,23 +202,44 @@ runtime_sec = 146.28233028
 [runs."d128-r0.25"]
 frontier = false
 training_ratio = 0.25
-source_experiment = "experiments/2026-07-13.02-dense-r025-learning-rate"
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
 model_kind = "dense"
-run_name = "dense-r025-lr-d128-m280"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/9e7rfwx6"
+run_name = "dense-undertraining-law-d128-r0.25"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/qsp3f2m0"
 flops = 297081884098560
 d_model = 128
 depth = 4
 activation = "swiglu"
 batch_size = 8192
-lr = 0.0028
+lr = 0.0021
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 1956512
 samples_seen = 24453120
-loss = 3.808829346643316
-policy_top1 = 0.29241288855155645
-runtime_sec = 19.899552037
+loss = 3.8010554879012695
+policy_top1 = 0.29555388680401684
+runtime_sec = 18.962950951
+
+[runs."d128-r0.5"]
+frontier = false
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d128-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/hxi5cbgg"
+flops = 5.94263293116416e14
+d_model = 128
+depth = 4
+activation = "swiglu"
+batch_size = 8192
+lr = 1.7e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1956512
+samples_seen = 48914432
+loss = 3.448455602274526
+policy_top1 = 0.34089426252119087
+runtime_sec = 74.223266602
 
 [runs.d256]
 source_experiment = "experiments/2026-07-13.03-dense-marin-lr-fit"
@@ -200,20 +263,254 @@ runtime_sec = 449.862652901
 [runs."d256-r0.25"]
 frontier = false
 training_ratio = 0.25
-source_experiment = "experiments/2026-07-13.02-dense-r025-learning-rate"
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
 model_kind = "dense"
-run_name = "dense-r025-lr-d256-m155"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/gibusiw6"
+run_name = "dense-undertraining-law-d256-r0.25"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fyxlkzlc"
 flops = 3014171725660160
 d_model = 256
 depth = 5
 activation = "swiglu"
 batch_size = 16384
-lr = 0.0011315
+lr = 1.3e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 6270624
 samples_seen = 78381056
-loss = 3.341704589770146
-policy_top1 = 0.3738173892741001
-runtime_sec = 119.733479107
+loss = 3.3461371002759464
+policy_top1 = 0.3707871997742304
+runtime_sec = 145.214775293
+
+[runs."d256-r0.5"]
+frontier = false
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d256-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sbxr4p7e"
+flops = 6.02834345132032e15
+d_model = 256
+depth = 5
+activation = "swiglu"
+batch_size = 16384
+lr = 1e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 6270624
+samples_seen = 156762112
+loss = 3.187757650565307
+policy_top1 = 0.4069218232910271
+runtime_sec = 246.873509441
+
+# Accepted for the undertraining fit despite one detected loss spike.
+[runs."d512-r0.25"]
+frontier = false
+training_ratio = 0.25
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d512-r0.25"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/duwcy9d9"
+flops = 3.1647597723648e16
+d_model = 512
+depth = 5
+activation = "swiglu"
+batch_size = 32768
+lr = 7.5e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 20403616
+samples_seen = 255033344
+loss = 3.0933937311211483
+policy_top1 = 0.4346870419927316
+runtime_sec = 381.537014767
+
+# Accepted for the undertraining fit despite one detected loss spike.
+[runs."d512-r0.5"]
+frontier = false
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-undertraining-law-d512-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/roresfc4"
+flops = 6.3299261693952e16
+d_model = 512
+depth = 5
+activation = "swiglu"
+batch_size = 32768
+lr = 6.1e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 20403616
+samples_seen = 510099456
+loss = 2.98360114453391
+policy_top1 = 0.4638408491822578
+runtime_sec = 800.410486111
+
+[runs."d32-r0.125"]
+frontier = false
+training_ratio = 0.125
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d32-r0.125"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/8nlxb2mz"
+flops = 3.995258535936e12
+d_model = 32
+depth = 2
+activation = "swiglu"
+batch_size = 2048
+lr = 6e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 318496
+samples_seen = 1990656
+loss = 5.770225636950114
+policy_top1 = 0.12765432459609546
+runtime_sec = 10.934582511
+
+[runs."d64-r0.125"]
+frontier = false
+training_ratio = 0.125
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d64-r0.125"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/hcq9adjs"
+flops = 2.108714213376e13
+d_model = 64
+depth = 3
+activation = "swiglu"
+batch_size = 4096
+lr = 4.1e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 733408
+samples_seen = 4583424
+loss = 5.314886179004799
+policy_top1 = 0.16306449457464126
+runtime_sec = 18.352577128
+
+[runs."d128-r0.125"]
+frontier = false
+training_ratio = 0.125
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d128-r0.125"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/injasnnq"
+flops = 1.48590704508928e14
+d_model = 128
+depth = 4
+activation = "swiglu"
+batch_size = 8192
+lr = 2.6e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1956512
+samples_seen = 12230656
+loss = 4.715718744095403
+policy_top1 = 0.21807432907490076
+runtime_sec = 26.238580878
+
+[runs."d256-r0.125"]
+frontier = false
+training_ratio = 0.125
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d256-r0.125"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/nz5u5ivx"
+flops = 1.50708586283008e15
+d_model = 256
+depth = 5
+activation = "swiglu"
+batch_size = 16384
+lr = 1.6e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 6270624
+samples_seen = 39190528
+loss = 3.91183361178344
+policy_top1 = 0.30377581792950087
+runtime_sec = 66.809089403
+
+# Accepted for the model/data fit despite one detected loss spike.
+[runs."d512-r0.125"]
+frontier = false
+training_ratio = 0.125
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d512-r0.125"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/91qksein"
+flops = 1.5825831985152e16
+d_model = 512
+depth = 5
+activation = "swiglu"
+batch_size = 32768
+lr = 9.2e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 20403616
+samples_seen = 127533056
+loss = 3.341499513003886
+policy_top1 = 0.38563582059381946
+runtime_sec = 208.798922873
+
+[runs."d32-r2"]
+frontier = false
+training_ratio = 2.0
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d32-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/mnlo3774"
+flops = 6.3924136574976e13
+d_model = 32
+depth = 2
+activation = "swiglu"
+batch_size = 2048
+lr = 2.6e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 318496
+samples_seen = 31850496
+loss = 3.723118679670472
+policy_top1 = 0.2658824339856464
+runtime_sec = 90.253517089
+
+[runs."d64-r2"]
+frontier = false
+training_ratio = 2.0
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d64-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/bxek43jn"
+flops = 3.374131187712e14
+d_model = 64
+depth = 3
+activation = "swiglu"
+batch_size = 4096
+lr = 1.8e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 733408
+samples_seen = 73338880
+loss = 3.5060609751233085
+policy_top1 = 0.32006456410719897
+runtime_sec = 107.821567703
+
+[runs."d128-r2"]
+frontier = false
+training_ratio = 2.0
+source_experiment = "experiments/2026-08-03.01-dense-undertraining-law"
+model_kind = "dense"
+run_name = "dense-lnd-d128-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/kwf25c2k"
+flops = 2.376953647546368e15
+d_model = 128
+depth = 4
+activation = "swiglu"
+batch_size = 8192
+lr = 1.2e-3
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1956512
+samples_seen = 195649536
+loss = 3.2789052049556875
+policy_top1 = 0.3779219741140412
+runtime_sec = 280.235592304

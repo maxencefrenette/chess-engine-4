@@ -102,6 +102,27 @@ class LossPowerLaw:
 
 
 @dataclass(frozen=True, slots=True)
+class UndertrainingLossLaw:
+    baseline: LossPowerLaw
+    penalty_coefficient: float
+    compute_exponent: float
+    ratio_exponent: float
+    rmse: float
+
+    def predict(self, one_x_flops: float, training_ratio: float) -> float:
+        if one_x_flops <= 0:
+            raise ValueError("1x training FLOPs must be positive.")
+        if training_ratio <= 0:
+            raise ValueError("training ratio must be positive.")
+        penalty = (
+            self.penalty_coefficient
+            * (one_x_flops / 1e15) ** (-self.compute_exponent)
+            * (training_ratio ** (-self.ratio_exponent) - 1.0)
+        )
+        return self.baseline.predict(one_x_flops) + penalty
+
+
+@dataclass(frozen=True, slots=True)
 class ScalingLaws:
     model_kind: str
     loss: LossPowerLaw
@@ -332,6 +353,52 @@ def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
     if best is None:
         raise ValueError("Could not fit loss scaling law.")
     return best
+
+
+def fit_undertraining_loss_law(
+    baseline: LossPowerLaw,
+    points: Iterable[tuple[float, float, float]],
+) -> UndertrainingLossLaw:
+    values = list(points)
+    if len(values) < 3:
+        raise ValueError("At least three undertrained points are required.")
+    if any(one_x_flops <= 0 or ratio <= 0 for one_x_flops, ratio, _ in values):
+        raise ValueError("Undertraining-law inputs must be positive.")
+
+    one_x_flops = np.array([flops / 1e15 for flops, _, _ in values])
+    training_ratios = np.array([ratio for _, ratio, _ in values])
+    penalties = np.array([loss - baseline.predict(flops) for flops, _, loss in values])
+
+    def penalty(
+        inputs: tuple[np.ndarray, np.ndarray],
+        coefficient: float,
+        compute_exponent: float,
+        ratio_exponent: float,
+    ) -> np.ndarray:
+        flops, ratios = inputs
+        return coefficient * flops ** (-compute_exponent) * (ratios ** (-ratio_exponent) - 1.0)
+
+    parameters, _ = curve_fit(
+        penalty,
+        (one_x_flops, training_ratios),
+        penalties,
+        p0=(0.08, 0.17, 1.4),
+        bounds=((0.0, -2.0, 1e-3), (20.0, 2.0, 5.0)),
+        maxfev=100_000,
+    )
+    coefficient, compute_exponent, ratio_exponent = (float(value) for value in parameters)
+    rmse = float(
+        np.sqrt(
+            np.mean(np.square(penalty((one_x_flops, training_ratios), *parameters) - penalties))
+        )
+    )
+    return UndertrainingLossLaw(
+        baseline=baseline,
+        penalty_coefficient=coefficient,
+        compute_exponent=compute_exponent,
+        ratio_exponent=ratio_exponent,
+        rmse=rmse,
+    )
 
 
 def parameter_count(

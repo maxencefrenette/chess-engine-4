@@ -7,8 +7,10 @@ import pytest
 
 from chess_engine_4.training.scaling_laws import (
     extrapolate,
+    fit_loss_power_law,
     fit_scaling_laws,
     fit_sigmoid_law,
+    fit_undertraining_loss_law,
     format_report,
     parameter_count,
     read_best_runs,
@@ -46,12 +48,28 @@ def test_read_best_runs_tracks_non_frontier_ratios_separately() -> None:
     tracked = read_best_runs(path, include_non_frontier=True)
 
     assert all(run.training_ratio == 1.0 for run in frontier)
-    assert {run.budget for run in tracked if not run.frontier} == {
-        "d32-r0.25",
-        "d64-r0.25",
-        "d128-r0.25",
-        "d256-r0.25",
+    assert {run.training_ratio for run in tracked if not run.frontier} == {
+        0.125,
+        0.25,
+        0.5,
+        2.0,
     }
+
+
+def test_undertraining_loss_law_penalizes_shorter_runs() -> None:
+    baseline = fit_loss_power_law([(1e13, 4.0), (1e14, 3.6), (1e15, 3.3), (1e16, 3.1)])
+    law = fit_undertraining_loss_law(
+        baseline,
+        [
+            (1e14, 0.25, 4.3),
+            (1e14, 0.5, 3.9),
+            (1e15, 0.25, 3.8),
+            (1e15, 0.5, 3.5),
+        ],
+    )
+
+    assert law.predict(1e15, 0.25) > law.predict(1e15, 0.5)
+    assert law.predict(1e15, 0.5) > law.predict(1e15, 1.0)
 
 
 def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:
