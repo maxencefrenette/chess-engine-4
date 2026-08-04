@@ -3,6 +3,7 @@
 import type { BestRun } from "@/data/best-runs";
 import {
   formatCompactNumber,
+  formatB200Cost,
   formatDecimal,
   formatDuration,
   formatPercent,
@@ -20,10 +21,14 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
             <Th numeric>LR</Th>
             <Th numeric>Params</Th>
             <Th numeric>Samples</Th>
-            <Th numeric>Samples / param</Th>
             <Th numeric>Loss</Th>
             <Th numeric>Policy top-1</Th>
             <Th numeric>Runtime</Th>
+            <Th numeric>
+              <span title="Estimated from recorded runtime at $6.25 per Modal B200-hour">
+                Cost
+              </span>
+            </Th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
@@ -62,10 +67,10 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
               <Td numeric>{run.lr.toExponential(1)}</Td>
               <Td numeric>{formatCompactNumber(run.params)}</Td>
               <Td numeric>{formatCompactNumber(run.samplesSeen)}</Td>
-              <Td numeric>{formatDecimal(run.samplesSeen / run.params, 1)}</Td>
               <Td numeric>{formatDecimal(run.loss)}</Td>
               <Td numeric>{formatPercent(run.policyTop1)}</Td>
               <Td numeric>{formatDuration(run.runtimeSec)}</Td>
+              <Td numeric>{formatB200Cost(run.runtimeSec)}</Td>
             </tr>
           ))}
         </tbody>
