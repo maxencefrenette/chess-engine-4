@@ -1,0 +1,217 @@
+[experiment]
+gpu = "B200"
+modal_gpu_price_per_hour = 6.25
+training_ratio = 0.25
+candidate_batch_per_width = [16, 32]
+baseline_runtime_statistic = "median"
+
+[fits]
+loss_floor = 0.7625
+flops_coefficient = 31.961425502443788
+flops_exponent = 0.07049339603433304
+cost_coefficient = 2.0288819993831817
+cost_exponent = 0.13973300711520742
+
+[[baselines]]
+d_model = 32
+batch_size = 2048
+steps = 1944
+lr = 0.0049
+flops = 7990517071872
+loss = 4.67027930711252
+policy_top1 = 0.18024542248791636
+runtime_sec = 7.264373042
+runtime_observations_sec = [7.264373042, 16.411185188, 7.206888645]
+loss_spike_counts = [0, 0, 0]
+wandb_urls = [
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/idopsso7",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/tulatso2",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/tr31uvmj",
+]
+
+[[baselines]]
+d_model = 64
+batch_size = 4096
+steps = 2238
+lr = 0.0033
+flops = 42174284267520
+loss = 4.304096475624479
+policy_top1 = 0.2274002347441089
+runtime_sec = 10.958942402
+runtime_observations_sec = [9.897511031, 10.958942402, 16.647227154]
+loss_spike_counts = [0, 0, 0]
+wandb_urls = [
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/udz5pkl7",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/30oc5439",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sc0a4hyh",
+]
+
+[[baselines]]
+d_model = 128
+batch_size = 8192
+steps = 2985
+lr = 0.0021
+flops = 297081884098560
+loss = 3.8044098885353295
+policy_top1 = 0.2962155576508014
+runtime_sec = 18.962950951
+runtime_observations_sec = [18.962950951, 18.844608224, 41.569869556]
+loss_spike_counts = [0, 0, 0]
+wandb_urls = [
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/qsp3f2m0",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/itwis776",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/lfi4t2to",
+]
+
+[[baselines]]
+d_model = 256
+batch_size = 16384
+steps = 4784
+lr = 0.0013
+flops = 3014171725660160
+loss = 3.349435473594319
+policy_top1 = 0.3712177311043048
+runtime_sec = 120.259237308
+runtime_observations_sec = [145.214775293, 52.272167071, 120.259237308]
+loss_spike_counts = [0, 1, 1]
+wandb_urls = [
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fyxlkzlc",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/hlwo403j",
+  "https://wandb.ai/maxence-frenette/chess-engine-4/runs/x1m4cobj",
+]
+
+[[runs]]
+name = "dense-b16d-r025-d32-lr24"
+batch_per_width = 16
+d_model = 32
+batch_size = 512
+steps = 7776
+lr = 0.0024
+flops = 7990517071872
+loss = 3.940924970957169
+policy_top1 = 0.2245557808811696
+loss_spike_count = 0
+runtime_sec = 47.629383456
+eg_flops = 1.186
+recipe_eg_flops = 20.768156812313254
+eg_realized = 0.48679912471302006
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/3m2gesku"
+
+[[runs]]
+name = "dense-b16d-r025-d64-lr17"
+batch_per_width = 16
+d_model = 64
+batch_size = 1024
+steps = 8953
+lr = 0.0017
+flops = 42178995425280
+loss = 3.7384097408826062
+policy_top1 = 0.2793838996573542
+loss_spike_count = 0
+runtime_sec = 56.000787264
+eg_flops = 1.031
+recipe_eg_flops = 10.011008949993485
+eg_realized = 0.6632097629677708
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/qs2fdl2p"
+
+[[runs]]
+name = "dense-batch-cost-d128-b2048-lr10"
+batch_per_width = 16
+d_model = 128
+batch_size = 2048
+steps = 11940
+lr = 0.001
+flops = 297081884098560
+loss = 3.4994572318784827
+policy_top1 = 0.3311516584472445
+loss_spike_count = 0
+runtime_sec = 70.642549362
+eg_flops = 1.015
+recipe_eg_flops = 4.659869875027912
+eg_realized = 0.9570400784301859
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/7p5dq35u"
+
+[[runs]]
+name = "dense-b16d-r025-d256-lr065"
+batch_per_width = 16
+d_model = 256
+batch_size = 4096
+steps = 19136
+lr = 0.00065
+flops = 3014171725660160
+loss = 3.238629644430922
+policy_top1 = 0.39198448426338706
+loss_spike_count = 0
+runtime_sec = 129.253902281
+eg_flops = 1.016
+recipe_eg_flops = 1.9014499209976607
+eg_realized = 1.0710811703361292
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ieip6giz"
+
+[[runs]]
+name = "dense-b32d-r025-d32-lr35"
+batch_per_width = 32
+d_model = 32
+batch_size = 1024
+steps = 3888
+lr = 0.0035
+flops = 7990517071872
+loss = 4.082647385870613
+policy_top1 = 0.21323584566634352
+loss_spike_count = 0
+runtime_sec = 20.40705751
+eg_flops = 0.432
+recipe_eg_flops = 11.185199
+eg_realized = 0.83149858
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/lx00nl9m"
+
+[[runs]]
+name = "dense-b32d-r025-d64-lr23"
+batch_per_width = 32
+d_model = 64
+batch_size = 2048
+steps = 4476
+lr = 0.0023
+flops = 42174284267520
+loss = 3.837841863094732
+policy_top1 = 0.2632622985960677
+loss_spike_count = 0
+runtime_sec = 16.696745592
+eg_flops = 0.482
+recipe_eg_flops = 6.28122487
+eg_realized = 1.75818187
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/mfpnkfkk"
+
+[[runs]]
+name = "dense-b32d-r025-d128-lr15"
+batch_per_width = 32
+d_model = 128
+batch_size = 4096
+steps = 5970
+lr = 0.0015
+flops = 297081884098560
+loss = 3.5321614777298582
+policy_top1 = 0.32228597234329126
+loss_spike_count = 0
+runtime_sec = 22.832512833
+eg_flops = 0.771
+recipe_eg_flops = 3.93726073
+eg_realized = 2.71972292
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/c07jz8dg"
+
+[[runs]]
+name = "dense-b32d-r025-d256-lr092"
+batch_per_width = 32
+d_model = 256
+batch_size = 8192
+steps = 9568
+lr = 0.00092
+flops = 3014171725660160
+loss = 3.271718639446134
+policy_top1 = 0.3870234200107382
+loss_spike_count = 0
+runtime_sec = 100.756294256
+eg_flops = 0.747
+recipe_eg_flops = 1.57507922
+eg_realized = 1.24949842
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/kdvdauha"

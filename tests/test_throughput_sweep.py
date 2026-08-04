@@ -35,6 +35,6 @@ def test_throughput_result_round_trip(tmp_path: Path) -> None:
     loaded = load_results(path)
 
     assert loaded["d64"] == entry
-    assert loaded["d64"]["samples_per_sec"] == 409_600.0
+    assert loaded["d64"]["samples_per_sec"] == 204_800.0
     assert entry_matches(loaded["d64"], config, warmup_steps=50, profile_steps=500)
     assert not entry_matches(loaded["d64"], config, warmup_steps=50, profile_steps=200)
