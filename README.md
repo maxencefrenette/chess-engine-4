@@ -72,6 +72,16 @@ To profile the Modal training loop:
 uv run profile-training --d-model 64
 ```
 
+To benchmark the canonical dense ladder concurrently and cache the results in
+`experiments/throughput-dense.toml`:
+
+```sh
+uv run throughput-sweep
+```
+
+Matching cached widths are skipped. Pass `--refresh` to replace them or
+`--widths 256 512 1024` to benchmark a subset.
+
 Modal training always writes checkpoints to the `chess-engine-4-artifacts`
 Volume every 50,000 steps and at the end of the run:
 

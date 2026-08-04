@@ -34,11 +34,15 @@ def iter_native_packed_batches(
         prefetch_per_thread,
         threads,
     )
-    for packed_planes, plane_scalars, policy_indices, policy_probs, value in native_iter:
-        yield (
+
+    def as_torch_batch(batch):
+        packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
+        return (
             torch.from_numpy(packed_planes),
             torch.from_numpy(plane_scalars),
             torch.from_numpy(policy_indices),
             torch.from_numpy(policy_probs),
             torch.from_numpy(value),
         )
+
+    return map(as_torch_batch, native_iter)

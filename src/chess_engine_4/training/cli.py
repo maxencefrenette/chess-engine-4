@@ -108,6 +108,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
     )
+    iterator = iter(dataset)
     model = build_model(config.model).to(device)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
@@ -145,7 +146,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     pending_losses: list[torch.Tensor] = []
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
-    iterator = iter(dataset)
     for step in range(1, steps + 1):
         if options.profile is not None:
             if step == options.profile.warmup_steps + 1:

@@ -62,7 +62,7 @@ class LeelaTarDataset:
         self.threads = threads
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
-        yield from iter_native_packed_batches(
+        return iter_native_packed_batches(
             self.paths,
             batch_size=self.batch_size,
             prefetch_per_thread=self.prefetch_per_thread,

@@ -1,0 +1,315 @@
+"""Persistent Modal throughput benchmarks for the dense model ladder."""
+
+from __future__ import annotations
+
+import argparse
+import subprocess
+import tomllib
+from collections import defaultdict
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import tomli_w
+
+from chess_engine_4.modal_train import REMOTE_CONFIG_PATH, app, training_function
+from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
+from chess_engine_4.training.config import TrainingConfig, load_training_config
+
+DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
+DEFAULT_OUTPUT = Path("experiments/throughput-dense.toml")
+TRAINING_RATIOS = (0.25, 0.5, 1.0)
+
+
+def throughput_sweep() -> None:
+    parser = argparse.ArgumentParser(
+        description="Benchmark and cache dense training throughput on Modal."
+    )
+    parser.add_argument("--config", type=Path, default=REMOTE_CONFIG_PATH)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--widths", type=int, nargs="+", default=list(DEFAULT_WIDTHS))
+    parser.add_argument("--warmup-steps", type=int, default=50)
+    parser.add_argument("--profile-steps", type=int, default=500)
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Rerun selected widths even when matching cached results exist.",
+    )
+    args = parser.parse_args()
+
+    widths = normalize_widths(args.widths)
+    if args.warmup_steps < 0:
+        parser.error("warmup-steps must be non-negative.")
+    if args.profile_steps <= 0:
+        parser.error("profile-steps must be positive.")
+
+    cached = load_results(args.output)
+    configs = {
+        width: load_training_config(args.config, d_model=width, training_ratio=1.0)
+        for width in widths
+    }
+    pending = [
+        width
+        for width in widths
+        if args.refresh
+        or not entry_matches(
+            cached.get(model_key(width)),
+            configs[width],
+            warmup_steps=args.warmup_steps,
+            profile_steps=args.profile_steps,
+        )
+    ]
+    skipped = [width for width in widths if width not in pending]
+    if skipped:
+        print("cached widths: " + ", ".join(model_key(width) for width in skipped))
+
+    errors: list[str] = []
+    if pending:
+        print("profiling widths: " + ", ".join(model_key(width) for width in pending))
+        results, errors = run_modal_profiles(
+            pending,
+            configs,
+            config_path=args.config,
+            warmup_steps=args.warmup_steps,
+            profile_steps=args.profile_steps,
+        )
+        commit = git_commit()
+        for width, profile in results.items():
+            cached[model_key(width)] = make_entry(
+                configs[width],
+                profile,
+                source_commit=commit,
+            )
+        write_results(args.output, cached, config_path=args.config)
+        print(f"wrote {args.output}")
+    elif not args.output.exists():
+        write_results(args.output, cached, config_path=args.config)
+
+    print_report(widths, cached)
+    if errors:
+        raise SystemExit("\n".join(errors))
+
+
+def normalize_widths(widths: list[int]) -> list[int]:
+    if any(width <= 0 for width in widths):
+        raise ValueError("widths must be positive.")
+    return sorted(set(widths))
+
+
+def model_key(width: int) -> str:
+    return f"d{width}"
+
+
+def profile_payload(
+    width: int,
+    *,
+    config_path: Path,
+    warmup_steps: int,
+    profile_steps: int,
+) -> dict[str, Any]:
+    return {
+        "config": str(config_path),
+        "batch_size": None,
+        "d_model": width,
+        "training_ratio": 1.0,
+        "depth": None,
+        "expansion_ratio": None,
+        "activation": None,
+        "lr": None,
+        "quantization_recipe": None,
+        "dataloader_threads": None,
+        "dataloader_prefetch_per_thread": None,
+        "wandb": False,
+        "profile": {
+            "warmup_steps": warmup_steps,
+            "profile_steps": profile_steps,
+        },
+    }
+
+
+def run_modal_profiles(
+    widths: list[int],
+    configs: dict[int, TrainingConfig],
+    *,
+    config_path: Path,
+    warmup_steps: int,
+    profile_steps: int,
+) -> tuple[dict[int, dict[str, Any]], list[str]]:
+    by_cpu: dict[int, list[int]] = defaultdict(list)
+    for width in widths:
+        by_cpu[configs[width].infra.cpu_cores].append(width)
+    functions = {cpu_cores: training_function(cpu_cores) for cpu_cores in by_cpu}
+
+    completed: dict[int, dict[str, Any]] = {}
+    errors: list[str] = []
+    with app.run():
+        for cpu_cores, group_widths in by_cpu.items():
+            function = functions[cpu_cores]
+            payloads = [
+                profile_payload(
+                    width,
+                    config_path=config_path,
+                    warmup_steps=warmup_steps,
+                    profile_steps=profile_steps,
+                )
+                for width in group_widths
+            ]
+            raw_results = function.map(payloads, return_exceptions=True)
+            for width, result in zip(group_widths, raw_results, strict=True):
+                if isinstance(result, BaseException):
+                    errors.append(f"{model_key(width)} failed: {result}")
+                else:
+                    completed[width] = result
+    return completed, errors
+
+
+def make_entry(
+    config: TrainingConfig,
+    profile: dict[str, Any],
+    *,
+    source_commit: str,
+) -> dict[str, Any]:
+    model = config.model
+    if not isinstance(model, DenseChessNetConfig):
+        raise ValueError("throughput-sweep currently supports only dense models.")
+    params = dense_parameter_count(
+        d_model=model.d_model,
+        depth=model.depth,
+        expansion_ratio=model.expansion_ratio,
+        activation=model.activation,
+    )
+    milliseconds = float(profile["measured_wall_ms_per_step"])
+    entry: dict[str, Any] = {
+        "source_commit": source_commit,
+        "d_model": model.d_model,
+        "depth": model.depth,
+        "expansion_ratio": model.expansion_ratio,
+        "activation": model.activation,
+        "params": params,
+        "batch_size": config.run.batch_size,
+        "steps_1x": config.run.steps,
+        "samples_1x": config.run.batch_size * config.run.steps,
+        "precision": config.precision.recipe,
+        "cpu_cores": config.infra.cpu_cores,
+        "dataloader_threads": config.infra.dataloader_threads,
+        "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
+        "warmup_steps": int(profile["warmup_steps"]),
+        "profile_steps": int(profile["profile_steps"]),
+        "flops_per_sample": int(profile["flops_per_sample"]),
+        "measured_wall_ms_per_step": milliseconds,
+        "samples_per_sec": config.run.batch_size / (milliseconds / 1000.0),
+        "train_gpu_ms_per_step": float(profile["train_gpu"]["mean_ms"]),
+        "h2d_copy_ms_per_step": float(profile["h2d_copy_gpu"]["mean_ms"]),
+        "data_fetch_ms_per_step": float(profile["data_fetch_wall"]["mean_ms"]),
+        "gpu_idle_gap_ms_per_step": float(profile["gpu_idle_gap_mean_ms"]),
+        "train_only_mfu": float(profile["train_only_mfu"]),
+        "end_to_end_mfu": float(profile["end_to_end_mfu"]),
+        "estimated_runtime_sec_1x": config.run.steps * milliseconds / 1000.0,
+    }
+    return entry
+
+
+def entry_matches(
+    entry: dict[str, Any] | None,
+    config: TrainingConfig,
+    *,
+    warmup_steps: int,
+    profile_steps: int,
+) -> bool:
+    if entry is None or not isinstance(config.model, DenseChessNetConfig):
+        return False
+    expected = {
+        "d_model": config.model.d_model,
+        "depth": config.model.depth,
+        "expansion_ratio": config.model.expansion_ratio,
+        "activation": config.model.activation,
+        "batch_size": config.run.batch_size,
+        "precision": config.precision.recipe,
+        "cpu_cores": config.infra.cpu_cores,
+        "dataloader_threads": config.infra.dataloader_threads,
+        "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
+        "warmup_steps": warmup_steps,
+        "profile_steps": profile_steps,
+    }
+    return all(entry.get(key) == value for key, value in expected.items())
+
+
+def load_results(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    with path.open("rb") as result_file:
+        data = tomllib.load(result_file)
+    return dict(data.get("models", {}))
+
+
+def write_results(
+    path: Path,
+    models: dict[str, dict[str, Any]],
+    *,
+    config_path: Path,
+) -> None:
+    data = {
+        "sweep": {
+            "model_family": "dense",
+            "config": str(config_path),
+            "gpu": "B200",
+            "updated_at": datetime.now(UTC).isoformat(),
+        },
+        "models": {key: models[key] for key in sorted(models, key=_key_width)},
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(tomli_w.dumps(data), encoding="utf-8")
+    temporary.replace(path)
+
+
+def print_report(widths: list[int], models: dict[str, dict[str, Any]]) -> None:
+    available = [models[model_key(width)] for width in widths if model_key(width) in models]
+    if not available:
+        return
+    print("")
+    print("model  params    batch     ms/step  samples/s  MFU    0.25x     0.5x      1x")
+    for entry in available:
+        runtimes = [
+            _format_duration(float(entry["estimated_runtime_sec_1x"]) * ratio)
+            for ratio in TRAINING_RATIOS
+        ]
+        print(
+            f"d{entry['d_model']:<5} "
+            f"{_format_count(int(entry['params'])):>8} "
+            f"{entry['batch_size']:>8,} "
+            f"{entry['measured_wall_ms_per_step']:>9.2f} "
+            f"{entry['samples_per_sec']:>10,.0f} "
+            f"{entry['end_to_end_mfu']:>5.1%} "
+            f"{runtimes[0]:>9} {runtimes[1]:>9} {runtimes[2]:>9}"
+        )
+
+
+def git_commit() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _key_width(key: str) -> int:
+    return int(key.removeprefix("d"))
+
+
+def _format_count(value: int) -> str:
+    if value >= 1_000_000_000:
+        return f"{value / 1_000_000_000:.2f}B"
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.2f}M"
+    return f"{value / 1_000:.0f}K"
+
+
+def _format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}m"
+    return f"{seconds / 3600:.2f}h"
