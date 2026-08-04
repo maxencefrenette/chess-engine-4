@@ -41,6 +41,17 @@ uv run inspect-data
 By default, `inspect-data` validates one batch. Pass `--batches N` for a bounded
 scan or `--all` to inspect every batch.
 
+The experimental Parquet path is opt-in. Convert a local LCZero tar file with:
+
+```sh
+uv run lc0-to-parquet training.tar training.parquet
+uv run inspect-data --parquet --data training.parquet
+```
+
+Use `uv run convert-data-modal --limit 8` to convert a bounded number of files
+on the training-data Volume. Add `--parquet` to `train-modal` or
+`profile-training` to select the converted data; tar remains the default.
+
 Training runs on Modal. Modal builds the native dataloader into its image
 automatically. `uv run train-modal` logs metrics to the W&B project configured
 in `.env`. Routine runs default to `0.2x` Chinchilla; pass

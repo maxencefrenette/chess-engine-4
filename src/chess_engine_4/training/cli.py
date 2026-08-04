@@ -13,6 +13,7 @@ import torch
 
 from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
+    LeelaParquetDataset,
     LeelaTarDataset,
 )
 from chess_engine_4.model import build_model
@@ -54,6 +55,7 @@ class TrainOptions:
     checkpoint_every: int | None = None
     checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
+    parquet: bool = False
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
@@ -69,7 +71,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
 
     device = torch.device("cuda")
     _require_blackwell(device)
-    dataset = LeelaTarDataset(
+    dataset_type = LeelaParquetDataset if options.parquet else LeelaTarDataset
+    dataset = dataset_type(
         options.data,
         batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
@@ -276,6 +279,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.precision.recipe,
+        "data_format": "parquet" if options.parquet else "tar",
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -304,9 +308,10 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
 
 
 def inspect_data() -> None:
-    parser = argparse.ArgumentParser(description="Inspect Leela tar training records.")
+    parser = argparse.ArgumentParser(description="Inspect Leela training records.")
     parser.add_argument("--data", default=None, help=_DATA_HELP)
     parser.add_argument("--batch-size", type=int, default=1024)
+    parser.add_argument("--parquet", action="store_true")
     limit = parser.add_mutually_exclusive_group()
     limit.add_argument(
         "--batches",
@@ -319,7 +324,8 @@ def inspect_data() -> None:
     if args.batches <= 0:
         parser.error("--batches must be positive")
 
-    dataset = LeelaTarDataset(args.data, batch_size=args.batch_size)
+    dataset_type = LeelaParquetDataset if args.parquet else LeelaTarDataset
+    dataset = dataset_type(args.data, batch_size=args.batch_size)
     seen = 0
     for batch_number, batch in enumerate(dataset, start=1):
         packed_planes, plane_scalars, policy_indices, policy_probs, value = batch

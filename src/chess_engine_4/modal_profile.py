@@ -22,6 +22,9 @@ def profile_training() -> None:
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
     parser.add_argument("--json", action="store_true", help="Print only the JSON result.")
+    parser.add_argument(
+        "--parquet", action="store_true", help="Use the experimental Parquet loader."
+    )
     args = parser.parse_args()
 
     if args.warmup_steps < 0:
@@ -29,7 +32,11 @@ def profile_training() -> None:
     if args.profile_steps <= 0:
         parser.error("profile-steps must be positive.")
     config = resolve_training_config(args)
-    print_launch_summary(config, steps=args.warmup_steps + args.profile_steps)
+    print_launch_summary(
+        config,
+        steps=args.warmup_steps + args.profile_steps,
+        parquet=args.parquet,
+    )
 
     payload = {
         "config": asdict(config),
@@ -38,6 +45,7 @@ def profile_training() -> None:
             "warmup_steps": args.warmup_steps,
             "profile_steps": args.profile_steps,
         },
+        "parquet": args.parquet,
     }
 
     profile_function = training_function(config.infra.cpu_cores)
@@ -55,6 +63,7 @@ def _print_profile(result: dict[str, Any]) -> None:
         f"profile_complete run={result['run_name']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
         f"batch_size={result['batch_size']} "
+        f"data_format={result['data_format']} "
         f"threads={result['dataloader_threads']} "
         f"prefetch_per_thread={result['dataloader_prefetch_per_thread']}"
     )

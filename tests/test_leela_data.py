@@ -14,9 +14,11 @@ from chess_engine_4.data.leela import (
     HISTORY_PLANE_COUNT,
     POLICY_SIZE,
     V6_RECORD_SIZE,
+    LeelaParquetDataset,
     LeelaTarDataset,
     resolve_data_paths,
 )
+from chess_engine_4.data.native import convert_native_lc0_tar_to_parquet
 
 POLICY_OFFSET = 8
 PLANES_OFFSET = POLICY_OFFSET + POLICY_SIZE * 4
@@ -87,6 +89,35 @@ def test_leela_tar_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
     _write_tar(tar_path, gzip.compress(_records(3)))
 
     batches = list(LeelaTarDataset(tar_path, batch_size=2))
+
+    assert len(batches) == 1
+    assert tuple(batches[0][0].shape) == (2, 104, 8)
+
+
+def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    parquet_path = tmp_path / "training.parquet"
+    _write_tar(tar_path, gzip.compress(_records(4)))
+
+    records, input_bytes, output_bytes = convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
+    tar_batch = next(iter(LeelaTarDataset(tar_path, batch_size=4, threads=1)))
+    parquet_batch = next(iter(LeelaParquetDataset(parquet_path, batch_size=4, threads=1)))
+
+    assert records == 4
+    assert input_bytes == tar_path.stat().st_size
+    assert output_bytes == parquet_path.stat().st_size
+    for tar_tensor, parquet_tensor in zip(tar_batch[:4], parquet_batch[:4], strict=True):
+        torch.testing.assert_close(tar_tensor, parquet_tensor, rtol=0, atol=0)
+    torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)
+
+
+def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    parquet_path = tmp_path / "training.parquet"
+    _write_tar(tar_path, gzip.compress(_records(3)))
+    convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
+
+    batches = list(LeelaParquetDataset(parquet_path, batch_size=2, threads=1))
 
     assert len(batches) == 1
     assert tuple(batches[0][0].shape) == (2, 104, 8)

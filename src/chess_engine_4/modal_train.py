@@ -25,6 +25,7 @@ DATA_VOLUME_NAME = "chess-engine-4-training-data"
 ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 WANDB_SECRET_NAME = "chess-engine-4-wandb"
 REMOTE_DATA_PATH = "/data/training_data"
+REMOTE_PARQUET_DATA_PATH = f"{REMOTE_DATA_PATH}/parquet"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 DEFAULT_CONFIG_PATH = Path("configs/dense.py")
@@ -40,7 +41,7 @@ image = (
     modal.Image.debian_slim(python_version="3.14")
     .apt_install("curl", "build-essential", "pkg-config")
     .run_commands(
-        "curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal",
+        "curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain 1.95.0",
         "PATH=/root/.cargo/bin:$PATH rustc --version",
     )
     .uv_sync(
@@ -79,9 +80,12 @@ def train_modal() -> None:
     add_training_config_arguments(parser, include_steps=True)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
+    parser.add_argument(
+        "--parquet", action="store_true", help="Use the experimental Parquet loader."
+    )
     args = parser.parse_args()
     config = resolve_training_config(args)
-    print_launch_summary(config)
+    print_launch_summary(config, parquet=args.parquet)
 
     payload = {
         "config": asdict(config),
@@ -92,6 +96,7 @@ def train_modal() -> None:
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
+        "parquet": args.parquet,
     }
 
     train_function = training_function(config.infra.cpu_cores)
@@ -128,7 +133,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
     result = run_training(
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
-            data=REMOTE_DATA_PATH,
+            data=(REMOTE_PARQUET_DATA_PATH if payload.get("parquet") else REMOTE_DATA_PATH),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -137,6 +142,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_every=payload.get("checkpoint_every"),
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
+            parquet=payload.get("parquet", False),
         )
     )
     return result
@@ -196,7 +202,12 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
     )
 
 
-def print_launch_summary(config: TrainingConfig, *, steps: int | None = None) -> None:
+def print_launch_summary(
+    config: TrainingConfig,
+    *,
+    steps: int | None = None,
+    parquet: bool = False,
+) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
         config.model,
@@ -219,6 +230,7 @@ def print_launch_summary(config: TrainingConfig, *, steps: int | None = None) ->
         f"precision={config.precision.recipe} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
+        f" data_format={'parquet' if parquet else 'tar'}"
     )
 
 

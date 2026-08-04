@@ -46,3 +46,29 @@ def iter_native_packed_batches(
         )
 
     return map(as_torch_batch, native_iter)
+
+
+def iter_native_parquet_batches(
+    paths: Sequence[Path],
+    *,
+    batch_size: int,
+    prefetch_per_thread: int,
+    threads: int,
+) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+    chess_engine_4_native = _load_native_module()
+    native_iter = chess_engine_4_native.iter_prefetched_parquet_batches(
+        [str(path) for path in paths],
+        batch_size,
+        prefetch_per_thread,
+        threads,
+    )
+
+    def as_torch_batch(batch):
+        return tuple(torch.from_numpy(array) for array in batch)
+
+    return map(as_torch_batch, native_iter)
+
+
+def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tuple[int, int, int]:
+    native = _load_native_module()
+    return native.convert_lc0_tar_to_parquet(str(input_path), str(output_path))

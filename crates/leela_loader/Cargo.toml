@@ -2,6 +2,7 @@
 name = "chess-engine-4-leela-loader"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.95"
 
 [lib]
 name = "chess_engine_4_native"
@@ -11,6 +12,7 @@ crate-type = ["cdylib"]
 flate2 = "1.1"
 half = "2.7"
 numpy = { version = "0.27", features = ["half"] }
+polars = { version = "0.55.1", default-features = false, features = ["parquet", "dtype-u8", "dtype-u16"] }
 pyo3 = { version = "0.27", features = ["extension-module"] }
 
 [package.metadata.maturin]

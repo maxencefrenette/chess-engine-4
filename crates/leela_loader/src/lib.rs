@@ -16,31 +16,34 @@ use pyo3::exceptions::{PyStopIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-const POLICY_SIZE: usize = 1858;
-const COMPACT_POLICY_SIZE: usize = 218;
-const HISTORY_PLANE_COUNT: usize = 104;
-const BOARD_SIZE: usize = 8;
-const PACKED_PLANE_BYTES: usize = HISTORY_PLANE_COUNT * BOARD_SIZE;
+mod converter;
+mod parquet_loader;
+
+pub(crate) const POLICY_SIZE: usize = 1858;
+pub(crate) const COMPACT_POLICY_SIZE: usize = 218;
+pub(crate) const HISTORY_PLANE_COUNT: usize = 104;
+pub(crate) const BOARD_SIZE: usize = 8;
+pub(crate) const PACKED_PLANE_BYTES: usize = HISTORY_PLANE_COUNT * BOARD_SIZE;
 const VALUE_TYPE_COUNT: usize = 6;
 const VALUE_FIELDS: usize = 3;
 const VALUE_COUNT: usize = VALUE_TYPE_COUNT * VALUE_FIELDS;
-const RECORD_SIZE: usize = 8356;
+pub(crate) const RECORD_SIZE: usize = 8356;
 const PREFETCH_RECV_TIMEOUT: Duration = Duration::from_secs(5);
 
 const VERSION_OFFSET: usize = 0;
-const POLICY_OFFSET: usize = 8;
-const PLANES_OFFSET: usize = POLICY_OFFSET + POLICY_SIZE * 4;
-const CASTLING_US_OOO_OFFSET: usize = PLANES_OFFSET + PACKED_PLANE_BYTES;
-const CASTLING_US_OO_OFFSET: usize = CASTLING_US_OOO_OFFSET + 1;
-const CASTLING_THEM_OOO_OFFSET: usize = CASTLING_US_OO_OFFSET + 1;
-const CASTLING_THEM_OO_OFFSET: usize = CASTLING_THEM_OOO_OFFSET + 1;
-const SIDE_TO_MOVE_OFFSET: usize = CASTLING_THEM_OO_OFFSET + 1;
-const RULE50_OFFSET: usize = SIDE_TO_MOVE_OFFSET + 1;
-const ROOT_Q_OFFSET: usize = 8280;
+pub(crate) const POLICY_OFFSET: usize = 8;
+pub(crate) const PLANES_OFFSET: usize = POLICY_OFFSET + POLICY_SIZE * 4;
+pub(crate) const CASTLING_US_OOO_OFFSET: usize = PLANES_OFFSET + PACKED_PLANE_BYTES;
+pub(crate) const CASTLING_US_OO_OFFSET: usize = CASTLING_US_OOO_OFFSET + 1;
+pub(crate) const CASTLING_THEM_OOO_OFFSET: usize = CASTLING_US_OO_OFFSET + 1;
+pub(crate) const CASTLING_THEM_OO_OFFSET: usize = CASTLING_THEM_OOO_OFFSET + 1;
+pub(crate) const SIDE_TO_MOVE_OFFSET: usize = CASTLING_THEM_OO_OFFSET + 1;
+pub(crate) const RULE50_OFFSET: usize = SIDE_TO_MOVE_OFFSET + 1;
+pub(crate) const ROOT_Q_OFFSET: usize = 8280;
 const BEST_Q_OFFSET: usize = 8284;
-const ROOT_D_OFFSET: usize = 8288;
+pub(crate) const ROOT_D_OFFSET: usize = 8288;
 const BEST_D_OFFSET: usize = 8292;
-const ROOT_M_OFFSET: usize = 8296;
+pub(crate) const ROOT_M_OFFSET: usize = 8296;
 const BEST_M_OFFSET: usize = 8300;
 const PLIES_LEFT_OFFSET: usize = 8304;
 const RESULT_Q_OFFSET: usize = 8308;
@@ -172,13 +175,13 @@ impl PackedBatchIterator {
     }
 }
 
-struct PackedBatchData {
-    records: usize,
-    packed_planes: Vec<u8>,
-    scalars: Vec<f32>,
-    policy_indices: Vec<i16>,
-    policy_probs: Vec<f16>,
-    value: Vec<f32>,
+pub(crate) struct PackedBatchData {
+    pub(crate) records: usize,
+    pub(crate) packed_planes: Vec<u8>,
+    pub(crate) scalars: Vec<f32>,
+    pub(crate) policy_indices: Vec<i16>,
+    pub(crate) policy_probs: Vec<f16>,
+    pub(crate) value: Vec<f32>,
 }
 
 impl PackedBatchData {
@@ -212,13 +215,13 @@ impl PackedBatchData {
 }
 
 #[pyclass(module = "chess_engine_4_native", unsendable)]
-struct PrefetchedPackedBatchIterator {
-    receivers: Vec<Receiver<PrefetchMessage>>,
-    active_receivers: Vec<bool>,
-    active_receiver_count: usize,
-    next_receiver: usize,
-    stop: Arc<AtomicBool>,
-    handles: Vec<JoinHandle<()>>,
+pub(crate) struct PrefetchedPackedBatchIterator {
+    pub(crate) receivers: Vec<Receiver<PrefetchMessage>>,
+    pub(crate) active_receivers: Vec<bool>,
+    pub(crate) active_receiver_count: usize,
+    pub(crate) next_receiver: usize,
+    pub(crate) stop: Arc<AtomicBool>,
+    pub(crate) handles: Vec<JoinHandle<()>>,
 }
 
 #[pymethods]
@@ -275,7 +278,7 @@ impl Drop for PrefetchedPackedBatchIterator {
     }
 }
 
-enum PrefetchMessage {
+pub(crate) enum PrefetchMessage {
     Batch(PackedBatchData),
     End,
     Error(String),
@@ -294,20 +297,20 @@ impl ChunkCursor {
     }
 }
 
-struct SimpleTarReader {
+pub(crate) struct SimpleTarReader {
     file: File,
     path: PathBuf,
 }
 
 impl SimpleTarReader {
-    fn open(path: PathBuf) -> PyResult<Self> {
+    pub(crate) fn open(path: PathBuf) -> PyResult<Self> {
         let file = File::open(&path).map_err(|error| {
             PyValueError::new_err(format!("failed to open {}: {error}", path.display()))
         })?;
         Ok(Self { file, path })
     }
 
-    fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
+    pub(crate) fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
         loop {
             let mut header = [0_u8; 512];
             if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
@@ -425,6 +428,22 @@ fn iter_prefetched_packed_batches(
     })
 }
 
+#[pyfunction]
+fn iter_prefetched_parquet_batches(
+    paths: Vec<PathBuf>,
+    batch_size: usize,
+    prefetch_per_thread: usize,
+    threads: usize,
+) -> PyResult<PrefetchedPackedBatchIterator> {
+    validate_batch_size(batch_size)?;
+    parquet_loader::iter_prefetched_parquet_batches(paths, batch_size, prefetch_per_thread, threads)
+}
+
+#[pyfunction]
+fn convert_lc0_tar_to_parquet(input: PathBuf, output: PathBuf) -> PyResult<(usize, u64, u64)> {
+    converter::convert_lc0_tar_to_parquet(input, output)
+}
+
 fn next_path(paths: &Arc<Mutex<VecDeque<PathBuf>>>) -> Option<PathBuf> {
     paths.lock().expect("paths mutex poisoned").pop_front()
 }
@@ -450,6 +469,8 @@ fn make_packed_batch_iterator(paths: Vec<PathBuf>, batch_size: usize) -> PackedB
 #[pymodule]
 fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
+    module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
+    module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;
@@ -584,7 +605,7 @@ fn copy_record(
     Ok(())
 }
 
-fn read_u32(record: &[u8], offset: usize) -> u32 {
+pub(crate) fn read_u32(record: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes(
         record[offset..offset + 4]
             .try_into()
@@ -592,7 +613,7 @@ fn read_u32(record: &[u8], offset: usize) -> u32 {
     )
 }
 
-fn read_f32(record: &[u8], offset: usize) -> f32 {
+pub(crate) fn read_f32(record: &[u8], offset: usize) -> f32 {
     f32::from_le_bytes(
         record[offset..offset + 4]
             .try_into()

@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 from dotenv import load_dotenv
 
-from chess_engine_4.data.native import iter_native_packed_batches
+from chess_engine_4.data.native import iter_native_packed_batches, iter_native_parquet_batches
 
 DEFAULT_DATA_ENV_VAR = "CHESS_ENGINE_4_DATA_PATH"
 
@@ -70,12 +70,45 @@ class LeelaTarDataset:
         )
 
 
+class LeelaParquetDataset(LeelaTarDataset):
+    """Yield the standard packed training batches from converted Parquet data."""
+
+    def __init__(
+        self,
+        paths: Sequence[Path | str] | Path | str | None = None,
+        *,
+        batch_size: int,
+        env_var: str = DEFAULT_DATA_ENV_VAR,
+        prefetch_per_thread: int = 2,
+        threads: int = 2,
+    ) -> None:
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive.")
+        if prefetch_per_thread <= 0:
+            raise ValueError("prefetch_per_thread must be positive.")
+        if threads <= 0:
+            raise ValueError("threads must be positive.")
+        self.paths = resolve_data_paths(paths, env_var=env_var, suffix=".parquet")
+        self.batch_size = batch_size
+        self.prefetch_per_thread = prefetch_per_thread
+        self.threads = threads
+
+    def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
+        return iter_native_parquet_batches(
+            self.paths,
+            batch_size=self.batch_size,
+            prefetch_per_thread=self.prefetch_per_thread,
+            threads=self.threads,
+        )
+
+
 def resolve_data_paths(
     paths: Sequence[Path | str] | Path | str | None,
     *,
     env_var: str = DEFAULT_DATA_ENV_VAR,
+    suffix: str = ".tar",
 ) -> list[Path]:
-    """Resolve explicit paths or the configured environment variable into tar files."""
+    """Resolve explicit paths or the configured environment variable into data files."""
 
     load_dotenv(dotenv_path=Path.cwd() / ".env")
 
@@ -97,12 +130,12 @@ def resolve_data_paths(
             matches = [Path(raw_path)]
         for match in matches:
             if match.is_dir():
-                resolved.extend(sorted(match.glob("*.tar")))
+                resolved.extend(sorted(match.glob(f"*{suffix}")))
             elif match.exists():
                 resolved.append(match)
 
     if not resolved:
-        raise FileNotFoundError(f"No Leela tar files found from: {raw_paths}")
+        raise FileNotFoundError(f"No Leela {suffix} files found from: {raw_paths}")
     return resolved
 
 
