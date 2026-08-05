@@ -55,6 +55,7 @@ class TrainOptions:
     checkpoint_every: int | None = None
     checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
+    experimental_dense_kernel: bool = False
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
@@ -78,6 +79,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
+    if options.experimental_dense_kernel:
+        _enable_experimental_dense_kernel(model)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
         model,
@@ -307,6 +310,14 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             )
         )
     return result
+
+
+def _enable_experimental_dense_kernel(model: torch.nn.Module) -> None:
+    from chess_engine_4.model import DenseChessNet
+
+    if not isinstance(model, DenseChessNet):
+        raise ValueError("the experimental dense kernel only supports dense models")
+    model.enable_experimental_d128_kernel()
 
 
 def inspect_data() -> None:

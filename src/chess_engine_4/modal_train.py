@@ -97,9 +97,13 @@ def train_modal() -> None:
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
+        "experimental_dense_kernel": args.experimental_dense_kernel,
     }
 
-    train_function = training_function(config.infra.cpu_cores)
+    train_function = training_function(
+        config.infra.cpu_cores,
+        experimental_dense_kernel=args.experimental_dense_kernel,
+    )
     with app.run():
         result = train_function.remote(payload)
     print(
@@ -142,6 +146,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_every=payload.get("checkpoint_every"),
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
+            experimental_dense_kernel=payload.get("experimental_dense_kernel", False),
         )
     )
     return result
@@ -179,6 +184,7 @@ def add_training_config_arguments(
     )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
+    parser.add_argument("--experimental-dense-kernel", action="store_true")
 
 
 def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
@@ -237,13 +243,24 @@ def print_launch_summary(
     )
 
 
-def training_function(cpu_cores: int) -> modal.Function:
+def training_function(
+    cpu_cores: int,
+    *,
+    experimental_dense_kernel: bool = False,
+) -> modal.Function:
+    selected_image = image
+    function_name = f"train_cpu_{cpu_cores}"
+    if experimental_dense_kernel:
+        from chess_engine_4.kernels.modal import with_cuda_kernels
+
+        selected_image = with_cuda_kernels(base_image)
+        function_name += "_dense_kernel"
     return app.function(
-        image=image,
+        image=selected_image,
         gpu="B200",
         cpu=cpu_cores,
         volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
         secrets=[wandb_secret],
         timeout=24 * 60 * 60,
-        name=f"train_cpu_{cpu_cores}",
+        name=function_name,
     )(_run_training_remote)

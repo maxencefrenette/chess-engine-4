@@ -41,9 +41,13 @@ def profile_training() -> None:
             "warmup_steps": args.warmup_steps,
             "profile_steps": args.profile_steps,
         },
+        "experimental_dense_kernel": args.experimental_dense_kernel,
     }
 
-    profile_function = training_function(config.infra.cpu_cores)
+    profile_function = training_function(
+        config.infra.cpu_cores,
+        experimental_dense_kernel=args.experimental_dense_kernel,
+    )
     with app.run():
         result = profile_function.remote(payload)
 

@@ -113,6 +113,13 @@ uv run benchmark-kernel-modal --kernel dense-d128-mxfp8-forward
 These kernels remain opt-in until both forward and backward paths beat the
 canonical Transformer Engine training implementation.
 
+The d128-specialized MXFP8 CUDA forward and backward can be exercised in a full
+training or profiling run:
+
+```sh
+uv run profile-training --d-model 128 --experimental-dense-kernel
+```
+
 To benchmark the canonical dense ladder concurrently and cache the results in
 `experiments/throughput-dense.toml`:
 

@@ -6,43 +6,15 @@ import argparse
 import json
 from typing import Any
 
+from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_train import app, base_image
 
 KERNEL_NAME = "dense-d128-mxfp8-forward"
 MIN_COSINE_SIMILARITY = 0.999
 MAX_MEAN_ABSOLUTE_ERROR = 1e-3
+MIN_GRADIENT_COSINE_SIMILARITY = 0.99
 
-kernel_image = (
-    base_image.apt_install("cmake", "ninja-build")
-    .uv_pip_install("pybind11>=3.0")
-    .env(
-        {
-            "CUDA_HOME": "/.uv/.venv/lib/python3.14/site-packages/nvidia/cu13",
-            "PATH": (
-                "/.uv/.venv/lib/python3.14/site-packages/nvidia/cu13/bin:"
-                "/.uv/.venv/bin:"
-                "/usr/local/bin:/usr/bin:/bin"
-            ),
-        }
-    )
-    .add_local_dir("kernels", remote_path="/root/kernels", copy=True)
-    .add_local_dir("third_party", remote_path="/root/third_party", copy=True)
-    .add_local_file(
-        "src/chess_engine_4/kernels/build.py",
-        remote_path="/root/build_kernels.py",
-        copy=True,
-    )
-    .run_commands(
-        "test -e $CUDA_HOME/lib64 || ln -s lib $CUDA_HOME/lib64",
-        "test -e $CUDA_HOME/lib/libcudart.so || "
-        "ln -s $CUDA_HOME/lib/libcudart.so.13 $CUDA_HOME/lib/libcudart.so",
-        "cd /root && /.uv/.venv/bin/python /root/build_kernels.py "
-        "--build-dir /root/kernels/build",
-        "cp /root/kernels/build/_chess_engine_4_kernels*.so "
-        "/.uv/.venv/lib/python3.14/site-packages/",
-    )
-    .add_local_python_source("chess_engine_4")
-)
+kernel_image = with_cuda_kernels(base_image)
 
 
 def benchmark_kernel_modal() -> None:
@@ -79,6 +51,10 @@ def benchmark_kernel_modal() -> None:
         f"max_abs_error={result['max_abs_error_vs_te']:.6f} "
         f"cosine_similarity={result['cosine_similarity_vs_te']:.8f}"
     )
+    print(
+        "gradient_cosine_similarity_vs_te="
+        f"{result['gradient_cosine_similarity_vs_te']:.8f}"
+    )
 
 
 @app.function(image=kernel_image, gpu="B200", timeout=30 * 60)
@@ -90,7 +66,8 @@ def _benchmark_dense_d128_mxfp8(
     import torch
     from torch.nn import functional as F
 
-    from chess_engine_4.kernels import dense_d128_mxfp8_forward
+    from chess_engine_4.kernels import dense_d128_mxfp8_forward, dense_d128_mxfp8_trainable
+    from chess_engine_4.kernels.dense import _dense_d128_bf16_forward
     from chess_engine_4.model.dense import DenseBlock
     from chess_engine_4.model.transformer_engine import autocast_context
 
@@ -140,6 +117,44 @@ def _benchmark_dense_d128_mxfp8(
             f"{MAX_MEAN_ABSOLUTE_ERROR}"
         )
 
+    gradient = torch.randn_like(custom_output)
+    custom_inputs = tuple(
+        tensor.detach().clone().requires_grad_(True)
+        for tensor in (x, norm_weight, gate_up_weight, down_weight)
+    )
+    custom_gradients = torch.autograd.grad(
+        dense_d128_mxfp8_trainable(*custom_inputs),
+        custom_inputs,
+        gradient,
+    )
+    bf16_inputs = tuple(
+        tensor.detach().clone().requires_grad_(True)
+        for tensor in (x, norm_weight, gate_up_weight, down_weight)
+    )
+    bf16_gradients = torch.autograd.grad(
+        _dense_d128_bf16_forward(*bf16_inputs, eps=1e-6),
+        bf16_inputs,
+        gradient,
+    )
+    te_x = x.detach().clone().requires_grad_(True)
+    with autocast_context("mxfp8"):
+        te_train_output = block(te_x)
+    te_gradients = torch.autograd.grad(
+        te_train_output,
+        (te_x, layer.layer_norm_weight, layer.fc1_weight, layer.fc2_weight),
+        gradient,
+    )
+    gradient_metrics_vs_te = _gradient_metrics(custom_gradients, te_gradients, F)
+    gradient_metrics_vs_bf16 = _gradient_metrics(custom_gradients, bf16_gradients, F)
+    gradient_cosine_similarity = min(
+        metrics["cosine_similarity"] for metrics in gradient_metrics_vs_te.values()
+    )
+    if gradient_cosine_similarity < MIN_GRADIENT_COSINE_SIMILARITY:
+        raise RuntimeError(
+            f"custom kernel gradient cosine similarity {gradient_cosine_similarity:.8f} "
+            f"is below {MIN_GRADIENT_COSINE_SIMILARITY}: {gradient_metrics_vs_te}"
+        )
+
     def run_custom() -> None:
         dense_d128_mxfp8_forward(
             x,
@@ -165,7 +180,33 @@ def _benchmark_dense_d128_mxfp8(
         "mean_abs_error_vs_te": mean_abs_error,
         "max_abs_error_vs_te": max_abs_error,
         "cosine_similarity_vs_te": cosine_similarity,
+        "gradient_cosine_similarity_vs_te": gradient_cosine_similarity,
+        "gradient_metrics_vs_te": gradient_metrics_vs_te,
+        "gradient_metrics_vs_bf16": gradient_metrics_vs_bf16,
         "device_name": torch.cuda.get_device_name(),
+    }
+
+
+def _gradient_metrics(
+    custom_gradients: tuple[Any, ...],
+    reference_gradients: tuple[Any, ...],
+    functional: Any,
+) -> dict[str, dict[str, float]]:
+    return {
+        name: {
+            "mean_absolute_error": (custom.float() - reference.float()).abs().mean().item(),
+            "cosine_similarity": functional.cosine_similarity(
+                custom.float().flatten(),
+                reference.float().flatten(),
+                dim=0,
+            ).item(),
+        }
+        for name, custom, reference in zip(
+            ("input", "norm_weight", "gate_up_weight", "down_weight"),
+            custom_gradients,
+            reference_gradients,
+            strict=True,
+        )
     }
 
 

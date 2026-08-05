@@ -15,7 +15,9 @@ The CUDA implementation is kept separate from model selection. New kernels must
 first pass their reference checks and beat the retained implementation in a Modal
 benchmark before the canonical model dispatches to them.
 
-`dense-d128-mxfp8-forward` is the first development target. The current operator
-uses ThunderKittens' MXFP8 quantization and GEMM kernels as a correct baseline;
-the projection and activation launches are intentionally still separate so that
-future fusion gains can be measured explicitly.
+`dense-d128-mxfp8-forward` is the first development target. Its project-owned
+CUDA operator specializes TK's Blackwell MXFP8 GEMM for 128-column projections
+and implements d128-only RMSNorm, SwiGLU, residual, and backward kernels. The
+forward and backward remain a short sequence of specialized launches; fusing
+the two GEMMs into single persistent full-layer kernels is the next optimization
+boundary.

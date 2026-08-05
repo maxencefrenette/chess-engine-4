@@ -84,6 +84,11 @@ class DenseBlock(nn.Module):
         activation: str,
     ) -> None:
         super().__init__()
+        self.d_model = d_model
+        self.hidden_dim = hidden_dim
+        self.rms_norm_eps = rms_norm_eps
+        self.activation = activation
+        self._use_experimental_kernel = False
         transformer_engine = te()
         self.layer = transformer_engine.LayerNormMLP(
             d_model,
@@ -96,7 +101,29 @@ class DenseBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self._use_experimental_kernel:
+            from chess_engine_4.kernels import dense_d128_mxfp8_trainable
+
+            return dense_d128_mxfp8_trainable(
+                x,
+                self.layer.layer_norm_weight,
+                self.layer.fc1_weight,
+                self.layer.fc2_weight,
+                eps=self.rms_norm_eps,
+            )
         return x + self.layer(x)
+
+    def enable_experimental_d128_kernel(self) -> None:
+        if (
+            self.d_model != 128
+            or self.hidden_dim != 512
+            or self.activation != "swiglu"
+        ):
+            raise ValueError(
+                "the experimental dense kernel requires d_model=128, "
+                "expansion_ratio=4, and activation='swiglu'"
+            )
+        self._use_experimental_kernel = True
 
 
 class DenseChessNet(nn.Module):
@@ -160,6 +187,10 @@ class DenseChessNet(nn.Module):
             wdl_logits=self.wdl_head(x)[:, :3],
             moves_left=self.moves_left_head(x)[:, 0],
         )
+
+    def enable_experimental_d128_kernel(self) -> None:
+        for block in self.blocks:
+            block.enable_experimental_d128_kernel()
 
 
 def dense_parameter_count(
