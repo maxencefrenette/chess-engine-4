@@ -26,10 +26,12 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
 
     overridden = with_overrides(
         config,
+        seed=2,
         steps=321,
         batch_size=4,
         depth=2,
         expansion_ratio=2.0,
+        history_length=4,
         activation="silu",
         lr=0.001,
         max_grad_norm=3.0,
@@ -37,11 +39,13 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         lr_cooldown_frac=0.2,
     )
 
+    assert overridden.run.seed == 2
     assert overridden.run.steps == 321
     assert overridden.run.batch_size == 4
     assert overridden.model.d_model == 64
     assert overridden.model.depth == 2
     assert overridden.model.expansion_ratio == 2.0
+    assert overridden.model.history_length == 4
     assert overridden.model.activation == "silu"
     assert overridden.optimizer.lr == 0.001
     assert overridden.optimizer.max_grad_norm == 3.0
@@ -204,6 +208,15 @@ def test_dense_family_scales_training_horizon() -> None:
     )
     assert baseline.optimizer.lr == 0.00055
     assert undertrained.optimizer.lr == 0.0013
+
+
+def test_dense_family_recomputes_recipe_for_history_length() -> None:
+    full = load_training_config("configs/dense.py", d_model=128, history_length=8)
+    shortened = load_training_config("configs/dense.py", d_model=128, history_length=2)
+
+    assert shortened.model.history_length == 2
+    assert shortened.run.steps < full.run.steps
+    assert shortened.optimizer.lr > full.optimizer.lr
 
 
 def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:

@@ -11,7 +11,7 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     RULE50_PLANE_INDEX,
 )
-from chess_engine_4.model import DenseChessNetConfig
+from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import (
@@ -32,6 +32,33 @@ def test_dense_chess_net_shapes() -> None:
     assert tuple(output.policy_logits.shape) == (3, 1858)
     assert tuple(output.wdl_logits.shape) == (3, 3)
     assert tuple(output.moves_left.shape) == (3,)
+
+
+def test_dense_model_discards_history_beyond_configured_length() -> None:
+    config = DenseChessNetConfig(
+        d_model=32,
+        depth=1,
+        expansion_ratio=2.0,
+        history_length=2,
+    )
+    model = PortableChessNet(config)
+    baseline = torch.zeros(2, INPUT_PLANE_COUNT, 8, 8)
+    changed = baseline.clone()
+    changed[:, 26:HISTORY_PLANE_COUNT] = torch.randn_like(changed[:, 26:HISTORY_PLANE_COUNT])
+
+    baseline_output = model(baseline)
+    changed_output = model(changed)
+
+    torch.testing.assert_close(baseline_output.policy_logits, changed_output.policy_logits)
+    torch.testing.assert_close(baseline_output.wdl_logits, changed_output.wdl_logits)
+    torch.testing.assert_close(baseline_output.moves_left, changed_output.moves_left)
+
+
+def test_history_length_reduces_dense_parameter_count() -> None:
+    full = dense_parameter_count(d_model=64, depth=2, history_length=8)
+    shortened = dense_parameter_count(d_model=64, depth=2, history_length=2)
+
+    assert full - shortened == (8 - 2) * 13 * 64 * 64
 
 
 def test_packed_input_expansion_matches_dense_input() -> None:
@@ -162,3 +189,8 @@ def test_portable_model_supports_dense_activations(activation: str) -> None:
 def test_dense_config_rejects_unknown_activation() -> None:
     with pytest.raises(ValueError, match="unsupported activation"):
         DenseChessNetConfig(activation="mish")
+
+
+def test_dense_config_rejects_invalid_history_length() -> None:
+    with pytest.raises(ValueError, match="history_length"):
+        DenseChessNetConfig(history_length=0)

@@ -7,23 +7,48 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE, RULE50_PLANE_INDEX
+from chess_engine_4.data.leela import (
+    HISTORY_PLANE_COUNT,
+    INPUT_PLANE_COUNT,
+    POLICY_SIZE,
+    RULE50_PLANE_INDEX,
+)
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
 SUPPORTED_ACTIVATIONS = frozenset({"geglu", "gelu", "silu", "srelu", "swiglu"})
 GATED_ACTIVATIONS = frozenset({"geglu", "swiglu"})
+HISTORY_LENGTH = 8
+PLANES_PER_HISTORY_POSITION = HISTORY_PLANE_COUNT // HISTORY_LENGTH
 
 
 def mxfp8_aligned_size(size: int) -> int:
     return (size + 31) // 32 * 32
 
 
-def normalize_lc0_planes(planes: torch.Tensor) -> torch.Tensor:
+def normalize_lc0_planes(
+    planes: torch.Tensor,
+    *,
+    rule50_plane_index: int = RULE50_PLANE_INDEX,
+) -> torch.Tensor:
     """Normalize lc0's raw rule-50 ply plane to the model's learned input scale."""
 
-    planes[:, RULE50_PLANE_INDEX].div_(99.0)
+    planes[:, rule50_plane_index].div_(99.0)
     return planes
+
+
+def select_lc0_history(planes: torch.Tensor, history_length: int) -> torch.Tensor:
+    """Retain recent history and all auxiliary planes from lc0's 112-plane input."""
+
+    history_planes = history_length * PLANES_PER_HISTORY_POSITION
+    if history_planes == HISTORY_PLANE_COUNT:
+        return planes
+    return torch.cat((planes[:, :history_planes], planes[:, HISTORY_PLANE_COUNT:]), dim=1)
+
+
+def model_input_plane_count(history_length: int) -> int:
+    auxiliary_planes = INPUT_PLANE_COUNT - HISTORY_PLANE_COUNT
+    return history_length * PLANES_PER_HISTORY_POSITION + auxiliary_planes
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +57,7 @@ class DenseChessNetConfig:
     input_planes: int = INPUT_PLANE_COUNT
     board_size: int = 8
     policy_size: int = POLICY_SIZE
+    history_length: int = HISTORY_LENGTH
     d_model: int = 1024
     depth: int = 8
     expansion_ratio: float = 4.0
@@ -40,6 +66,8 @@ class DenseChessNetConfig:
     rms_norm_eps: float = 1e-6
 
     def __post_init__(self) -> None:
+        if not 1 <= self.history_length <= HISTORY_LENGTH:
+            raise ValueError(f"history_length must be in [1, {HISTORY_LENGTH}]")
         if self.expansion_ratio <= 0:
             raise ValueError("expansion_ratio must be positive")
         if self.activation not in SUPPORTED_ACTIVATIONS:
@@ -79,7 +107,7 @@ class DenseChessNet(nn.Module):
         if config is None:
             config = DenseChessNetConfig()
         self.config = config
-        input_dim = config.input_planes * config.board_size * config.board_size
+        input_dim = model_input_plane_count(config.history_length) * config.board_size**2
         hidden_dim = int(config.d_model * config.expansion_ratio)
         transformer_engine = te()
 
@@ -121,7 +149,9 @@ class DenseChessNet(nn.Module):
         )
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
-        x = normalize_lc0_planes(planes).flatten(start_dim=1)
+        x = select_lc0_history(planes, self.config.history_length)
+        rule50_plane_index = self.config.history_length * PLANES_PER_HISTORY_POSITION + 5
+        x = normalize_lc0_planes(x, rule50_plane_index=rule50_plane_index).flatten(start_dim=1)
         x = self.input(x)
         x = self.blocks(x)
         x = self.norm(x)
@@ -135,6 +165,7 @@ class DenseChessNet(nn.Module):
 def dense_parameter_count(
     *,
     input_planes: int = INPUT_PLANE_COUNT,
+    history_length: int = HISTORY_LENGTH,
     board_size: int = 8,
     policy_size: int = POLICY_SIZE,
     d_model: int,
@@ -142,7 +173,9 @@ def dense_parameter_count(
     expansion_ratio: float = 4.0,
     activation: str = "geglu",
 ) -> int:
-    input_dim = input_planes * board_size * board_size
+    auxiliary_planes = input_planes - HISTORY_PLANE_COUNT
+    selected_planes = history_length * PLANES_PER_HISTORY_POSITION + auxiliary_planes
+    input_dim = selected_planes * board_size * board_size
     hidden_dim = int(d_model * expansion_ratio)
     projection_count = 3 if activation in GATED_ACTIVATIONS else 2
     block_params = depth * (projection_count * d_model * hidden_dim)

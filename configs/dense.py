@@ -23,19 +23,27 @@ _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
 
 
-def config(*, d_model: int, training_ratio: float = 0.2) -> TrainingConfig:
+def config(
+    *,
+    d_model: int,
+    training_ratio: float = 0.2,
+    history_length: int = 8,
+) -> TrainingConfig:
     """Generate the current dense scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
         raise ValueError("d_model must be a positive multiple of 32.")
     if training_ratio <= 0:
         raise ValueError("training_ratio must be positive.")
+    if not 1 <= history_length <= 8:
+        raise ValueError("history_length must be in [1, 8].")
 
     depth = _DEPTH
     batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
     parameter_count = dense_parameter_count(
         d_model=d_model,
         depth=depth,
+        history_length=history_length,
         expansion_ratio=4.0,
         activation="swiglu",
     )
@@ -56,6 +64,7 @@ def config(*, d_model: int, training_ratio: float = 0.2) -> TrainingConfig:
         model=DenseChessNetConfig(
             d_model=d_model,
             depth=depth,
+            history_length=history_length,
             expansion_ratio=4.0,
             activation="swiglu",
             rms_norm_eps=1e-6,

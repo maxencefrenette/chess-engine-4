@@ -151,11 +151,13 @@ def add_training_config_arguments(
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--d-model", type=int, default=64)
     parser.add_argument("--training-ratio", type=float, default=DEFAULT_TRAINING_RATIO)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     if include_steps:
         parser.add_argument("--steps", type=int, default=None)
     parser.add_argument("--depth", type=int, default=None)
     parser.add_argument("--expansion-ratio", type=float, default=None)
+    parser.add_argument("--history-length", type=int, choices=range(1, 9), default=None)
     parser.add_argument(
         "--activation",
         choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
@@ -181,7 +183,9 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
             args.config,
             d_model=args.d_model,
             training_ratio=args.training_ratio,
+            history_length=args.history_length,
         ),
+        seed=args.seed,
         steps=getattr(args, "steps", None),
         batch_size=args.batch_size,
         depth=args.depth,
@@ -213,9 +217,11 @@ def print_launch_summary(
         f"run={config.run.name} "
         f"model=d{config.model.d_model}x{config.model.depth} "
         f"expansion={config.model.expansion_ratio:g} "
+        f"history={config.model.history_length} "
         f"activation={config.model.activation} "
         f"params={model_parameter_count(config.model):,} "
         f"training_ratio={config.run.training_ratio:g} "
+        f"seed={config.run.seed} "
         f"batch_size={config.run.batch_size:,} "
         f"steps={run_steps:,} "
         f"samples={samples:,} "

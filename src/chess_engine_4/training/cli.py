@@ -566,6 +566,7 @@ def _init_wandb(
         "d_model": config.model.d_model,
         "depth": config.model.depth,
         "expansion_ratio": config.model.expansion_ratio,
+        "history_length": config.model.history_length,
         "activation": config.model.activation,
         "rms_norm_eps": config.model.rms_norm_eps,
         "lr": config.optimizer.lr,

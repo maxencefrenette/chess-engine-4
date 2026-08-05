@@ -6,7 +6,13 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from chess_engine_4.model.dense import GATED_ACTIVATIONS, normalize_lc0_planes
+from chess_engine_4.model.dense import (
+    GATED_ACTIVATIONS,
+    PLANES_PER_HISTORY_POSITION,
+    model_input_plane_count,
+    normalize_lc0_planes,
+    select_lc0_history,
+)
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.registry import ModelConfig
 
@@ -45,7 +51,7 @@ class PortableChessNet(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
         self.config = config
-        input_dim = config.input_planes * config.board_size * config.board_size
+        input_dim = model_input_plane_count(config.history_length) * config.board_size**2
         self.input = nn.Linear(input_dim, config.d_model)
 
         hidden_dim = int(config.d_model * config.expansion_ratio)
@@ -66,7 +72,11 @@ class PortableChessNet(nn.Module):
         self.moves_left_head = nn.Linear(config.d_model, 1)
 
     def forward(self, planes: torch.Tensor) -> ChessNetOutput:
-        x = self.input(normalize_lc0_planes(planes).flatten(start_dim=1))
+        x = select_lc0_history(planes, self.config.history_length)
+        rule50_plane_index = self.config.history_length * PLANES_PER_HISTORY_POSITION + 5
+        x = self.input(
+            normalize_lc0_planes(x, rule50_plane_index=rule50_plane_index).flatten(start_dim=1)
+        )
         for block in self.blocks:
             x = block(x)
         x = self.norm(x)

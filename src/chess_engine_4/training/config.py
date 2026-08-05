@@ -72,6 +72,7 @@ def load_training_config(
     *,
     d_model: int,
     training_ratio: float = 0.2,
+    history_length: int | None = None,
 ) -> TrainingConfig:
     config_path = Path(path)
     if config_path.suffix != ".py":
@@ -89,7 +90,10 @@ def load_training_config(
         raise ValueError(
             f"{config_path}: expected callable config(*, d_model: int, training_ratio: float)."
         )
-    result = factory(d_model=d_model, training_ratio=training_ratio)
+    kwargs = {"d_model": d_model, "training_ratio": training_ratio}
+    if history_length is not None:
+        kwargs["history_length"] = history_length
+    result = factory(**kwargs)
     if not isinstance(result, TrainingConfig):
         raise ValueError(f"{config_path}: config() must return TrainingConfig.")
     return result
@@ -109,10 +113,12 @@ def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
 def with_overrides(
     config: TrainingConfig,
     *,
+    seed: int | None = None,
     steps: int | None = None,
     batch_size: int | None = None,
     depth: int | None = None,
     expansion_ratio: float | None = None,
+    history_length: int | None = None,
     activation: str | None = None,
     lr: float | None = None,
     max_grad_norm: float | None = None,
@@ -122,6 +128,8 @@ def with_overrides(
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: str | None = None,
 ) -> TrainingConfig:
+    if seed is not None:
+        config = replace(config, run=replace(config.run, seed=seed))
     if steps is not None:
         config = replace(config, run=replace(config.run, steps=steps))
     if batch_size is not None:
@@ -133,6 +141,8 @@ def with_overrides(
             config,
             model=replace(config.model, expansion_ratio=expansion_ratio),
         )
+    if history_length is not None:
+        config = replace(config, model=replace(config.model, history_length=history_length))
     if activation is not None:
         config = replace(config, model=replace(config.model, activation=activation))
     if lr is not None:

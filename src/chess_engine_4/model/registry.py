@@ -27,6 +27,7 @@ def model_parameter_count(config: ModelConfig) -> int:
     if isinstance(config, DenseChessNetConfig):
         return dense_parameter_count(
             input_planes=config.input_planes,
+            history_length=config.history_length,
             board_size=config.board_size,
             policy_size=config.policy_size,
             d_model=config.d_model,
