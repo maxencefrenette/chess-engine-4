@@ -29,6 +29,13 @@ FAMILIES = {
         "config": Path("configs/dense.py"),
         "training_ratio": 0.2,
     },
+    "moe64a2": {
+        "name": "MoE 64A2",
+        "description": "Stacked MLP with alternating dense and 64-expert, 2-active layers.",
+        "best_runs": Path("experiments/best-runs-moe64a2.toml"),
+        "config": Path("configs/moe64a2.py"),
+        "training_ratio": 0.02,
+    },
 }
 
 
@@ -71,7 +78,6 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     samples_law = fit_power_law((result_flops[r.budget], r.samples_seen) for r in results)
     batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)
     lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
-
     observed = [observed_point(result, result_flops[result.budget], raw_runs) for result in results]
     stale_observed = [observed_point(result, result.flops, raw_runs) for result in stale_results]
     target_width = max(result.d_model for result in results) * 2

@@ -40,6 +40,12 @@ export default function Home() {
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
               Scaling laws
             </h1>
+            <Link
+              className="mt-3 inline-block text-sm font-medium text-blue-700 hover:text-blue-900"
+              href="/compare"
+            >
+              Compare model families
+            </Link>
           </div>
           <div className="flex gap-8 text-right tabular-nums">
             <div>

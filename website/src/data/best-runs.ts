@@ -1,6 +1,6 @@
 import scalingData from "@/generated/scaling-laws.json";
 
-export type ModelFamilyId = "dense";
+export type ModelFamilyId = "dense" | "moe64a2";
 
 export type BestRun = {
   name: string;

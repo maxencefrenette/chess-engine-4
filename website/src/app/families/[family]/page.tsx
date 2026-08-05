@@ -48,9 +48,14 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
       <div className="mx-auto max-w-[1500px] px-8 py-6">
         <header className="flex items-end justify-between gap-8 border-b border-zinc-200 pb-5">
           <div>
-            <Link href="/" className="text-sm font-medium text-blue-700 hover:text-blue-900">
-              Families
-            </Link>
+            <nav className="flex gap-5 text-sm font-medium text-blue-700">
+              <Link href="/" className="hover:text-blue-900">
+                Families
+              </Link>
+              <Link href="/compare" className="hover:text-blue-900">
+                Compare
+              </Link>
+            </nav>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
               {family.name}
             </h1>

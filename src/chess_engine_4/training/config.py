@@ -71,7 +71,7 @@ def load_training_config(
     path: str | Path,
     *,
     d_model: int,
-    training_ratio: float = 0.2,
+    training_ratio: float | None = None,
     history_length: int | None = None,
 ) -> TrainingConfig:
     config_path = Path(path)
@@ -90,7 +90,9 @@ def load_training_config(
         raise ValueError(
             f"{config_path}: expected callable config(*, d_model: int, training_ratio: float)."
         )
-    kwargs = {"d_model": d_model, "training_ratio": training_ratio}
+    kwargs: dict[str, Any] = {"d_model": d_model}
+    if training_ratio is not None:
+        kwargs["training_ratio"] = training_ratio
     if history_length is not None:
         kwargs["history_length"] = history_length
     result = factory(**kwargs)

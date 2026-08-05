@@ -29,7 +29,6 @@ REMOTE_PARQUET_DATA_PATH = f"{REMOTE_DATA_PATH}/parquet"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 DEFAULT_CONFIG_PATH = Path("configs/dense.py")
-DEFAULT_TRAINING_RATIO = 0.2
 CHECKPOINT_EVERY_STEPS = 50_000
 
 app = modal.App(APP_NAME)
@@ -155,7 +154,7 @@ def add_training_config_arguments(
 ) -> None:
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, type=Path)
     parser.add_argument("--d-model", type=int, default=64)
-    parser.add_argument("--training-ratio", type=float, default=DEFAULT_TRAINING_RATIO)
+    parser.add_argument("--training-ratio", type=float, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     if include_steps:

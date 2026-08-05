@@ -26,7 +26,7 @@ _LR_TRAINING_RATIO_EXPONENT = -0.63
 def config(
     *,
     d_model: int,
-    training_ratio: float = 0.2,
+    training_ratio: float = 0.02,
     history_length: int = 8,
 ) -> TrainingConfig:
     """Generate the initial moe64a2 scaling recipe for one residual width."""

@@ -64,7 +64,8 @@ def test_training_config_round_trips_through_dict() -> None:
 def test_moe64a2_family_recipe_round_trips() -> None:
     config = load_training_config("configs/moe64a2.py", d_model=64)
 
-    assert config.run.name == "moe64a2-d64-r0.2"
+    assert config.run.name == "moe64a2-d64-r0.02"
+    assert config.run.training_ratio == 0.02
     assert config.model.kind == "moe64a2"
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2

@@ -6,13 +6,13 @@ from pathlib import Path
 from chess_engine_4.training.export_scaling_data import write_scaling_data
 
 
-def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> None:
+def test_export_scaling_data_includes_family_relative_targets(tmp_path: Path) -> None:
     output = tmp_path / "scaling-laws.json"
     write_scaling_data(output)
     payload = json.loads(output.read_text(encoding="utf-8"))
 
     dense = payload["families"]["dense"]
-    assert set(payload["families"]) == {"dense"}
+    assert set(payload["families"]) == {"dense", "moe64a2"}
     assert [point["name"] for point in dense["observed"]] == [
         "d32",
         "d64",
@@ -35,3 +35,12 @@ def test_export_scaling_data_includes_dense_relative_targets(tmp_path: Path) -> 
     assert all(point["samplesPerParam"] > 0 for point in dense["extrapolated"])
     assert all(point["steps"] > 0 for point in dense["observed"])
     assert all(point["batchSize"] > 0 for point in dense["extrapolated"])
+
+    moe = payload["families"]["moe64a2"]
+    assert [point["name"] for point in moe["observed"]] == [
+        "d128",
+        "d256",
+        "d512",
+    ]
+    assert moe["trainingRatio"] == 0.02
+    assert [point["name"] for point in moe["extrapolated"]] == ["d1024"]
