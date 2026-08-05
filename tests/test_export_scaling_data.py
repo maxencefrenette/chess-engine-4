@@ -41,6 +41,7 @@ def test_export_scaling_data_includes_family_relative_targets(tmp_path: Path) ->
         "d128",
         "d256",
         "d512",
+        "d1024",
     ]
     assert moe["trainingRatio"] == 0.02
-    assert [point["name"] for point in moe["extrapolated"]] == ["d1024"]
+    assert [point["name"] for point in moe["extrapolated"]] == ["d2048"]

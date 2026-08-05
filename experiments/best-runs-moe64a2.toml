@@ -63,3 +63,26 @@ policy_top1 = 0.4749161466925229
 runtime_sec = 329.642284976
 loss_spike_count = 0
 router_dead_experts = 0
+
+[runs.d1024]
+training_ratio = 0.02
+source_experiment = "experiments/2026-08-05.04-moe-d1024-baseline"
+model_kind = "moe64a2"
+run_name = "moe64a2-d1024-baseline"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/wmpvk8ot"
+flops = 1.111050188980224e18
+d_model = 1024
+depth = 8
+activation = "swiglu"
+batch_size = 131072
+lr = 1.6e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 1670557600
+samples_seen = 1670512640
+loss = 2.8256593221216053
+policy_top1 = 0.5222407480148088
+runtime_sec = 1795.282941195
+# Accepted with one isolated loss spike around step 7,823.
+loss_spike_count = 1
+router_dead_experts = 0
