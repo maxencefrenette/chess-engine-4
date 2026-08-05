@@ -1,0 +1,124 @@
+b200_dollars_per_hour = 6.25
+profile_runtime_sec = 59.0761518
+training_runtime_sec = 3073.595110761
+experiment_cost_usd = 5.438665386390625
+
+[[runs]]
+name = "d256 incumbent"
+d_model = 256
+batch_size = 32768
+steps = 16207
+training_ratio = 0.1
+lr = 0.0009
+loss = 2.975301638907117
+runtime_sec = 331.875594232
+loss_spike_count = 1
+dead_experts = 0
+eligible = true
+incumbent = true
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/i6ut3pkj"
+
+[[runs]]
+name = "d256 256d lr9e-4"
+d_model = 256
+batch_size = 65536
+steps = 10880
+training_ratio = 0.13426348
+lr = 0.0009
+loss = 2.9596634355203824
+runtime_sec = 336.207320851
+loss_spike_count = 1
+dead_experts = 0
+eligible = true
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/irdq63jz"
+
+[[runs]]
+name = "d256 256d lr1.1e-3"
+d_model = 256
+batch_size = 65536
+steps = 10880
+training_ratio = 0.13426348
+lr = 0.0011
+loss = 2.9576196067801077
+runtime_sec = 344.127133968
+loss_spike_count = 2
+dead_experts = 0
+eligible = false
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sfvddn6q"
+
+[[runs]]
+name = "d256 256d lr1.4e-3"
+d_model = 256
+batch_size = 65536
+steps = 10880
+training_ratio = 0.13426348
+lr = 0.0014
+loss = 2.956570037986783
+runtime_sec = 364.458226966
+loss_spike_count = 3
+dead_experts = 0
+eligible = false
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/pooog6g4"
+
+[[runs]]
+name = "d256 256d lr1.7e-3"
+d_model = 256
+batch_size = 65536
+steps = 10880
+training_ratio = 0.13426348
+lr = 0.0017
+loss = 2.9595242086359006
+runtime_sec = 347.143339843
+loss_spike_count = 3
+dead_experts = 0
+eligible = false
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sbownxd4"
+
+[[runs]]
+name = "d512 incumbent"
+d_model = 512
+batch_size = 65536
+steps = 16023
+training_ratio = 0.05
+lr = 0.00037
+loss = 2.8585586715267715
+runtime_sec = 743.022878607
+loss_spike_count = 0
+dead_experts = 0
+eligible = true
+incumbent = true
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/gmrgabmv"
+
+[[runs]]
+name = "d512 256d lr3.6e-4"
+d_model = 512
+batch_size = 131072
+steps = 9970
+training_ratio = 0.06222152
+lr = 0.00036
+loss = 2.8638537751106092
+runtime_sec = 778.177859604
+loss_spike_count = 1
+dead_experts = 0
+eligible = true
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/xv65eu3s"
+
+[[runs]]
+name = "d512 256d lr4.4e-4"
+d_model = 512
+batch_size = 131072
+steps = 9970
+training_ratio = 0.06222152
+lr = 0.00044
+loss = 2.8523753540607215
+runtime_sec = 903.480428529
+loss_spike_count = 2
+dead_experts = 0
+eligible = false
+incumbent = false
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/fj2ripu2"
