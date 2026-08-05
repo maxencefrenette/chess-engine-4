@@ -30,9 +30,10 @@ from chess_engine_4.training.stability import LossSpikeDetector
 _DATA_HELP = f"Parquet path, directory, or glob. Defaults to ${DEFAULT_DATA_ENV_VAR}."
 _LOG_EVERY = 10
 _MATMUL_PRECISION = "high"
-_METRIC_EMA_DECAY = 0.99
+_LOSS_EMA_DECAY = 0.99
+_POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
-_POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.99]"
+_POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 _B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
 
 type NativeBatch = tuple[
@@ -181,7 +182,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         if should_log or should_checkpoint:
             pending_loss_values = torch.stack(pending_losses)
             torch.cuda.synchronize(device)
-            loss_spike_detector.update_many(pending_loss_values.cpu().tolist())
+            pending_loss_numbers = pending_loss_values.cpu().tolist()
+            loss_spike_detector.update_many(pending_loss_numbers)
             pending_losses.clear()
             now = time.perf_counter()
             elapsed = now - start
@@ -208,7 +210,11 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     elapsed=interval_elapsed,
                     theoretical_tflops=theoretical_tflops,
                 )
-            _update_ema_metrics(metrics, ema_metrics)
+            _update_ema_metrics(
+                metrics,
+                ema_metrics,
+                loss_tasks=pending_loss_numbers,
+            )
 
             if wandb_run is not None and should_log:
                 wandb_run.log(metrics, step=step)
@@ -670,14 +676,23 @@ def _training_metrics(
 def _update_ema_metrics(
     metrics: dict[str, float | int],
     ema_metrics: dict[str, float],
+    *,
+    loss_tasks: list[float],
 ) -> None:
-    loss_task = float(metrics["loss/task"])
-    _update_ema_metric(metrics, ema_metrics, _LOSS_TASK_EMA_KEY, loss_task)
+    for loss_task in loss_tasks:
+        _update_ema_metric(
+            metrics,
+            ema_metrics,
+            _LOSS_TASK_EMA_KEY,
+            loss_task,
+            decay=_LOSS_EMA_DECAY,
+        )
     _update_ema_metric(
         metrics,
         ema_metrics,
         _POLICY_TOP1_EMA_KEY,
         float(metrics["metrics/policy_top1"]),
+        decay=_POLICY_TOP1_EMA_DECAY,
     )
 
 
@@ -686,12 +701,10 @@ def _update_ema_metric(
     ema_metrics: dict[str, float],
     ema_key: str,
     value: float,
+    *,
+    decay: float,
 ) -> None:
     previous = ema_metrics.get(ema_key)
-    next_value = (
-        value
-        if previous is None
-        else (_METRIC_EMA_DECAY * previous + (1.0 - _METRIC_EMA_DECAY) * value)
-    )
+    next_value = value if previous is None else (decay * previous + (1.0 - decay) * value)
     ema_metrics[ema_key] = next_value
     metrics[ema_key] = next_value

@@ -22,7 +22,9 @@ for canonical experiment results.
 - Keep the loss configuration fixed unless the training target is under study.
 - Compare completed candidates with `uv run compare-run WANDB_URL`.
 - Promote a candidate at an existing width only when its `EG_flops` exceeds the
-  incumbent and it has no detected loss spikes.
+  incumbent and it has no detected loss spikes, unless the experiment explicitly
+  optimizes another objective such as realized training cost. In that case,
+  report the `EG_flops` tradeoff and select against the stated objective.
 - Update `experiments/best-runs-dense.toml` only after promotion, then regenerate
   website data with `uv run export-scaling-data`.
 - Preserve historical experiment reports. Do not rewrite old terminology or

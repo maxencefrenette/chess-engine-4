@@ -19,7 +19,7 @@ def test_metrics_from_summary() -> None:
         "https://wandb.ai/entity/project/runs/runid",
         {
             "loss/task[ema=0.99]": 4.2,
-            "metrics/policy_top1[ema=0.99]": 0.3,
+            "metrics/policy_top1[ema=0.9]": 0.3,
             LOSS_SPIKE_COUNT_KEY: 0,
         },
     )

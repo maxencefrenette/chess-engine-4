@@ -73,7 +73,8 @@ precision, and CPU allocation.
 
 `configs/moe64a2.py` defines the alternating 64-expert, 2-active MoE ladder. Its
 experts use a 2x hidden expansion so two active SwiGLU experts approximately
-match each dense layer's 4x MLP compute at a given width:
+match each dense layer's 4x MLP compute at a given width. Its canonical batch
+size is `128 * d_model`:
 
 ```sh
 uv run train-modal --config configs/moe64a2.py --d-model 64

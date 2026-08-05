@@ -17,8 +17,8 @@ from chess_engine_4.training.losses import LossWeights
 _BASE_WIDTH = 32
 _DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
-_BATCH_PER_WIDTH = 32
-_LR_PARAMETER_COEFFICIENT = 31.75
+_BATCH_PER_WIDTH = 128
+_LR_PARAMETER_COEFFICIENT = 89.0
 _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
 
@@ -29,7 +29,7 @@ def config(
     training_ratio: float = 0.02,
     history_length: int = 8,
 ) -> TrainingConfig:
-    """Generate the initial moe64a2 scaling recipe for one residual width."""
+    """Generate the canonical moe64a2 scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
         raise ValueError("d_model must be a positive multiple of 32.")

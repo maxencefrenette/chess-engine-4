@@ -62,10 +62,12 @@ def test_training_config_round_trips_through_dict() -> None:
 
 
 def test_moe64a2_family_recipe_round_trips() -> None:
-    config = load_training_config("configs/moe64a2.py", d_model=64)
+    config = load_training_config("configs/moe64a2.py", d_model=128)
 
-    assert config.run.name == "moe64a2-d64-r0.02"
+    assert config.run.name == "moe64a2-d128-r0.02"
     assert config.run.training_ratio == 0.02
+    assert config.run.batch_size == 16_384
+    assert config.optimizer.lr == 3.3e-3
     assert config.model.kind == "moe64a2"
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2
@@ -84,6 +86,30 @@ def test_training_profile_config_validates_steps() -> None:
         TrainingProfileConfig(warmup_steps=-1)
     with pytest.raises(ValueError, match="profile_steps"):
         TrainingProfileConfig(profile_steps=0)
+
+
+def test_loss_ema_consumes_every_pending_step() -> None:
+    from chess_engine_4.training.cli import _update_ema_metrics
+
+    metrics: dict[str, float | int] = {
+        "loss/task": 6.0,
+        "metrics/policy_top1": 0.5,
+    }
+    ema_metrics: dict[str, float] = {}
+
+    _update_ema_metrics(
+        metrics,
+        ema_metrics,
+        loss_tasks=[10.0, 8.0, 6.0],
+    )
+
+    assert metrics["loss/task[ema=0.99]"] == pytest.approx(9.9402)
+    assert metrics["metrics/policy_top1[ema=0.9]"] == pytest.approx(0.5)
+
+    metrics["metrics/policy_top1"] = 0.7
+    _update_ema_metrics(metrics, ema_metrics, loss_tasks=[6.0])
+
+    assert metrics["metrics/policy_top1[ema=0.9]"] == pytest.approx(0.52)
 
 
 def test_lr_cooldown_schedule() -> None:

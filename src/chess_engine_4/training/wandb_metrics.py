@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 LOSS_MEAN_KEY = "loss/task[ema=0.99]"
-POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.99]"
+POLICY_TOP1_KEY = "metrics/policy_top1[ema=0.9]"
 LOSS_SPIKE_COUNT_KEY = "stability/loss_spike_count"
 
 
