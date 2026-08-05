@@ -61,7 +61,7 @@ image = (
         "find /.uv/.venv/lib/python3.14/site-packages/nvidia -type d -name lib "
         "> /etc/ld.so.conf.d/nvidia-python.conf && ldconfig"
     )
-    .env({"CHESS_ENGINE_4_DATA_PATH": REMOTE_DATA_PATH})
+    .env({"CHESS_ENGINE_4_DATA_PATH": REMOTE_PARQUET_DATA_PATH})
     .workdir("/root")
     .add_local_dir("crates", remote_path="/root/crates", copy=True)
     .run_commands(
@@ -80,12 +80,9 @@ def train_modal() -> None:
     add_training_config_arguments(parser, include_steps=True)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
-    parser.add_argument(
-        "--parquet", action="store_true", help="Use the experimental Parquet loader."
-    )
     args = parser.parse_args()
     config = resolve_training_config(args)
-    print_launch_summary(config, parquet=args.parquet)
+    print_launch_summary(config)
 
     payload = {
         "config": asdict(config),
@@ -96,7 +93,6 @@ def train_modal() -> None:
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
-        "parquet": args.parquet,
     }
 
     train_function = training_function(config.infra.cpu_cores)
@@ -133,7 +129,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
     result = run_training(
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
-            data=(REMOTE_PARQUET_DATA_PATH if payload.get("parquet") else REMOTE_DATA_PATH),
+            data=REMOTE_PARQUET_DATA_PATH,
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -142,7 +138,6 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_every=payload.get("checkpoint_every"),
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
-            parquet=payload.get("parquet", False),
         )
     )
     return result
@@ -206,7 +201,6 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
-    parquet: bool = False,
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -230,7 +224,6 @@ def print_launch_summary(
         f"precision={config.precision.recipe} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
-        f" data_format={'parquet' if parquet else 'tar'}"
     )
 
 

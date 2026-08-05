@@ -41,16 +41,16 @@ uv run inspect-data
 By default, `inspect-data` validates one batch. Pass `--batches N` for a bounded
 scan or `--all` to inspect every batch.
 
-The experimental Parquet path is opt-in. Convert a local LCZero tar file with:
+Training data is stored as Parquet. Convert a local LCZero tar file with:
 
 ```sh
 uv run lc0-to-parquet training.tar training.parquet
-uv run inspect-data --parquet --data training.parquet
+uv run inspect-data --data training.parquet
 ```
 
-Use `uv run convert-data-modal --limit 8` to convert a bounded number of files
-on the training-data Volume. Add `--parquet` to `train-modal` or
-`profile-training` to select the converted data; tar remains the default.
+Use `uv run convert-data-modal --limit 8` to convert a bounded number of source
+files on the training-data Volume. Training and profiling always read the
+converted Parquet dataset.
 
 Training runs on Modal. Modal builds the native dataloader into its image
 automatically. `uv run train-modal` logs metrics to the W&B project configured
@@ -132,18 +132,6 @@ fixed random seed. Fastchess repeats each selected opening with colors reversed.
 caches it under `/artifacts/bin/lc0`. The eval command uploads the candidate
 weights, downloads the prebuilt fastchess release into the Modal image, uses the
 cached lc0 binary, and writes PGNs under `/artifacts/evals/<name>/games.pgn`.
-
-To compare a checkpoint's native Transformer Engine outputs with one or more
-lc0 ONNX exports over `1,000` training positions:
-
-```sh
-uv run eval-inference-modal checkpoints/run-final.pt \
-  leela/run-fp32.pb.gz leela/run-fp16.pb.gz
-```
-
-The command preserves the eight-position input history, evaluates each export
-through lc0 at one node, and stores its JSON summary under
-`/artifacts/evals/inference-mismatch/`.
 
 Set W&B configuration with environment variables such as `WANDB_PROJECT`,
 `WANDB_ENTITY`, and `WANDB_MODE`.

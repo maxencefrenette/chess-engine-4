@@ -116,7 +116,7 @@ def resolve_data_paths(
     if paths is None:
         value = os.environ.get(env_var)
         if not value:
-            raise ValueError(f"Set {env_var} to a Leela data .tar file, directory, or glob.")
+            raise ValueError(f"Set {env_var} to a Leela data {suffix} file, directory, or glob.")
         raw_paths = value.split(os.pathsep)
     elif isinstance(paths, str | Path):
         raw_paths = [str(paths)]

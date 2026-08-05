@@ -12,6 +12,7 @@ import modal
 from chess_engine_4.modal_train import (
     REMOTE_ARTIFACT_PATH,
     REMOTE_DATA_PATH,
+    REMOTE_PARQUET_DATA_PATH,
     artifact_volume,
     data_volume,
     image,
@@ -34,7 +35,7 @@ def eval_precision_modal() -> None:
 
     payload = {
         "checkpoint": str(_mounted_artifact_path(args.checkpoint)),
-        "data_glob": str(Path(REMOTE_DATA_PATH) / args.data_glob),
+        "data_glob": str(Path(REMOTE_PARQUET_DATA_PATH) / args.data_glob),
         "samples": args.samples,
         "batch_size": args.batch_size,
     }
@@ -49,7 +50,7 @@ def _run_precision_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
     import numpy as np
     import torch
 
-    from chess_engine_4.data.leela import LeelaTarDataset, resolve_data_paths
+    from chess_engine_4.data.leela import LeelaParquetDataset, resolve_data_paths
     from chess_engine_4.model import build_model, model_config_from_dict
     from chess_engine_4.model.transformer_engine import autocast_context
     from chess_engine_4.training.losses import LossWeights, lczero_loss
@@ -81,7 +82,7 @@ def _run_precision_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
         for precision in models
     }
     samples_seen = 0
-    dataset = LeelaTarDataset(
+    dataset = LeelaParquetDataset(
         paths,
         batch_size=int(payload["batch_size"]),
         threads=min(8, len(paths)),
@@ -123,9 +124,7 @@ def _run_precision_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
                     dim=-1,
                     index=policy_indices.clamp_min(0).long(),
                 ).masked_fill(~valid, torch.finfo(output.policy_logits.dtype).min)
-                top1 = (
-                    gathered.argmax(dim=-1) == policy_probs.argmax(dim=-1)
-                ).float().mean()
+                top1 = (gathered.argmax(dim=-1) == policy_probs.argmax(dim=-1)).float().mean()
                 batch_metrics = metric_batches[precision]
                 batch_metrics["loss"].append(loss.task.item())
                 batch_metrics["loss_policy"].append(loss.policy.item())
@@ -152,9 +151,7 @@ def _run_precision_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
         )
         paired_differences[metric] = float(difference.mean())
         paired_differences[f"{metric}_se"] = float(
-            difference.std(ddof=1) / math.sqrt(len(difference))
-            if len(difference) > 1
-            else 0.0
+            difference.std(ddof=1) / math.sqrt(len(difference)) if len(difference) > 1 else 0.0
         )
     results["bf16_minus_mxfp8"] = paired_differences
     return {
