@@ -32,6 +32,20 @@ MXFP8_TOKEN_ALIGNMENT = 128
 FUSED_DISPATCH_MIN_WIDTH = 1024
 
 
+def _route_slots(
+    flat_experts: torch.Tensor,
+    tokens_per_expert: torch.Tensor,
+) -> torch.Tensor:
+    route_order = torch.argsort(flat_experts, stable=True)
+    sorted_experts = flat_experts[route_order]
+    expert_offsets = tokens_per_expert.cumsum(dim=0) - tokens_per_expert
+    sorted_slots = (
+        torch.arange(flat_experts.numel(), device=flat_experts.device)
+        - expert_offsets[sorted_experts]
+    )
+    return torch.empty_like(sorted_slots).scatter_(0, route_order, sorted_slots)
+
+
 @dataclass(frozen=True, slots=True)
 class Moe64A2ChessNetConfig:
     kind: str = "moe64a2"
@@ -190,7 +204,7 @@ class MoeBlock(nn.Module):
         route_probs = router_probs.gather(1, route_experts.long())
         flat_experts = route_experts.reshape(-1).long()
         tokens_per_expert = routing_map.sum(dim=0, dtype=torch.int64)
-        route_slots = (routing_map.cumsum(dim=0) - 1).gather(1, route_experts.long()).reshape(-1)
+        route_slots = _route_slots(flat_experts, tokens_per_expert)
 
         aligned_splits = (
             (tokens_per_expert + MXFP8_TOKEN_ALIGNMENT - 1) // MXFP8_TOKEN_ALIGNMENT
@@ -207,13 +221,20 @@ class MoeBlock(nn.Module):
         padded_positions = expert_offsets[flat_experts] + route_slots
 
         padded_x = x.new_zeros(max_padded_tokens, self.d_model)
-        padded_x.index_copy_(
-            0,
-            padded_positions,
-            x.repeat_interleave(ACTIVE_EXPERT_COUNT, dim=0),
-        )
+        for route_index in range(ACTIVE_EXPERT_COUNT):
+            padded_x.index_copy_(
+                0,
+                padded_positions[route_index::ACTIVE_EXPERT_COUNT],
+                x,
+            )
         padded_probs = x.new_zeros(max_padded_tokens)
-        padded_probs.index_copy_(0, padded_positions, route_probs.to(x.dtype).reshape(-1))
+        route_probs = route_probs.to(x.dtype)
+        for route_index in range(ACTIVE_EXPERT_COUNT):
+            padded_probs.index_copy_(
+                0,
+                padded_positions[route_index::ACTIVE_EXPERT_COUNT],
+                route_probs[:, route_index],
+            )
         expert_output = self.experts(
             padded_x,
             expert_splits,

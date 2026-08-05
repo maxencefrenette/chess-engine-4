@@ -20,6 +20,7 @@ from chess_engine_4.model import (
 )
 from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.export import PortableChessNet
+from chess_engine_4.model.moe import _route_slots
 from chess_engine_4.training.losses import (
     LossWeights,
     lczero_loss,
@@ -198,6 +199,15 @@ def test_moe64a2_requires_even_depth() -> None:
         Moe64A2ChessNetConfig(d_model=64, depth=3)
     with pytest.raises(ValueError, match="positive even"):
         moe64a2_parameter_count(d_model=64, depth=3)
+
+
+def test_moe_route_slots_match_token_order_within_each_expert() -> None:
+    flat_experts = torch.tensor([2, 0, 2, 1, 0, 2])
+    tokens_per_expert = torch.tensor([2, 1, 3])
+
+    slots = _route_slots(flat_experts, tokens_per_expert)
+
+    torch.testing.assert_close(slots, torch.tensor([0, 0, 1, 0, 1, 2]))
 
 
 def _assert_packed_input_expansion_matches_dense_model(model: torch.nn.Module) -> None:
