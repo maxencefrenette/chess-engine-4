@@ -100,6 +100,19 @@ To profile the Modal training loop:
 uv run profile-training --d-model 64
 ```
 
+Experimental Blackwell kernels live under `kernels/` with ThunderKittens pinned
+as a git submodule. Initialize it before building locally, or run the B200
+correctness and latency benchmark directly on Modal:
+
+```sh
+git submodule update --init
+uv run build-kernels
+uv run benchmark-kernel-modal --kernel dense-d128-mxfp8-forward
+```
+
+These kernels remain opt-in until both forward and backward paths beat the
+canonical Transformer Engine training implementation.
+
 To benchmark the canonical dense ladder concurrently and cache the results in
 `experiments/throughput-dense.toml`:
 

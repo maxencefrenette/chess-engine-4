@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+import pytest
+import torch
+
+from chess_engine_4.kernels.dense import dense_d128_mxfp8_forward
+
+
+def test_dense_d128_kernel_rejects_cpu_input() -> None:
+    x = torch.zeros(128, 128, dtype=torch.bfloat16)
+    norm = torch.ones(128, dtype=torch.bfloat16)
+    gate_up = torch.zeros(1024, 128, dtype=torch.bfloat16)
+    down = torch.zeros(128, 512, dtype=torch.bfloat16)
+
+    with pytest.raises(ValueError, match="x must be a CUDA tensor"):
+        dense_d128_mxfp8_forward(x, norm, gate_up, down)

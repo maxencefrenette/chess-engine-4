@@ -36,7 +36,7 @@ data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME, create_if_missing=True)
 wandb_secret = modal.Secret.from_name(WANDB_SECRET_NAME)
 
-image = (
+base_image = (
     modal.Image.debian_slim(python_version="3.14")
     .apt_install("curl", "build-essential", "pkg-config")
     .run_commands(
@@ -73,8 +73,8 @@ image = (
         "--manifest-path /root/crates/leela_loader/Cargo.toml --release",
         "uv run python -c 'import chess_engine_4_native'",
     )
-    .add_local_python_source("chess_engine_4")
 )
+image = base_image.add_local_python_source("chess_engine_4")
 
 
 def train_modal() -> None:
