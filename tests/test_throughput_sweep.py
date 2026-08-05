@@ -31,7 +31,12 @@ def test_throughput_result_round_trip(tmp_path: Path) -> None:
     entry = make_entry(config, profile, source_commit="abc123")
     path = tmp_path / "throughput.toml"
 
-    write_results(path, {"d64": entry}, config_path=Path("configs/dense.py"))
+    write_results(
+        path,
+        {"d64": entry},
+        config_path=Path("configs/dense.py"),
+        model_family="dense",
+    )
     loaded = load_results(path)
 
     assert loaded["d64"] == entry

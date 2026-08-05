@@ -7,8 +7,8 @@ import math
 import torch
 
 from chess_engine_4.data.leela import COMPACT_POLICY_SIZE
-from chess_engine_4.model import ModelConfig
-from chess_engine_4.model.export import PortableChessNet
+from chess_engine_4.model import ModelConfig, Moe64A2ChessNetConfig
+from chess_engine_4.model.export import PortableChessNet, PortableMoeFlopsNet
 from chess_engine_4.training.losses import lczero_loss
 
 
@@ -22,7 +22,11 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
 
     profile_batch_size = min(batch_size, 8)
     with torch.device("meta"):
-        model = PortableChessNet(config).train()
+        model = (
+            PortableMoeFlopsNet(config)
+            if isinstance(config, Moe64A2ChessNetConfig)
+            else PortableChessNet(config)
+        ).train()
         planes = torch.zeros(profile_batch_size, 112, 8, 8)
         policy_indices = torch.full(
             (profile_batch_size, COMPACT_POLICY_SIZE),

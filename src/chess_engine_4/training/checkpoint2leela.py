@@ -241,6 +241,8 @@ def _model_from_checkpoint(checkpoint: dict[str, Any]) -> nn.Module:
         raise ValueError("Checkpoint does not contain a config.model mapping.")
     model_config = dict(config["model"])
     parsed_config = model_config_from_dict(model_config)
+    if parsed_config.kind != "dense":
+        raise ValueError("LC0 ONNX export currently supports only dense checkpoints.")
     if not isinstance(checkpoint.get("model_state_dict"), dict):
         raise ValueError("Checkpoint does not contain a model_state_dict mapping.")
     return build_model(parsed_config).cuda()

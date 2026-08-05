@@ -12,7 +12,13 @@ from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import autocast_context, quantization_recipe, te
 
 type PackedPlaneInput = tuple[torch.Tensor, torch.Tensor]
-type GraphOutput = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+type GraphOutput = tuple[
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+]
 
 
 class PlaneInputExpander(nn.Module):
@@ -46,30 +52,52 @@ class _GraphablePackedModel(nn.Module):
 
     def forward(self, packed_planes: torch.Tensor, plane_scalars: torch.Tensor) -> GraphOutput:
         output: ChessNetOutput = self.model(self.input_expander(packed_planes, plane_scalars))
-        return output.policy_logits, output.wdl_logits, output.moves_left
+        router_aux_loss = output.router_aux_loss
+        router_dead_experts = output.router_dead_experts
+        if router_aux_loss is None:
+            router_aux_loss = output.policy_logits.new_zeros(())
+        if router_dead_experts is None:
+            router_dead_experts = torch.zeros(
+                (), dtype=torch.int64, device=output.policy_logits.device
+            )
+        return (
+            output.policy_logits,
+            output.wdl_logits,
+            output.moves_left,
+            router_aux_loss,
+            router_dead_experts,
+        )
 
 
-class _GraphedDenseTrainingModel(nn.Module):
-    def __init__(self, graph: Callable[..., GraphOutput]) -> None:
+class _GraphedTrainingModel(nn.Module):
+    def __init__(self, graph: Callable[..., GraphOutput], *, has_router: bool) -> None:
         super().__init__()
         self.graph = graph
+        self.has_router = has_router
 
     def forward(self, planes: PackedPlaneInput) -> ChessNetOutput:
-        policy_logits, wdl_logits, moves_left = self.graph(*planes)
+        policy_logits, wdl_logits, moves_left, router_aux_loss, router_dead_experts = self.graph(
+            *planes
+        )
         return ChessNetOutput(
             policy_logits=policy_logits,
             wdl_logits=wdl_logits,
             moves_left=moves_left,
+            router_aux_loss=router_aux_loss if self.has_router else None,
+            router_dead_experts=router_dead_experts if self.has_router else None,
         )
 
 
 def build_training_model(model: nn.Module, *, batch_size: int, precision: str) -> nn.Module:
-    """Build the CUDA-graphed packed-input training model."""
+    """Build the packed-input training model, using a CUDA graph when supported."""
 
     sample_planes = _sample_packed_planes(batch_size)
     recipe = quantization_recipe(precision)
     with autocast_context(precision):
         graphable = _GraphablePackedModel(model).cuda().train()
+        has_router = getattr(model.config, "kind", None) == "moe64a2"
+        if not getattr(model, "cuda_graph_compatible", True):
+            return _GraphedTrainingModel(graphable, has_router=has_router)
         graph = te().make_graphed_callables(
             graphable,
             sample_planes,
@@ -77,7 +105,10 @@ def build_training_model(model: nn.Module, *, batch_size: int, precision: str) -
             enabled=recipe is not None,
             recipe=recipe,
         )
-        return _GraphedDenseTrainingModel(graph)
+        return _GraphedTrainingModel(
+            graph,
+            has_router=has_router,
+        )
 
 
 def _sample_packed_planes(batch_size: int) -> PackedPlaneInput:

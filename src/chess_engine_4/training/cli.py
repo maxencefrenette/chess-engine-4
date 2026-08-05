@@ -147,7 +147,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             output = training_model(planes)
             loss = lczero_loss(output, policy, value, weights=config.loss)
         pending_losses.append(loss.task.detach())
-        loss.task.backward()
+        loss.total.backward()
         grad_norm_tensor = _clip_gradient_norm(
             model,
             max_grad_norm=config.optimizer.max_grad_norm,
@@ -580,6 +580,10 @@ def _init_wandb(
         "moves_left_loss_weight": config.loss.moves_left,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
+    if config.model.kind == "moe64a2":
+        wandb_config["num_experts"] = config.model.num_experts
+        wandb_config["num_active_experts"] = config.model.num_active_experts
+        wandb_config["router_aux_loss_weight"] = config.loss.router_aux
     return wandb.init(
         name=run_name or config.run.name,
         config=wandb_config,
@@ -655,6 +659,11 @@ def _training_metrics(
         "perf/samples_per_sec": samples_per_sec,
         "perf/samples_seen": samples_seen,
     }
+    if loss.router_aux is not None:
+        metrics["loss/aux"] = loss.aux.item()
+        metrics["loss/aux/router"] = loss.router_aux.item()
+    if output.router_dead_experts is not None:
+        metrics["router/dead_experts"] = output.router_dead_experts.item()
     return metrics
 
 

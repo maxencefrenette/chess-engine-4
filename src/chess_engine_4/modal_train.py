@@ -61,7 +61,12 @@ image = (
         "find /.uv/.venv/lib/python3.14/site-packages/nvidia -type d -name lib "
         "> /etc/ld.so.conf.d/nvidia-python.conf && ldconfig"
     )
-    .env({"CHESS_ENGINE_4_DATA_PATH": REMOTE_PARQUET_DATA_PATH})
+    .env(
+        {
+            "CHESS_ENGINE_4_DATA_PATH": REMOTE_PARQUET_DATA_PATH,
+            "NVTE_GROUPED_LINEAR_USE_FUSED_GROUPED_GEMM": "1",
+        }
+    )
     .workdir("/root")
     .add_local_dir("crates", remote_path="/root/crates", copy=True)
     .run_commands(
@@ -215,7 +220,7 @@ def print_launch_summary(
     print(
         "launch_summary "
         f"run={config.run.name} "
-        f"model=d{config.model.d_model}x{config.model.depth} "
+        f"model={config.model.kind}-d{config.model.d_model}x{config.model.depth} "
         f"expansion={config.model.expansion_ratio:g} "
         f"history={config.model.history_length} "
         f"activation={config.model.activation} "

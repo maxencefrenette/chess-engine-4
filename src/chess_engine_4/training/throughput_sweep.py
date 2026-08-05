@@ -1,4 +1,4 @@
-"""Persistent Modal throughput benchmarks for the dense model ladder."""
+"""Persistent Modal throughput benchmarks for model-family ladders."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from chess_engine_4.modal_train import (
     print_launch_summary,
     training_function,
 )
-from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
+from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import TrainingConfig, load_training_config
 
 DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
@@ -29,7 +29,7 @@ TRAINING_RATIOS = (0.25, 0.5, 1.0)
 
 def throughput_sweep() -> None:
     parser = argparse.ArgumentParser(
-        description="Benchmark and cache dense training throughput on Modal."
+        description="Benchmark and cache model-family training throughput on Modal."
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
@@ -90,10 +90,20 @@ def throughput_sweep() -> None:
                 profile,
                 source_commit=commit,
             )
-        write_results(args.output, cached, config_path=args.config)
+        write_results(
+            args.output,
+            cached,
+            config_path=args.config,
+            model_family=_model_family(configs),
+        )
         print(f"wrote {args.output}")
     elif not args.output.exists():
-        write_results(args.output, cached, config_path=args.config)
+        write_results(
+            args.output,
+            cached,
+            config_path=args.config,
+            model_family=_model_family(configs),
+        )
 
     print_report(widths, cached)
     if errors:
@@ -167,14 +177,7 @@ def make_entry(
     source_commit: str,
 ) -> dict[str, Any]:
     model = config.model
-    if not isinstance(model, DenseChessNetConfig):
-        raise ValueError("throughput-sweep currently supports only dense models.")
-    params = dense_parameter_count(
-        d_model=model.d_model,
-        depth=model.depth,
-        expansion_ratio=model.expansion_ratio,
-        activation=model.activation,
-    )
+    params = model_parameter_count(model)
     milliseconds = float(profile["measured_wall_ms_per_step"])
     entry: dict[str, Any] = {
         "source_commit": source_commit,
@@ -213,7 +216,7 @@ def entry_matches(
     warmup_steps: int,
     profile_steps: int,
 ) -> bool:
-    if entry is None or not isinstance(config.model, DenseChessNetConfig):
+    if entry is None:
         return False
     expected = {
         "d_model": config.model.d_model,
@@ -244,10 +247,11 @@ def write_results(
     models: dict[str, dict[str, Any]],
     *,
     config_path: Path,
+    model_family: str,
 ) -> None:
     data = {
         "sweep": {
-            "model_family": "dense",
+            "model_family": model_family,
             "config": str(config_path),
             "gpu": "B200",
             "updated_at": datetime.now(UTC).isoformat(),
@@ -258,6 +262,13 @@ def write_results(
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(tomli_w.dumps(data), encoding="utf-8")
     temporary.replace(path)
+
+
+def _model_family(configs: dict[int, TrainingConfig]) -> str:
+    families = {config.model.kind for config in configs.values()}
+    if len(families) != 1:
+        raise ValueError(f"throughput sweep configs must use one model family, got {families}")
+    return families.pop()
 
 
 def print_report(widths: list[int], models: dict[str, dict[str, Any]]) -> None:

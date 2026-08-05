@@ -6,6 +6,7 @@ import torch
 from chess_engine_4.training.checkpoint2leela import (
     DEFAULT_EXPORT_DTYPE,
     _default_onnx_path,
+    _model_from_checkpoint,
     _mounted_artifact_path,
     _torch_export_dtype,
     _volume_path,
@@ -32,3 +33,13 @@ def test_export_dtype() -> None:
     assert _torch_export_dtype("fp32") == torch.float32
     with pytest.raises(ValueError, match="unknown export dtype"):
         _torch_export_dtype("bf16")
+
+
+def test_moe_checkpoint_export_fails_clearly() -> None:
+    checkpoint = {
+        "config": {"model": {"kind": "moe64a2", "d_model": 64}},
+        "model_state_dict": {},
+    }
+
+    with pytest.raises(ValueError, match="only dense checkpoints"):
+        _model_from_checkpoint(checkpoint)

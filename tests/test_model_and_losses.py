@@ -11,7 +11,13 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     RULE50_PLANE_INDEX,
 )
-from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
+from chess_engine_4.model import (
+    DenseChessNetConfig,
+    Moe64A2ChessNetConfig,
+    dense_parameter_count,
+    model_config_from_dict,
+    moe64a2_parameter_count,
+)
 from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.training.losses import (
@@ -134,6 +140,64 @@ def test_lczero_loss_backpropagates() -> None:
 
     assert torch.isfinite(loss.task)
     assert any(parameter.grad is not None for parameter in model.parameters())
+
+
+def test_lczero_loss_adds_router_aux_without_changing_task_loss() -> None:
+    model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=1, expansion_ratio=2.0))
+    planes = torch.randn(2, 112, 8, 8)
+    output = model(planes)
+    output = type(output)(
+        policy_logits=output.policy_logits,
+        wdl_logits=output.wdl_logits,
+        moves_left=output.moves_left,
+        router_aux_loss=torch.tensor(1.25, requires_grad=True),
+        router_dead_experts=torch.tensor(0),
+    )
+    policy = _compact_policy(batch_size=2, indices=[0], probs=[1.0])
+    values = torch.zeros(2, 6, 3)
+
+    loss = lczero_loss(output, policy, values, weights=LossWeights(router_aux=0.01))
+
+    torch.testing.assert_close(loss.total, loss.task + torch.tensor(0.0125))
+    torch.testing.assert_close(loss.aux, torch.tensor(0.0125))
+    torch.testing.assert_close(loss.router_aux, torch.tensor(1.25))
+
+
+def test_moe64a2_config_has_fixed_routing_shape() -> None:
+    config = model_config_from_dict(
+        {
+            "kind": "moe64a2",
+            "d_model": 64,
+            "depth": 2,
+            "expansion_ratio": 2.0,
+        }
+    )
+
+    assert isinstance(config, Moe64A2ChessNetConfig)
+    assert config.num_experts == 64
+    assert config.num_active_experts == 2
+    with pytest.raises(ValueError, match="unknown key"):
+        model_config_from_dict({"kind": "moe64a2", "num_experts": 32})
+
+
+def test_moe64a2_uses_fused_dispatch_for_large_widths() -> None:
+    assert Moe64A2ChessNetConfig(d_model=512).cuda_graph_compatible
+    assert not Moe64A2ChessNetConfig(d_model=1024).cuda_graph_compatible
+
+
+def test_moe64a2_parameter_count_counts_all_experts() -> None:
+    count = moe64a2_parameter_count(d_model=64, depth=2, expansion_ratio=2.0)
+    without_experts = count - 64 * 3 * 64 * 128
+
+    assert count == 2_212_000
+    assert without_experts == 639_136
+
+
+def test_moe64a2_requires_even_depth() -> None:
+    with pytest.raises(ValueError, match="positive even"):
+        Moe64A2ChessNetConfig(d_model=64, depth=3)
+    with pytest.raises(ValueError, match="positive even"):
+        moe64a2_parameter_count(d_model=64, depth=3)
 
 
 def _assert_packed_input_expansion_matches_dense_model(model: torch.nn.Module) -> None:

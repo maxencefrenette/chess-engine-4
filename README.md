@@ -8,9 +8,11 @@ the ONNX backend.
 
 ## Model
 
-The `dense` model is a stack of MLP layers over flattened LCZero input
-planes with LCZero-style policy logits, WDL value logits, and a moves-left
-prediction. Training uses NVIDIA Transformer Engine.
+The `dense` model is a stack of MLP layers over flattened LCZero input planes.
+The `moe64a2` family alternates dense MLP layers with 64 routed-expert layers,
+with two experts active for each position. Both families use LCZero-style policy logits,
+WDL value logits, and a moves-left prediction. Training uses NVIDIA Transformer
+Engine.
 
 The models are trained on lc0 t80 data using supervised learning.
 
@@ -69,12 +71,21 @@ those derived values for controlled experiments. The baseline batch size is
 fully resolved shape, parameter count, batch size, steps, samples, FLOPs,
 precision, and CPU allocation.
 
+`configs/moe64a2.py` defines the alternating 64-expert, 2-active MoE ladder. Its
+experts use a 2x hidden expansion so two active SwiGLU experts approximately
+match each dense layer's 4x MLP compute at a given width:
+
+```sh
+uv run train-modal --config configs/moe64a2.py --d-model 64
+```
+
 Training is Blackwell-only and runs on a Modal B200. Evaluation may use cheaper
 Modal GPUs when its backend supports them. Models use Transformer Engine MXFP8
 block scaling and FP32 optimizer master weights.
-Training is CUDA-graphed. The Modal image builds the pinned Transformer Engine
-version and its PyTorch extension automatically. Training reserves eight CPU
-cores for the background Rust dataloader.
+Dense training is CUDA-graphed. Large MoE models instead use Transformer Engine's
+dynamic fused token dispatcher. The Modal image builds the pinned Transformer
+Engine version and its PyTorch extension automatically. Training reserves eight
+CPU cores for the background Rust dataloader.
 
 MXFP8 projections are padded to 32-element boundaries and sliced back to the
 LC0 output contract.
@@ -93,6 +104,13 @@ To benchmark the canonical dense ladder concurrently and cache the results in
 
 ```sh
 uv run throughput-sweep
+```
+
+The same workflow can benchmark the MoE ladder without a separate command:
+
+```sh
+uv run throughput-sweep --config configs/moe64a2.py \
+  --output experiments/throughput-moe64a2.toml
 ```
 
 Matching cached widths are skipped. Pass `--refresh` to replace them or
@@ -117,6 +135,9 @@ It writes an FP32 graph for lc0's TensorRT-backed `onnx-trt` backend by default.
 Use `--export-dtype fp16` for a smaller experimental artifact; FP16 was weaker in
 paired engine testing. ONNX Runtime does not register Transformer Engine's
 MXFP8-specific TensorRT operators.
+
+LC0 ONNX export currently supports dense checkpoints only. MoE deployment will
+require an LC0 inference backend that supports routed experts.
 
 To run a small lc0-vs-BT4 match on Modal with fastchess:
 

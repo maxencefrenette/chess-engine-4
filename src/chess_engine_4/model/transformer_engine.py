@@ -22,6 +22,19 @@ def te() -> Any:
 
 
 @cache
+def te_router() -> Any:
+    """Import Transformer Engine's public fused MoE routing operations lazily."""
+
+    try:
+        from transformer_engine.pytorch import router
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "MoE models require a CUDA runtime with transformer-engine installed."
+        ) from exc
+    return router
+
+
+@cache
 def mxfp8_recipe() -> Any:
     """Return the single Blackwell MXFP8 recipe used by every training model."""
 

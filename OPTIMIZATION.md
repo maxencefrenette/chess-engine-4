@@ -20,8 +20,16 @@ spikes remain invalid.
 
 ## Transformer Engine
 
-Training is CUDA-only and uses NVIDIA Transformer Engine for MLP layers. The
-packed input and model are captured with TE's high-level CUDA graph API.
+Training is CUDA-only and uses NVIDIA Transformer Engine for MLP layers. Dense
+models use TE's high-level CUDA graph API.
+
+The `moe64a2` family alternates dense layers with Transformer Engine's fused
+top-k router and grouped linear kernels. Widths below 1024 use static
+CUDA-graphed dispatch; larger widths use TE's faster fused permutation and
+unpermutation path. Total parameters include all 64 experts in each MoE layer;
+physical training FLOPs include only the two active experts plus dense and shared
+layers. Alternation is a fixed part of the family while small grouped MXFP8
+kernels remain expensive.
 
 `infra.cpu_cores` controls the physical CPU cores reserved by Modal, while
 `infra.dataloader_threads` controls the Rust batch-loading workers. Baseline

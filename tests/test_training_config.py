@@ -61,6 +61,18 @@ def test_training_config_round_trips_through_dict() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
+def test_moe64a2_family_recipe_round_trips() -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=64)
+
+    assert config.run.name == "moe64a2-d64-r0.2"
+    assert config.model.kind == "moe64a2"
+    assert config.model.num_experts == 64
+    assert config.model.num_active_experts == 2
+    assert config.model.expansion_ratio == 2.0
+    assert config.loss.router_aux == 0.01
+    assert training_config_from_dict(asdict(config)) == config
+
+
 def test_training_profile_config_validates_steps() -> None:
     from chess_engine_4.training.profiling import TrainingProfileConfig
 

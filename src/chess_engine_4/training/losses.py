@@ -19,14 +19,18 @@ class LossWeights:
     policy: float = 1.0
     value: float = 1.0
     moves_left: float = 1.0
+    router_aux: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
 class LossBreakdown:
+    total: torch.Tensor
     task: torch.Tensor
     policy: torch.Tensor
     value: torch.Tensor
     moves_left: torch.Tensor
+    aux: torch.Tensor
+    router_aux: torch.Tensor | None
 
 
 type PolicyTarget = tuple[torch.Tensor, torch.Tensor]
@@ -87,9 +91,14 @@ def lczero_loss(
     value = value_cross_entropy(output.wdl_logits, values)
     mlh = moves_left_loss(output.moves_left, values)
     task = weights.policy * policy + weights.value * value + weights.moves_left * mlh
+    router_aux = output.router_aux_loss
+    aux = task.new_zeros(()) if router_aux is None else weights.router_aux * router_aux
     return LossBreakdown(
+        total=task + aux,
         task=task,
         policy=policy,
         value=value,
         moves_left=mlh,
+        aux=aux,
+        router_aux=router_aux,
     )
