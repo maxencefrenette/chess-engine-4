@@ -100,6 +100,14 @@ To profile the Modal training loop:
 uv run profile-training --d-model 64
 ```
 
+To capture a post-warmup CPU/CUDA timeline and download a Chrome trace into
+`profiles/traces/`:
+
+```sh
+uv run profile-training-trace --d-model 256 --profile-steps 10
+uv run profile-training-trace --d-model 256 --experimental-dense-kernel
+```
+
 Experimental Blackwell kernels live under `kernels/` with ThunderKittens pinned
 as a git submodule. Initialize it before building locally, or run the B200
 correctness and latency benchmark directly on Modal:

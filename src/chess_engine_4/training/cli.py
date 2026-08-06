@@ -55,11 +55,14 @@ class TrainOptions:
     checkpoint_every: int | None = None
     checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
+    trace_path: Path | None = None
     experimental_dense_kernel: bool = False
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
     config = options.config
+    if options.trace_path is not None and options.profile is None:
+        raise ValueError("trace_path requires a profiling configuration")
     _seed_everything(config.run.seed)
     torch.set_float32_matmul_precision(_MATMUL_PRECISION)
 
@@ -117,15 +120,36 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     pending_losses: list[torch.Tensor] = []
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
+    trace_profiler: torch.profiler.profile | None = None
     for step in range(1, steps + 1):
+        if (
+            options.trace_path is not None
+            and options.profile is not None
+            and step == options.profile.warmup_steps + 1
+        ):
+            trace_profiler = torch.profiler.profile(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU,
+                    torch.profiler.ProfilerActivity.CUDA,
+                ],
+                record_shapes=True,
+            )
+            trace_profiler.start()
         if options.profile is not None:
             if step == options.profile.warmup_steps + 1:
                 profile_measured_wall_start = time.perf_counter()
             fetch_start = time.perf_counter()
-        try:
-            batch = next(iterator)
-        except StopIteration:
-            break
+        if trace_profiler is not None:
+            with torch.profiler.record_function("data_fetch"):
+                try:
+                    batch = next(iterator)
+                except StopIteration:
+                    break
+        else:
+            try:
+                batch = next(iterator)
+            except StopIteration:
+                break
         if options.profile is not None:
             fetch_end = time.perf_counter()
             copy_start = torch.cuda.Event(enable_timing=True)
@@ -133,7 +157,11 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             train_start = torch.cuda.Event(enable_timing=True)
             train_end = torch.cuda.Event(enable_timing=True)
             copy_start.record()
-        planes, policy, value = _move_batch_to_device(batch, device=device)
+        if trace_profiler is not None:
+            with torch.profiler.record_function("h2d_transfer"):
+                planes, policy, value = _move_batch_to_device(batch, device=device)
+        else:
+            planes, policy, value = _move_batch_to_device(batch, device=device)
         if options.profile is not None:
             copy_end.record()
             train_start.record()
@@ -147,15 +175,32 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
 
         optimizer.zero_grad(set_to_none=True)
-        with autocast_context(config.precision.recipe):
-            output = training_model(planes)
-            loss = lczero_loss(output, policy, value, weights=config.loss)
+        if trace_profiler is not None:
+            with (
+                torch.profiler.record_function("forward_and_loss"),
+                autocast_context(config.precision.recipe),
+            ):
+                output = training_model(planes)
+                loss = lczero_loss(output, policy, value, weights=config.loss)
+        else:
+            with autocast_context(config.precision.recipe):
+                output = training_model(planes)
+                loss = lczero_loss(output, policy, value, weights=config.loss)
         pending_losses.append(loss.task.detach())
-        loss.total.backward()
-        grad_norm_tensor = _clip_gradient_norm(
-            model,
-            max_grad_norm=config.optimizer.max_grad_norm,
-        )
+        if trace_profiler is not None:
+            with torch.profiler.record_function("backward"):
+                loss.total.backward()
+            with torch.profiler.record_function("gradient_clipping"):
+                grad_norm_tensor = _clip_gradient_norm(
+                    model,
+                    max_grad_norm=config.optimizer.max_grad_norm,
+                )
+        else:
+            loss.total.backward()
+            grad_norm_tensor = _clip_gradient_norm(
+                model,
+                max_grad_norm=config.optimizer.max_grad_norm,
+            )
         should_log = step == 1 or step % _LOG_EVERY == 0 or step == steps
         should_checkpoint = _should_save_checkpoint(
             options.checkpoint_dir,
@@ -164,7 +209,11 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps,
         )
         grad_norm = grad_norm_tensor.item() if should_log or should_checkpoint else 0.0
-        optimizer.step()
+        if trace_profiler is not None:
+            with torch.profiler.record_function("optimizer"):
+                optimizer.step()
+        else:
+            optimizer.step()
         if options.profile is not None:
             train_end.record()
             profile_records.append(
@@ -257,6 +306,17 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             )
             if options.checkpoint_commit is not None:
                 options.checkpoint_commit()
+        if trace_profiler is not None:
+            trace_profiler.step()
+            if step == steps:
+                trace_profiler.stop()
+                options.trace_path.parent.mkdir(parents=True, exist_ok=True)
+                trace_profiler.export_chrome_trace(str(options.trace_path))
+                trace_profiler = None
+    if trace_profiler is not None:
+        trace_profiler.stop()
+        options.trace_path.parent.mkdir(parents=True, exist_ok=True)
+        trace_profiler.export_chrome_trace(str(options.trace_path))
     if options.checkpoint_dir is not None and completed_steps > 0 and not final_checkpoint_saved:
         checkpoint_paths.append(
             _save_checkpoint(

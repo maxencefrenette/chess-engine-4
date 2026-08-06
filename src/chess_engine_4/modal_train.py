@@ -146,9 +146,12 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_every=payload.get("checkpoint_every"),
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
+            trace_path=(Path(payload["trace_path"]) if payload.get("trace_path") else None),
             experimental_dense_kernel=payload.get("experimental_dense_kernel", False),
         )
     )
+    if payload.get("trace_path"):
+        artifact_volume.commit()
     return result
 
 

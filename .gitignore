@@ -224,5 +224,6 @@ website/src/generated/scaling-laws.json
 checkpoints/
 artifacts/
 runs/
+profiles/
 /data/
 wandb/
