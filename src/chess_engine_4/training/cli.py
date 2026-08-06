@@ -317,7 +317,7 @@ def _enable_experimental_dense_kernel(model: torch.nn.Module) -> None:
 
     if not isinstance(model, DenseChessNet):
         raise ValueError("the experimental dense kernel only supports dense models")
-    model.enable_experimental_d128_kernel()
+    model.enable_experimental_dense_kernel()
 
 
 def inspect_data() -> None:

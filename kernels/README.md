@@ -15,9 +15,13 @@ The CUDA implementation is kept separate from model selection. New kernels must
 first pass their reference checks and beat the retained implementation in a Modal
 benchmark before the canonical model dispatches to them.
 
-`dense-d128-mxfp8-forward` is the first development target. Its project-owned
-CUDA operator specializes TK's Blackwell MXFP8 GEMM for 128-column projections
-and implements d128-only RMSNorm, SwiGLU, residual, and backward kernels. The
+The dense MXFP8 operator supports d128 through d2048. It shares TK's stock wide
+GEMM across d256 and larger widths, specializes only the RMSNorm launch shape,
+and retains a narrow GEMM specialization for d128's 128-column projections. The
 forward and backward remain a short sequence of specialized launches; fusing
 the two GEMMs into single persistent full-layer kernels is the next optimization
-boundary.
+boundary. The wider forward path does not require per-width GEMM kernels. At
+realistic training batches, however, its explicit backward remains slower than
+Transformer Engine because transpose, quantization, and weight-gradient work are
+separate launches; keep it behind `--experimental-dense-kernel` until that path
+is fused.

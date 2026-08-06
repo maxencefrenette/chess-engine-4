@@ -9,7 +9,8 @@ from typing import Any
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_train import app, base_image
 
-KERNEL_NAME = "dense-d128-mxfp8-forward"
+KERNEL_NAME = "dense-mxfp8"
+SUPPORTED_WIDTHS = (128, 256, 512, 1024, 2048)
 MIN_COSINE_SIMILARITY = 0.999
 MAX_MEAN_ABSOLUTE_ERROR = 1e-3
 MIN_GRADIENT_COSINE_SIMILARITY = 0.99
@@ -20,12 +21,14 @@ kernel_image = with_cuda_kernels(base_image)
 def benchmark_kernel_modal() -> None:
     parser = argparse.ArgumentParser(description="Benchmark a CUDA kernel on Modal.")
     parser.add_argument("--kernel", choices=(KERNEL_NAME,), default=KERNEL_NAME)
-    parser.add_argument("--batch-size", type=int, default=4096)
-    parser.add_argument("--warmup", type=int, default=2_000)
-    parser.add_argument("--iterations", type=int, default=10_000)
+    parser.add_argument("--d-model", type=int, choices=SUPPORTED_WIDTHS, default=128)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--warmup", type=int, default=100)
+    parser.add_argument("--iterations", type=int, default=500)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    if args.batch_size <= 0 or args.batch_size % 256:
+    batch_size = args.batch_size or 32 * args.d_model
+    if batch_size <= 0 or batch_size % 256:
         parser.error("batch-size must be a positive multiple of 256")
     if args.warmup < 0:
         parser.error("warmup must be non-negative")
@@ -33,8 +36,9 @@ def benchmark_kernel_modal() -> None:
         parser.error("iterations must be positive")
 
     with app.run():
-        result = _benchmark_dense_d128_mxfp8.remote(
-            args.batch_size,
+        result = _benchmark_dense_mxfp8.remote(
+            args.d_model,
+            batch_size,
             args.warmup,
             args.iterations,
         )
@@ -42,7 +46,7 @@ def benchmark_kernel_modal() -> None:
         print(json.dumps(result, indent=2, sort_keys=True))
         return
     print(
-        f"kernel={KERNEL_NAME} batch_size={result['batch_size']} "
+        f"kernel={KERNEL_NAME} d_model={result['d_model']} batch_size={result['batch_size']} "
         f"custom_ms={result['custom_ms']:.4f} te_ms={result['te_ms']:.4f} "
         f"speedup={result['speedup_vs_te']:.3f}x"
     )
@@ -58,7 +62,8 @@ def benchmark_kernel_modal() -> None:
 
 
 @app.function(image=kernel_image, gpu="B200", timeout=30 * 60)
-def _benchmark_dense_d128_mxfp8(
+def _benchmark_dense_mxfp8(
+    d_model: int,
     batch_size: int,
     warmup: int,
     iterations: int,
@@ -66,17 +71,17 @@ def _benchmark_dense_d128_mxfp8(
     import torch
     from torch.nn import functional as F
 
-    from chess_engine_4.kernels import dense_d128_mxfp8_forward, dense_d128_mxfp8_trainable
-    from chess_engine_4.kernels.dense import _dense_d128_bf16_forward
+    from chess_engine_4.kernels import dense_mxfp8_forward, dense_mxfp8_trainable
+    from chess_engine_4.kernels.dense import _dense_bf16_forward
     from chess_engine_4.model.dense import DenseBlock
     from chess_engine_4.model.transformer_engine import autocast_context
 
     torch.manual_seed(2026)
     torch.cuda.manual_seed_all(2026)
-    x = torch.randn(batch_size, 128, device="cuda", dtype=torch.bfloat16)
+    x = torch.randn(batch_size, d_model, device="cuda", dtype=torch.bfloat16)
     block = DenseBlock(
-        d_model=128,
-        hidden_dim=512,
+        d_model=d_model,
+        hidden_dim=4 * d_model,
         rms_norm_eps=1e-6,
         activation="swiglu",
     ).cuda().eval()
@@ -88,7 +93,7 @@ def _benchmark_dense_d128_mxfp8(
     with torch.no_grad(), autocast_context("mxfp8"):
         te_output = block(x)
     with torch.no_grad():
-        custom_output = dense_d128_mxfp8_forward(
+        custom_output = dense_mxfp8_forward(
             x,
             norm_weight,
             gate_up_weight,
@@ -123,7 +128,7 @@ def _benchmark_dense_d128_mxfp8(
         for tensor in (x, norm_weight, gate_up_weight, down_weight)
     )
     custom_gradients = torch.autograd.grad(
-        dense_d128_mxfp8_trainable(*custom_inputs),
+        dense_mxfp8_trainable(*custom_inputs),
         custom_inputs,
         gradient,
     )
@@ -132,7 +137,7 @@ def _benchmark_dense_d128_mxfp8(
         for tensor in (x, norm_weight, gate_up_weight, down_weight)
     )
     bf16_gradients = torch.autograd.grad(
-        _dense_d128_bf16_forward(*bf16_inputs, eps=1e-6),
+        _dense_bf16_forward(*bf16_inputs, eps=1e-6),
         bf16_inputs,
         gradient,
     )
@@ -156,7 +161,7 @@ def _benchmark_dense_d128_mxfp8(
         )
 
     def run_custom() -> None:
-        dense_d128_mxfp8_forward(
+        dense_mxfp8_forward(
             x,
             norm_weight,
             gate_up_weight,
@@ -171,6 +176,7 @@ def _benchmark_dense_d128_mxfp8(
     te_ms = _cuda_time(run_te, warmup=warmup, iterations=iterations)
     return {
         "kernel": KERNEL_NAME,
+        "d_model": d_model,
         "batch_size": batch_size,
         "warmup": warmup,
         "iterations": iterations,

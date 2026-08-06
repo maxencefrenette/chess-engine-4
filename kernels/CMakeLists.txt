@@ -18,7 +18,7 @@ if(NOT EXISTS "${THUNDERKITTENS_ROOT}/include/kittens.cuh")
 endif()
 
 pybind11_add_module(_chess_engine_4_kernels MODULE
-  src/dense/d128_mxfp8.cu
+  src/dense/dense_mxfp8.cu
 )
 
 target_include_directories(_chess_engine_4_kernels PRIVATE

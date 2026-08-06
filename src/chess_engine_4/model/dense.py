@@ -88,7 +88,7 @@ class DenseBlock(nn.Module):
         self.hidden_dim = hidden_dim
         self.rms_norm_eps = rms_norm_eps
         self.activation = activation
-        self._use_experimental_kernel = False
+        self._use_custom_kernel = False
         transformer_engine = te()
         self.layer = transformer_engine.LayerNormMLP(
             d_model,
@@ -101,10 +101,10 @@ class DenseBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self._use_experimental_kernel:
-            from chess_engine_4.kernels import dense_d128_mxfp8_trainable
+        if self._use_custom_kernel:
+            from chess_engine_4.kernels import dense_mxfp8_trainable
 
-            return dense_d128_mxfp8_trainable(
+            return dense_mxfp8_trainable(
                 x,
                 self.layer.layer_norm_weight,
                 self.layer.fc1_weight,
@@ -113,17 +113,17 @@ class DenseBlock(nn.Module):
             )
         return x + self.layer(x)
 
-    def enable_experimental_d128_kernel(self) -> None:
-        if (
-            self.d_model != 128
-            or self.hidden_dim != 512
-            or self.activation != "swiglu"
-        ):
+    def enable_experimental_dense_kernel(self) -> None:
+        from chess_engine_4.kernels.dense import SUPPORTED_DENSE_WIDTHS
+
+        if self.d_model not in SUPPORTED_DENSE_WIDTHS or self.hidden_dim != 4 * self.d_model:
             raise ValueError(
-                "the experimental dense kernel requires d_model=128, "
-                "expansion_ratio=4, and activation='swiglu'"
+                "the experimental dense kernel requires d_model in "
+                f"{sorted(SUPPORTED_DENSE_WIDTHS)} and expansion_ratio=4"
             )
-        self._use_experimental_kernel = True
+        if self.activation != "swiglu":
+            raise ValueError("the experimental dense kernel requires activation='swiglu'")
+        self._use_custom_kernel = True
 
 
 class DenseChessNet(nn.Module):
@@ -188,9 +188,9 @@ class DenseChessNet(nn.Module):
             moves_left=self.moves_left_head(x)[:, 0],
         )
 
-    def enable_experimental_d128_kernel(self) -> None:
+    def enable_experimental_dense_kernel(self) -> None:
         for block in self.blocks:
-            block.enable_experimental_d128_kernel()
+            block.enable_experimental_dense_kernel()
 
 
 def dense_parameter_count(
