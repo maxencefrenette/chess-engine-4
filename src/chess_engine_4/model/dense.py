@@ -93,7 +93,7 @@ class DenseBlock(nn.Module):
         self.rms_norm_eps = rms_norm_eps
         self.activation = activation
         self.precision = precision
-        self._use_custom_kernel = False
+        self._custom_kernels_enabled = False
         transformer_engine = te()
         self.layer = transformer_engine.LayerNormMLP(
             d_model,
@@ -106,7 +106,7 @@ class DenseBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self._use_custom_kernel:
+        if self._custom_kernels_enabled:
             from chess_engine_4.kernels import dense_block_trainable
 
             return dense_block_trainable(
@@ -119,17 +119,17 @@ class DenseBlock(nn.Module):
             )
         return x + self.layer(x)
 
-    def enable_experimental_dense_kernel(self) -> None:
+    def enable_custom_kernels(self) -> None:
         from chess_engine_4.kernels.dense import SUPPORTED_DENSE_WIDTHS
 
         if self.d_model not in SUPPORTED_DENSE_WIDTHS or self.hidden_dim != 4 * self.d_model:
             raise ValueError(
-                "the experimental dense kernel requires d_model in "
+                "the custom dense kernel requires d_model in "
                 f"{sorted(SUPPORTED_DENSE_WIDTHS)} and expansion_ratio=4"
             )
         if self.activation != "swiglu":
-            raise ValueError("the experimental dense kernel requires activation='swiglu'")
-        self._use_custom_kernel = True
+            raise ValueError("the custom dense kernel requires activation='swiglu'")
+        self._custom_kernels_enabled = True
 
 
 class DenseChessNet(nn.Module):
@@ -195,9 +195,9 @@ class DenseChessNet(nn.Module):
             moves_left=self.moves_left_head(x)[:, 0],
         )
 
-    def enable_experimental_dense_kernel(self) -> None:
+    def enable_custom_kernels(self) -> None:
         for block in self.blocks:
-            block.enable_experimental_dense_kernel()
+            block.enable_custom_kernels()
 
 
 def dense_parameter_count(

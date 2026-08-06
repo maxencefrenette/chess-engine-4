@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import subprocess
 import tomllib
-from collections import defaultdict
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -143,30 +142,26 @@ def run_modal_profiles(
     warmup_steps: int,
     profile_steps: int,
 ) -> tuple[dict[int, dict[str, Any]], list[str]]:
-    by_cpu: dict[int, list[int]] = defaultdict(list)
-    for width in widths:
-        by_cpu[configs[width].infra.cpu_cores].append(width)
-    functions = {cpu_cores: training_function(cpu_cores) for cpu_cores in by_cpu}
-
+    functions: dict[int, Any] = {}
     completed: dict[int, dict[str, Any]] = {}
     errors: list[str] = []
     with app.run():
-        for cpu_cores, group_widths in by_cpu.items():
-            function = functions[cpu_cores]
-            payloads = [
-                profile_payload(
-                    configs[width],
-                    warmup_steps=warmup_steps,
-                    profile_steps=profile_steps,
+        for width in widths:
+            cpu_cores = configs[width].infra.cpu_cores
+            function = functions.get(cpu_cores)
+            if function is None:
+                function = training_function(cpu_cores)
+                functions[cpu_cores] = function
+            try:
+                completed[width] = function.remote(
+                    profile_payload(
+                        configs[width],
+                        warmup_steps=warmup_steps,
+                        profile_steps=profile_steps,
+                    )
                 )
-                for width in group_widths
-            ]
-            raw_results = function.map(payloads, return_exceptions=True)
-            for width, result in zip(group_widths, raw_results, strict=True):
-                if isinstance(result, BaseException):
-                    errors.append(f"{model_key(width)} failed: {result}")
-                else:
-                    completed[width] = result
+            except Exception as exc:
+                errors.append(f"{model_key(width)} failed: {exc}")
     return completed, errors
 
 

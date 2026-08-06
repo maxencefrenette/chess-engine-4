@@ -123,7 +123,7 @@ def benchmark_dense_layer(
     }
     for graph_block in graph_blocks.values():
         graph_block.load_state_dict(block.state_dict())
-    graph_blocks["custom"].enable_experimental_dense_kernel()
+    graph_blocks["custom"].enable_custom_kernels()
     recipe = quantization_recipe(precision)
     with autocast_context(precision):
         graphs = {

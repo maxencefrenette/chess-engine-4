@@ -18,6 +18,7 @@ if(NOT EXISTS "${THUNDERKITTENS_ROOT}/include/kittens.cuh")
 endif()
 
 pybind11_add_module(_chess_engine_4_kernels MODULE
+  src/bindings.cpp
   src/dense/dense.cu
 )
 

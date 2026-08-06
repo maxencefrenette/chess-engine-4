@@ -25,7 +25,7 @@ fusing the two GEMMs into single persistent full-layer kernels is the next
 optimization boundary. At realistic training batches, the explicit backward
 can remain slower than Transformer Engine because quantization, weight-gradient
 GEMMs, activation, and normalization are separate launches. Keep the path behind
-`--experimental-dense-kernel` until each width wins end-to-end.
+`--kernel-backend custom` until each width wins end-to-end.
 
 The kernel has two precision regimes: BF16 through d512 and MXFP8 from d1024.
 All widths use width-specialized BF16-pair SwiGLU kernels. Run

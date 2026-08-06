@@ -108,7 +108,7 @@ To capture a post-warmup CPU/CUDA timeline from the same profiler:
 ```sh
 uv run profile-training --d-model 256 --profile-steps 10 \
   --trace-output profiles/traces/d256.json
-uv run profile-training --d-model 256 --experimental-dense-kernel \
+uv run profile-training --d-model 256 --kernel-backend custom \
   --profile-steps 10 --trace-output profiles/traces/d256-custom.json
 ```
 
@@ -127,17 +127,17 @@ The benchmark compares TE and custom kernels in one B200 process at the
 CUDA-graphed isolated-layer, synthetic-training-step, and production-loop
 levels.
 
-These kernels remain opt-in until both forward and backward paths beat the
+The custom backend remains opt-in until its forward and backward paths beat the
 canonical Transformer Engine training implementation.
 
 The width-specialized CUDA forward and backward can be exercised in a full
 training or profiling run:
 
 ```sh
-uv run profile-training --d-model 32 --experimental-dense-kernel
+uv run profile-training --d-model 32 --kernel-backend custom
 ```
 
-To benchmark the canonical dense ladder concurrently and cache the results in
+To benchmark the canonical dense ladder sequentially and cache the results in
 `experiments/throughput-dense.toml`:
 
 ```sh

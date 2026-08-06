@@ -142,7 +142,7 @@ class _TrainingRunner:
         self.model = build_model(config.model).cuda()
         self.model.load_state_dict(state)
         if custom:
-            self.model.enable_experimental_dense_kernel()
+            self.model.enable_custom_kernels()
         self.optimizer = _build_optimizer(self.model, config=config)
         self.training_model = build_training_model(
             self.model,

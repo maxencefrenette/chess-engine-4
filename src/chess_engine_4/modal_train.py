@@ -11,6 +11,7 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
+from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import (
     TrainingConfig,
@@ -86,7 +87,7 @@ def train_modal() -> None:
     parser.add_argument("--wandb-name", default=None)
     args = parser.parse_args()
     config = resolve_training_config(args)
-    print_launch_summary(config)
+    print_launch_summary(config, kernel_backend=args.kernel_backend)
 
     payload = {
         "config": asdict(config),
@@ -97,12 +98,12 @@ def train_modal() -> None:
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
-        "experimental_dense_kernel": args.experimental_dense_kernel,
+        "kernel_backend": args.kernel_backend,
     }
 
     train_function = training_function(
         config.infra.cpu_cores,
-        experimental_dense_kernel=args.experimental_dense_kernel,
+        kernel_backend=args.kernel_backend,
     )
     with app.run():
         result = train_function.remote(payload)
@@ -147,7 +148,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
             trace_path=(Path(payload["trace_path"]) if payload.get("trace_path") else None),
-            experimental_dense_kernel=payload.get("experimental_dense_kernel", False),
+            kernel_backend=payload.get("kernel_backend", "te"),
         )
     )
     if payload.get("trace_path"):
@@ -187,7 +188,11 @@ def add_training_config_arguments(
     )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
-    parser.add_argument("--experimental-dense-kernel", action="store_true")
+    parser.add_argument(
+        "--kernel-backend",
+        choices=("te", "custom"),
+        default="te",
+    )
 
 
 def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
@@ -218,6 +223,7 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
+    kernel_backend: KernelBackend = "te",
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -241,6 +247,7 @@ def print_launch_summary(
         f"flops={flops_per_sample * samples:.3e} "
         f"lr={config.optimizer.lr:g} "
         f"precision={config.model.precision} "
+        f"kernel_backend={kernel_backend} "
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
@@ -250,15 +257,15 @@ def print_launch_summary(
 def training_function(
     cpu_cores: int,
     *,
-    experimental_dense_kernel: bool = False,
+    kernel_backend: KernelBackend = "te",
 ) -> modal.Function:
     selected_image = image
     function_name = f"train_cpu_{cpu_cores}"
-    if experimental_dense_kernel:
+    if kernel_backend == "custom":
         from chess_engine_4.kernels.modal import with_cuda_kernels
 
         selected_image = with_cuda_kernels(base_image)
-        function_name += "_dense_kernel"
+        function_name += "_custom_kernels"
     return app.function(
         image=selected_image,
         gpu="B200",

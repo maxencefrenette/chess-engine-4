@@ -15,6 +15,7 @@ from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
     LeelaParquetDataset,
 )
+from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig
@@ -49,7 +50,7 @@ class TrainOptions:
     checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
     trace_path: Path | None = None
-    experimental_dense_kernel: bool = False
+    kernel_backend: KernelBackend = "te"
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
@@ -75,8 +76,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
-    if options.experimental_dense_kernel:
-        _enable_experimental_dense_kernel(model)
+    if options.kernel_backend == "custom":
+        _enable_custom_kernels(model)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
         model,
@@ -93,6 +94,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
+            kernel_backend=options.kernel_backend,
         )
         if options.wandb
         else None
@@ -360,6 +362,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.model.precision,
+        "kernel_backend": options.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
@@ -388,12 +391,12 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     return result
 
 
-def _enable_experimental_dense_kernel(model: torch.nn.Module) -> None:
-    from chess_engine_4.model import DenseChessNet
-
-    if not isinstance(model, DenseChessNet):
-        raise ValueError("the experimental dense kernel only supports dense models")
-    model.enable_experimental_dense_kernel()
+def _enable_custom_kernels(model: torch.nn.Module) -> None:
+    enable = getattr(model, "enable_custom_kernels", None)
+    if not callable(enable):
+        model_kind = getattr(getattr(model, "config", None), "kind", type(model).__name__)
+        raise ValueError(f"custom kernels are not implemented for model kind {model_kind!r}")
+    enable()
 
 
 def inspect_data() -> None:
@@ -613,6 +616,7 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
+    kernel_backend: KernelBackend,
 ) -> Any:
     import wandb
 
@@ -627,6 +631,7 @@ def _init_wandb(
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
         "precision": config.model.precision,
+        "kernel_backend": kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,

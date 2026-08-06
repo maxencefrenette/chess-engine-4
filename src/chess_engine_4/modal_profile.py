@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.modal_train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
@@ -49,10 +50,11 @@ def profile_training() -> None:
         print_launch_summary(
             config,
             steps=args.warmup_steps + args.profile_steps,
+            kernel_backend=args.kernel_backend,
         )
 
     remote_trace_path = (
-        REMOTE_TRACE_PATH / _trace_name(config.run.name, args.experimental_dense_kernel)
+        REMOTE_TRACE_PATH / _trace_name(config.run.name, args.kernel_backend)
         if args.trace_output is not None
         else None
     )
@@ -63,14 +65,14 @@ def profile_training() -> None:
             "warmup_steps": args.warmup_steps,
             "profile_steps": args.profile_steps,
         },
-        "experimental_dense_kernel": args.experimental_dense_kernel,
+        "kernel_backend": args.kernel_backend,
     }
     if remote_trace_path is not None:
         payload["trace_path"] = str(remote_trace_path)
 
     profile_function = training_function(
         config.infra.cpu_cores,
-        experimental_dense_kernel=args.experimental_dense_kernel,
+        kernel_backend=args.kernel_backend,
     )
     with app.run():
         result = profile_function.remote(payload)
@@ -94,6 +96,7 @@ def _print_profile(result: dict[str, Any]) -> None:
         f"profile_complete run={result['run_name']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
         f"batch_size={result['batch_size']} "
+        f"kernel_backend={result['kernel_backend']} "
         f"input_pipeline={result['input_pipeline']} "
         f"threads={result['dataloader_threads']} "
         f"prefetch_per_thread={result['dataloader_prefetch_per_thread']}"
@@ -143,7 +146,6 @@ def _download_trace(remote_path: Path, local_path: Path, *, quiet: bool) -> None
     )
 
 
-def _trace_name(run_name: str, experimental: bool) -> str:
+def _trace_name(run_name: str, kernel_backend: KernelBackend) -> str:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    implementation = "custom" if experimental else "te"
-    return f"{timestamp}-{run_name}-{implementation}.json"
+    return f"{timestamp}-{run_name}-{kernel_backend}.json"

@@ -7,13 +7,6 @@
 
 // ThunderKittens' reference file contains the Blackwell MXFP8 device kernel
 // and quantizer. Capture its definitions in this extension module.
-static void bind_thunderkittens_reference(pybind11::module_ &module);
-static void bind_chess_engine_kernels(pybind11::module_ &module);
-
-PYBIND11_MODULE(_chess_engine_4_kernels, module) {
-    bind_chess_engine_kernels(module);
-}
-
 #undef PYBIND11_MODULE
 #define PYBIND11_MODULE(name, module) \
     static void bind_thunderkittens_reference(pybind11::module_ &module)
@@ -764,7 +757,7 @@ void rmsnorm_backward(
 
 }  // namespace chess_engine_4::dense
 
-static void bind_chess_engine_kernels(pybind11::module_ &module) {
+void bind_dense_kernels(pybind11::module_ &module) {
     bind_thunderkittens_reference(module);
     module.def("dense_mxfp8_gemm", &chess_engine_4::dense::mxfp8_gemm);
     module.def("dense_bf16_gemm", &chess_engine_4::dense::bf16_gemm);
