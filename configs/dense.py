@@ -25,8 +25,8 @@ _LR_TRAINING_RATIO_EXPONENT = -0.63
 _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     32: "pageable",
     64: "pageable",
-    128: "staging",
-    256: "staging",
+    128: "pageable",
+    256: "overlap",
     512: "overlap",
     1024: "overlap",
     1536: "overlap",

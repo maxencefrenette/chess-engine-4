@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import math
 
-from chess_engine_4.model import KernelBackend, Moe64A2ChessNetConfig, moe64a2_parameter_count
+from chess_engine_4.model import (
+    InputPipeline,
+    KernelBackend,
+    Moe64A2ChessNetConfig,
+    moe64a2_parameter_count,
+)
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
@@ -34,6 +39,13 @@ _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
     512: "B200",
     1024: "B200",
     2048: "B200",
+}
+_INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
+    128: "overlap",
+    256: "overlap",
+    512: "overlap",
+    1024: "overlap",
+    2048: "overlap",
 }
 
 
@@ -86,7 +98,7 @@ def config(
             rms_norm_eps=1e-6,
             precision="bf16" if kernel_backend == "custom" else "mxfp8",
             kernel_backend=kernel_backend,
-            input_pipeline="pinned",
+            input_pipeline=_INPUT_PIPELINE_BY_WIDTH[d_model],
         ),
         optimizer=OptimizerConfig(
             lr=_round_significant(
