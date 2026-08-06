@@ -33,6 +33,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         expansion_ratio=2.0,
         history_length=4,
         activation="silu",
+        quantization_recipe="nvfp4",
         lr=0.001,
         max_grad_norm=3.0,
         lr_warmup_steps=25,
@@ -47,6 +48,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.expansion_ratio == 2.0
     assert overridden.model.history_length == 4
     assert overridden.model.activation == "silu"
+    assert overridden.model.precision == "nvfp4"
     assert overridden.optimizer.lr == 0.001
     assert overridden.optimizer.max_grad_norm == 3.0
     assert overridden.optimizer.lr_warmup_steps == 25
@@ -256,18 +258,3 @@ def test_dense_family_recomputes_recipe_for_history_length() -> None:
     assert shortened.model.history_length == 2
     assert shortened.run.steps < full.run.steps
     assert shortened.optimizer.lr > full.optimizer.lr
-
-
-def test_precision_recipe_rejects_unknown_value(tmp_path: Path) -> None:
-    config_path = tmp_path / "invalid_precision.py"
-    config_path.write_text(
-        """from chess_engine_4.training.config import PrecisionConfig, TrainingConfig
-
-def config(*, d_model: int, training_ratio: float = 1.0) -> TrainingConfig:
-    return TrainingConfig(precision=PrecisionConfig(recipe="fp8"))
-""",
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="unknown quantization recipe: fp8"):
-        load_training_config(config_path, d_model=64)

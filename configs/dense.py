@@ -8,13 +8,13 @@ from chess_engine_4.model import DenseChessNetConfig, InputPipeline, dense_param
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
-    PrecisionConfig,
     RunConfig,
     TrainingConfig,
 )
 from chess_engine_4.training.losses import LossWeights
 
 _BASE_WIDTH = 32
+_BF16_MAX_WIDTH = 512
 _DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 32
@@ -73,7 +73,6 @@ def config(
             dataloader_threads=8,
             dataloader_prefetch_per_thread=2,
         ),
-        precision=PrecisionConfig(recipe="mxfp8"),
         model=DenseChessNetConfig(
             d_model=d_model,
             depth=depth,
@@ -81,6 +80,7 @@ def config(
             expansion_ratio=4.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
+            precision="bf16" if d_model <= _BF16_MAX_WIDTH else "mxfp8",
             input_pipeline=_INPUT_PIPELINE_BY_WIDTH[d_model],
         ),
         optimizer=OptimizerConfig(

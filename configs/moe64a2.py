@@ -8,7 +8,6 @@ from chess_engine_4.model import Moe64A2ChessNetConfig, moe64a2_parameter_count
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
-    PrecisionConfig,
     RunConfig,
     TrainingConfig,
 )
@@ -58,7 +57,6 @@ def config(
             dataloader_threads=8,
             dataloader_prefetch_per_thread=2,
         ),
-        precision=PrecisionConfig(recipe="mxfp8"),
         model=Moe64A2ChessNetConfig(
             d_model=d_model,
             depth=_DEPTH,
@@ -66,6 +64,7 @@ def config(
             expansion_ratio=2.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
+            precision="mxfp8",
             input_pipeline="pinned",
         ),
         optimizer=OptimizerConfig(

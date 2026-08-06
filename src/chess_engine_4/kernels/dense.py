@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import torch
-from torch.nn import functional as F
+
+from chess_engine_4.model.config import Precision
 
 SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
-BF16_MAX_WIDTH = 512
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
 
@@ -138,6 +138,7 @@ def dense_block_forward(
     gate_up_weight: torch.Tensor,
     down_weight: torch.Tensor,
     *,
+    precision: Precision,
     eps: float = 1e-6,
 ) -> torch.Tensor:
     """Run a dense SwiGLU residual block through the custom TK kernels."""
@@ -147,6 +148,7 @@ def dense_block_forward(
         norm_weight,
         gate_up_weight,
         down_weight,
+        precision=precision,
         eps=eps,
     )
     return output
@@ -158,6 +160,7 @@ def dense_block_trainable(
     gate_up_weight: torch.Tensor,
     down_weight: torch.Tensor,
     *,
+    precision: Precision,
     eps: float = 1e-6,
 ) -> torch.Tensor:
     """Run the custom forward and explicit low-precision backward."""
@@ -168,6 +171,7 @@ def dense_block_trainable(
         gate_up_weight,
         down_weight,
         eps,
+        precision,
     )
 
 
@@ -180,12 +184,14 @@ class _DenseBlockFunction(torch.autograd.Function):
         gate_up_weight: torch.Tensor,
         down_weight: torch.Tensor,
         eps: float,
+        precision: Precision,
     ) -> torch.Tensor:
         output, intermediates = _dense_forward_components(
             x,
             norm_weight,
             gate_up_weight,
             down_weight,
+            precision=precision,
             eps=eps,
         )
         normalized, gate_up, hidden = intermediates
@@ -199,13 +205,14 @@ class _DenseBlockFunction(torch.autograd.Function):
             hidden,
         )
         ctx.eps = eps
+        ctx.precision = precision
         return output
 
     @staticmethod
     def backward(
         ctx: Any,
         grad_output: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
         (
             x,
             norm_weight,
@@ -225,6 +232,7 @@ class _DenseBlockFunction(torch.autograd.Function):
                 gate_up,
                 hidden,
                 grad_output.contiguous(),
+                precision=ctx.precision,
                 eps=ctx.eps,
             )
 
@@ -239,11 +247,12 @@ def _dense_backward(
     hidden: torch.Tensor,
     grad_output: torch.Tensor,
     *,
+    precision: Precision,
     eps: float,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
     d_model = x.shape[1]
-    if d_model <= BF16_MAX_WIDTH:
-        return _dense_bf16_backward(
+    if precision == "bf16":
+        gradients = _dense_bf16_backward(
             x,
             norm_weight,
             gate_up_weight,
@@ -254,6 +263,9 @@ def _dense_backward(
             grad_output,
             eps=eps,
         )
+        return (*gradients[:-1], None, None)
+    if precision != "mxfp8":
+        raise ValueError(f"custom dense kernel does not support precision={precision!r}")
     grad_hidden = mxfp8_gemm(
         quantize_mxfp8(grad_output),
         quantize_mxfp8_transpose(down_weight),
@@ -295,7 +307,7 @@ def _dense_backward(
         grad_norm_weight,
         eps,
     )
-    return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None
+    return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None, None
 
 
 def _dense_bf16_backward(
@@ -340,6 +352,7 @@ def _dense_forward_components(
     gate_up_weight: torch.Tensor,
     down_weight: torch.Tensor,
     *,
+    precision: Precision,
     eps: float,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     _check_bf16_matrix("x", x)
@@ -360,13 +373,15 @@ def _dense_forward_components(
 
     normalized = torch.empty_like(x)
     _extension().dense_rmsnorm_forward(x, norm_weight, normalized, eps)
-    if d_model <= BF16_MAX_WIDTH:
+    if precision == "bf16":
         gate_up = _bf16_gemm(normalized, gate_up_weight)
         hidden = torch.empty(x.shape[0], hidden_dim, dtype=x.dtype, device=x.device)
         _extension().dense_swiglu_forward(gate_up, hidden)
         projected = _bf16_gemm(hidden, down_weight)
         _extension().dense_residual_add(x, projected)
         return projected, (normalized, gate_up, hidden)
+    if precision != "mxfp8":
+        raise ValueError(f"custom dense kernel does not support precision={precision!r}")
     gate_up = mxfp8_gemm(quantize_mxfp8(normalized), quantize_mxfp8(gate_up_weight))
     hidden = torch.empty(
         x.shape[0],
@@ -381,17 +396,3 @@ def _dense_forward_components(
     )
     _extension().dense_residual_add(x, projected)
     return projected, (normalized, gate_up, hidden)
-
-
-def _dense_bf16_forward(
-    x: torch.Tensor,
-    norm_weight: torch.Tensor,
-    gate_up_weight: torch.Tensor,
-    down_weight: torch.Tensor,
-    *,
-    eps: float,
-) -> torch.Tensor:
-    normalized = F.rms_norm(x, (x.shape[1],), norm_weight, eps)
-    gate, up = F.linear(normalized, gate_up_weight).chunk(2, dim=-1)
-    hidden = F.silu(gate) * up
-    return x + F.linear(hidden, down_weight)

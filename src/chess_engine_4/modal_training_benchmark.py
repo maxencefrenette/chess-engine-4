@@ -103,6 +103,7 @@ def _benchmark_training(
         result["layer"] = benchmark_dense_layer(
             d_model=config.model.d_model,
             batch_size=config.run.batch_size,
+            precision=config.model.precision,
             warmup=warmup,
             iterations=iterations,
         )
@@ -146,7 +147,7 @@ class _TrainingRunner:
         self.training_model = build_training_model(
             self.model,
             batch_size=config.run.batch_size,
-            precision=config.precision.recipe,
+            precision=config.model.precision,
         )
         self.training_model.train()
         torch.cuda.synchronize()
@@ -158,7 +159,7 @@ class _TrainingRunner:
 
         planes, policy, value = batch
         self.optimizer.zero_grad(set_to_none=True)
-        with autocast_context(self.config.precision.recipe):
+        with autocast_context(self.config.model.precision):
             output = self.training_model(planes)
             loss = lczero_loss(output, policy, value, weights=self.config.loss)
         loss.total.backward()

@@ -15,6 +15,7 @@ def benchmark_dense_layer(
     *,
     d_model: int,
     batch_size: int,
+    precision: str,
     warmup: int,
     iterations: int,
 ) -> dict[str, Any]:
@@ -22,7 +23,6 @@ def benchmark_dense_layer(
     from torch.nn import functional as F
 
     from chess_engine_4.kernels import dense_block_forward, dense_block_trainable
-    from chess_engine_4.kernels.dense import BF16_MAX_WIDTH, _dense_bf16_forward
     from chess_engine_4.model.dense import DenseBlock
     from chess_engine_4.model.transformer_engine import (
         autocast_context,
@@ -39,6 +39,7 @@ def benchmark_dense_layer(
             hidden_dim=4 * d_model,
             rms_norm_eps=1e-6,
             activation="swiglu",
+            precision=precision,
         )
         .cuda()
         .eval()
@@ -48,28 +49,20 @@ def benchmark_dense_layer(
     gate_up_weight = layer.fc1_weight.detach()
     down_weight = layer.fc2_weight.detach()
 
-    with torch.no_grad(), autocast_context("mxfp8"):
+    with torch.no_grad(), autocast_context(precision):
         te_output = block(x)
     with torch.no_grad():
-        bf16_output = _dense_bf16_forward(
-            x,
-            norm_weight,
-            gate_up_weight,
-            down_weight,
-            eps=1e-6,
-        )
         custom_output = dense_block_forward(
             x,
             norm_weight,
             gate_up_weight,
             down_weight,
+            precision=precision,
         )
     torch.cuda.synchronize()
 
-    reference_name = "bf16" if d_model <= BF16_MAX_WIDTH else "te_mxfp8"
-    reference_output = bf16_output if d_model <= BF16_MAX_WIDTH else te_output
-    output_metrics = _output_metrics(custom_output, reference_output, F)
-    output_metrics_vs_te = _output_metrics(custom_output, te_output, F)
+    reference_name = f"te_{precision}"
+    output_metrics = _output_metrics(custom_output, te_output, F)
     if not torch.isfinite(custom_output).all():
         raise RuntimeError("custom kernel produced non-finite output")
     if output_metrics["cosine_similarity"] < MIN_COSINE_SIMILARITY:
@@ -89,32 +82,19 @@ def benchmark_dense_layer(
         for tensor in (x, norm_weight, gate_up_weight, down_weight)
     )
     custom_gradients = torch.autograd.grad(
-        dense_block_trainable(*custom_inputs),
+        dense_block_trainable(*custom_inputs, precision=precision),
         custom_inputs,
         gradient,
     )
-    bf16_inputs = tuple(
-        tensor.detach().clone().requires_grad_(True)
-        for tensor in (x, norm_weight, gate_up_weight, down_weight)
-    )
-    bf16_gradients = torch.autograd.grad(
-        _dense_bf16_forward(*bf16_inputs, eps=1e-6),
-        bf16_inputs,
-        gradient,
-    )
     te_x = x.detach().clone().requires_grad_(True)
-    with autocast_context("mxfp8"):
+    with autocast_context(precision):
         te_train_output = block(te_x)
     te_gradients = torch.autograd.grad(
         te_train_output,
         (te_x, layer.layer_norm_weight, layer.fc1_weight, layer.fc2_weight),
         gradient,
     )
-    gradient_metrics_vs_te = _gradient_metrics(custom_gradients, te_gradients, F)
-    gradient_metrics_vs_bf16 = _gradient_metrics(custom_gradients, bf16_gradients, F)
-    gradient_metrics = (
-        gradient_metrics_vs_bf16 if d_model <= BF16_MAX_WIDTH else gradient_metrics_vs_te
-    )
+    gradient_metrics = _gradient_metrics(custom_gradients, te_gradients, F)
     gradient_cosine_similarity = min(
         metrics["cosine_similarity"] for metrics in gradient_metrics.values()
     )
@@ -135,6 +115,7 @@ def benchmark_dense_layer(
             hidden_dim=4 * d_model,
             rms_norm_eps=1e-6,
             activation="swiglu",
+            precision=precision,
         )
         .cuda()
         .train()
@@ -143,8 +124,8 @@ def benchmark_dense_layer(
     for graph_block in graph_blocks.values():
         graph_block.load_state_dict(block.state_dict())
     graph_blocks["custom"].enable_experimental_dense_kernel()
-    recipe = quantization_recipe("mxfp8")
-    with autocast_context("mxfp8"):
+    recipe = quantization_recipe(precision)
+    with autocast_context(precision):
         graphs = {
             name: te().make_graphed_callables(
                 graph_block,
@@ -213,9 +194,6 @@ def benchmark_dense_layer(
         "reference": reference_name,
         "output_metrics": output_metrics,
         "gradient_metrics": gradient_metrics,
-        "output_metrics_vs_te": output_metrics_vs_te,
-        "gradient_metrics_vs_te": gradient_metrics_vs_te,
-        "gradient_metrics_vs_bf16": gradient_metrics_vs_bf16,
         "device_name": torch.cuda.get_device_name(),
     }
 

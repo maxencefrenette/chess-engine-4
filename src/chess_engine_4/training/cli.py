@@ -37,6 +37,7 @@ _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 _B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
 
+
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
     config: TrainingConfig
@@ -80,9 +81,9 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     training_model = build_training_model(
         model,
         batch_size=config.run.batch_size,
-        precision=config.precision.recipe,
+        precision=config.model.precision,
     )
-    theoretical_tflops = _theoretical_tflops(device, precision=config.precision.recipe)
+    theoretical_tflops = _theoretical_tflops(device, precision=config.model.precision)
     wandb_run = (
         _init_wandb(
             config,
@@ -191,12 +192,12 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         if trace_profiler is not None:
             with (
                 torch.profiler.record_function("forward_and_loss"),
-                autocast_context(config.precision.recipe),
+                autocast_context(config.model.precision),
             ):
                 output = training_model(planes)
                 loss = lczero_loss(output, policy, value, weights=config.loss)
         else:
-            with autocast_context(config.precision.recipe):
+            with autocast_context(config.model.precision):
                 output = training_model(planes)
                 loss = lczero_loss(output, policy, value, weights=config.loss)
         pending_losses.append(loss.task.detach())
@@ -233,10 +234,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 {
                     "fetch_wall_ms": (fetch_end - fetch_start) * 1000.0,
                     "pin_wall_ms": (pin_end - pin_start) * 1000.0,
-                    "h2d_enqueue_wall_ms": (
-                        h2d_enqueue_end - h2d_enqueue_start
-                    )
-                    * 1000.0,
+                    "h2d_enqueue_wall_ms": (h2d_enqueue_end - h2d_enqueue_start) * 1000.0,
                     "copy_start": copy_start,
                     "copy_end": copy_end,
                     "train_start": train_start,
@@ -361,7 +359,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "flops_seen": int(last_metrics.get("perf/flops_seen", 0)),
         "flops_per_sample": flops_per_sample,
         "device": str(device),
-        "precision": config.precision.recipe,
+        "precision": config.model.precision,
         "input_pipeline": config.model.input_pipeline,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
@@ -628,7 +626,7 @@ def _init_wandb(
         "training_ratio": config.run.training_ratio,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
-        "precision": config.precision.recipe,
+        "precision": config.model.precision,
         "input_pipeline": config.model.input_pipeline,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,

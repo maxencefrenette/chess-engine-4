@@ -13,7 +13,7 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     RULE50_PLANE_INDEX,
 )
-from chess_engine_4.model.config import InputPipeline
+from chess_engine_4.model.config import InputPipeline, Precision
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
@@ -65,6 +65,7 @@ class DenseChessNetConfig:
     # Checkpoints created before activation was configurable implicitly used SwiGLU.
     activation: str = "swiglu"
     rms_norm_eps: float = 1e-6
+    precision: Precision = "mxfp8"
     input_pipeline: InputPipeline = "pinned"
 
     def __post_init__(self) -> None:
@@ -84,12 +85,14 @@ class DenseBlock(nn.Module):
         hidden_dim: int,
         rms_norm_eps: float,
         activation: str,
+        precision: Precision,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.hidden_dim = hidden_dim
         self.rms_norm_eps = rms_norm_eps
         self.activation = activation
+        self.precision = precision
         self._use_custom_kernel = False
         transformer_engine = te()
         self.layer = transformer_engine.LayerNormMLP(
@@ -111,6 +114,7 @@ class DenseBlock(nn.Module):
                 self.layer.layer_norm_weight,
                 self.layer.fc1_weight,
                 self.layer.fc2_weight,
+                precision=self.precision,
                 eps=self.rms_norm_eps,
             )
         return x + self.layer(x)
@@ -152,6 +156,7 @@ class DenseChessNet(nn.Module):
                     hidden_dim=hidden_dim,
                     rms_norm_eps=config.rms_norm_eps,
                     activation=config.activation,
+                    precision=config.precision,
                 )
                 for _ in range(config.depth)
             ]

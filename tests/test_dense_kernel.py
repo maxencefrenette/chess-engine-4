@@ -21,7 +21,7 @@ def test_dense_kernel_rejects_cpu_input() -> None:
     down = torch.zeros(128, 512, dtype=torch.bfloat16)
 
     with pytest.raises(ValueError, match="x must be a CUDA tensor"):
-        dense_block_forward(x, norm, gate_up, down)
+        dense_block_forward(x, norm, gate_up, down, precision="bf16")
 
 
 def test_transpose_quantizer_rejects_cpu_input() -> None:

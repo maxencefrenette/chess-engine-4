@@ -240,7 +240,7 @@ def print_launch_summary(
         f"samples={samples:,} "
         f"flops={flops_per_sample * samples:.3e} "
         f"lr={config.optimizer.lr:g} "
-        f"precision={config.precision.recipe} "
+        f"precision={config.model.precision} "
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"

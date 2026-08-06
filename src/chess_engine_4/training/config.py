@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from chess_engine_4.model import ModelConfig, model_config_from_dict
+from chess_engine_4.model import ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
 
 
@@ -40,15 +40,6 @@ class InfraConfig:
 
 
 @dataclass(frozen=True, slots=True)
-class PrecisionConfig:
-    recipe: str = "mxfp8"
-
-    def __post_init__(self) -> None:
-        if self.recipe not in {"bf16", "mxfp8", "nvfp4"}:
-            raise ValueError(f"unknown quantization recipe: {self.recipe}")
-
-
-@dataclass(frozen=True, slots=True)
 class OptimizerConfig:
     lr: float = 3e-4
     weight_decay: float = 0.01
@@ -61,7 +52,6 @@ class OptimizerConfig:
 class TrainingConfig:
     run: RunConfig = RunConfig()
     infra: InfraConfig = InfraConfig()
-    precision: PrecisionConfig = PrecisionConfig()
     model: ModelConfig = model_config_from_dict({})
     optimizer: OptimizerConfig = OptimizerConfig()
     loss: LossWeights = LossWeights()
@@ -105,7 +95,6 @@ def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
     return TrainingConfig(
         run=RunConfig(**values.get("run", {})),
         infra=InfraConfig(**values.get("infra", {})),
-        precision=PrecisionConfig(**values.get("precision", {})),
         model=model_config_from_dict(values.get("model", {})),
         optimizer=OptimizerConfig(**values.get("optimizer", {})),
         loss=LossWeights(**values.get("loss", {})),
@@ -128,7 +117,7 @@ def with_overrides(
     lr_cooldown_frac: float | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
-    quantization_recipe: str | None = None,
+    quantization_recipe: Precision | None = None,
 ) -> TrainingConfig:
     if seed is not None:
         config = replace(config, run=replace(config.run, seed=seed))
@@ -178,10 +167,8 @@ def with_overrides(
             ),
         )
     if quantization_recipe is not None:
-        if quantization_recipe not in {"bf16", "mxfp8", "nvfp4"}:
-            raise ValueError(f"unknown quantization recipe: {quantization_recipe}")
         config = replace(
             config,
-            precision=replace(config.precision, recipe=quantization_recipe),
+            model=replace(config.model, precision=quantization_recipe),
         )
     return config
