@@ -5,10 +5,13 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from chess_engine_4.model import ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
+
+TrainingGpu = Literal["B200", "RTX-PRO-6000"]
+TRAINING_GPUS: tuple[TrainingGpu, ...] = ("B200", "RTX-PRO-6000")
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +33,7 @@ class RunConfig:
 
 @dataclass(frozen=True, slots=True)
 class InfraConfig:
+    gpu: TrainingGpu = "B200"
     cpu_cores: int = 8
     dataloader_threads: int = 4
     dataloader_prefetch_per_thread: int = 2
@@ -101,6 +105,14 @@ def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
     )
 
 
+def validate_training_hardware(config: TrainingConfig) -> None:
+    if config.infra.gpu == "RTX-PRO-6000" and config.model.precision != "bf16":
+        raise ValueError(
+            "RTX-PRO-6000 training requires precision='bf16'; "
+            "Transformer Engine 2.17 does not support MXFP8 or NVFP4 on SM120."
+        )
+
+
 def with_overrides(
     config: TrainingConfig,
     *,
@@ -115,6 +127,7 @@ def with_overrides(
     max_grad_norm: float | None = None,
     lr_warmup_steps: int | None = None,
     lr_cooldown_frac: float | None = None,
+    gpu: TrainingGpu | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: Precision | None = None,
@@ -153,6 +166,8 @@ def with_overrides(
             config,
             optimizer=replace(config.optimizer, lr_cooldown_frac=lr_cooldown_frac),
         )
+    if gpu is not None:
+        config = replace(config, infra=replace(config.infra, gpu=gpu))
     if dataloader_threads is not None:
         config = replace(
             config,

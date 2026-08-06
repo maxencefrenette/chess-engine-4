@@ -11,8 +11,8 @@ for canonical experiment results.
 - Routine experiments default to `0.2x` Chinchilla. Specify another training
   ratio only when data allocation is the variable under study or for a planned
   final run.
-- Training is B200-only and uses Transformer Engine. Evaluation may use cheaper
-  Modal GPUs when the selected backend supports them.
+- Training is Blackwell-only and uses the GPU selected by the Python recipe.
+  Custom kernels and MoE training remain B200-only.
 - Review the printed launch summary before allowing an expensive run to proceed.
 - Use Modal concurrency for independent sweeps, while respecting the user's
   stated dollar and wall-clock budgets.

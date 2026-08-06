@@ -19,7 +19,13 @@ from chess_engine_4.modal_train import (
     training_function,
 )
 from chess_engine_4.model import model_parameter_count
-from chess_engine_4.training.config import TrainingConfig, load_training_config
+from chess_engine_4.training.config import (
+    TRAINING_GPUS,
+    TrainingConfig,
+    load_training_config,
+    validate_training_hardware,
+    with_overrides,
+)
 
 DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
 DEFAULT_OUTPUT = Path("experiments/throughput-dense.toml")
@@ -35,6 +41,7 @@ def throughput_sweep() -> None:
     parser.add_argument("--widths", type=int, nargs="+", default=list(DEFAULT_WIDTHS))
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=500)
+    parser.add_argument("--gpu", choices=TRAINING_GPUS, default=None)
     parser.add_argument(
         "--refresh",
         action="store_true",
@@ -50,9 +57,14 @@ def throughput_sweep() -> None:
 
     cached = load_results(args.output)
     configs = {
-        width: load_training_config(args.config, d_model=width, training_ratio=1.0)
+        width: with_overrides(
+            load_training_config(args.config, d_model=width, training_ratio=1.0),
+            gpu=args.gpu,
+        )
         for width in widths
     }
+    for config in configs.values():
+        validate_training_hardware(config)
     pending = [
         width
         for width in widths
@@ -94,6 +106,7 @@ def throughput_sweep() -> None:
             cached,
             config_path=args.config,
             model_family=_model_family(configs),
+            gpu=_gpu(configs),
         )
         print(f"wrote {args.output}")
     elif not args.output.exists():
@@ -102,6 +115,7 @@ def throughput_sweep() -> None:
             cached,
             config_path=args.config,
             model_family=_model_family(configs),
+            gpu=_gpu(configs),
         )
 
     print_report(widths, cached)
@@ -142,16 +156,21 @@ def run_modal_profiles(
     warmup_steps: int,
     profile_steps: int,
 ) -> tuple[dict[int, dict[str, Any]], list[str]]:
-    functions: dict[int, Any] = {}
+    function_keys = {
+        (configs[width].infra.cpu_cores, configs[width].infra.gpu) for width in widths
+    }
+    functions = {
+        key: training_function(key[0], gpu=key[1])
+        for key in function_keys
+    }
     completed: dict[int, dict[str, Any]] = {}
     errors: list[str] = []
     with app.run():
         for width in widths:
             cpu_cores = configs[width].infra.cpu_cores
-            function = functions.get(cpu_cores)
-            if function is None:
-                function = training_function(cpu_cores)
-                functions[cpu_cores] = function
+            gpu = configs[width].infra.gpu
+            function_key = (cpu_cores, gpu)
+            function = functions[function_key]
             try:
                 completed[width] = function.remote(
                     profile_payload(
@@ -186,6 +205,7 @@ def make_entry(
         "samples_1x": config.run.batch_size * config.run.steps,
         "precision": config.model.precision,
         "input_pipeline": config.model.input_pipeline,
+        "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
@@ -224,6 +244,7 @@ def entry_matches(
         "batch_size": config.run.batch_size,
         "precision": config.model.precision,
         "input_pipeline": config.model.input_pipeline,
+        "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
@@ -247,12 +268,13 @@ def write_results(
     *,
     config_path: Path,
     model_family: str,
+    gpu: str,
 ) -> None:
     data = {
         "sweep": {
             "model_family": model_family,
             "config": str(config_path),
-            "gpu": "B200",
+            "gpu": gpu,
             "updated_at": datetime.now(UTC).isoformat(),
         },
         "models": {key: models[key] for key in sorted(models, key=_key_width)},
@@ -268,6 +290,11 @@ def _model_family(configs: dict[int, TrainingConfig]) -> str:
     if len(families) != 1:
         raise ValueError(f"throughput sweep configs must use one model family, got {families}")
     return families.pop()
+
+
+def _gpu(configs: dict[int, TrainingConfig]) -> str:
+    gpus = {config.infra.gpu for config in configs.values()}
+    return gpus.pop() if len(gpus) == 1 else "mixed"
 
 
 def print_report(widths: list[int], models: dict[str, dict[str, Any]]) -> None:

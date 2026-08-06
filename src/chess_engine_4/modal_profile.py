@@ -72,6 +72,7 @@ def profile_training() -> None:
 
     profile_function = training_function(
         config.infra.cpu_cores,
+        gpu=config.infra.gpu,
         kernel_backend=args.kernel_backend,
     )
     with app.run():

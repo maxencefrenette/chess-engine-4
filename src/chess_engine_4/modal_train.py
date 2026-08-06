@@ -14,9 +14,12 @@ from dotenv import load_dotenv
 from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import (
+    TRAINING_GPUS,
     TrainingConfig,
+    TrainingGpu,
     load_training_config,
     training_config_from_dict,
+    validate_training_hardware,
     with_overrides,
 )
 from chess_engine_4.training.flops import measure_training_flops_per_sample
@@ -103,6 +106,7 @@ def train_modal() -> None:
 
     train_function = training_function(
         config.infra.cpu_cores,
+        gpu=config.infra.gpu,
         kernel_backend=args.kernel_backend,
     )
     with app.run():
@@ -188,6 +192,7 @@ def add_training_config_arguments(
     )
     parser.add_argument("--dataloader-threads", type=int, default=None)
     parser.add_argument("--dataloader-prefetch-per-thread", type=int, default=None)
+    parser.add_argument("--gpu", choices=TRAINING_GPUS, default=None)
     parser.add_argument(
         "--kernel-backend",
         choices=("te", "custom"),
@@ -196,7 +201,7 @@ def add_training_config_arguments(
 
 
 def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
-    return with_overrides(
+    config = with_overrides(
         load_training_config(
             args.config,
             d_model=args.d_model,
@@ -213,10 +218,13 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
         max_grad_norm=getattr(args, "max_grad_norm", None),
         lr_warmup_steps=getattr(args, "lr_warmup_steps", None),
         lr_cooldown_frac=getattr(args, "lr_cooldown_frac", None),
+        gpu=args.gpu,
         quantization_recipe=args.quantization_recipe,
         dataloader_threads=args.dataloader_threads,
         dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
     )
+    validate_training_hardware(config)
+    return config
 
 
 def print_launch_summary(
@@ -247,6 +255,7 @@ def print_launch_summary(
         f"flops={flops_per_sample * samples:.3e} "
         f"lr={config.optimizer.lr:g} "
         f"precision={config.model.precision} "
+        f"gpu={config.infra.gpu} "
         f"kernel_backend={kernel_backend} "
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
@@ -257,18 +266,21 @@ def print_launch_summary(
 def training_function(
     cpu_cores: int,
     *,
+    gpu: TrainingGpu,
     kernel_backend: KernelBackend = "te",
 ) -> modal.Function:
     selected_image = image
-    function_name = f"train_cpu_{cpu_cores}"
+    function_name = f"train_{gpu.lower().replace('-', '_')}_cpu_{cpu_cores}"
     if kernel_backend == "custom":
+        if gpu != "B200":
+            raise ValueError("custom kernels currently require gpu='B200'")
         from chess_engine_4.kernels.modal import with_cuda_kernels
 
         selected_image = with_cuda_kernels(base_image)
         function_name += "_custom_kernels"
     return app.function(
         image=selected_image,
-        gpu="B200",
+        gpu=gpu,
         cpu=cpu_cores,
         volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
         secrets=[wandb_secret],

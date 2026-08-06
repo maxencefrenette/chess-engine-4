@@ -9,6 +9,7 @@ from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import (
     load_training_config,
     training_config_from_dict,
+    validate_training_hardware,
     with_overrides,
 )
 
@@ -38,6 +39,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         max_grad_norm=3.0,
         lr_warmup_steps=25,
         lr_cooldown_frac=0.2,
+        gpu="RTX-PRO-6000",
     )
 
     assert overridden.run.seed == 2
@@ -53,6 +55,7 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.optimizer.max_grad_norm == 3.0
     assert overridden.optimizer.lr_warmup_steps == 25
     assert overridden.optimizer.lr_cooldown_frac == 0.2
+    assert overridden.infra.gpu == "RTX-PRO-6000"
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
 
@@ -61,6 +64,16 @@ def test_training_config_round_trips_through_dict() -> None:
     config = load_training_config("configs/dense.py", d_model=64)
 
     assert training_config_from_dict(asdict(config)) == config
+
+
+def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=1024),
+        gpu="RTX-PRO-6000",
+    )
+
+    with pytest.raises(ValueError, match="requires precision='bf16'"):
+        validate_training_hardware(config)
 
 
 def test_moe64a2_family_recipe_round_trips() -> None:
@@ -75,6 +88,7 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert config.model.num_active_experts == 2
     assert config.model.expansion_ratio == 2.0
     assert config.loss.router_aux == 0.01
+    assert config.infra.gpu == "B200"
     assert training_config_from_dict(asdict(config)) == config
 
 
@@ -226,6 +240,24 @@ def test_dense_family_recipe(
     assert config.run.batch_size == batch_size
     assert config.run.steps == round(10 * parameter_count / batch_size)
     assert config.run.steps * batch_size / parameter_count == pytest.approx(10, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    ("d_model", "gpu"),
+    [
+        (32, "RTX-PRO-6000"),
+        (64, "RTX-PRO-6000"),
+        (128, "RTX-PRO-6000"),
+        (256, "RTX-PRO-6000"),
+        (512, "B200"),
+        (1024, "B200"),
+        (2048, "B200"),
+    ],
+)
+def test_dense_family_selects_cost_efficient_gpu(d_model: int, gpu: str) -> None:
+    config = load_training_config("configs/dense.py", d_model=d_model)
+
+    assert config.infra.gpu == gpu
 
 
 def test_dense_family_requires_aligned_width() -> None:

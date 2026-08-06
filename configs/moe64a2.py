@@ -53,6 +53,7 @@ def config(
             training_ratio=training_ratio,
         ),
         infra=InfraConfig(
+            gpu="B200",
             cpu_cores=8,
             dataloader_threads=8,
             dataloader_prefetch_per_thread=2,

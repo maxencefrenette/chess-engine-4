@@ -1,0 +1,36 @@
+b200_gpu_dollars_per_second = 0.001736
+rtx_pro_6000_gpu_dollars_per_second = 0.000842
+cpu_dollars_per_core_second = 0.0000131
+cpu_cores = 8
+training_ratio = 0.2
+
+[[models]]
+d_model = 32
+steps = 3832
+b200_ms_per_step = 1.697152818
+rtx_pro_6000_ms_per_step = 2.138395580
+
+[[models]]
+d_model = 64
+steps = 4783
+b200_ms_per_step = 2.047368736
+rtx_pro_6000_ms_per_step = 2.649437836
+
+[[models]]
+d_model = 128
+steps = 6698
+b200_ms_per_step = 2.844568166
+rtx_pro_6000_ms_per_step = 3.141503682
+
+[[models]]
+d_model = 256
+steps = 10536
+b200_ms_per_step = 3.491561818
+rtx_pro_6000_ms_per_step = 4.063846790
+
+[[models]]
+d_model = 512
+steps = 18214
+b200_ms_per_step = 5.897337396
+rtx_pro_6000_ms_per_step = 14.243833254
+

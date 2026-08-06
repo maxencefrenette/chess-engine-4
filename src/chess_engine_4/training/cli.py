@@ -18,7 +18,7 @@ from chess_engine_4.data.leela import (
 from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
-from chess_engine_4.training.config import TrainingConfig
+from chess_engine_4.training.config import TrainingConfig, validate_training_hardware
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
 from chess_engine_4.training.losses import lczero_loss
@@ -36,7 +36,18 @@ _LOSS_EMA_DECAY = 0.99
 _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
-_B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
+_GPU_SPECS = {
+    "B200": {
+        "capability": (10, 0),
+        "name": "B200",
+        "tflops": {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0},
+    },
+    "RTX-PRO-6000": {
+        "capability": (12, 0),
+        "name": "RTX PRO 6000",
+        "tflops": {"bf16": 503.8},
+    },
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +66,7 @@ class TrainOptions:
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
     config = options.config
+    validate_training_hardware(config)
     if options.trace_path is not None and options.profile is None:
         raise ValueError("trace_path requires a profiling configuration")
     _seed_everything(config.run.seed)
@@ -67,7 +79,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     steps = options.profile.total_steps if options.profile is not None else config.run.steps
 
     device = torch.device("cuda")
-    _require_blackwell(device)
+    _require_training_gpu(device, configured_gpu=config.infra.gpu)
     dataset = LeelaParquetDataset(
         options.data,
         batch_size=config.run.batch_size,
@@ -77,6 +89,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
     if options.kernel_backend == "custom":
+        if config.infra.gpu != "B200":
+            raise ValueError("custom kernels currently require gpu='B200'")
         _enable_custom_kernels(model)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
@@ -84,7 +98,11 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=config.run.batch_size,
         precision=config.model.precision,
     )
-    theoretical_tflops = _theoretical_tflops(device, precision=config.model.precision)
+    theoretical_tflops = _theoretical_tflops(
+        device,
+        configured_gpu=config.infra.gpu,
+        precision=config.model.precision,
+    )
     wandb_run = (
         _init_wandb(
             config,
@@ -536,18 +554,24 @@ def _build_optimizer(
     )
 
 
-def _theoretical_tflops(device: torch.device, *, precision: str) -> float:
-    _require_blackwell(device)
-    return _B200_TFLOPS[precision]
+def _theoretical_tflops(
+    device: torch.device,
+    *,
+    configured_gpu: str,
+    precision: str,
+) -> float:
+    _require_training_gpu(device, configured_gpu=configured_gpu)
+    return _GPU_SPECS[configured_gpu]["tflops"][precision]
 
 
-def _require_blackwell(device: torch.device) -> None:
+def _require_training_gpu(device: torch.device, *, configured_gpu: str) -> None:
+    spec = _GPU_SPECS[configured_gpu]
     capability = torch.cuda.get_device_capability(device)
     name = torch.cuda.get_device_name(device)
-    if capability != (10, 0) or "B200" not in name:
+    if capability != spec["capability"] or spec["name"] not in name:
         raise RuntimeError(
-            "chess-engine-4 requires an NVIDIA B200 (SM100); "
-            f"found {name} SM{capability[0]}{capability[1]}."
+            f"configured gpu={configured_gpu!r}, but Modal provided "
+            f"{name} SM{capability[0]}{capability[1]}."
         )
 
 
@@ -630,6 +654,7 @@ def _init_wandb(
         "training_ratio": config.run.training_ratio,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
+        "gpu": config.infra.gpu,
         "precision": config.model.precision,
         "kernel_backend": kernel_backend,
         "input_pipeline": config.model.input_pipeline,

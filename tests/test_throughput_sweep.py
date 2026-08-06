@@ -38,6 +38,7 @@ def test_throughput_result_round_trip(tmp_path: Path) -> None:
         {"d64": entry},
         config_path=Path("configs/dense.py"),
         model_family="dense",
+        gpu="B200",
     )
     loaded = load_results(path)
 

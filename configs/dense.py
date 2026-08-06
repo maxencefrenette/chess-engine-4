@@ -10,6 +10,7 @@ from chess_engine_4.training.config import (
     OptimizerConfig,
     RunConfig,
     TrainingConfig,
+    TrainingGpu,
 )
 from chess_engine_4.training.losses import LossWeights
 
@@ -30,6 +31,16 @@ _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     1024: "overlap",
     1536: "overlap",
     2048: "overlap",
+}
+_GPU_BY_WIDTH: dict[int, TrainingGpu] = {
+    32: "RTX-PRO-6000",
+    64: "RTX-PRO-6000",
+    128: "RTX-PRO-6000",
+    256: "RTX-PRO-6000",
+    512: "B200",
+    1024: "B200",
+    1536: "B200",
+    2048: "B200",
 }
 
 
@@ -69,6 +80,7 @@ def config(
             training_ratio=training_ratio,
         ),
         infra=InfraConfig(
+            gpu=_GPU_BY_WIDTH[d_model],
             cpu_cores=8,
             dataloader_threads=8,
             dataloader_prefetch_per_thread=2,

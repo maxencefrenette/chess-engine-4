@@ -23,6 +23,11 @@ spikes remain invalid.
 Training is CUDA-only and uses NVIDIA Transformer Engine for MLP layers. Dense
 models use TE's high-level CUDA graph API.
 
+The canonical dense recipe uses RTX PRO 6000 through d256 and B200 from d512
+upward, based on measured Modal cost per step. MoE and custom-kernel training
+remain B200-only. `infra.gpu` records this infrastructure choice; `--gpu` is an
+experiment override, not an automatic fallback.
+
 The `moe64a2` family alternates dense layers with Transformer Engine's fused
 top-k router and grouped linear kernels. Widths below 1024 use static
 CUDA-graphed dispatch; larger widths use TE's faster fused permutation and

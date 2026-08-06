@@ -80,9 +80,10 @@ size is `128 * d_model`:
 uv run train-modal --config configs/moe64a2.py --d-model 64
 ```
 
-Training is Blackwell-only and runs on a Modal B200. Evaluation may use cheaper
-Modal GPUs when its backend supports them. Models use Transformer Engine MXFP8
-block scaling and FP32 optimizer master weights.
+Training is Blackwell-only. Dense `d32` through `d256` run on a Modal RTX PRO
+6000; dense `d512` and larger models and all MoE models run on B200. The GPU is
+part of `InfraConfig` and can be overridden for profiling with `--gpu`. Models
+use Transformer Engine and FP32 optimizer master weights.
 Dense training is CUDA-graphed. Large MoE models instead use Transformer Engine's
 dynamic fused token dispatcher. The Modal image builds the pinned Transformer
 Engine version and its PyTorch extension automatically. Training reserves eight
@@ -134,10 +135,10 @@ The width-specialized CUDA forward and backward can be exercised in a full
 training or profiling run:
 
 ```sh
-uv run profile-training --d-model 32 --kernel-backend custom
+uv run profile-training --d-model 32 --gpu B200 --kernel-backend custom
 ```
 
-To benchmark the canonical dense ladder sequentially and cache the results in
+To benchmark the canonical dense ladder sequentially on its configured GPUs and cache the results in
 `experiments/throughput-dense.toml`:
 
 ```sh
@@ -152,7 +153,8 @@ uv run throughput-sweep --config configs/moe64a2.py \
 ```
 
 Matching cached widths are skipped. Pass `--refresh` to replace them or
-`--widths 256 512 1024` to benchmark a subset.
+`--widths 256 512 1024` to benchmark a subset. Pass `--gpu B200` or
+`--gpu RTX-PRO-6000` to compare the same recipes on one GPU type.
 
 Modal training always writes checkpoints to the `chess-engine-4-artifacts`
 Volume every 50,000 steps and at the end of the run:
