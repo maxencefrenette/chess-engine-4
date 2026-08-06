@@ -63,6 +63,11 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
             <p className="mt-1 text-sm text-zinc-500">
               All runs use {scalingFamily.trainingRatio}x Chinchilla to reduce experiment cost.
             </p>
+            {family.id === "dense" ? (
+              <p className="mt-1 text-sm font-medium text-emerald-700">
+                RTX PRO 6000 reduces estimated cost by 37-48% through d256; d512 and larger remain on B200.
+              </p>
+            ) : null}
           </div>
           {latest ? (
             <div className="text-right">

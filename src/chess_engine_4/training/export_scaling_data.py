@@ -6,6 +6,7 @@ import argparse
 import json
 import math
 import tomllib
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +50,6 @@ def export_scaling_data() -> None:
 
 def write_scaling_data(output: Path) -> None:
     payload = {
-        "version": 4,
         "families": {
             family_id: build_family_payload(family_id, metadata)
             for family_id, metadata in FAMILIES.items()
@@ -78,8 +78,13 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     samples_law = fit_power_law((result_flops[r.budget], r.samples_seen) for r in results)
     batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)
     lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
-    observed = [observed_point(result, result_flops[result.budget], raw_runs) for result in results]
-    stale_observed = [observed_point(result, result.flops, raw_runs) for result in stale_results]
+    observed = [
+        observed_point(result, result_flops[result.budget], raw_runs, family_id)
+        for result in results
+    ]
+    stale_observed = [
+        observed_point(result, result.flops, raw_runs, family_id) for result in stale_results
+    ]
     target_width = max(result.d_model for result in results) * 2
     target_config = load_training_config(
         metadata["config"],
@@ -134,10 +139,22 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     }
 
 
-def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[str, Any]:
+def observed_point(
+    result: Any,
+    flops: float,
+    raw_runs: dict[str, Any],
+    family_id: str,
+) -> dict[str, Any]:
+    raw_run = raw_runs[result.budget]
+    throughput_data = _throughput_data(family_id)
+    throughput = throughput_data["models"][f"d{result.d_model}"]
+    gpu = throughput.get("gpu", throughput_data["sweep"]["gpu"])
+    runtime_sec = result.samples_seen / result.batch_size * float(
+        throughput["measured_wall_ms_per_step"]
+    ) / 1000.0
     return {
         "name": _recipe_name(result.d_model, result.training_ratio),
-        "sourceExperiment": str(raw_runs[result.budget]["source_experiment"]),
+        "sourceExperiment": str(raw_run["source_experiment"]),
         "modelKind": result.model_kind,
         "runName": result.run_name,
         "wandbUrl": result.wandb_url,
@@ -153,9 +170,17 @@ def observed_point(result: Any, flops: float, raw_runs: dict[str, Any]) -> dict[
         "samplesPerParam": result.samples_seen / result.params,
         "loss": result.loss,
         "policyTop1": result.policy_top1,
-        "runtimeSec": float(raw_runs[result.budget]["runtime_sec"]),
+        "gpu": gpu,
+        "runtimeSec": runtime_sec,
         "stale": result.stale,
     }
+
+
+@cache
+def _throughput_data(family_id: str) -> dict[str, Any]:
+    path = Path(f"experiments/throughput-{family_id}.toml")
+    with path.open("rb") as handle:
+        return tomllib.load(handle)
 
 
 def _recipe_name(d_model: int, training_ratio: float) -> str:

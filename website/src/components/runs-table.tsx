@@ -3,19 +3,21 @@
 import type { BestRun } from "@/data/best-runs";
 import {
   formatCompactNumber,
-  formatB200Cost,
   formatDecimal,
   formatDuration,
+  formatGpu,
   formatPercent,
+  formatTrainingCost,
 } from "@/data/format";
 
 export function RunsTable({ runs }: { runs: BestRun[] }) {
   return (
     <div className="max-h-[520px] overflow-auto">
-      <table className="w-full min-w-[1080px] text-sm tabular-nums">
+      <table className="w-full min-w-[1180px] text-sm tabular-nums">
         <thead className="sticky top-0 z-10 bg-zinc-100 text-zinc-500 shadow-[0_1px_0_#e4e4e7]">
           <tr>
             <Th>Run</Th>
+            <Th>GPU</Th>
             <Th numeric>Depth</Th>
             <Th numeric>Batch</Th>
             <Th numeric>LR</Th>
@@ -23,9 +25,11 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
             <Th numeric>Samples</Th>
             <Th numeric>Loss</Th>
             <Th numeric>Policy top-1</Th>
-            <Th numeric>Runtime</Th>
             <Th numeric>
-              <span title="Estimated from recorded runtime at $6.25 per Modal B200-hour">
+              <span title="Step-only estimate from the canonical measured throughput">Runtime</span>
+            </Th>
+            <Th numeric>
+              <span title="Estimated from current Modal GPU pricing plus eight CPU cores; excludes startup and memory">
                 Cost
               </span>
             </Th>
@@ -62,6 +66,7 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
                   </span>
                 ) : null}
               </Td>
+              <Td>{formatGpu(run.gpu)}</Td>
               <Td numeric>{run.depth}</Td>
               <Td numeric>{formatCompactNumber(run.batchSize)}</Td>
               <Td numeric>{run.lr.toExponential(1)}</Td>
@@ -69,8 +74,8 @@ export function RunsTable({ runs }: { runs: BestRun[] }) {
               <Td numeric>{formatCompactNumber(run.samplesSeen)}</Td>
               <Td numeric>{formatDecimal(run.loss)}</Td>
               <Td numeric>{formatPercent(run.policyTop1)}</Td>
-              <Td numeric>{formatDuration(run.runtimeSec)}</Td>
-              <Td numeric>{formatB200Cost(run.runtimeSec)}</Td>
+              <Td numeric>~{formatDuration(run.runtimeSec)}</Td>
+              <Td numeric>{formatTrainingCost(run)}</Td>
             </tr>
           ))}
         </tbody>

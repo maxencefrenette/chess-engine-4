@@ -4,7 +4,7 @@ import {
   type ComparisonSeries,
 } from "@/components/family-comparison-chart";
 import { modelFamilies, readScalingFamily } from "@/data/best-runs";
-import { MODAL_B200_USD_PER_HOUR } from "@/data/format";
+import { trainingCost } from "@/data/format";
 
 const FAMILY_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c"];
 
@@ -34,7 +34,7 @@ export default function ComparePage() {
     color: FAMILY_COLORS[index % FAMILY_COLORS.length],
     points: family.observed.map((run) => ({
       name: run.name,
-      x: runtimeCost(run.runtimeSec),
+      x: trainingCost(run),
       y: run.loss,
     })),
     fitPoints: [],
@@ -51,8 +51,8 @@ export default function ComparePage() {
             Family comparison
           </h1>
           <p className="mt-2 text-sm text-zinc-600">
-            Final loss for canonical runs across model families. Dollar cost uses recorded
-            runtime at $6.25 per Modal B200-hour.
+            Final loss for canonical runs across model families. Dollar cost uses each
+            recipe&apos;s selected GPU, measured steady-state throughput, and eight Modal CPU cores.
           </p>
         </header>
 
@@ -86,8 +86,4 @@ function ChartCard({ children, title }: { children: React.ReactNode; title: stri
       <div className="mt-4">{children}</div>
     </div>
   );
-}
-
-function runtimeCost(runtimeSec: number): number {
-  return (runtimeSec * MODAL_B200_USD_PER_HOUR) / 3600;
 }

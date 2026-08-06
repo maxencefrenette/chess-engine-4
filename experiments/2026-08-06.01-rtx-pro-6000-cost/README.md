@@ -35,9 +35,8 @@ For the canonical `0.2x` runs, the corresponding estimates are:
 
 ![Dense training cost](dense-training-cost.svg)
 
-The RTX profiles are stored in
-`experiments/throughput-dense-rtx-pro-6000.toml`; the matched B200 profiles are
-in `experiments/throughput-dense.toml`.
+The canonical mixed-GPU profiles are stored in
+`experiments/throughput-dense.toml`.
 
 ## Larger models and MoE
 
@@ -59,15 +58,10 @@ Keep all MoE and custom-kernel runs on B200. The Python recipes now encode this
 map in `InfraConfig.gpu`, while `--gpu` remains available for controlled
 profiling overrides.
 
-Commands used for the retained RTX sweep:
+Command for refreshing the retained mixed-GPU sweep:
 
 ```sh
-uv run throughput-sweep --config configs/dense.py \
-  --output experiments/throughput-dense-rtx-pro-6000.toml \
-  --gpu RTX-PRO-6000 --widths 32 64 128 256 512 --refresh
-uv run profile-training --config configs/dense.py --d-model 1024 \
-  --gpu RTX-PRO-6000 --quantization-recipe bf16 \
-  --warmup-steps 20 --profile-steps 100 --json
+uv run throughput-sweep --refresh
 ```
 
 ## Sources

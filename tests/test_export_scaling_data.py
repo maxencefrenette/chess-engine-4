@@ -35,6 +35,16 @@ def test_export_scaling_data_includes_family_relative_targets(tmp_path: Path) ->
     assert all(point["samplesPerParam"] > 0 for point in dense["extrapolated"])
     assert all(point["steps"] > 0 for point in dense["observed"])
     assert all(point["batchSize"] > 0 for point in dense["extrapolated"])
+    assert [point["gpu"] for point in dense["observed"]] == [
+        "RTX-PRO-6000",
+        "RTX-PRO-6000",
+        "RTX-PRO-6000",
+        "RTX-PRO-6000",
+        "B200",
+        "B200",
+    ]
+    assert dense["observed"][0]["runtimeSec"] > 0
+    assert dense["observed"][-1]["runtimeSec"] > 0
 
     moe = payload["families"]["moe64a2"]
     assert [point["name"] for point in moe["observed"]] == [

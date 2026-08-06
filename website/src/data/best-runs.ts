@@ -1,6 +1,7 @@
 import scalingData from "@/generated/scaling-laws.json";
 
 export type ModelFamilyId = "dense" | "moe64a2";
+export type TrainingGpu = "B200" | "RTX-PRO-6000";
 
 export type BestRun = {
   name: string;
@@ -20,6 +21,7 @@ export type BestRun = {
   samplesPerParam: number;
   loss: number;
   policyTop1: number;
+  gpu: TrainingGpu;
   runtimeSec: number;
   stale: boolean;
 };
@@ -65,7 +67,6 @@ export type ScalingFamily = {
 export type ModelFamily = Pick<ScalingFamily, "id" | "name" | "description">;
 
 type ScalingData = {
-  version: number;
   families: Record<ModelFamilyId, ScalingFamily>;
 };
 
