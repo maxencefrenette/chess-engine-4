@@ -13,7 +13,7 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     RULE50_PLANE_INDEX,
 )
-from chess_engine_4.model.config import InputPipeline, Precision
+from chess_engine_4.model.config import InputPipeline, KernelBackend, Precision
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
@@ -66,6 +66,7 @@ class DenseChessNetConfig:
     activation: str = "swiglu"
     rms_norm_eps: float = 1e-6
     precision: Precision = "mxfp8"
+    kernel_backend: KernelBackend = "te"
     input_pipeline: InputPipeline = "pinned"
 
     def __post_init__(self) -> None:

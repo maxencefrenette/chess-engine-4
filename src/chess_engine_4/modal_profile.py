@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.modal_train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
@@ -21,6 +20,7 @@ from chess_engine_4.modal_train import (
     resolve_training_config,
     training_function,
 )
+from chess_engine_4.model import KernelBackend
 
 REMOTE_TRACE_PATH = Path(REMOTE_ARTIFACT_PATH) / "profiles" / "traces"
 
@@ -50,11 +50,10 @@ def profile_training() -> None:
         print_launch_summary(
             config,
             steps=args.warmup_steps + args.profile_steps,
-            kernel_backend=args.kernel_backend,
         )
 
     remote_trace_path = (
-        REMOTE_TRACE_PATH / _trace_name(config.run.name, args.kernel_backend)
+        REMOTE_TRACE_PATH / _trace_name(config.run.name, config.model.kernel_backend)
         if args.trace_output is not None
         else None
     )
@@ -65,7 +64,6 @@ def profile_training() -> None:
             "warmup_steps": args.warmup_steps,
             "profile_steps": args.profile_steps,
         },
-        "kernel_backend": args.kernel_backend,
     }
     if remote_trace_path is not None:
         payload["trace_path"] = str(remote_trace_path)
@@ -73,7 +71,7 @@ def profile_training() -> None:
     profile_function = training_function(
         config.infra.cpu_cores,
         gpu=config.infra.gpu,
-        kernel_backend=args.kernel_backend,
+        kernel_backend=config.model.kernel_backend,
     )
     with app.run():
         result = profile_function.remote(payload)

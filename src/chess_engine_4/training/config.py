@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
-from chess_engine_4.model import ModelConfig, Precision, model_config_from_dict
+from chess_engine_4.model import KernelBackend, ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
 
 TrainingGpu = Literal["B200", "RTX-PRO-6000"]
@@ -111,6 +111,21 @@ def validate_training_hardware(config: TrainingConfig) -> None:
             "RTX-PRO-6000 training requires precision='bf16'; "
             "Transformer Engine 2.17 does not support MXFP8 or NVFP4 on SM120."
         )
+    if config.model.kernel_backend != "custom":
+        return
+    if config.model.kind == "dense" and config.infra.gpu == "B200":
+        return
+    if (
+        config.model.kind == "moe64a2"
+        and config.model.d_model == 128
+        and config.model.precision == "bf16"
+        and config.infra.gpu == "RTX-PRO-6000"
+    ):
+        return
+    raise ValueError(
+        "custom kernels require either a dense model on B200 or "
+        "a BF16 moe64a2 d128 model on RTX-PRO-6000"
+    )
 
 
 def with_overrides(
@@ -131,6 +146,7 @@ def with_overrides(
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: Precision | None = None,
+    kernel_backend: KernelBackend | None = None,
 ) -> TrainingConfig:
     if seed is not None:
         config = replace(config, run=replace(config.run, seed=seed))
@@ -185,5 +201,10 @@ def with_overrides(
         config = replace(
             config,
             model=replace(config.model, precision=quantization_recipe),
+        )
+    if kernel_backend is not None:
+        config = replace(
+            config,
+            model=replace(config.model, kernel_backend=kernel_backend),
         )
     return config

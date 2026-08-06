@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from chess_engine_4.model import Moe64A2ChessNetConfig, moe64a2_parameter_count
+from chess_engine_4.model import KernelBackend, Moe64A2ChessNetConfig, moe64a2_parameter_count
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
@@ -20,6 +20,13 @@ _BATCH_PER_WIDTH = 128
 _LR_PARAMETER_COEFFICIENT = 518.0
 _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.18
+_KERNEL_BACKEND_BY_WIDTH: dict[int, KernelBackend] = {
+    128: "custom",
+    256: "te",
+    512: "te",
+    1024: "te",
+    2048: "te",
+}
 
 
 def config(
@@ -32,12 +39,16 @@ def config(
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
         raise ValueError("d_model must be a positive multiple of 32.")
+    if d_model not in _KERNEL_BACKEND_BY_WIDTH:
+        choices = ", ".join(str(width) for width in _KERNEL_BACKEND_BY_WIDTH)
+        raise ValueError(f"d_model must be one of: {choices}.")
     if training_ratio <= 0:
         raise ValueError("training_ratio must be positive.")
     if not 1 <= history_length <= 8:
         raise ValueError("history_length must be in [1, 8].")
 
     batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
+    kernel_backend = _KERNEL_BACKEND_BY_WIDTH[d_model]
     parameter_count = moe64a2_parameter_count(
         d_model=d_model,
         depth=_DEPTH,
@@ -53,7 +64,7 @@ def config(
             training_ratio=training_ratio,
         ),
         infra=InfraConfig(
-            gpu="B200",
+            gpu="RTX-PRO-6000" if kernel_backend == "custom" else "B200",
             cpu_cores=8,
             dataloader_threads=8,
             dataloader_prefetch_per_thread=2,
@@ -65,7 +76,8 @@ def config(
             expansion_ratio=2.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
-            precision="mxfp8",
+            precision="bf16" if kernel_backend == "custom" else "mxfp8",
+            kernel_backend=kernel_backend,
             input_pipeline="pinned",
         ),
         optimizer=OptimizerConfig(

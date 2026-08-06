@@ -15,7 +15,6 @@ from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
     LeelaParquetDataset,
 )
-from chess_engine_4.kernels.config import KernelBackend
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig, validate_training_hardware
@@ -61,7 +60,6 @@ class TrainOptions:
     checkpoint_commit: Callable[[], None] | None = None
     profile: TrainingProfileConfig | None = None
     trace_path: Path | None = None
-    kernel_backend: KernelBackend = "te"
 
 
 def run_training(options: TrainOptions) -> dict[str, Any]:
@@ -88,9 +86,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
-    if options.kernel_backend == "custom":
-        if config.infra.gpu != "B200":
-            raise ValueError("custom kernels currently require gpu='B200'")
+    if config.model.kernel_backend == "custom":
         _enable_custom_kernels(model)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
@@ -112,7 +108,6 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
-            kernel_backend=options.kernel_backend,
         )
         if options.wandb
         else None
@@ -380,7 +375,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.model.precision,
-        "kernel_backend": options.kernel_backend,
+        "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
@@ -640,7 +635,6 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
-    kernel_backend: KernelBackend,
 ) -> Any:
     import wandb
 
@@ -656,7 +650,7 @@ def _init_wandb(
         "device_name": torch.cuda.get_device_name(device),
         "gpu": config.infra.gpu,
         "precision": config.model.precision,
-        "kernel_backend": kernel_backend,
+        "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,

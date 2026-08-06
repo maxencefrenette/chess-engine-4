@@ -11,8 +11,7 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
-from chess_engine_4.kernels.config import KernelBackend
-from chess_engine_4.model import model_parameter_count
+from chess_engine_4.model import KernelBackend, model_parameter_count
 from chess_engine_4.training.config import (
     TRAINING_GPUS,
     TrainingConfig,
@@ -90,7 +89,7 @@ def train_modal() -> None:
     parser.add_argument("--wandb-name", default=None)
     args = parser.parse_args()
     config = resolve_training_config(args)
-    print_launch_summary(config, kernel_backend=args.kernel_backend)
+    print_launch_summary(config)
 
     payload = {
         "config": asdict(config),
@@ -101,13 +100,12 @@ def train_modal() -> None:
         "wandb_name": args.wandb_name,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
-        "kernel_backend": args.kernel_backend,
     }
 
     train_function = training_function(
         config.infra.cpu_cores,
         gpu=config.infra.gpu,
-        kernel_backend=args.kernel_backend,
+        kernel_backend=config.model.kernel_backend,
     )
     with app.run():
         result = train_function.remote(payload)
@@ -152,7 +150,6 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
             checkpoint_commit=artifact_volume.commit,
             profile=(TrainingProfileConfig(**profile) if profile is not None else None),
             trace_path=(Path(payload["trace_path"]) if payload.get("trace_path") else None),
-            kernel_backend=payload.get("kernel_backend", "te"),
         )
     )
     if payload.get("trace_path"):
@@ -196,7 +193,7 @@ def add_training_config_arguments(
     parser.add_argument(
         "--kernel-backend",
         choices=("te", "custom"),
-        default="te",
+        default=None,
     )
 
 
@@ -222,6 +219,7 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
         quantization_recipe=args.quantization_recipe,
         dataloader_threads=args.dataloader_threads,
         dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
+        kernel_backend=args.kernel_backend,
     )
     validate_training_hardware(config)
     return config
@@ -231,7 +229,6 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
-    kernel_backend: KernelBackend = "te",
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -256,7 +253,7 @@ def print_launch_summary(
         f"lr={config.optimizer.lr:g} "
         f"precision={config.model.precision} "
         f"gpu={config.infra.gpu} "
-        f"kernel_backend={kernel_backend} "
+        f"kernel_backend={config.model.kernel_backend} "
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
@@ -272,8 +269,6 @@ def training_function(
     selected_image = image
     function_name = f"train_{gpu.lower().replace('-', '_')}_cpu_{cpu_cores}"
     if kernel_backend == "custom":
-        if gpu != "B200":
-            raise ValueError("custom kernels currently require gpu='B200'")
         from chess_engine_4.kernels.modal import with_cuda_kernels
 
         selected_image = with_cuda_kernels(base_image)

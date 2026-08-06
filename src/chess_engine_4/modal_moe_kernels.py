@@ -54,34 +54,79 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
     import torch
     from torch.nn import functional as F
 
-    from chess_engine_4.kernels import moe_d128_forward
+    from chess_engine_4.kernels import moe_d128_trainable
 
     torch.manual_seed(2026)
-    x, gate_up, down, probs, offsets, splits = _inputs(torch)
-    reference_parts = []
-    for expert, split in enumerate(splits):
-        start = offsets[expert].item()
-        end = start + split
-        projected = F.linear(x[start:end], gate_up[expert])
-        gate, up = projected.chunk(2, dim=-1)
-        reference_parts.append(
-            F.linear(F.silu(gate) * up, down[expert]) * probs[start:end, None]
+    correctness = _make_inputs(torch, [16] * EXPERT_COUNT)
+    correctness_tensors = tuple(
+        tensor.detach().clone().requires_grad_(True)
+        for tensor in correctness[:4]
+    )
+    custom_output = moe_d128_trainable(
+        *correctness_tensors,
+        correctness[4],
+    )
+    reference_tensors = tuple(
+        tensor.detach().clone().requires_grad_(True)
+        for tensor in correctness[:4]
+    )
+    reference_output = _reference_moe(
+        *reference_tensors,
+        splits=correctness[5],
+        functional=F,
+    )
+    gradient = torch.randn_like(custom_output)
+    custom_gradients = torch.autograd.grad(
+        custom_output,
+        correctness_tensors,
+        gradient,
+    )
+    reference_gradients = torch.autograd.grad(
+        reference_output,
+        reference_tensors,
+        gradient,
+    )
+    output_metrics = _output_metrics(custom_output, reference_output, F)
+    gradient_metrics = _gradient_metrics(custom_gradients, reference_gradients, F)
+    if output_metrics["cosine_similarity"] < 0.999:
+        raise RuntimeError(f"custom MoE output cosine similarity is too low: {output_metrics}")
+    if min(metric["cosine_similarity"] for metric in gradient_metrics.values()) < 0.99:
+        raise RuntimeError(
+            f"custom MoE gradient cosine similarity is too low: {gradient_metrics}"
         )
-    reference = torch.cat(reference_parts)
-    output = moe_d128_forward(x, gate_up, down, probs, offsets)
-    torch.cuda.synchronize()
-    metrics = _output_metrics(output, reference, F)
-    if metrics["cosine_similarity"] < 0.999:
-        raise RuntimeError(f"custom MoE output cosine similarity is too low: {metrics}")
-    if metrics["mean_absolute_error"] > 0.01:
-        raise RuntimeError(f"custom MoE output mean absolute error is too high: {metrics}")
 
-    graph = torch.cuda.CUDAGraph()
-    for _ in range(3):
-        output = moe_d128_forward(x, gate_up, down, probs, offsets)
-    torch.cuda.synchronize()
-    with torch.cuda.graph(graph):
-        output = moe_d128_forward(x, gate_up, down, probs, offsets)
+    class CustomExperts(torch.nn.Module):
+        def __init__(self, gate_up_weight: Any, down_weight: Any) -> None:
+            super().__init__()
+            self.gate_up_weight = torch.nn.Parameter(gate_up_weight)
+            self.down_weight = torch.nn.Parameter(down_weight)
+
+        def forward(self, x: Any, probs: Any, offsets: Any) -> Any:
+            return moe_d128_trainable(
+                x,
+                self.gate_up_weight,
+                self.down_weight,
+                probs,
+                offsets,
+            )
+
+    x, gate_up, down, probs, offsets, _ = _inputs(torch)
+    x.requires_grad_(True)
+    probs.requires_grad_(True)
+    experts = CustomExperts(gate_up, down).cuda().train()
+    graph = torch.cuda.make_graphed_callables(
+        experts,
+        (x, probs, offsets),
+        allow_unused_input=True,
+    )
+
+    def run_forward() -> Any:
+        return graph(x, probs, offsets)
+
+    graph_output = run_forward()
+    backward_inputs = (x, experts.gate_up_weight, experts.down_weight, probs)
+    backward_gradient = torch.randn_like(graph_output)
+    del graph_output
 
     return {
         "implementation": "custom-bf16",
@@ -89,8 +134,16 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
         "device_name": torch.cuda.get_device_name(),
         "batch_size": BATCH_SIZE,
         "padded_tokens": x.shape[0],
-        "median_ms": _cuda_time(graph.replay, warmup=warmup, iterations=iterations),
-        "output_metrics": metrics,
+        "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
+        "backward_ms": _cuda_time_backward(
+            run_forward,
+            backward_inputs,
+            backward_gradient,
+            warmup=warmup,
+            iterations=iterations,
+        ),
+        "output_metrics": output_metrics,
+        "gradient_metrics": gradient_metrics,
     }
 
 
@@ -104,25 +157,46 @@ def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
 
     torch.manual_seed(2026)
     x, _, _, probs, _, splits = _inputs(torch)
+    x.requires_grad_(True)
+    probs.requires_grad_(True)
     split_tensor = torch.tensor(splits, device="cuda", dtype=torch.int64)
-    experts = MoeBlock(Moe64A2ChessNetConfig(d_model=128)).experts.cuda().eval()
+
+    class TeExperts(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.experts = MoeBlock(Moe64A2ChessNetConfig(d_model=128)).experts
+
+        def forward(self, x: Any, probs: Any, splits: Any) -> Any:
+            return self.experts(x, splits, probs, splits)
+
+    experts = TeExperts().cuda().train()
     with autocast_context("mxfp8"):
         graph = te().make_graphed_callables(
             experts,
-            (x, split_tensor, probs, split_tensor),
+            (x, probs, split_tensor),
             allow_unused_input=True,
             enabled=True,
             recipe=mxfp8_recipe(),
         )
 
+    def run_forward() -> Any:
+        return graph(x, probs, split_tensor)
+
+    graph_output = run_forward()
+    backward_inputs = (x, *tuple(experts.parameters()), probs)
+    backward_gradient = torch.randn_like(graph_output)
+    del graph_output
     return {
         "implementation": "te-mxfp8",
         "gpu": "B200",
         "device_name": torch.cuda.get_device_name(),
         "batch_size": BATCH_SIZE,
         "padded_tokens": x.shape[0],
-        "median_ms": _cuda_time(
-            lambda: graph(x, split_tensor, probs, split_tensor),
+        "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
+        "backward_ms": _cuda_time_backward(
+            run_forward,
+            backward_inputs,
+            backward_gradient,
             warmup=warmup,
             iterations=iterations,
         ),
@@ -136,6 +210,11 @@ def _inputs(torch: Any) -> tuple[Any, Any, Any, Any, Any, list[int]]:
     padded_tokens = _round_up(padded_tokens, TOKEN_ALIGNMENT)
     splits = [tokens_per_expert] * EXPERT_COUNT
     splits[-1] += padded_tokens - sum(splits)
+    return _make_inputs(torch, splits)
+
+
+def _make_inputs(torch: Any, splits: list[int]) -> tuple[Any, Any, Any, Any, Any, list[int]]:
+    padded_tokens = sum(splits)
     offsets = [0]
     for split in splits:
         offsets.append(offsets[-1] + split)
@@ -147,6 +226,31 @@ def _inputs(torch: Any) -> tuple[Any, Any, Any, Any, Any, list[int]]:
         torch.tensor(offsets, device="cuda", dtype=torch.int32),
         splits,
     )
+
+
+def _reference_moe(
+    x: Any,
+    gate_up: Any,
+    down: Any,
+    probs: Any,
+    *,
+    splits: list[int],
+    functional: Any,
+) -> Any:
+    import torch
+
+    outputs = []
+    start = 0
+    for expert, split in enumerate(splits):
+        end = start + split
+        projected = functional.linear(x[start:end], gate_up[expert])
+        gate, up = projected.chunk(2, dim=-1)
+        outputs.append(
+            functional.linear(functional.silu(gate) * up, down[expert])
+            * probs[start:end, None]
+        )
+        start = end
+    return torch.cat(outputs)
 
 
 def _round_up(value: int, alignment: int) -> int:
@@ -187,19 +291,66 @@ def _output_metrics(output: Any, reference: Any, functional: Any) -> dict[str, f
     }
 
 
+def _gradient_metrics(
+    custom: tuple[Any, ...],
+    reference: tuple[Any, ...],
+    functional: Any,
+) -> dict[str, dict[str, float]]:
+    return {
+        name: _output_metrics(custom_gradient, reference_gradient, functional)
+        for name, custom_gradient, reference_gradient in zip(
+            ("input", "gate_up_weight", "down_weight", "route_probs"),
+            custom,
+            reference,
+            strict=True,
+        )
+    }
+
+
+def _cuda_time_backward(
+    build_output: Any,
+    inputs: tuple[Any, ...],
+    gradient: Any,
+    *,
+    warmup: int,
+    iterations: int,
+) -> float:
+    import statistics
+
+    import torch
+
+    for _ in range(warmup):
+        torch.autograd.grad(build_output(), inputs, gradient)
+    torch.cuda.synchronize()
+    samples = []
+    for _ in range(iterations):
+        output = build_output()
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
+        torch.autograd.grad(output, inputs, gradient)
+        end.record()
+        end.synchronize()
+        samples.append(start.elapsed_time(end))
+    return statistics.median(samples)
+
+
 def _comparison(custom: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
     for measurement in (custom, baseline):
         gpu = measurement["gpu"]
+        measurement["training_ms"] = measurement["forward_ms"] + measurement["backward_ms"]
         dollars_per_second = (
             GPU_DOLLARS_PER_SECOND[gpu] + CPU_CORES * CPU_DOLLARS_PER_CORE_SECOND
         )
         measurement["dollars_per_million_batches"] = (
-            measurement["median_ms"] / 1_000 * dollars_per_second * 1_000_000
+            measurement["training_ms"] / 1_000 * dollars_per_second * 1_000_000
         )
     return {
         "custom": custom,
         "baseline": baseline,
-        "latency_speedup": baseline["median_ms"] / custom["median_ms"],
+        "forward_speedup": baseline["forward_ms"] / custom["forward_ms"],
+        "backward_speedup": baseline["backward_ms"] / custom["backward_ms"],
+        "training_speedup": baseline["training_ms"] / custom["training_ms"],
         "cost_efficiency_gain": (
             baseline["dollars_per_million_batches"]
             / custom["dollars_per_million_batches"]
@@ -212,16 +363,16 @@ def _print_result(result: dict[str, Any]) -> None:
     baseline = result["baseline"]
     print(
         f"custom={custom['implementation']} gpu={custom['gpu']} "
-        f"latency={custom['median_ms']:.3f}ms "
+        f"forward={custom['forward_ms']:.3f}ms backward={custom['backward_ms']:.3f}ms "
         f"cost_per_million_batches=${custom['dollars_per_million_batches']:.2f}"
     )
     print(
         f"baseline={baseline['implementation']} gpu={baseline['gpu']} "
-        f"latency={baseline['median_ms']:.3f}ms "
+        f"forward={baseline['forward_ms']:.3f}ms backward={baseline['backward_ms']:.3f}ms "
         f"cost_per_million_batches=${baseline['dollars_per_million_batches']:.2f}"
     )
     print(
-        f"latency_speedup={result['latency_speedup']:.3f}x "
+        f"training_speedup={result['training_speedup']:.3f}x "
         f"cost_efficiency_gain={result['cost_efficiency_gain']:.3f}x"
     )
     print(f"correctness={custom['output_metrics']}")

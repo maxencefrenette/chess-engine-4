@@ -76,6 +76,15 @@ def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
         validate_training_hardware(config)
 
 
+def test_custom_moe_kernel_requires_d128_bf16_on_rtx_pro_6000() -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=128)
+
+    validate_training_hardware(config)
+
+    with pytest.raises(ValueError, match="BF16 moe64a2 d128"):
+        validate_training_hardware(with_overrides(config, gpu="B200"))
+
+
 def test_moe64a2_family_recipe_round_trips() -> None:
     config = load_training_config("configs/moe64a2.py", d_model=128)
 
@@ -88,8 +97,18 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert config.model.num_active_experts == 2
     assert config.model.expansion_ratio == 2.0
     assert config.loss.router_aux == 0.01
-    assert config.infra.gpu == "B200"
+    assert config.model.kernel_backend == "custom"
+    assert config.model.precision == "bf16"
+    assert config.infra.gpu == "RTX-PRO-6000"
     assert training_config_from_dict(asdict(config)) == config
+
+
+@pytest.mark.parametrize("d_model", [32, 64])
+def test_moe64a2_recipe_rejects_widths_with_unreliable_expert_utilization(
+    d_model: int,
+) -> None:
+    with pytest.raises(ValueError, match="d_model must be one of"):
+        load_training_config("configs/moe64a2.py", d_model=d_model)
 
 
 def test_training_profile_config_validates_steps() -> None:

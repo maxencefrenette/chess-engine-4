@@ -10,7 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
-from chess_engine_4.model.config import InputPipeline, Precision
+from chess_engine_4.model.config import InputPipeline, KernelBackend, Precision
 from chess_engine_4.model.dense import (
     HISTORY_LENGTH,
     PLANES_PER_HISTORY_POSITION,
@@ -60,6 +60,7 @@ class Moe64A2ChessNetConfig:
     activation: str = "swiglu"
     rms_norm_eps: float = 1e-6
     precision: Precision = "mxfp8"
+    kernel_backend: KernelBackend = "te"
     input_pipeline: InputPipeline = "pinned"
 
     num_experts: ClassVar[int] = EXPERT_COUNT
@@ -97,6 +98,7 @@ class MoeBlock(nn.Module):
         self.d_model = config.d_model
         self.hidden_dim = hidden_dim
         self.cuda_graph_compatible = config.cuda_graph_compatible
+        self._custom_kernels_enabled = False
         self.norm = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
@@ -238,18 +240,65 @@ class MoeBlock(nn.Module):
                 padded_positions[route_index::ACTIVE_EXPERT_COUNT],
                 route_probs[:, route_index],
             )
-        expert_output = self.experts(
-            padded_x,
-            expert_splits,
-            padded_probs,
-            expert_splits,
-        )
+        if self._custom_kernels_enabled:
+            expert_offsets = F.pad(
+                expert_splits.cumsum(dim=0, dtype=torch.int32),
+                (1, 0),
+            )
+            expert_output = self.experts(padded_x, padded_probs, expert_offsets)
+        else:
+            expert_output = self.experts(
+                padded_x,
+                expert_splits,
+                padded_probs,
+                expert_splits,
+            )
         routed = expert_output[padded_positions].reshape(
             batch_size,
             ACTIVE_EXPERT_COUNT,
             self.d_model,
         )
         return routed.sum(dim=1), tokens_per_expert
+
+    def enable_custom_kernels(self) -> None:
+        if self._custom_kernels_enabled:
+            return
+        if self.d_model != 128 or self.hidden_dim != 256:
+            raise ValueError("the custom MoE kernel requires d_model=128 and expansion_ratio=2")
+        gate_up = self.experts[0]
+        down = self.experts[2]
+        self.experts = _CustomD128Experts(
+            torch.stack(
+                [getattr(gate_up, f"weight{expert}").detach() for expert in range(EXPERT_COUNT)]
+            ),
+            torch.stack(
+                [getattr(down, f"weight{expert}").detach() for expert in range(EXPERT_COUNT)]
+            ),
+        )
+        self._custom_kernels_enabled = True
+
+
+class _CustomD128Experts(nn.Module):
+    def __init__(self, gate_up_weight: torch.Tensor, down_weight: torch.Tensor) -> None:
+        super().__init__()
+        self.gate_up_weight = nn.Parameter(gate_up_weight)
+        self.down_weight = nn.Parameter(down_weight)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        route_probs: torch.Tensor,
+        expert_offsets: torch.Tensor,
+    ) -> torch.Tensor:
+        from chess_engine_4.kernels import moe_d128_trainable
+
+        return moe_d128_trainable(
+            x,
+            self.gate_up_weight,
+            self.down_weight,
+            route_probs,
+            expert_offsets,
+        )
 
 
 class Moe64A2ChessNet(nn.Module):
@@ -326,6 +375,11 @@ class Moe64A2ChessNet(nn.Module):
             router_aux_loss=torch.stack(router_aux_losses).mean(),
             router_dead_experts=torch.stack(dead_experts).max(),
         )
+
+    def enable_custom_kernels(self) -> None:
+        for block in self.blocks:
+            if isinstance(block, MoeBlock):
+                block.enable_custom_kernels()
 
 
 def moe64a2_parameter_count(

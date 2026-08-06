@@ -1,6 +1,6 @@
 """Model definitions."""
 
-from chess_engine_4.model.config import InputPipeline, Precision
+from chess_engine_4.model.config import InputPipeline, KernelBackend, Precision
 from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.model.moe import (
     Moe64A2ChessNet,
@@ -20,6 +20,7 @@ __all__ = [
     "DenseChessNet",
     "DenseChessNetConfig",
     "InputPipeline",
+    "KernelBackend",
     "ModelConfig",
     "Moe64A2ChessNet",
     "Moe64A2ChessNetConfig",

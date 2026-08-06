@@ -157,10 +157,15 @@ def run_modal_profiles(
     profile_steps: int,
 ) -> tuple[dict[int, dict[str, Any]], list[str]]:
     function_keys = {
-        (configs[width].infra.cpu_cores, configs[width].infra.gpu) for width in widths
+        (
+            configs[width].infra.cpu_cores,
+            configs[width].infra.gpu,
+            configs[width].model.kernel_backend,
+        )
+        for width in widths
     }
     functions = {
-        key: training_function(key[0], gpu=key[1])
+        key: training_function(key[0], gpu=key[1], kernel_backend=key[2])
         for key in function_keys
     }
     completed: dict[int, dict[str, Any]] = {}
@@ -169,7 +174,7 @@ def run_modal_profiles(
         for width in widths:
             cpu_cores = configs[width].infra.cpu_cores
             gpu = configs[width].infra.gpu
-            function_key = (cpu_cores, gpu)
+            function_key = (cpu_cores, gpu, configs[width].model.kernel_backend)
             function = functions[function_key]
             try:
                 completed[width] = function.remote(
@@ -204,6 +209,7 @@ def make_entry(
         "steps_1x": config.run.steps,
         "samples_1x": config.run.batch_size * config.run.steps,
         "precision": config.model.precision,
+        "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
@@ -243,6 +249,7 @@ def entry_matches(
         "activation": config.model.activation,
         "batch_size": config.run.batch_size,
         "precision": config.model.precision,
+        "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
         "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
