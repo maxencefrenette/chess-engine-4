@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 import torch
 
-from chess_engine_4.kernels.dense import SUPPORTED_DENSE_WIDTHS, dense_mxfp8_forward
+from chess_engine_4.kernels.dense import (
+    SUPPORTED_DENSE_WIDTHS,
+    dense_mxfp8_forward,
+    quantize_mxfp8_transpose,
+)
 
 
 def test_dense_kernel_supports_power_of_two_widths() -> None:
@@ -18,3 +22,8 @@ def test_dense_kernel_rejects_cpu_input() -> None:
 
     with pytest.raises(ValueError, match="x must be a CUDA tensor"):
         dense_mxfp8_forward(x, norm, gate_up, down)
+
+
+def test_transpose_quantizer_rejects_cpu_input() -> None:
+    with pytest.raises(ValueError, match="tensor must be a CUDA tensor"):
+        quantize_mxfp8_transpose(torch.zeros(128, 256, dtype=torch.bfloat16))

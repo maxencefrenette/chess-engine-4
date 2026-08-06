@@ -51,6 +51,11 @@ def benchmark_kernel_modal() -> None:
         f"speedup={result['speedup_vs_te']:.3f}x"
     )
     print(
+        f"custom_backward_ms={result['custom_backward_ms']:.4f} "
+        f"te_backward_ms={result['te_backward_ms']:.4f} "
+        f"backward_speedup={result['backward_speedup_vs_te']:.3f}x"
+    )
+    print(
         f"mean_abs_error={result['mean_abs_error_vs_te']:.6f} "
         f"max_abs_error={result['max_abs_error_vs_te']:.6f} "
         f"cosine_similarity={result['cosine_similarity_vs_te']:.8f}"
@@ -174,6 +179,33 @@ def _benchmark_dense_mxfp8(
 
     custom_ms = _cuda_time(run_custom, warmup=warmup, iterations=iterations)
     te_ms = _cuda_time(run_te, warmup=warmup, iterations=iterations)
+    backward_custom_inputs = tuple(
+        tensor.detach().clone().requires_grad_(True)
+        for tensor in (x, norm_weight, gate_up_weight, down_weight)
+    )
+    te_backward_x = x.detach().clone().requires_grad_(True)
+
+    def build_custom_backward() -> Any:
+        return dense_mxfp8_trainable(*backward_custom_inputs)
+
+    def build_te_backward() -> Any:
+        with autocast_context("mxfp8"):
+            return block(te_backward_x)
+
+    custom_backward_ms = _cuda_time_backward(
+        build_custom_backward,
+        backward_custom_inputs,
+        gradient,
+        warmup=warmup,
+        iterations=iterations,
+    )
+    te_backward_ms = _cuda_time_backward(
+        build_te_backward,
+        (te_backward_x, layer.layer_norm_weight, layer.fc1_weight, layer.fc2_weight),
+        gradient,
+        warmup=warmup,
+        iterations=iterations,
+    )
     return {
         "kernel": KERNEL_NAME,
         "d_model": d_model,
@@ -183,6 +215,9 @@ def _benchmark_dense_mxfp8(
         "custom_ms": custom_ms,
         "te_ms": te_ms,
         "speedup_vs_te": te_ms / custom_ms,
+        "custom_backward_ms": custom_backward_ms,
+        "te_backward_ms": te_backward_ms,
+        "backward_speedup_vs_te": te_backward_ms / custom_backward_ms,
         "mean_abs_error_vs_te": mean_abs_error,
         "max_abs_error_vs_te": max_abs_error,
         "cosine_similarity_vs_te": cosine_similarity,
@@ -231,3 +266,29 @@ def _cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
         end.record()
         end.synchronize()
     return start.elapsed_time(end) / iterations
+
+
+def _cuda_time_backward(
+    build_output: Any,
+    inputs: tuple[Any, ...],
+    gradient: Any,
+    *,
+    warmup: int,
+    iterations: int,
+) -> float:
+    import torch
+
+    for _ in range(warmup):
+        torch.autograd.grad(build_output(), inputs, gradient)
+    torch.cuda.synchronize()
+    total_ms = 0.0
+    for _ in range(iterations):
+        output = build_output()
+        start = torch.cuda.Event(enable_timing=True)
+        end = torch.cuda.Event(enable_timing=True)
+        start.record()
+        torch.autograd.grad(output, inputs, gradient)
+        end.record()
+        end.synchronize()
+        total_ms += start.elapsed_time(end)
+    return total_ms / iterations

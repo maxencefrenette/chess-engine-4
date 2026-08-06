@@ -59,6 +59,29 @@ def quantize_mxfp8(tensor: torch.Tensor) -> Mxfp8Tensor:
     return Mxfp8Tensor(values=values, scales=scales)
 
 
+def quantize_mxfp8_transpose(tensor: torch.Tensor) -> Mxfp8Tensor:
+    """Transpose and quantize BF16 without materializing the BF16 transpose."""
+
+    _check_matrix("tensor", tensor)
+    rows, columns = tensor.shape
+    values = torch.empty(
+        columns,
+        rows,
+        dtype=torch.float8_e4m3fn,
+        device=tensor.device,
+    )
+    scales = torch.empty(
+        columns // MXFP8_TILE_SIZE,
+        rows // MXFP8_TILE_SIZE,
+        32,
+        16,
+        dtype=torch.uint8,
+        device=tensor.device,
+    )
+    _extension().dense_quantize_mxfp8_transpose(tensor, values, scales)
+    return Mxfp8Tensor(values=values, scales=scales)
+
+
 def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
     rows, reduction = left.values.shape
     output_columns, right_reduction = right.values.shape
@@ -86,20 +109,20 @@ def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
 
 
 def _mxfp8_gemm_columns(
-    left: torch.Tensor,
-    right: torch.Tensor,
+    left: torch.Tensor | Mxfp8Tensor,
+    right: torch.Tensor | Mxfp8Tensor,
     *,
     output_columns: int,
 ) -> torch.Tensor:
-    left_mxfp8 = quantize_mxfp8(left)
-    right_mxfp8 = quantize_mxfp8(right)
+    left_mxfp8 = left if isinstance(left, Mxfp8Tensor) else quantize_mxfp8(left)
+    right_mxfp8 = right if isinstance(right, Mxfp8Tensor) else quantize_mxfp8(right)
     if output_columns != 128:
         return mxfp8_gemm(left_mxfp8, right_mxfp8)
     output = torch.empty(
-        left.shape[0],
+        left_mxfp8.values.shape[0],
         output_columns,
         dtype=torch.bfloat16,
-        device=left.device,
+        device=left_mxfp8.values.device,
     )
     _extension().dense_mxfp8_gemm_narrow(
         left_mxfp8.values,
@@ -223,7 +246,7 @@ def _dense_mxfp8_backward(
     d_model = x.shape[1]
     grad_hidden = mxfp8_gemm(
         quantize_mxfp8(grad_output),
-        quantize_mxfp8(down_weight.T.contiguous()),
+        quantize_mxfp8_transpose(down_weight),
     )
     grad_gate_up = torch.empty_like(gate_up)
     _extension().dense_swiglu_backward(
@@ -238,13 +261,13 @@ def _dense_mxfp8_backward(
         output_rows=d_model,
     )
     grad_gate_up_weight = _mxfp8_gemm_columns(
-        grad_gate_up.T.contiguous(),
-        normalized.T.contiguous(),
+        quantize_mxfp8_transpose(grad_gate_up),
+        quantize_mxfp8_transpose(normalized),
         output_columns=d_model,
     )
     grad_normalized = _mxfp8_gemm_columns(
-        grad_gate_up,
-        gate_up_weight.T.contiguous(),
+        quantize_mxfp8(grad_gate_up),
+        quantize_mxfp8_transpose(gate_up_weight),
         output_columns=d_model,
     )
 
@@ -315,13 +338,13 @@ def _mxfp8_weight_gradient(
     *,
     output_rows: int,
 ) -> torch.Tensor:
-    left = grad_output.T.contiguous()
-    right = hidden.T.contiguous()
     if output_rows != 128:
         return mxfp8_gemm(
-            quantize_mxfp8(left),
-            quantize_mxfp8(right),
+            quantize_mxfp8_transpose(grad_output),
+            quantize_mxfp8_transpose(hidden),
         )
+    left = grad_output.T.contiguous()
+    right = hidden.T.contiguous()
     padded_left = F.pad(
         left,
         (0, 0, 0, TK_GEMM_OUTPUT_ALIGNMENT - output_rows),

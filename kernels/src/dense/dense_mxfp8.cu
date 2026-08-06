@@ -69,8 +69,163 @@ using WideGemmGlobals = mxfp8_gemm::globals<WideGemmConfig>;
 
 constexpr int THREADS = 256;
 constexpr int RMS_ROWS_PER_BLOCK = 8;
-constexpr int MIN_WIDTH = 128;
-constexpr int MAX_WIDTH = 2048;
+
+namespace transpose_quantize {
+
+using Config = mxfp8_quantize::config;
+
+struct Globals {
+    static constexpr int TILE_SIZE = 128;
+    static constexpr int K_BLOCK_SIZE = 32;
+
+    using InputTile = st_bf<TILE_SIZE, TILE_SIZE, false>;
+    using OutputTile = st_fp8e4m3<TILE_SIZE, TILE_SIZE, false>;
+    using ScaleTile = st_fp8e8m0<32, 16, false>;
+    using InputGlobal = gl<bf16, 1, 1, -1, -1, InputTile>;
+    using OutputGlobal = gl<fp8e4m3, 1, 1, -1, -1, OutputTile>;
+    using ScaleGlobal = gl<fp8e8m0, -1, -1, 32, 16, ScaleTile>;
+
+    InputGlobal input;
+    OutputGlobal output;
+    ScaleGlobal scales;
+
+    __host__ inline dim3 grid() const {
+        return dim3(input.cols() / TILE_SIZE, input.rows() / TILE_SIZE);
+    }
+
+    __host__ inline int dynamic_shared_memory() const {
+        return TILE_SIZE * TILE_SIZE * sizeof(bf16) + 1024;
+    }
+};
+
+__device__ inline void kernel(const Globals &globals) {
+    extern __shared__ int shared[];
+    tma_swizzle_allocator allocator(reinterpret_cast<int *>(&shared[0]));
+    Globals::InputTile &input_tile = allocator.allocate<Globals::InputTile>();
+    Globals::OutputTile &output_tile =
+        *reinterpret_cast<Globals::OutputTile *>(&input_tile);
+    Globals::ScaleTile &scale_tile = *reinterpret_cast<Globals::ScaleTile *>(
+        reinterpret_cast<uint64_t>(&output_tile) + sizeof(output_tile)
+    );
+
+    const int thread = threadIdx.x;
+    const int input_tile_row = blockIdx.y;
+    const int input_tile_column = blockIdx.x;
+    __shared__ semaphore input_arrived;
+    if (thread == 0) {
+        init_semaphore(input_arrived, 0, 1);
+        tma::expect(input_arrived, input_tile);
+        tma::load_async(
+            input_tile,
+            globals.input,
+            {input_tile_row, input_tile_column},
+            input_arrived
+        );
+    }
+    __syncthreads();
+    wait(input_arrived, 0);
+
+    constexpr int ROWS_PER_THREAD = 2;
+    constexpr int NUM_K_BLOCKS = Globals::TILE_SIZE / Globals::K_BLOCK_SIZE;
+    constexpr int VALUES_PER_K_BLOCK = Globals::TILE_SIZE / 2 / NUM_K_BLOCKS;
+    bf16_2 values[ROWS_PER_THREAD][NUM_K_BLOCKS][VALUES_PER_K_BLOCK];
+    fp8e8m0 scales[ROWS_PER_THREAD][NUM_K_BLOCKS];
+    const uint32_t input_address =
+        static_cast<uint32_t>(__cvta_generic_to_shared(&input_tile));
+
+    #pragma unroll
+    for (int row_slot = 0; row_slot < ROWS_PER_THREAD; ++row_slot) {
+        const int output_row = thread + row_slot * 64;
+        #pragma unroll
+        for (int block_slot = 0; block_slot < NUM_K_BLOCKS; ++block_slot) {
+            const int k_block = (block_slot + thread / 8) % NUM_K_BLOCKS;
+            #pragma unroll
+            for (int value_slot = 0; value_slot < VALUES_PER_K_BLOCK; ++value_slot) {
+                const int output_column = k_block * Globals::K_BLOCK_SIZE
+                    + ((thread + value_slot) * 2) % Globals::K_BLOCK_SIZE;
+                const int first_offset =
+                    (output_column * Globals::TILE_SIZE + output_row) * sizeof(bf16);
+                const int second_offset =
+                    ((output_column + 1) * Globals::TILE_SIZE + output_row) * sizeof(bf16);
+                move<bf16>::lds(values[row_slot][block_slot][value_slot].x,
+                                input_address + first_offset);
+                move<bf16>::lds(values[row_slot][block_slot][value_slot].y,
+                                input_address + second_offset);
+            }
+        }
+    }
+    __syncthreads();
+
+    #pragma unroll
+    for (int row_slot = 0; row_slot < ROWS_PER_THREAD; ++row_slot) {
+        const int output_row = thread + row_slot * 64;
+        #pragma unroll
+        for (int block_slot = 0; block_slot < NUM_K_BLOCKS; ++block_slot) {
+            const int k_block = (block_slot + thread / 8) % NUM_K_BLOCKS;
+            bf16_2 maximum = __habs2(values[row_slot][block_slot][0]);
+            #pragma unroll
+            for (int value_slot = 1; value_slot < VALUES_PER_K_BLOCK; ++value_slot) {
+                maximum = __hmax2(
+                    maximum,
+                    __habs2(values[row_slot][block_slot][value_slot])
+                );
+            }
+            const float scale = max(
+                __bfloat162float(__hmax(maximum.x, maximum.y)) * 0.002232142857f,
+                0.000000000001f
+            );
+            scales[row_slot][k_block].__x = __nv_cvt_float_to_e8m0(
+                scale,
+                __NV_SATFINITE,
+                cudaRoundPosInf
+            );
+            const float inverse_scale = 1.0f / static_cast<float>(scales[row_slot][k_block]);
+            #pragma unroll
+            for (int value_slot = 0; value_slot < VALUES_PER_K_BLOCK; ++value_slot) {
+                const int output_column = k_block * Globals::K_BLOCK_SIZE
+                    + ((thread + value_slot) * 2) % Globals::K_BLOCK_SIZE;
+                const int output_offset =
+                    (output_row * Globals::TILE_SIZE + output_column) * sizeof(fp8e4m3);
+                fp8e4m3 output_values[2] = {
+                    __nv_fp8_e4m3(
+                        __bfloat162float(values[row_slot][block_slot][value_slot].x)
+                        * inverse_scale
+                    ),
+                    __nv_fp8_e4m3(
+                        __bfloat162float(values[row_slot][block_slot][value_slot].y)
+                        * inverse_scale
+                    ),
+                };
+                asm volatile("{st.shared.b16 [%0], %1;}"
+                    :: "r"(static_cast<uint32_t>(__cvta_generic_to_shared(&output_tile))
+                           + output_offset)
+                       "h"(*reinterpret_cast<uint16_t *>(&output_values[0])));
+            }
+        }
+        const int scale_offset =
+            (output_row % 32) * 16 + (output_row / 32) * 4;
+        asm volatile("{st.shared.b32 [%0], %1;}"
+            :: "r"(static_cast<uint32_t>(__cvta_generic_to_shared(&scale_tile))
+                   + scale_offset)
+               "r"(*reinterpret_cast<uint32_t *>(&scales[row_slot][0])));
+    }
+
+    __syncthreads();
+    if (thread == 0) {
+        tma::store_async(
+            globals.output,
+            output_tile,
+            {input_tile_column, input_tile_row}
+        );
+        tma::store_async(
+            globals.scales,
+            scale_tile,
+            {input_tile_column, input_tile_row, 0, 0}
+        );
+    }
+}
+
+}  // namespace transpose_quantize
 
 template <int THREAD_COUNT>
 __device__ float block_sum(float value, float *warp_sums, float *total) {
@@ -135,23 +290,30 @@ __global__ void rmsnorm_forward_kernel(
     }
 }
 
+template <int HIDDEN_DIM>
 __global__ void swiglu_forward_kernel(
     const __nv_bfloat16 *gate_up,
     __nv_bfloat16 *hidden,
-    int elements,
-    int hidden_dim
+    int rows
 ) {
-    const int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index >= elements) {
+    constexpr int PAIRS_PER_ROW = HIDDEN_DIM / 2;
+    constexpr int BLOCKS_PER_ROW = PAIRS_PER_ROW / THREADS;
+    const int row = blockIdx.x / BLOCKS_PER_ROW;
+    if (row >= rows) {
         return;
     }
-    const int row = index / hidden_dim;
-    const int column = index % hidden_dim;
-    const int row_offset = row * (2 * hidden_dim);
-    const float gate = __bfloat162float(gate_up[row_offset + column]);
-    const float up = __bfloat162float(gate_up[row_offset + hidden_dim + column]);
-    const float silu = gate / (1.0f + expf(-gate));
-    hidden[index] = __float2bfloat16(silu * up);
+    const int pair_column = (blockIdx.x % BLOCKS_PER_ROW) * THREADS + threadIdx.x;
+    const auto *gate_up_pairs = reinterpret_cast<const __nv_bfloat162 *>(gate_up);
+    auto *hidden_pairs = reinterpret_cast<__nv_bfloat162 *>(hidden);
+    const int gate_offset = row * HIDDEN_DIM + pair_column;
+    const __nv_bfloat162 gate = gate_up_pairs[gate_offset];
+    const __nv_bfloat162 up = gate_up_pairs[gate_offset + PAIRS_PER_ROW];
+    const float gate_x = __bfloat162float(gate.x);
+    const float gate_y = __bfloat162float(gate.y);
+    hidden_pairs[row * PAIRS_PER_ROW + pair_column] = __floats2bfloat162_rn(
+        gate_x / (1.0f + expf(-gate_x)) * __bfloat162float(up.x),
+        gate_y / (1.0f + expf(-gate_y)) * __bfloat162float(up.y)
+    );
 }
 
 __global__ void residual_add_kernel(
@@ -167,28 +329,43 @@ __global__ void residual_add_kernel(
     }
 }
 
+template <int HIDDEN_DIM>
 __global__ void swiglu_backward_kernel(
     const __nv_bfloat16 *grad_hidden,
     const __nv_bfloat16 *gate_up,
     __nv_bfloat16 *grad_gate_up,
-    int elements,
-    int hidden_dim
+    int rows
 ) {
-    const int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index >= elements) {
+    constexpr int PAIRS_PER_ROW = HIDDEN_DIM / 2;
+    constexpr int BLOCKS_PER_ROW = PAIRS_PER_ROW / THREADS;
+    const int row = blockIdx.x / BLOCKS_PER_ROW;
+    if (row >= rows) {
         return;
     }
-    const int row = index / hidden_dim;
-    const int column = index % hidden_dim;
-    const int output_offset = row * (2 * hidden_dim);
-    const float grad = __bfloat162float(grad_hidden[index]);
-    const float gate_value = __bfloat162float(gate_up[output_offset + column]);
-    const float up_value = __bfloat162float(gate_up[output_offset + hidden_dim + column]);
-    const float sigmoid = 1.0f / (1.0f + expf(-gate_value));
-    const float silu = gate_value * sigmoid;
-    const float silu_gradient = sigmoid * (1.0f + gate_value * (1.0f - sigmoid));
-    grad_gate_up[output_offset + column] = __float2bfloat16(grad * up_value * silu_gradient);
-    grad_gate_up[output_offset + hidden_dim + column] = __float2bfloat16(grad * silu);
+    const int pair_column = (blockIdx.x % BLOCKS_PER_ROW) * THREADS + threadIdx.x;
+    const auto *grad_hidden_pairs = reinterpret_cast<const __nv_bfloat162 *>(grad_hidden);
+    const auto *gate_up_pairs = reinterpret_cast<const __nv_bfloat162 *>(gate_up);
+    auto *grad_gate_up_pairs = reinterpret_cast<__nv_bfloat162 *>(grad_gate_up);
+    const int gate_offset = row * HIDDEN_DIM + pair_column;
+    const __nv_bfloat162 grad = grad_hidden_pairs[row * PAIRS_PER_ROW + pair_column];
+    const __nv_bfloat162 gate = gate_up_pairs[gate_offset];
+    const __nv_bfloat162 up = gate_up_pairs[gate_offset + PAIRS_PER_ROW];
+    const float gate_x = __bfloat162float(gate.x);
+    const float gate_y = __bfloat162float(gate.y);
+    const float sigmoid_x = 1.0f / (1.0f + expf(-gate_x));
+    const float sigmoid_y = 1.0f / (1.0f + expf(-gate_y));
+    const float silu_x = gate_x * sigmoid_x;
+    const float silu_y = gate_y * sigmoid_y;
+    grad_gate_up_pairs[gate_offset] = __floats2bfloat162_rn(
+        __bfloat162float(grad.x) * __bfloat162float(up.x)
+            * sigmoid_x * (1.0f + gate_x * (1.0f - sigmoid_x)),
+        __bfloat162float(grad.y) * __bfloat162float(up.y)
+            * sigmoid_y * (1.0f + gate_y * (1.0f - sigmoid_y))
+    );
+    grad_gate_up_pairs[gate_offset + PAIRS_PER_ROW] = __floats2bfloat162_rn(
+        __bfloat162float(grad.x) * silu_x,
+        __bfloat162float(grad.y) * silu_y
+    );
 }
 
 template <int WIDTH, int THREAD_COUNT>
@@ -336,6 +513,23 @@ void quantize_mxfp8(
     kittens::py::launch_kernel<Config, Globals, mxfp8_quantize::kernel>(globals);
 }
 
+void quantize_mxfp8_transpose(
+    const at::Tensor &input,
+    at::Tensor &output,
+    at::Tensor &scales
+) {
+    const c10::cuda::CUDAGuard device_guard(input.device());
+    const PrimaryContextGuard context_guard(input.get_device());
+    using Config = transpose_quantize::Config;
+    using Globals = transpose_quantize::Globals;
+    Globals globals{
+        .input = kittens::py::tensor_to_gl<Globals::InputGlobal>(input),
+        .output = kittens::py::tensor_to_gl<Globals::OutputGlobal>(output),
+        .scales = kittens::py::tensor_to_gl<Globals::ScaleGlobal>(scales),
+    };
+    kittens::py::launch_kernel<Config, Globals, transpose_quantize::kernel>(globals);
+}
+
 template <int WIDTH, int THREAD_COUNT>
 void launch_rmsnorm_forward(
     const at::Tensor &input,
@@ -407,14 +601,19 @@ void swiglu_forward(const at::Tensor &gate_up, at::Tensor &hidden) {
     const c10::cuda::CUDAGuard device_guard(gate_up.device());
     const PrimaryContextGuard context_guard(gate_up.get_device());
     const auto stream = at::cuda::getCurrentCUDAStream(gate_up.get_device());
-    const int elements = hidden.numel();
     const int hidden_dim = hidden.size(1);
-    swiglu_forward_kernel<<<(elements + THREADS - 1) / THREADS, THREADS, 0, stream>>>(
-        reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr()),
-        reinterpret_cast<__nv_bfloat16 *>(hidden.data_ptr()),
-        elements,
-        hidden_dim
-    );
+    const int rows = hidden.size(0);
+    const int blocks = rows * hidden_dim / (2 * THREADS);
+    const auto *gate_up_data = reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr());
+    auto *hidden_data = reinterpret_cast<__nv_bfloat16 *>(hidden.data_ptr());
+    switch (hidden_dim) {
+        case 512: swiglu_forward_kernel<512><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 1024: swiglu_forward_kernel<1024><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 2048: swiglu_forward_kernel<2048><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 4096: swiglu_forward_kernel<4096><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 8192: swiglu_forward_kernel<8192><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        default: TORCH_CHECK(false, "unsupported SwiGLU hidden width: ", hidden_dim);
+    }
 }
 
 void residual_add(const at::Tensor &residual, at::Tensor &output) {
@@ -437,15 +636,21 @@ void swiglu_backward(
     const c10::cuda::CUDAGuard device_guard(grad_hidden.device());
     const PrimaryContextGuard context_guard(grad_hidden.get_device());
     const auto stream = at::cuda::getCurrentCUDAStream(grad_hidden.get_device());
-    const int elements = grad_hidden.numel();
     const int hidden_dim = grad_hidden.size(1);
-    swiglu_backward_kernel<<<(elements + THREADS - 1) / THREADS, THREADS, 0, stream>>>(
-        reinterpret_cast<const __nv_bfloat16 *>(grad_hidden.data_ptr()),
-        reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr()),
-        reinterpret_cast<__nv_bfloat16 *>(grad_gate_up.data_ptr()),
-        elements,
-        hidden_dim
-    );
+    const int rows = grad_hidden.size(0);
+    const int blocks = rows * hidden_dim / (2 * THREADS);
+    const auto *grad_hidden_data =
+        reinterpret_cast<const __nv_bfloat16 *>(grad_hidden.data_ptr());
+    const auto *gate_up_data = reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr());
+    auto *grad_gate_up_data = reinterpret_cast<__nv_bfloat16 *>(grad_gate_up.data_ptr());
+    switch (hidden_dim) {
+        case 512: swiglu_backward_kernel<512><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 1024: swiglu_backward_kernel<1024><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 2048: swiglu_backward_kernel<2048><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 4096: swiglu_backward_kernel<4096><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 8192: swiglu_backward_kernel<8192><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        default: TORCH_CHECK(false, "unsupported SwiGLU hidden width: ", hidden_dim);
+    }
 }
 
 void rmsnorm_backward(
@@ -479,6 +684,10 @@ static void bind_chess_engine_kernels(pybind11::module_ &module) {
     module.def("dense_mxfp8_gemm_narrow", &chess_engine_4::dense::mxfp8_gemm_narrow);
     module.def("dense_mxfp8_gemm_wide", &chess_engine_4::dense::mxfp8_gemm_wide);
     module.def("dense_quantize_mxfp8", &chess_engine_4::dense::quantize_mxfp8);
+    module.def(
+        "dense_quantize_mxfp8_transpose",
+        &chess_engine_4::dense::quantize_mxfp8_transpose
+    );
     module.def("dense_rmsnorm_forward", &chess_engine_4::dense::rmsnorm_forward);
     module.def("dense_swiglu_forward", &chess_engine_4::dense::swiglu_forward);
     module.def("dense_residual_add", &chess_engine_4::dense::residual_add);

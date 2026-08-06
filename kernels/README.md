@@ -22,6 +22,11 @@ forward and backward remain a short sequence of specialized launches; fusing
 the two GEMMs into single persistent full-layer kernels is the next optimization
 boundary. The wider forward path does not require per-width GEMM kernels. At
 realistic training batches, however, its explicit backward remains slower than
-Transformer Engine because transpose, quantization, and weight-gradient work are
-separate launches; keep it behind `--experimental-dense-kernel` until that path
-is fused.
+Transformer Engine because quantization, weight-gradient GEMMs, activation, and
+normalization remain separate launches; keep it behind
+`--experimental-dense-kernel` until that path is fused further.
+
+The backward path fuses transpose with MXFP8 quantization, avoiding six BF16
+transpose materializations per block, and uses width-specialized BF16-pair
+SwiGLU kernels. Run `uv run benchmark-kernel-modal --d-model WIDTH` to compare
+forward and backward latency independently against Transformer Engine.
