@@ -33,6 +33,9 @@ for canonical experiment results.
 
 ## Verification
 
+For kernel work, follow `.agents/skills/kernel-development/SKILL.md` and inspect the local
+upstream references before introducing a new implementation pattern.
+
 Run the relevant focused tests while iterating. Before committing a broad
 change, run:
 

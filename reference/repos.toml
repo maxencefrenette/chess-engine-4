@@ -1,0 +1,34 @@
+[[repository]]
+name = "mixture-of-kittens"
+url = "https://github.com/cursor/mixture-of-kittens.git"
+purpose = "End-to-end Blackwell MoE training megakernel design and scheduling."
+
+[[repository]]
+name = "DeepGEMM"
+url = "https://github.com/deepseek-ai/DeepGEMM.git"
+purpose = "Blackwell FP8, FP4, grouped GEMM, and fused MoE kernels."
+
+[[repository]]
+name = "TransformerEngine"
+url = "https://github.com/NVIDIA/TransformerEngine.git"
+purpose = "Production Blackwell kernels and the training baseline used by this project."
+
+[[repository]]
+name = "Megatron-LM"
+url = "https://github.com/NVIDIA/Megatron-LM.git"
+purpose = "Production integration patterns for Transformer Engine and MoE training."
+
+[[repository]]
+name = "cutlass"
+url = "https://github.com/NVIDIA/cutlass.git"
+purpose = "SM100 CuTe and CUTLASS primitives underlying high-performance GEMMs."
+
+[[repository]]
+name = "Megakernels"
+url = "https://github.com/HazyResearch/Megakernels.git"
+purpose = "ThunderKittens full-model megakernel architecture and execution patterns."
+
+[[repository]]
+name = "flashinfer"
+url = "https://github.com/flashinfer-ai/flashinfer.git"
+purpose = "Blackwell inference kernels for GEMM, grouped GEMM, quantization, and MoE."
