@@ -11,6 +11,7 @@ from torch.nn import functional as F
 
 SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
 _SMALL_DENSE_WIDTHS = frozenset({32, 64})
+_BF16_BACKWARD_WIDTHS = frozenset({32, 64, 128, 256, 512})
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
 
@@ -121,6 +122,14 @@ def _bf16_gemm_small(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
         device=left.device,
     )
     _extension().dense_bf16_gemm_small(left, right, output)
+    return output
+
+
+def _bf16_gemm_d64_backward(left: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    _check_bf16_matrix("left", left)
+    _check_bf16_matrix("weight", weight)
+    output = torch.empty(left.shape[0], 256, dtype=torch.bfloat16, device=left.device)
+    _extension().dense_bf16_gemm_d64_backward(left, weight, output)
     return output
 
 
@@ -269,8 +278,8 @@ def _dense_mxfp8_backward(
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
     d_model = x.shape[1]
-    if d_model in _SMALL_DENSE_WIDTHS:
-        return _dense_small_backward(
+    if d_model in _BF16_BACKWARD_WIDTHS:
+        return _dense_bf16_backward(
             x,
             norm_weight,
             gate_up_weight,
@@ -328,7 +337,7 @@ def _dense_mxfp8_backward(
     return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None
 
 
-def _dense_small_backward(
+def _dense_bf16_backward(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -341,26 +350,20 @@ def _dense_small_backward(
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
     d_model = x.shape[1]
-    grad_hidden = _bf16_gemm_small(grad_output, down_weight.T.contiguous())
+    grad_hidden = (
+        torch.mm(grad_output, down_weight)
+        if d_model == 512
+        else (
+            _bf16_gemm_d64_backward(grad_output, down_weight)
+            if d_model == 64
+            else _bf16_gemm_small(grad_output, down_weight.T.contiguous())
+        )
+    )
     grad_gate_up = torch.empty_like(gate_up)
     _extension().dense_swiglu_backward(grad_hidden, gate_up, grad_gate_up)
-
-    padded_grad_output = F.pad(
-        grad_output.T,
-        (0, 0, 0, TK_GEMM_OUTPUT_ALIGNMENT - d_model),
-    ).contiguous()
-    grad_down_weight = _bf16_gemm_small(
-        padded_grad_output,
-        hidden.T.contiguous(),
-    )[:d_model]
-    grad_gate_up_weight = _bf16_gemm_small(
-        grad_gate_up.T.contiguous(),
-        normalized.T.contiguous(),
-    )
-    grad_normalized = _bf16_gemm_small(
-        grad_gate_up,
-        gate_up_weight.T.contiguous(),
-    )
+    grad_down_weight = torch.mm(grad_output.T, hidden)
+    grad_gate_up_weight = torch.mm(grad_gate_up.T, normalized)
+    grad_normalized = torch.mm(grad_gate_up, gate_up_weight)
 
     grad_x = torch.empty_like(x)
     grad_norm_weight_workspace = torch.zeros(d_model, dtype=torch.float32, device=x.device)
@@ -411,7 +414,6 @@ def _dense_mxfp8_forward_components(
         projected = _bf16_gemm_small(hidden, down_weight)
         _extension().dense_residual_add(x, projected)
         return projected, (normalized, gate_up, hidden)
-
     gate_up = mxfp8_gemm(quantize_mxfp8(normalized), quantize_mxfp8(gate_up_weight))
     hidden = torch.empty(
         x.shape[0],

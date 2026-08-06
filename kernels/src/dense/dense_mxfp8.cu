@@ -449,6 +449,52 @@ __global__ void swiglu_backward_kernel(
     );
 }
 
+// d64 grad-hidden is too narrow to occupy the B200 efficiently with TK's
+// 256-row GEMM tile. Reuse one weight row across several token rows instead.
+template <int ROWS_PER_BLOCK>
+__global__ void d64_grad_hidden_kernel(
+    const __nv_bfloat16 *grad_output,
+    const __nv_bfloat16 *down_weight,
+    __nv_bfloat16 *grad_hidden
+) {
+    constexpr int REDUCTION = 64;
+    constexpr int OUTPUT_COLUMNS = 256;
+    constexpr int OUTPUT_PAIRS = OUTPUT_COLUMNS / 2;
+    __shared__ float row_values[ROWS_PER_BLOCK][REDUCTION];
+    const int column_pair = threadIdx.x;
+    const int first_row = blockIdx.x * ROWS_PER_BLOCK;
+    if (column_pair < REDUCTION) {
+        #pragma unroll
+        for (int row = 0; row < ROWS_PER_BLOCK; ++row) {
+            row_values[row][column_pair] = __bfloat162float(
+                grad_output[(first_row + row) * REDUCTION + column_pair]
+            );
+        }
+    }
+    __syncthreads();
+
+    const auto *weight_pairs = reinterpret_cast<const __nv_bfloat162 *>(down_weight);
+    float2 accumulators[ROWS_PER_BLOCK] = {};
+    #pragma unroll
+    for (int reduction = 0; reduction < REDUCTION; ++reduction) {
+        const __nv_bfloat162 weight = weight_pairs[reduction * OUTPUT_PAIRS + column_pair];
+        const float weight_x = __bfloat162float(weight.x);
+        const float weight_y = __bfloat162float(weight.y);
+        #pragma unroll
+        for (int row = 0; row < ROWS_PER_BLOCK; ++row) {
+            const float value = row_values[row][reduction];
+            accumulators[row].x = fmaf(value, weight_x, accumulators[row].x);
+            accumulators[row].y = fmaf(value, weight_y, accumulators[row].y);
+        }
+    }
+    auto *output_pairs = reinterpret_cast<__nv_bfloat162 *>(grad_hidden);
+    #pragma unroll
+    for (int row = 0; row < ROWS_PER_BLOCK; ++row) {
+        output_pairs[(first_row + row) * OUTPUT_PAIRS + column_pair] =
+            __floats2bfloat162_rn(accumulators[row].x, accumulators[row].y);
+    }
+}
+
 template <int WIDTH, int THREAD_COUNT>
 __global__ void rmsnorm_backward_kernel(
     const __nv_bfloat16 *input,
@@ -601,6 +647,32 @@ void bf16_gemm_small(
     } else {
         TORCH_CHECK(false, "unsupported small dense BF16 GEMM output width: ", output_columns);
     }
+}
+
+void bf16_gemm_d64_backward(
+    const at::Tensor &left,
+    const at::Tensor &right,
+    at::Tensor &output
+) {
+    const c10::cuda::CUDAGuard device_guard(left.device());
+    const PrimaryContextGuard context_guard(left.get_device());
+    const auto stream = at::cuda::getCurrentCUDAStream(left.get_device());
+    constexpr int ROWS_PER_BLOCK = 8;
+    TORCH_CHECK(
+        left.size(0) > 0 && left.size(0) % ROWS_PER_BLOCK == 0,
+        "d64 backward GEMM rows must be positive and divisible by 8"
+    );
+    TORCH_CHECK(left.size(1) == 64, "d64 backward GEMM reduction must be 64");
+    TORCH_CHECK(right.size(0) == 64, "d64 backward GEMM right reduction must be 64");
+    TORCH_CHECK(right.size(1) == 256, "d64 backward GEMM output width must be 256");
+    TORCH_CHECK(output.size(0) == left.size(0), "d64 backward GEMM output rows are invalid");
+    TORCH_CHECK(output.size(1) == 256, "d64 backward GEMM output columns are invalid");
+    d64_grad_hidden_kernel<ROWS_PER_BLOCK>
+        <<<left.size(0) / ROWS_PER_BLOCK, 128, 0, stream>>>(
+        reinterpret_cast<const __nv_bfloat16 *>(left.data_ptr()),
+        reinterpret_cast<const __nv_bfloat16 *>(right.data_ptr()),
+        reinterpret_cast<__nv_bfloat16 *>(output.data_ptr())
+    );
 }
 
 void quantize_mxfp8(
@@ -801,6 +873,10 @@ static void bind_chess_engine_kernels(pybind11::module_ &module) {
     module.def("dense_mxfp8_gemm_narrow", &chess_engine_4::dense::mxfp8_gemm_narrow);
     module.def("dense_mxfp8_gemm_wide", &chess_engine_4::dense::mxfp8_gemm_wide);
     module.def("dense_bf16_gemm_small", &chess_engine_4::dense::bf16_gemm_small);
+    module.def(
+        "dense_bf16_gemm_d64_backward",
+        &chess_engine_4::dense::bf16_gemm_d64_backward
+    );
     module.def("dense_quantize_mxfp8", &chess_engine_4::dense::quantize_mxfp8);
     module.def(
         "dense_quantize_mxfp8_transpose",

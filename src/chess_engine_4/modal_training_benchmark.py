@@ -1,4 +1,4 @@
-"""Paired TE/custom training benchmarks on one Modal B200."""
+"""Paired TE/custom training benchmarks on isolated Modal B200s."""
 
 from __future__ import annotations
 
@@ -60,7 +60,11 @@ def benchmark_training_modal() -> None:
 
     levels = list(LEVELS) if args.level == "all" else [args.level]
     with app.run():
-        results = _benchmark_training.remote(configs, levels, args.warmup, args.iterations)
+        results = list(
+            _benchmark_training.starmap(
+                (config, levels, args.warmup, args.iterations) for config in configs
+            )
+        )
     if args.json:
         print(json.dumps(results, indent=2, sort_keys=True))
         return
@@ -75,11 +79,11 @@ def benchmark_training_modal() -> None:
     timeout=2 * 60 * 60,
 )
 def _benchmark_training(
-    config_values: list[dict[str, Any]],
+    config_values: dict[str, Any],
     levels: list[str],
     warmup: int,
     iterations: int,
-) -> list[dict[str, Any]]:
+) -> dict[str, Any]:
     import gc
 
     import torch
@@ -87,48 +91,42 @@ def _benchmark_training(
     from chess_engine_4.training.config import training_config_from_dict
 
     torch.set_float32_matmul_precision("high")
-    results = []
-    for values in config_values:
-        config = training_config_from_dict(values)
-        result: dict[str, Any] = {
-            "d_model": config.model.d_model,
-            "batch_size": config.run.batch_size,
-            "warmup": warmup,
-            "iterations": iterations,
-            "device_name": torch.cuda.get_device_name(),
-        }
-        if "layer" in levels:
-            result["layer"] = benchmark_dense_layer(
-                d_model=config.model.d_model,
-                batch_size=config.run.batch_size,
+    config = training_config_from_dict(config_values)
+    result: dict[str, Any] = {
+        "d_model": config.model.d_model,
+        "batch_size": config.run.batch_size,
+        "warmup": warmup,
+        "iterations": iterations,
+        "device_name": torch.cuda.get_device_name(),
+    }
+    if "layer" in levels:
+        result["layer"] = benchmark_dense_layer(
+            d_model=config.model.d_model,
+            batch_size=config.run.batch_size,
+            warmup=warmup,
+            iterations=iterations,
+        )
+        gc.collect()
+        torch.cuda.empty_cache()
+    if "step" in levels or "production" in levels:
+        te_runner, custom_runner = _build_training_runners(config)
+        if "step" in levels:
+            synthetic_batch = _synthetic_batch(config.run.batch_size)
+            result["step"] = _paired_measure(
+                partial(te_runner.step, synthetic_batch),
+                partial(custom_runner.step, synthetic_batch),
                 warmup=warmup,
                 iterations=iterations,
             )
-            gc.collect()
-            torch.cuda.empty_cache()
-        if "step" in levels or "production" in levels:
-            te_runner, custom_runner = _build_training_runners(config)
-            if "step" in levels:
-                synthetic_batch = _synthetic_batch(config.run.batch_size)
-                result["step"] = _paired_measure(
-                    partial(te_runner.step, synthetic_batch),
-                    partial(custom_runner.step, synthetic_batch),
-                    warmup=warmup,
-                    iterations=iterations,
-                )
-            if "production" in levels:
-                result["production"] = _benchmark_production(
-                    config,
-                    te_runner=te_runner,
-                    custom_runner=custom_runner,
-                    warmup=warmup,
-                    iterations=iterations,
-                )
-            del te_runner, custom_runner
-            gc.collect()
-            torch.cuda.empty_cache()
-        results.append(result)
-    return results
+        if "production" in levels:
+            result["production"] = _benchmark_production(
+                config,
+                te_runner=te_runner,
+                custom_runner=custom_runner,
+                warmup=warmup,
+                iterations=iterations,
+            )
+    return result
 
 
 class _TrainingRunner:

@@ -28,8 +28,10 @@ can remain slower than Transformer Engine because quantization, weight-gradient
 GEMMs, activation, and normalization are separate launches. Keep the path behind
 `--experimental-dense-kernel` until each width wins end-to-end.
 
-For d128 and larger, the backward path fuses transpose with MXFP8 quantization,
-avoiding six BF16 transpose materializations per block. All widths use
+The backward dispatch uses BF16 GEMMs through d512 because they are faster at
+those canonical shapes; d1024 and d2048 retain MXFP8 GEMMs. The d64 grad-hidden
+projection has a dedicated CUDA kernel that reuses each weight tile across eight
+token rows and consumes the untransposed weight directly. All widths use
 width-specialized BF16-pair SwiGLU kernels. Run
 `uv run benchmark-training-modal --d-model WIDTH --level layer` to compare
 CUDA-graphed forward and backward latency independently against Transformer

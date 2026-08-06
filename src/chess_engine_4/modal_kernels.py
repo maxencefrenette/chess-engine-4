@@ -233,20 +233,24 @@ def _gradient_metrics(
 
 
 def _cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
+    import statistics
+
     import torch
 
     with torch.no_grad():
         for _ in range(warmup):
             function()
         torch.cuda.synchronize()
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
+        samples = []
         for _ in range(iterations):
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
             function()
-        end.record()
-        end.synchronize()
-    return start.elapsed_time(end) / iterations
+            end.record()
+            end.synchronize()
+            samples.append(start.elapsed_time(end))
+    return statistics.median(samples)
 
 
 def _cuda_time_backward(
