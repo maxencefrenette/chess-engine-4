@@ -73,6 +73,21 @@ def _benchmark_dense_mxfp8(
     warmup: int,
     iterations: int,
 ) -> dict[str, Any]:
+    return benchmark_dense_layer(
+        d_model=d_model,
+        batch_size=batch_size,
+        warmup=warmup,
+        iterations=iterations,
+    )
+
+
+def benchmark_dense_layer(
+    *,
+    d_model: int,
+    batch_size: int,
+    warmup: int,
+    iterations: int,
+) -> dict[str, Any]:
     import torch
     from torch.nn import functional as F
 
