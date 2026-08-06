@@ -25,8 +25,7 @@ for canonical experiment results.
   incumbent and it has no detected loss spikes, unless the experiment explicitly
   optimizes another objective such as realized training cost. In that case,
   report the `EG_flops` tradeoff and select against the stated objective.
-- Update `experiments/best-runs-dense.toml` only after promotion, then regenerate
-  website data with `uv run export-scaling-data`.
+- Update `experiments/best-runs-dense.toml` only after promotion.
 - Preserve historical experiment reports. Do not rewrite old terminology or
   delete old results merely because the current methodology changed.
 - Follow `experiments/AGENTS.md` when adding a report.

@@ -207,5 +207,12 @@ with:
 uv run export-scaling-data
 ```
 
-The website development and production build commands regenerate this data
-automatically.
+Launch the development server and scaling-data watcher together from the repository root:
+
+```sh
+uv run website
+```
+
+The watcher regenerates the ignored JSON when model recipes, best-run registries,
+throughput measurements, or scaling-law code change. The production build also
+regenerates the data before compiling the website.

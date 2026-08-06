@@ -9,7 +9,9 @@ const rootDir = path.dirname(websiteDir);
 const watchedPaths = [
   path.join(rootDir, "experiments"),
   path.join(rootDir, "configs"),
+  path.join(rootDir, "src/chess_engine_4/model"),
   path.join(rootDir, "src/chess_engine_4/training/export_scaling_data.py"),
+  path.join(rootDir, "src/chess_engine_4/training/flops.py"),
   path.join(rootDir, "src/chess_engine_4/training/scaling_laws.py"),
 ];
 
@@ -36,8 +38,11 @@ function isScalingInput(changedPath) {
   const relativePath = path.relative(rootDir, changedPath);
   return (
     /^experiments\/best-runs-[^/]+\.toml$/.test(relativePath) ||
+    /^experiments\/throughput-[^/]+\.toml$/.test(relativePath) ||
     /^configs\/[^/]+\.py$/.test(relativePath) ||
+    /^src\/chess_engine_4\/model\/.*\.py$/.test(relativePath) ||
     relativePath === "src/chess_engine_4/training/export_scaling_data.py" ||
+    relativePath === "src/chess_engine_4/training/flops.py" ||
     relativePath === "src/chess_engine_4/training/scaling_laws.py"
   );
 }
