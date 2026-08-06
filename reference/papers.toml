@@ -1,0 +1,17 @@
+[[paper]]
+slug = "slicing-and-dicing"
+title = "Slicing and Dicing: Configuring Optimal Mixtures of Experts"
+authors = "Margaret Li, Sneha Kudugunta, Danielle Rothermel, Luke Zettlemoyer"
+citation = "arXiv:2605.11689"
+url = "https://arxiv.org/pdf/2605.11689"
+filename = "slicing-and-dicing.pdf"
+relevance = "MoE expert count, granularity, sparsity, routing, and load-balancing design."
+
+[[paper]]
+slug = "mai-thinking-1"
+title = "MAI-Thinking-1: Building a Hill-Climbing Machine"
+authors = "The Microsoft AI Team"
+citation = "Microsoft AI Technical Report, June 2026"
+url = "https://microsoft.ai/pdf/mai-thinking-1.pdf"
+filename = "mai-thinking-1.pdf"
+relevance = "Scaling ladders, architecture scaling, pretraining methodology, and MoE design."

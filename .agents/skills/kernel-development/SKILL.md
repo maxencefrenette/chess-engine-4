@@ -5,9 +5,9 @@ description: Develop, optimize, benchmark, or review CUDA, ThunderKittens, Trans
 
 # Kernel Development
 
-Run `uv run python reference/sync.py` when `reference/repos/` is absent or current upstream
-code matters. Read `reference/repos.toml`, then inspect only the repositories relevant to the
-task. ThunderKittens is already available at `third_party/ThunderKittens`.
+Run `uv run python reference/sync_repos.py` when `reference/repos/` is absent or current
+upstream code matters. Read `reference/repos.toml`, then inspect only the repositories relevant
+to the task. ThunderKittens is already available at `third_party/ThunderKittens`.
 
 Prefer upstream implementation evidence over assumptions. Preserve this project's numerical
 acceptance checks and benchmark against the canonical end-to-end training path. Record the
