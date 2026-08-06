@@ -15,19 +15,22 @@ The CUDA implementation is kept separate from model selection. New kernels must
 first pass their reference checks and beat the retained implementation in a Modal
 benchmark before the canonical model dispatches to them.
 
-The dense MXFP8 operator supports d128 through d2048. It shares TK's stock wide
-GEMM across d256 and larger widths, specializes only the RMSNorm launch shape,
-and retains a narrow GEMM specialization for d128's 128-column projections. The
-forward and backward remain a short sequence of specialized launches; fusing
-the two GEMMs into single persistent full-layer kernels is the next optimization
-boundary. The wider forward path does not require per-width GEMM kernels. At
-realistic training batches, however, its explicit backward remains slower than
-Transformer Engine because quantization, weight-gradient GEMMs, activation, and
-normalization remain separate launches; keep it behind
-`--experimental-dense-kernel` until that path is fused further.
+The custom dense operator supports d32 through d2048. MXFP8 tensor-core tiles
+are 128 elements wide, so d32 and d64 use TK's Blackwell BF16 GEMM with native
+32- and 64-element tiles. d128 retains its narrow MXFP8 GEMM specialization;
+d256 and larger share TK's stock wide MXFP8 GEMM. RMSNorm and SwiGLU launches
+are specialized for every supported width.
 
-The backward path fuses transpose with MXFP8 quantization, avoiding six BF16
-transpose materializations per block, and uses width-specialized BF16-pair
-SwiGLU kernels. Run
+The forward and backward remain a short sequence of specialized launches;
+fusing the two GEMMs into single persistent full-layer kernels is the next
+optimization boundary. At realistic training batches, the explicit backward
+can remain slower than Transformer Engine because quantization, weight-gradient
+GEMMs, activation, and normalization are separate launches. Keep the path behind
+`--experimental-dense-kernel` until each width wins end-to-end.
+
+For d128 and larger, the backward path fuses transpose with MXFP8 quantization,
+avoiding six BF16 transpose materializations per block. All widths use
+width-specialized BF16-pair SwiGLU kernels. Run
 `uv run benchmark-training-modal --d-model WIDTH --level layer` to compare
-forward and backward latency independently against Transformer Engine.
+CUDA-graphed forward and backward latency independently against Transformer
+Engine.

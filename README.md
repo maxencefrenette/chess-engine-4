@@ -120,20 +120,21 @@ correctness and latency benchmark directly on Modal:
 git submodule update --init
 uv run build-kernels
 uv run benchmark-training-modal --d-model 256
-uv run benchmark-training-modal --widths 128 256 512 --level step
+uv run benchmark-training-modal --widths 32 64 128 256 512 --level step
 ```
 
 The benchmark compares TE and custom kernels in one B200 process at the
-isolated-layer, synthetic-training-step, and production-loop levels.
+CUDA-graphed isolated-layer, synthetic-training-step, and production-loop
+levels.
 
 These kernels remain opt-in until both forward and backward paths beat the
 canonical Transformer Engine training implementation.
 
-The d128-specialized MXFP8 CUDA forward and backward can be exercised in a full
+The width-specialized CUDA forward and backward can be exercised in a full
 training or profiling run:
 
 ```sh
-uv run profile-training --d-model 128 --experimental-dense-kernel
+uv run profile-training --d-model 32 --experimental-dense-kernel
 ```
 
 To benchmark the canonical dense ladder concurrently and cache the results in

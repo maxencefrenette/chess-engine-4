@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-KERNEL_NAME = "dense-mxfp8"
-SUPPORTED_WIDTHS = (128, 256, 512, 1024, 2048)
+KERNEL_NAME = "dense-custom"
+SUPPORTED_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
 MIN_COSINE_SIMILARITY = 0.999
 MAX_MEAN_ABSOLUTE_ERROR = 1e-3
 MIN_GRADIENT_COSINE_SIMILARITY = 0.99
@@ -24,7 +24,11 @@ def benchmark_dense_layer(
     from chess_engine_4.kernels import dense_mxfp8_forward, dense_mxfp8_trainable
     from chess_engine_4.kernels.dense import _dense_bf16_forward
     from chess_engine_4.model.dense import DenseBlock
-    from chess_engine_4.model.transformer_engine import autocast_context
+    from chess_engine_4.model.transformer_engine import (
+        autocast_context,
+        quantization_recipe,
+        te,
+    )
 
     torch.manual_seed(2026)
     torch.cuda.manual_seed_all(2026)
@@ -110,32 +114,63 @@ def benchmark_dense_layer(
             f"is below {MIN_GRADIENT_COSINE_SIMILARITY}: {gradient_metrics_vs_te}"
         )
 
-    def run_custom() -> None:
-        dense_mxfp8_forward(
-            x,
-            norm_weight,
-            gate_up_weight,
-            down_weight,
+    graph_inputs = {
+        "te": x.detach().clone().requires_grad_(True),
+        "custom": x.detach().clone().requires_grad_(True),
+    }
+    graph_blocks = {
+        name: DenseBlock(
+            d_model=d_model,
+            hidden_dim=4 * d_model,
+            rms_norm_eps=1e-6,
+            activation="swiglu",
         )
+        .cuda()
+        .train()
+        for name in graph_inputs
+    }
+    for graph_block in graph_blocks.values():
+        graph_block.load_state_dict(block.state_dict())
+    graph_blocks["custom"].enable_experimental_dense_kernel()
+    recipe = quantization_recipe("mxfp8")
+    with autocast_context("mxfp8"):
+        graphs = {
+            name: te().make_graphed_callables(
+                graph_block,
+                (graph_inputs[name],),
+                allow_unused_input=True,
+                enabled=True,
+                recipe=recipe,
+            )
+            for name, graph_block in graph_blocks.items()
+        }
+
+    def run_custom() -> None:
+        graphs["custom"](graph_inputs["custom"])
 
     def run_te() -> None:
-        with autocast_context("mxfp8"):
-            block(x)
+        graphs["te"](graph_inputs["te"])
 
     custom_ms = _cuda_time(run_custom, warmup=warmup, iterations=iterations)
     te_ms = _cuda_time(run_te, warmup=warmup, iterations=iterations)
-    backward_custom_inputs = tuple(
-        tensor.detach().clone().requires_grad_(True)
-        for tensor in (x, norm_weight, gate_up_weight, down_weight)
+    backward_custom_inputs = (
+        graph_inputs["custom"],
+        graph_blocks["custom"].layer.layer_norm_weight,
+        graph_blocks["custom"].layer.fc1_weight,
+        graph_blocks["custom"].layer.fc2_weight,
     )
-    te_backward_x = x.detach().clone().requires_grad_(True)
+    backward_te_inputs = (
+        graph_inputs["te"],
+        graph_blocks["te"].layer.layer_norm_weight,
+        graph_blocks["te"].layer.fc1_weight,
+        graph_blocks["te"].layer.fc2_weight,
+    )
 
     def build_custom_backward() -> Any:
-        return dense_mxfp8_trainable(*backward_custom_inputs)
+        return graphs["custom"](graph_inputs["custom"])
 
     def build_te_backward() -> Any:
-        with autocast_context("mxfp8"):
-            return block(te_backward_x)
+        return graphs["te"](graph_inputs["te"])
 
     custom_backward_ms = _cuda_time_backward(
         build_custom_backward,
@@ -146,7 +181,7 @@ def benchmark_dense_layer(
     )
     te_backward_ms = _cuda_time_backward(
         build_te_backward,
-        (te_backward_x, layer.layer_norm_weight, layer.fc1_weight, layer.fc2_weight),
+        backward_te_inputs,
         gradient,
         warmup=warmup,
         iterations=iterations,
@@ -157,6 +192,7 @@ def benchmark_dense_layer(
         "batch_size": batch_size,
         "warmup": warmup,
         "iterations": iterations,
+        "execution": "cuda_graph",
         "custom_ms": custom_ms,
         "te_ms": te_ms,
         "speedup_vs_te": te_ms / custom_ms,
@@ -221,12 +257,14 @@ def _cuda_time_backward(
     warmup: int,
     iterations: int,
 ) -> float:
+    import statistics
+
     import torch
 
     for _ in range(warmup):
         torch.autograd.grad(build_output(), inputs, gradient)
     torch.cuda.synchronize()
-    total_ms = 0.0
+    samples = []
     for _ in range(iterations):
         output = build_output()
         start = torch.cuda.Event(enable_timing=True)
@@ -235,5 +273,5 @@ def _cuda_time_backward(
         torch.autograd.grad(output, inputs, gradient)
         end.record()
         end.synchronize()
-        total_ms += start.elapsed_time(end)
-    return total_ms / iterations
+        samples.append(start.elapsed_time(end))
+    return statistics.median(samples)

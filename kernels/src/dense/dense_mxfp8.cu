@@ -1,5 +1,6 @@
 #include "kittens.cuh"
 #include "pyutils/torchutils.cuh"
+#include "../../../third_party/ThunderKittens/kernels/gemm/common.cuh"
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <cuda_bf16.h>
@@ -22,6 +23,15 @@ PYBIND11_MODULE(_chess_engine_4_kernels, module) {
 #include "../../../third_party/ThunderKittens/kernels/gemm/mxfp8_b200/mxfp8_b200_gemm.cu"
 #undef _C
 #undef PYBIND11_MODULE
+
+// MXFP8 tensor-core instructions require 128-wide tiles. Canonical d32
+// and d64 models are narrower, so use TK's native Blackwell BF16
+// GEMM for those shapes instead of padding every projection to 128 elements.
+namespace tk_bf16_gemm {
+#define main thunderkittens_bf16_benchmark_main
+#include "../../../third_party/ThunderKittens/kernels/gemm/bf16_b200/bf16_b200_gemm.cu"
+#undef main
+}  // namespace tk_bf16_gemm
 
 namespace chess_engine_4::dense {
 
@@ -69,6 +79,71 @@ using WideGemmGlobals = mxfp8_gemm::globals<WideGemmConfig>;
 
 constexpr int THREADS = 256;
 constexpr int RMS_ROWS_PER_BLOCK = 8;
+
+template <int OUTPUT_TILE, int REDUCTION_TILE>
+using SmallBf16GemmConfig = tk_bf16_gemm::config<
+    256,
+    OUTPUT_TILE,
+    REDUCTION_TILE,
+    4,
+    true,
+    2,
+    OUTPUT_TILE / 32
+>;
+
+template <int OUTPUT_TILE, int REDUCTION_TILE>
+void launch_bf16_gemm(
+    const at::Tensor &left,
+    const at::Tensor &right,
+    at::Tensor &output,
+    cudaStream_t stream
+) {
+    using Config = SmallBf16GemmConfig<OUTPUT_TILE, REDUCTION_TILE>;
+    using Globals = tk_bf16_gemm::globals<Config>;
+    Globals globals{
+        .a = kittens::py::tensor_to_gl<typename Globals::a_gl>(left),
+        .b = kittens::py::tensor_to_gl<typename Globals::b_gl>(right),
+        .d = kittens::py::tensor_to_gl<typename Globals::d_gl>(output),
+    };
+    CUDACHECK(cudaFuncSetAttribute(
+        tk_bf16_gemm::kernel<Config>,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
+        globals.dynamic_shared_memory()
+    ));
+    LaunchConfig<true, true> launch_config(
+        globals.grid(),
+        globals.block(),
+        globals.dynamic_shared_memory(),
+        stream,
+        Config::CLUSTER_SIZE
+    );
+    CUDACHECK(cudaLaunchKernelEx(
+        launch_config,
+        tk_bf16_gemm::kernel<Config>,
+        globals
+    ));
+}
+
+template <int OUTPUT_TILE>
+void dispatch_bf16_reduction(
+    const at::Tensor &left,
+    const at::Tensor &right,
+    at::Tensor &output,
+    cudaStream_t stream
+) {
+    const int reduction = left.size(1);
+    if (reduction == 32) {
+        launch_bf16_gemm<OUTPUT_TILE, 32>(left, right, output, stream);
+    } else if (reduction == 64) {
+        launch_bf16_gemm<OUTPUT_TILE, 64>(left, right, output, stream);
+    } else {
+        TORCH_CHECK(
+            reduction % 128 == 0,
+            "small dense BF16 GEMM reduction must be 32, 64, or divisible by 128"
+        );
+        launch_bf16_gemm<OUTPUT_TILE, 128>(left, right, output, stream);
+    }
+}
 
 namespace transpose_quantize {
 
@@ -297,12 +372,15 @@ __global__ void swiglu_forward_kernel(
     int rows
 ) {
     constexpr int PAIRS_PER_ROW = HIDDEN_DIM / 2;
-    constexpr int BLOCKS_PER_ROW = PAIRS_PER_ROW / THREADS;
+    constexpr int BLOCKS_PER_ROW = (PAIRS_PER_ROW + THREADS - 1) / THREADS;
     const int row = blockIdx.x / BLOCKS_PER_ROW;
     if (row >= rows) {
         return;
     }
     const int pair_column = (blockIdx.x % BLOCKS_PER_ROW) * THREADS + threadIdx.x;
+    if (pair_column >= PAIRS_PER_ROW) {
+        return;
+    }
     const auto *gate_up_pairs = reinterpret_cast<const __nv_bfloat162 *>(gate_up);
     auto *hidden_pairs = reinterpret_cast<__nv_bfloat162 *>(hidden);
     const int gate_offset = row * HIDDEN_DIM + pair_column;
@@ -337,12 +415,15 @@ __global__ void swiglu_backward_kernel(
     int rows
 ) {
     constexpr int PAIRS_PER_ROW = HIDDEN_DIM / 2;
-    constexpr int BLOCKS_PER_ROW = PAIRS_PER_ROW / THREADS;
+    constexpr int BLOCKS_PER_ROW = (PAIRS_PER_ROW + THREADS - 1) / THREADS;
     const int row = blockIdx.x / BLOCKS_PER_ROW;
     if (row >= rows) {
         return;
     }
     const int pair_column = (blockIdx.x % BLOCKS_PER_ROW) * THREADS + threadIdx.x;
+    if (pair_column >= PAIRS_PER_ROW) {
+        return;
+    }
     const auto *grad_hidden_pairs = reinterpret_cast<const __nv_bfloat162 *>(grad_hidden);
     const auto *gate_up_pairs = reinterpret_cast<const __nv_bfloat162 *>(gate_up);
     auto *grad_gate_up_pairs = reinterpret_cast<__nv_bfloat162 *>(grad_gate_up);
@@ -496,6 +577,32 @@ void mxfp8_gemm_wide(
     >(globals);
 }
 
+void bf16_gemm_small(
+    const at::Tensor &left,
+    const at::Tensor &right,
+    at::Tensor &output
+) {
+    const c10::cuda::CUDAGuard device_guard(left.device());
+    const PrimaryContextGuard context_guard(left.get_device());
+    const auto stream = at::cuda::getCurrentCUDAStream(left.get_device());
+    TORCH_CHECK(left.size(1) == right.size(1), "BF16 GEMM reduction dimensions differ");
+    TORCH_CHECK(left.size(0) % 128 == 0, "BF16 GEMM rows must be divisible by 128");
+    TORCH_CHECK(output.size(1) == right.size(0), "BF16 GEMM output shape is invalid");
+
+    const int output_columns = output.size(1);
+    if (output_columns == 32) {
+        dispatch_bf16_reduction<32>(left, right, output, stream);
+    } else if (output_columns == 64) {
+        dispatch_bf16_reduction<64>(left, right, output, stream);
+    } else if (output_columns == 128) {
+        dispatch_bf16_reduction<128>(left, right, output, stream);
+    } else if (output_columns % 256 == 0) {
+        dispatch_bf16_reduction<256>(left, right, output, stream);
+    } else {
+        TORCH_CHECK(false, "unsupported small dense BF16 GEMM output width: ", output_columns);
+    }
+}
+
 void quantize_mxfp8(
     const at::Tensor &input,
     at::Tensor &output,
@@ -588,6 +695,8 @@ void rmsnorm_forward(
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const float eps_float = static_cast<float>(eps);
     switch (input.size(1)) {
+        case 32: launch_rmsnorm_forward<32, 32>(input, weight, output, eps_float, stream); break;
+        case 64: launch_rmsnorm_forward<64, 64>(input, weight, output, eps_float, stream); break;
         case 128: launch_rmsnorm_forward<128, 128>(input, weight, output, eps_float, stream); break;
         case 256: launch_rmsnorm_forward<256, 256>(input, weight, output, eps_float, stream); break;
         case 512: launch_rmsnorm_forward<512, 256>(input, weight, output, eps_float, stream); break;
@@ -603,10 +712,13 @@ void swiglu_forward(const at::Tensor &gate_up, at::Tensor &hidden) {
     const auto stream = at::cuda::getCurrentCUDAStream(gate_up.get_device());
     const int hidden_dim = hidden.size(1);
     const int rows = hidden.size(0);
-    const int blocks = rows * hidden_dim / (2 * THREADS);
+    const int blocks_per_row = (hidden_dim / 2 + THREADS - 1) / THREADS;
+    const int blocks = rows * blocks_per_row;
     const auto *gate_up_data = reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr());
     auto *hidden_data = reinterpret_cast<__nv_bfloat16 *>(hidden.data_ptr());
     switch (hidden_dim) {
+        case 128: swiglu_forward_kernel<128><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 256: swiglu_forward_kernel<256><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 512: swiglu_forward_kernel<512><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 1024: swiglu_forward_kernel<1024><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 2048: swiglu_forward_kernel<2048><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
@@ -638,12 +750,15 @@ void swiglu_backward(
     const auto stream = at::cuda::getCurrentCUDAStream(grad_hidden.get_device());
     const int hidden_dim = grad_hidden.size(1);
     const int rows = grad_hidden.size(0);
-    const int blocks = rows * hidden_dim / (2 * THREADS);
+    const int blocks_per_row = (hidden_dim / 2 + THREADS - 1) / THREADS;
+    const int blocks = rows * blocks_per_row;
     const auto *grad_hidden_data =
         reinterpret_cast<const __nv_bfloat16 *>(grad_hidden.data_ptr());
     const auto *gate_up_data = reinterpret_cast<const __nv_bfloat16 *>(gate_up.data_ptr());
     auto *grad_gate_up_data = reinterpret_cast<__nv_bfloat16 *>(grad_gate_up.data_ptr());
     switch (hidden_dim) {
+        case 128: swiglu_backward_kernel<128><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 256: swiglu_backward_kernel<256><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 512: swiglu_backward_kernel<512><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 1024: swiglu_backward_kernel<1024><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 2048: swiglu_backward_kernel<2048><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
@@ -668,6 +783,8 @@ void rmsnorm_backward(
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const float eps_float = static_cast<float>(eps);
     switch (input.size(1)) {
+        case 32: launch_rmsnorm_backward<32, 32>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
+        case 64: launch_rmsnorm_backward<64, 64>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 128: launch_rmsnorm_backward<128, 128>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 256: launch_rmsnorm_backward<256, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 512: launch_rmsnorm_backward<512, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
@@ -683,6 +800,7 @@ static void bind_chess_engine_kernels(pybind11::module_ &module) {
     bind_thunderkittens_reference(module);
     module.def("dense_mxfp8_gemm_narrow", &chess_engine_4::dense::mxfp8_gemm_narrow);
     module.def("dense_mxfp8_gemm_wide", &chess_engine_4::dense::mxfp8_gemm_wide);
+    module.def("dense_bf16_gemm_small", &chess_engine_4::dense::bf16_gemm_small);
     module.def("dense_quantize_mxfp8", &chess_engine_4::dense::quantize_mxfp8);
     module.def(
         "dense_quantize_mxfp8_transpose",

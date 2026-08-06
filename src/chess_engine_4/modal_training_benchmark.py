@@ -341,9 +341,9 @@ def _print_results(results: list[dict[str, Any]]) -> None:
         print(f"{'level':<18} {'TE time':>12} {'custom time':>14} {'speedup':>10}")
         layer = result.get("layer")
         if layer is not None:
-            _print_row("layer forward", layer["te_ms"], layer["custom_ms"])
+            _print_row("layer graph fwd", layer["te_ms"], layer["custom_ms"])
             _print_row(
-                "layer backward",
+                "layer graph bwd",
                 layer["te_backward_ms"],
                 layer["custom_backward_ms"],
             )

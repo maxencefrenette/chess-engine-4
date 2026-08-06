@@ -9,7 +9,8 @@ from typing import Any
 import torch
 from torch.nn import functional as F
 
-SUPPORTED_DENSE_WIDTHS = frozenset({128, 256, 512, 1024, 2048})
+SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
+_SMALL_DENSE_WIDTHS = frozenset({32, 64})
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
 
@@ -108,6 +109,30 @@ def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
     return output
 
 
+def _bf16_gemm_small(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+    _check_bf16_matrix("left", left)
+    _check_bf16_matrix("right", right)
+    if left.shape[1] != right.shape[1]:
+        raise ValueError("BF16 GEMM reduction dimensions do not match")
+    output = torch.empty(
+        left.shape[0],
+        right.shape[0],
+        dtype=torch.bfloat16,
+        device=left.device,
+    )
+    _extension().dense_bf16_gemm_small(left, right, output)
+    return output
+
+
+def _check_bf16_matrix(name: str, tensor: torch.Tensor) -> None:
+    if tensor.device.type != "cuda":
+        raise ValueError(f"{name} must be a CUDA tensor")
+    if tensor.dtype != torch.bfloat16:
+        raise ValueError(f"{name} must have dtype torch.bfloat16")
+    if tensor.ndim != 2 or not tensor.is_contiguous():
+        raise ValueError(f"{name} must be a contiguous matrix")
+
+
 def _mxfp8_gemm_columns(
     left: torch.Tensor | Mxfp8Tensor,
     right: torch.Tensor | Mxfp8Tensor,
@@ -142,7 +167,7 @@ def dense_mxfp8_forward(
     *,
     eps: float = 1e-6,
 ) -> torch.Tensor:
-    """Run a dense SwiGLU residual block through ThunderKittens MXFP8 kernels."""
+    """Run a dense SwiGLU residual block through the custom TK kernels."""
 
     output, _ = _dense_mxfp8_forward_components(
         x,
@@ -162,7 +187,7 @@ def dense_mxfp8_trainable(
     *,
     eps: float = 1e-6,
 ) -> torch.Tensor:
-    """Run the MXFP8 forward with an explicit MXFP8/BF16 backward."""
+    """Run the custom forward and explicit low-precision backward."""
 
     return _DenseMxfp8Function.apply(
         x,
@@ -244,6 +269,18 @@ def _dense_mxfp8_backward(
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
     d_model = x.shape[1]
+    if d_model in _SMALL_DENSE_WIDTHS:
+        return _dense_small_backward(
+            x,
+            norm_weight,
+            gate_up_weight,
+            down_weight,
+            normalized,
+            gate_up,
+            hidden,
+            grad_output,
+            eps=eps,
+        )
     grad_hidden = mxfp8_gemm(
         quantize_mxfp8(grad_output),
         quantize_mxfp8_transpose(down_weight),
@@ -291,6 +328,56 @@ def _dense_mxfp8_backward(
     return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None
 
 
+def _dense_small_backward(
+    x: torch.Tensor,
+    norm_weight: torch.Tensor,
+    gate_up_weight: torch.Tensor,
+    down_weight: torch.Tensor,
+    normalized: torch.Tensor,
+    gate_up: torch.Tensor,
+    hidden: torch.Tensor,
+    grad_output: torch.Tensor,
+    *,
+    eps: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
+    d_model = x.shape[1]
+    grad_hidden = _bf16_gemm_small(grad_output, down_weight.T.contiguous())
+    grad_gate_up = torch.empty_like(gate_up)
+    _extension().dense_swiglu_backward(grad_hidden, gate_up, grad_gate_up)
+
+    padded_grad_output = F.pad(
+        grad_output.T,
+        (0, 0, 0, TK_GEMM_OUTPUT_ALIGNMENT - d_model),
+    ).contiguous()
+    grad_down_weight = _bf16_gemm_small(
+        padded_grad_output,
+        hidden.T.contiguous(),
+    )[:d_model]
+    grad_gate_up_weight = _bf16_gemm_small(
+        grad_gate_up.T.contiguous(),
+        normalized.T.contiguous(),
+    )
+    grad_normalized = _bf16_gemm_small(
+        grad_gate_up,
+        gate_up_weight.T.contiguous(),
+    )
+
+    grad_x = torch.empty_like(x)
+    grad_norm_weight_workspace = torch.zeros(d_model, dtype=torch.float32, device=x.device)
+    grad_norm_weight = torch.empty_like(norm_weight)
+    _extension().dense_rmsnorm_backward(
+        x,
+        norm_weight,
+        grad_normalized,
+        grad_output,
+        grad_x,
+        grad_norm_weight_workspace,
+        grad_norm_weight,
+        eps,
+    )
+    return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None
+
+
 def _dense_mxfp8_forward_components(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
@@ -299,7 +386,9 @@ def _dense_mxfp8_forward_components(
     *,
     eps: float,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-    _check_matrix("x", x)
+    _check_bf16_matrix("x", x)
+    if x.shape[0] % MXFP8_TILE_SIZE:
+        raise ValueError(f"x rows must be a multiple of {MXFP8_TILE_SIZE}")
     d_model = x.shape[1]
     hidden_dim = 4 * d_model
     gate_up_dim = 2 * hidden_dim
@@ -315,6 +404,14 @@ def _dense_mxfp8_forward_components(
 
     normalized = torch.empty_like(x)
     _extension().dense_rmsnorm_forward(x, norm_weight, normalized, eps)
+    if d_model in _SMALL_DENSE_WIDTHS:
+        gate_up = _bf16_gemm_small(normalized, gate_up_weight)
+        hidden = torch.empty(x.shape[0], hidden_dim, dtype=x.dtype, device=x.device)
+        _extension().dense_swiglu_forward(gate_up, hidden)
+        projected = _bf16_gemm_small(hidden, down_weight)
+        _extension().dense_residual_add(x, projected)
+        return projected, (normalized, gate_up, hidden)
+
     gate_up = mxfp8_gemm(quantize_mxfp8(normalized), quantize_mxfp8(gate_up_weight))
     hidden = torch.empty(
         x.shape[0],
