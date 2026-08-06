@@ -1,218 +1,102 @@
 # Chess Engine 4
 
-Chess Engine 4 is a compact Python training codebase for an LCZero-compatible
-neural network.
+Chess Engine 4 trains LCZero-compatible neural networks on Modal. The goal is
+to create strong nets that can run directly inside lc0 through its ONNX backend.
 
-The goal is to create strong nets that can be run directly inside lc0 through
-the ONNX backend.
+The repository is intentionally monolithic: model definitions, training,
+datasets, evaluation, experiments, custom kernels, and the scaling dashboard
+live together.
 
-## Model
+## Models
 
-The `dense` model is a stack of MLP layers over flattened LCZero input planes.
-The `moe64a2` family alternates dense MLP layers with 64 routed-expert layers,
-with two experts active for each position. Both families use LCZero-style policy logits,
-WDL value logits, and a moves-left prediction. Training uses NVIDIA Transformer
-Engine.
+- `dense`: stacked MLP layers over flattened LCZero input planes.
+- `moe64a2`: alternating dense and 64-expert layers with two active experts.
 
-The models are trained on lc0 t80 data using supervised learning.
+Both families predict LCZero policy logits, WDL value logits, and moves left.
+Training is Blackwell-only and uses NVIDIA Transformer Engine. Training data is
+supervised LCZero t80 data stored as Parquet.
 
-## Optimization
+## Setup
 
-See [OPTIMIZATION.md](OPTIMIZATION.md) for the protocol used to decide whether an
-experiment improves the training frontier.
-
-## Prerequisites
-
-- [mise](https://mise.jdx.dev/)
+Install [mise](https://mise.jdx.dev/), then prepare the Python environment:
 
 ```sh
+mise install
 uv sync --dev
 ```
 
-## Running Training
+Configure W&B and data paths in `.env`; see `.env.example` for the supported
+variables.
 
-Set appropriate environment variables in `.env`. See `.env.example`.
+## Training
 
-To inspect training data locally, build the Rust dataloader extension once:
+Run the canonical dense recipe on Modal:
+
+```sh
+uv run train-modal --d-model 128
+```
+
+Run the MoE recipe with:
+
+```sh
+uv run train-modal --config configs/moe64a2.py --d-model 128
+```
+
+The Python recipes derive the complete training configuration from model width
+and training ratio. CLI flags are reserved for controlled experiment overrides.
+Training always saves periodic and final checkpoints to the Modal artifacts
+volume.
+
+See [OPTIMIZATION.md](OPTIMIZATION.md) for the experiment-selection protocol.
+
+## Data
+
+Build the local Rust loader and inspect the configured Parquet dataset:
 
 ```sh
 uv run maturin develop --manifest-path crates/leela_loader/Cargo.toml --release
 uv run inspect-data
 ```
 
-By default, `inspect-data` validates one batch. Pass `--batches N` for a bounded
-scan or `--all` to inspect every batch.
-
-Training data is stored as Parquet. Convert a local LCZero tar file with:
+Convert a local LCZero archive with:
 
 ```sh
 uv run lc0-to-parquet training.tar training.parquet
-uv run inspect-data --data training.parquet
 ```
-
-Use `uv run convert-data-modal --limit 8` to convert a bounded number of source
-files on the training-data Volume. Training and profiling always read the
-converted Parquet dataset.
-
-Training runs on Modal. Modal builds the native dataloader into its image
-automatically. `uv run train-modal` logs metrics to the W&B project configured
-in `.env`. Routine runs default to `0.2x` Chinchilla; pass
-`--training-ratio 1` explicitly for a full-training run.
-
-```sh
-uv run train-modal --d-model 64
-```
-
-`configs/dense.py` is the canonical dense-family recipe. Width and training
-ratio are its scaling arguments; the recipe derives depth, batch size, steps,
-learning rate, and the remaining training configuration. CLI flags can override
-those derived values for controlled experiments. The baseline batch size is
-`32 * d_model`. Before submitting work to Modal, training commands print the
-fully resolved shape, parameter count, batch size, steps, samples, FLOPs,
-precision, and CPU allocation.
-
-`configs/moe64a2.py` defines the alternating 64-expert, 2-active MoE ladder. Its
-experts use a 2x hidden expansion so two active SwiGLU experts approximately
-match each dense layer's 4x MLP compute at a given width. Its canonical batch
-size is `128 * d_model`:
-
-```sh
-uv run train-modal --config configs/moe64a2.py --d-model 64
-```
-
-Training is Blackwell-only. Dense `d32` through `d256` run on a Modal RTX PRO
-6000; dense `d512` and larger models and all MoE models run on B200. The GPU is
-part of `InfraConfig` and can be overridden for profiling with `--gpu`. Models
-use Transformer Engine and FP32 optimizer master weights.
-Dense training is CUDA-graphed. Large MoE models instead use Transformer Engine's
-dynamic fused token dispatcher. The Modal image builds the pinned Transformer
-Engine version and its PyTorch extension automatically. Training reserves eight
-CPU cores for the background Rust dataloader.
-
-MXFP8 projections are padded to 32-element boundaries and sliced back to the
-LC0 output contract.
-
-The recipe's precision setting accepts `bf16`, `mxfp8`, or `nvfp4`. It can be
-overridden for profiling with `--quantization-recipe`.
-
-To profile the Modal training loop:
-
-```sh
-uv run profile-training --d-model 64
-```
-
-The profiler separates loader and tensor-wrapping time, host pinning, H2D
-submission and GPU copy time, exposed GPU idle time, and training kernels.
-
-To capture a post-warmup CPU/CUDA timeline from the same profiler:
-
-```sh
-uv run profile-training --d-model 256 --profile-steps 10 \
-  --trace-output profiles/traces/d256.json
-uv run profile-training --d-model 256 --kernel-backend custom \
-  --profile-steps 10 --trace-output profiles/traces/d256-custom.json
-```
-
-Experimental Blackwell kernels live under `kernels/` with ThunderKittens pinned
-as a git submodule. Initialize it before building locally, or run the B200
-correctness and latency benchmark directly on Modal:
-
-```sh
-git submodule update --init
-uv run build-kernels
-uv run benchmark-training-modal --d-model 256
-uv run benchmark-training-modal --widths 32 64 128 256 512 --level step
-```
-
-The benchmark compares TE and custom kernels in one B200 process at the
-CUDA-graphed isolated-layer, synthetic-training-step, and production-loop
-levels.
-
-The custom backend remains opt-in until its forward and backward paths beat the
-canonical Transformer Engine training implementation.
-
-The width-specialized CUDA forward and backward can be exercised in a full
-training or profiling run:
-
-```sh
-uv run profile-training --d-model 32 --gpu B200 --kernel-backend custom
-```
-
-To benchmark the canonical dense ladder sequentially on its configured GPUs and cache the results in
-`experiments/throughput-dense.toml`:
-
-```sh
-uv run throughput-sweep
-```
-
-The same workflow can benchmark the MoE ladder without a separate command:
-
-```sh
-uv run throughput-sweep --config configs/moe64a2.py \
-  --output experiments/throughput-moe64a2.toml
-```
-
-Matching cached widths are skipped. Pass `--refresh` to replace them or
-`--widths 256 512 1024` to benchmark a subset. Pass `--gpu B200` or
-`--gpu RTX-PRO-6000` to compare the same recipes on one GPU type.
-
-Modal training always writes checkpoints to the `chess-engine-4-artifacts`
-Volume every 50,000 steps and at the end of the run:
-
-```sh
-uv run train-modal --d-model 64
-```
-
-To export a saved Modal checkpoint with Transformer Engine and package it as an
-lc0 ONNX weights file:
-
-```sh
-uv run checkpoint2leela checkpoints/run-final.pt --output artifacts/leela/run.pb.gz
-```
-
-Export runs on a Modal B200 using Transformer Engine's native ONNX export context.
-It writes an FP32 graph for lc0's TensorRT-backed `onnx-trt` backend by default.
-Use `--export-dtype fp16` for a smaller experimental artifact; FP16 was weaker in
-paired engine testing. ONNX Runtime does not register Transformer Engine's
-MXFP8-specific TensorRT operators.
-
-LC0 ONNX export currently supports dense checkpoints only. MoE deployment will
-require an LC0 inference backend that supports routed experts.
-
-To run a small lc0-vs-BT4 match on Modal with fastchess:
-
-```sh
-uv run prepare-lc0-modal
-uv run eval-modal artifacts/leela/run.pb.gz --nodes 64 --games 2 --rounds 1
-```
-
-Evaluation always uses the official Stockfish `noob_2moves.epd` book with a
-fixed random seed. Fastchess repeats each selected opening with colors reversed.
-
-`prepare-lc0-modal` builds the Linux CUDA/ONNX lc0 binary once on Modal and
-caches it under `/artifacts/bin/lc0`. The eval command uploads the candidate
-weights, downloads the prebuilt fastchess release into the Modal image, uses the
-cached lc0 binary, and writes PGNs under `/artifacts/evals/<name>/games.pgn`.
-
-Set W&B configuration with environment variables such as `WANDB_PROJECT`,
-`WANDB_ENTITY`, and `WANDB_MODE`.
 
 ## Website
 
-The static dashboard derives its curves and next-width projection from the
-canonical best-runs registry and family recipe. Generate its input explicitly
-with:
-
-```sh
-uv run export-scaling-data
-```
-
-Launch the development server and scaling-data watcher together from the repository root:
+Launch the dashboard and its scaling-data watcher together:
 
 ```sh
 uv run website
 ```
 
-The watcher regenerates the ignored JSON when model recipes, best-run registries,
-throughput measurements, or scaling-law code change. The production build also
-regenerates the data before compiling the website.
+Open [http://localhost:3000](http://localhost:3000). Changes to recipes,
+best-run registries, throughput measurements, and scaling code update the site
+automatically.
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `uv run train-modal` | Train a model on Modal |
+| `uv run profile-training` | Profile the production training loop |
+| `uv run throughput-sweep` | Refresh cached throughput measurements |
+| `uv run benchmark-training-modal` | Compare Transformer Engine and custom kernels |
+| `uv run checkpoint2leela` | Export a dense checkpoint for lc0 |
+| `uv run eval-modal` | Evaluate an exported net with lc0 and fastchess |
+| `uv run compare-run` | Compare a W&B run with the training frontier |
+
+Use `--help` on a command for its options. Custom-kernel development is
+documented in [kernels/README.md](kernels/README.md); experiment reports live in
+[`experiments/`](experiments/).
+
+## Verification
+
+```sh
+uv run pytest -q
+uv run ruff check .
+pnpm --dir website lint
+pnpm --dir website build
+```

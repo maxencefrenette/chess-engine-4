@@ -6,16 +6,16 @@ the canonical experiment summaries and model-family recipes.
 
 ## Getting Started
 
-Run the development server:
+From the repository root, launch the development server and scaling-data watcher:
 
 ```bash
-pnpm dev
+uv run website
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser.
 
 The development command generates the initial payload and watches its Python,
-config, and best-runs inputs for changes.
+config, best-runs, and throughput inputs for changes.
 
 The main pages live in `src/app/`. Data loading lives in `src/data/best-runs.ts`.
 
