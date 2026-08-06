@@ -30,7 +30,7 @@ def build_kernels() -> None:
     prefix_path = ";".join((torch.utils.cmake_prefix_path, pybind11.get_cmake_dir()))
     cuda_home = Path(os.environ.get("CUDA_HOME", "/usr/local/cuda"))
     build_env = os.environ.copy()
-    build_env["TORCH_CUDA_ARCH_LIST"] = "10.0a"
+    build_env["TORCH_CUDA_ARCH_LIST"] = "10.0a;12.0a"
     subprocess.run(
         [
             "cmake",

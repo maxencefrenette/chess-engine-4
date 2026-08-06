@@ -12,6 +12,18 @@ find_package(Python REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)
 find_package(Torch REQUIRED)
 
+# Torch expands TORCH_CUDA_ARCH_LIST into target-wide flags. These sources use
+# architecture-specific ThunderKittens APIs, so each translation unit must only
+# be assembled for its own architecture.
+string(
+  REPLACE "-gencode arch=compute_100a,code=sm_100a" ""
+  CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
+)
+string(
+  REPLACE "-gencode arch=compute_120a,code=sm_120a" ""
+  CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
+)
+
 set(THUNDERKITTENS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens")
 if(NOT EXISTS "${THUNDERKITTENS_ROOT}/include/kittens.cuh")
   message(FATAL_ERROR "ThunderKittens submodule is missing; run git submodule update --init")
@@ -19,7 +31,8 @@ endif()
 
 pybind11_add_module(_chess_engine_4_kernels MODULE
   src/bindings.cpp
-  src/dense/dense.cu
+  src/sm100/dense.cu
+  src/sm120/moe_d128.cu
 )
 
 target_include_directories(_chess_engine_4_kernels PRIVATE
@@ -32,7 +45,6 @@ target_link_libraries(_chess_engine_4_kernels PRIVATE
   "${CUDA_CUDART_LIBRARY}"
 )
 target_compile_definitions(_chess_engine_4_kernels PRIVATE
-  KITTENS_SM100
   TORCH_COMPILE
 )
 target_compile_options(_chess_engine_4_kernels PRIVATE
@@ -44,8 +56,16 @@ target_compile_options(_chess_engine_4_kernels PRIVATE
     -forward-unknown-to-host-compiler
     -Xcompiler=-fno-strict-aliasing
     -diag-suppress=3189
-    -gencode=arch=compute_100a,code=sm_100a
   >
+)
+
+set_source_files_properties(src/sm100/dense.cu PROPERTIES
+  COMPILE_DEFINITIONS KITTENS_SM100
+  COMPILE_OPTIONS "-gencode=arch=compute_100a,code=sm_100a"
+)
+set_source_files_properties(src/sm120/moe_d128.cu PROPERTIES
+  COMPILE_DEFINITIONS KITTENS_SM120
+  COMPILE_OPTIONS "-gencode=arch=compute_120a,code=sm_120a"
 )
 
 set_target_properties(_chess_engine_4_kernels PROPERTIES
