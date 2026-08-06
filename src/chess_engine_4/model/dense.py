@@ -104,9 +104,9 @@ class DenseBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self._use_custom_kernel:
-            from chess_engine_4.kernels import dense_mxfp8_trainable
+            from chess_engine_4.kernels import dense_block_trainable
 
-            return dense_mxfp8_trainable(
+            return dense_block_trainable(
                 x,
                 self.layer.layer_norm_weight,
                 self.layer.fc1_weight,

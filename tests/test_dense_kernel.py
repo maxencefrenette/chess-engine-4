@@ -5,7 +5,7 @@ import torch
 
 from chess_engine_4.kernels.dense import (
     SUPPORTED_DENSE_WIDTHS,
-    dense_mxfp8_forward,
+    dense_block_forward,
     quantize_mxfp8_transpose,
 )
 
@@ -21,7 +21,7 @@ def test_dense_kernel_rejects_cpu_input() -> None:
     down = torch.zeros(128, 512, dtype=torch.bfloat16)
 
     with pytest.raises(ValueError, match="x must be a CUDA tensor"):
-        dense_mxfp8_forward(x, norm, gate_up, down)
+        dense_block_forward(x, norm, gate_up, down)
 
 
 def test_transpose_quantizer_rejects_cpu_input() -> None:

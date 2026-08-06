@@ -21,8 +21,8 @@ def benchmark_dense_layer(
     import torch
     from torch.nn import functional as F
 
-    from chess_engine_4.kernels import dense_mxfp8_forward, dense_mxfp8_trainable
-    from chess_engine_4.kernels.dense import _dense_bf16_forward
+    from chess_engine_4.kernels import dense_block_forward, dense_block_trainable
+    from chess_engine_4.kernels.dense import BF16_MAX_WIDTH, _dense_bf16_forward
     from chess_engine_4.model.dense import DenseBlock
     from chess_engine_4.model.transformer_engine import (
         autocast_context,
@@ -33,12 +33,16 @@ def benchmark_dense_layer(
     torch.manual_seed(2026)
     torch.cuda.manual_seed_all(2026)
     x = torch.randn(batch_size, d_model, device="cuda", dtype=torch.bfloat16)
-    block = DenseBlock(
-        d_model=d_model,
-        hidden_dim=4 * d_model,
-        rms_norm_eps=1e-6,
-        activation="swiglu",
-    ).cuda().eval()
+    block = (
+        DenseBlock(
+            d_model=d_model,
+            hidden_dim=4 * d_model,
+            rms_norm_eps=1e-6,
+            activation="swiglu",
+        )
+        .cuda()
+        .eval()
+    )
     layer = block.layer
     norm_weight = layer.layer_norm_weight.detach()
     gate_up_weight = layer.fc1_weight.detach()
@@ -47,7 +51,14 @@ def benchmark_dense_layer(
     with torch.no_grad(), autocast_context("mxfp8"):
         te_output = block(x)
     with torch.no_grad():
-        custom_output = dense_mxfp8_forward(
+        bf16_output = _dense_bf16_forward(
+            x,
+            norm_weight,
+            gate_up_weight,
+            down_weight,
+            eps=1e-6,
+        )
+        custom_output = dense_block_forward(
             x,
             norm_weight,
             gate_up_weight,
@@ -55,25 +66,21 @@ def benchmark_dense_layer(
         )
     torch.cuda.synchronize()
 
-    difference = custom_output.float() - te_output.float()
-    mean_abs_error = difference.abs().mean().item()
-    max_abs_error = difference.abs().max().item()
-    cosine_similarity = F.cosine_similarity(
-        custom_output.float().flatten(),
-        te_output.float().flatten(),
-        dim=0,
-    ).item()
+    reference_name = "bf16" if d_model <= BF16_MAX_WIDTH else "te_mxfp8"
+    reference_output = bf16_output if d_model <= BF16_MAX_WIDTH else te_output
+    output_metrics = _output_metrics(custom_output, reference_output, F)
+    output_metrics_vs_te = _output_metrics(custom_output, te_output, F)
     if not torch.isfinite(custom_output).all():
         raise RuntimeError("custom kernel produced non-finite output")
-    if cosine_similarity < MIN_COSINE_SIMILARITY:
+    if output_metrics["cosine_similarity"] < MIN_COSINE_SIMILARITY:
         raise RuntimeError(
-            f"custom kernel cosine similarity {cosine_similarity:.8f} is below "
-            f"{MIN_COSINE_SIMILARITY}"
+            f"custom kernel cosine similarity against {reference_name} "
+            f"{output_metrics['cosine_similarity']:.8f} is below {MIN_COSINE_SIMILARITY}"
         )
-    if mean_abs_error > MAX_MEAN_ABSOLUTE_ERROR:
+    if output_metrics["mean_absolute_error"] > MAX_MEAN_ABSOLUTE_ERROR:
         raise RuntimeError(
-            f"custom kernel mean absolute error {mean_abs_error:.8f} exceeds "
-            f"{MAX_MEAN_ABSOLUTE_ERROR}"
+            f"custom kernel mean absolute error against {reference_name} "
+            f"{output_metrics['mean_absolute_error']:.8f} exceeds {MAX_MEAN_ABSOLUTE_ERROR}"
         )
 
     gradient = torch.randn_like(custom_output)
@@ -82,7 +89,7 @@ def benchmark_dense_layer(
         for tensor in (x, norm_weight, gate_up_weight, down_weight)
     )
     custom_gradients = torch.autograd.grad(
-        dense_mxfp8_trainable(*custom_inputs),
+        dense_block_trainable(*custom_inputs),
         custom_inputs,
         gradient,
     )
@@ -105,13 +112,17 @@ def benchmark_dense_layer(
     )
     gradient_metrics_vs_te = _gradient_metrics(custom_gradients, te_gradients, F)
     gradient_metrics_vs_bf16 = _gradient_metrics(custom_gradients, bf16_gradients, F)
+    gradient_metrics = (
+        gradient_metrics_vs_bf16 if d_model <= BF16_MAX_WIDTH else gradient_metrics_vs_te
+    )
     gradient_cosine_similarity = min(
-        metrics["cosine_similarity"] for metrics in gradient_metrics_vs_te.values()
+        metrics["cosine_similarity"] for metrics in gradient_metrics.values()
     )
     if gradient_cosine_similarity < MIN_GRADIENT_COSINE_SIMILARITY:
         raise RuntimeError(
-            f"custom kernel gradient cosine similarity {gradient_cosine_similarity:.8f} "
-            f"is below {MIN_GRADIENT_COSINE_SIMILARITY}: {gradient_metrics_vs_te}"
+            f"custom kernel gradient cosine similarity against {reference_name} "
+            f"{gradient_cosine_similarity:.8f} is below "
+            f"{MIN_GRADIENT_COSINE_SIMILARITY}: {gradient_metrics}"
         )
 
     graph_inputs = {
@@ -199,13 +210,26 @@ def benchmark_dense_layer(
         "custom_backward_ms": custom_backward_ms,
         "te_backward_ms": te_backward_ms,
         "backward_speedup_vs_te": te_backward_ms / custom_backward_ms,
-        "mean_abs_error_vs_te": mean_abs_error,
-        "max_abs_error_vs_te": max_abs_error,
-        "cosine_similarity_vs_te": cosine_similarity,
-        "gradient_cosine_similarity_vs_te": gradient_cosine_similarity,
+        "reference": reference_name,
+        "output_metrics": output_metrics,
+        "gradient_metrics": gradient_metrics,
+        "output_metrics_vs_te": output_metrics_vs_te,
         "gradient_metrics_vs_te": gradient_metrics_vs_te,
         "gradient_metrics_vs_bf16": gradient_metrics_vs_bf16,
         "device_name": torch.cuda.get_device_name(),
+    }
+
+
+def _output_metrics(output: Any, reference: Any, functional: Any) -> dict[str, float]:
+    difference = output.float() - reference.float()
+    return {
+        "mean_absolute_error": difference.abs().mean().item(),
+        "max_absolute_error": difference.abs().max().item(),
+        "cosine_similarity": functional.cosine_similarity(
+            output.float().flatten(),
+            reference.float().flatten(),
+            dim=0,
+        ).item(),
     }
 
 

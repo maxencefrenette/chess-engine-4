@@ -10,8 +10,7 @@ import torch
 from torch.nn import functional as F
 
 SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
-_SMALL_MAX_WIDTH = 64
-_MEDIUM_MAX_WIDTH = 512
+BF16_MAX_WIDTH = 512
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
 
@@ -89,10 +88,9 @@ def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
     output_columns, right_reduction = right.values.shape
     if reduction != right_reduction:
         raise ValueError("MXFP8 GEMM reduction dimensions do not match")
-    if output_columns != 128 and output_columns % TK_GEMM_OUTPUT_ALIGNMENT:
+    if output_columns % TK_GEMM_OUTPUT_ALIGNMENT:
         raise ValueError(
-            "ThunderKittens GEMM requires 128 output columns or a multiple of "
-            f"{TK_GEMM_OUTPUT_ALIGNMENT}"
+            f"ThunderKittens GEMM requires output columns divisible by {TK_GEMM_OUTPUT_ALIGNMENT}"
         )
     output = torch.empty(
         rows,
@@ -100,12 +98,7 @@ def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
         dtype=torch.bfloat16,
         device=left.values.device,
     )
-    function = (
-        _extension().dense_mxfp8_gemm_narrow
-        if output_columns == 128
-        else _extension().dense_mxfp8_gemm_wide
-    )
-    function(
+    _extension().dense_mxfp8_gemm(
         left.values,
         left.scales,
         right.values,
@@ -115,7 +108,7 @@ def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
     return output
 
 
-def _bf16_gemm_small(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
+def _bf16_gemm(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
     _check_bf16_matrix("left", left)
     _check_bf16_matrix("right", right)
     if left.shape[1] != right.shape[1]:
@@ -126,7 +119,7 @@ def _bf16_gemm_small(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
         dtype=torch.bfloat16,
         device=left.device,
     )
-    _extension().dense_bf16_gemm_small(left, right, output)
+    _extension().dense_bf16_gemm(left, right, output)
     return output
 
 
@@ -139,7 +132,7 @@ def _check_bf16_matrix(name: str, tensor: torch.Tensor) -> None:
         raise ValueError(f"{name} must be a contiguous matrix")
 
 
-def dense_mxfp8_forward(
+def dense_block_forward(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -149,7 +142,7 @@ def dense_mxfp8_forward(
 ) -> torch.Tensor:
     """Run a dense SwiGLU residual block through the custom TK kernels."""
 
-    output, _ = _dense_mxfp8_forward_components(
+    output, _ = _dense_forward_components(
         x,
         norm_weight,
         gate_up_weight,
@@ -159,7 +152,7 @@ def dense_mxfp8_forward(
     return output
 
 
-def dense_mxfp8_trainable(
+def dense_block_trainable(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -169,7 +162,7 @@ def dense_mxfp8_trainable(
 ) -> torch.Tensor:
     """Run the custom forward and explicit low-precision backward."""
 
-    return _DenseMxfp8Function.apply(
+    return _DenseBlockFunction.apply(
         x,
         norm_weight,
         gate_up_weight,
@@ -178,7 +171,7 @@ def dense_mxfp8_trainable(
     )
 
 
-class _DenseMxfp8Function(torch.autograd.Function):
+class _DenseBlockFunction(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx: Any,
@@ -188,7 +181,7 @@ class _DenseMxfp8Function(torch.autograd.Function):
         down_weight: torch.Tensor,
         eps: float,
     ) -> torch.Tensor:
-        output, intermediates = _dense_mxfp8_forward_components(
+        output, intermediates = _dense_forward_components(
             x,
             norm_weight,
             gate_up_weight,
@@ -223,7 +216,7 @@ class _DenseMxfp8Function(torch.autograd.Function):
             hidden,
         ) = ctx.saved_tensors
         with torch.cuda.device(x.device):
-            return _dense_mxfp8_backward(
+            return _dense_backward(
                 x,
                 norm_weight,
                 gate_up_weight,
@@ -236,7 +229,7 @@ class _DenseMxfp8Function(torch.autograd.Function):
             )
 
 
-def _dense_mxfp8_backward(
+def _dense_backward(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -249,7 +242,7 @@ def _dense_mxfp8_backward(
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
     d_model = x.shape[1]
-    if d_model <= _MEDIUM_MAX_WIDTH:
+    if d_model <= BF16_MAX_WIDTH:
         return _dense_bf16_backward(
             x,
             norm_weight,
@@ -318,7 +311,7 @@ def _dense_bf16_backward(
     eps: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
     d_model = x.shape[1]
-    grad_hidden = _bf16_gemm_small(grad_output, down_weight.T.contiguous())
+    grad_hidden = _bf16_gemm(grad_output, down_weight.T.contiguous())
     grad_gate_up = torch.empty_like(gate_up)
     _extension().dense_swiglu_backward(grad_hidden, gate_up, grad_gate_up)
     grad_down_weight = torch.mm(grad_output.T, hidden)
@@ -341,7 +334,7 @@ def _dense_bf16_backward(
     return grad_x, grad_norm_weight, grad_gate_up_weight, grad_down_weight, None
 
 
-def _dense_mxfp8_forward_components(
+def _dense_forward_components(
     x: torch.Tensor,
     norm_weight: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -367,11 +360,11 @@ def _dense_mxfp8_forward_components(
 
     normalized = torch.empty_like(x)
     _extension().dense_rmsnorm_forward(x, norm_weight, normalized, eps)
-    if d_model <= _SMALL_MAX_WIDTH:
-        gate_up = _bf16_gemm_small(normalized, gate_up_weight)
+    if d_model <= BF16_MAX_WIDTH:
+        gate_up = _bf16_gemm(normalized, gate_up_weight)
         hidden = torch.empty(x.shape[0], hidden_dim, dtype=x.dtype, device=x.device)
         _extension().dense_swiglu_forward(gate_up, hidden)
-        projected = _bf16_gemm_small(hidden, down_weight)
+        projected = _bf16_gemm(hidden, down_weight)
         _extension().dense_residual_add(x, projected)
         return projected, (normalized, gate_up, hidden)
     gate_up = mxfp8_gemm(quantize_mxfp8(normalized), quantize_mxfp8(gate_up_weight))

@@ -5,10 +5,8 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <cuda_bf16.h>
 
-// ThunderKittens' reference file contains the Blackwell MXFP8 device kernel,
-// quantizer, and its stock Nb=256 binding. Capture that binding so this
-// project can expose an additional d128-specialized CUDA entry point from one
-// extension module.
+// ThunderKittens' reference file contains the Blackwell MXFP8 device kernel
+// and quantizer. Capture its definitions in this extension module.
 static void bind_thunderkittens_reference(pybind11::module_ &module);
 static void bind_chess_engine_kernels(pybind11::module_ &module);
 
@@ -24,9 +22,8 @@ PYBIND11_MODULE(_chess_engine_4_kernels, module) {
 #undef _C
 #undef PYBIND11_MODULE
 
-// MXFP8 tensor-core instructions require 128-wide tiles. Canonical d32
-// and d64 models are narrower, so use TK's native Blackwell BF16
-// GEMM for those shapes instead of padding every projection to 128 elements.
+// Small and medium models do not amortize MXFP8 quantization, so use TK's
+// native Blackwell BF16 GEMM for those shapes.
 namespace tk_bf16_gemm {
 #define main thunderkittens_bf16_benchmark_main
 #include "../../../third_party/ThunderKittens/kernels/gemm/bf16_b200/bf16_b200_gemm.cu"
@@ -68,20 +65,14 @@ private:
     bool pushed_ = false;
 };
 
-// The stock TK PyTorch binding instantiates Nb=256 even though the underlying
-// kernel supports Nb=128. Dense d128 has several projections whose output is
-// exactly 128 columns. This specialization avoids padding those projections to
-// 256 columns and discarding half of the result.
-using NarrowGemmConfig = mxfp8_gemm::config<128, 5, 4, 12, 2, true>;
-using NarrowGemmGlobals = mxfp8_gemm::globals<NarrowGemmConfig>;
-using WideGemmConfig = mxfp8_gemm::config<256, 6, 16, 12, 4, false>;
-using WideGemmGlobals = mxfp8_gemm::globals<WideGemmConfig>;
+using Mxfp8GemmConfig = mxfp8_gemm::config<256, 6, 16, 12, 4, false>;
+using Mxfp8GemmGlobals = mxfp8_gemm::globals<Mxfp8GemmConfig>;
 
 constexpr int THREADS = 256;
 constexpr int RMS_ROWS_PER_BLOCK = 8;
 
 template <int OUTPUT_TILE, int REDUCTION_TILE>
-using SmallBf16GemmConfig = tk_bf16_gemm::config<
+using Bf16GemmConfig = tk_bf16_gemm::config<
     256,
     OUTPUT_TILE,
     REDUCTION_TILE,
@@ -98,7 +89,7 @@ void launch_bf16_gemm(
     at::Tensor &output,
     cudaStream_t stream
 ) {
-    using Config = SmallBf16GemmConfig<OUTPUT_TILE, REDUCTION_TILE>;
+    using Config = Bf16GemmConfig<OUTPUT_TILE, REDUCTION_TILE>;
     using Globals = tk_bf16_gemm::globals<Config>;
     Globals globals{
         .a = kittens::py::tensor_to_gl<typename Globals::a_gl>(left),
@@ -531,7 +522,7 @@ __global__ void cast_grad_weight_kernel(
     }
 }
 
-void mxfp8_gemm_narrow(
+void mxfp8_gemm(
     const at::Tensor &left,
     const at::Tensor &left_scales,
     const at::Tensor &right,
@@ -540,44 +531,21 @@ void mxfp8_gemm_narrow(
 ) {
     const c10::cuda::CUDAGuard device_guard(left.device());
     const PrimaryContextGuard context_guard(left.get_device());
-    NarrowGemmGlobals globals{
-        .A = kittens::py::tensor_to_gl<typename NarrowGemmGlobals::A_gl>(left),
-        .A_sc = kittens::py::tensor_to_gl<typename NarrowGemmGlobals::A_sc_gl>(left_scales),
-        .B = kittens::py::tensor_to_gl<typename NarrowGemmGlobals::B_gl>(right),
-        .B_sc = kittens::py::tensor_to_gl<typename NarrowGemmGlobals::B_sc_gl>(right_scales),
-        .D = kittens::py::tensor_to_gl<typename NarrowGemmGlobals::D_gl>(output),
+    Mxfp8GemmGlobals globals{
+        .A = kittens::py::tensor_to_gl<typename Mxfp8GemmGlobals::A_gl>(left),
+        .A_sc = kittens::py::tensor_to_gl<typename Mxfp8GemmGlobals::A_sc_gl>(left_scales),
+        .B = kittens::py::tensor_to_gl<typename Mxfp8GemmGlobals::B_gl>(right),
+        .B_sc = kittens::py::tensor_to_gl<typename Mxfp8GemmGlobals::B_sc_gl>(right_scales),
+        .D = kittens::py::tensor_to_gl<typename Mxfp8GemmGlobals::D_gl>(output),
     };
     kittens::py::launch_kernel<
-        NarrowGemmConfig,
-        NarrowGemmGlobals,
-        mxfp8_gemm::kernel<NarrowGemmConfig>
+        Mxfp8GemmConfig,
+        Mxfp8GemmGlobals,
+        mxfp8_gemm::kernel<Mxfp8GemmConfig>
     >(globals);
 }
 
-void mxfp8_gemm_wide(
-    const at::Tensor &left,
-    const at::Tensor &left_scales,
-    const at::Tensor &right,
-    const at::Tensor &right_scales,
-    at::Tensor &output
-) {
-    const c10::cuda::CUDAGuard device_guard(left.device());
-    const PrimaryContextGuard context_guard(left.get_device());
-    WideGemmGlobals globals{
-        .A = kittens::py::tensor_to_gl<typename WideGemmGlobals::A_gl>(left),
-        .A_sc = kittens::py::tensor_to_gl<typename WideGemmGlobals::A_sc_gl>(left_scales),
-        .B = kittens::py::tensor_to_gl<typename WideGemmGlobals::B_gl>(right),
-        .B_sc = kittens::py::tensor_to_gl<typename WideGemmGlobals::B_sc_gl>(right_scales),
-        .D = kittens::py::tensor_to_gl<typename WideGemmGlobals::D_gl>(output),
-    };
-    kittens::py::launch_kernel<
-        WideGemmConfig,
-        WideGemmGlobals,
-        mxfp8_gemm::kernel<WideGemmConfig>
-    >(globals);
-}
-
-void bf16_gemm_small(
+void bf16_gemm(
     const at::Tensor &left,
     const at::Tensor &right,
     at::Tensor &output
@@ -599,7 +567,7 @@ void bf16_gemm_small(
     } else if (output_columns % 256 == 0) {
         dispatch_bf16_reduction<256>(left, right, output, stream);
     } else {
-        TORCH_CHECK(false, "unsupported small dense BF16 GEMM output width: ", output_columns);
+        TORCH_CHECK(false, "unsupported dense BF16 GEMM output width: ", output_columns);
     }
 }
 
@@ -798,9 +766,8 @@ void rmsnorm_backward(
 
 static void bind_chess_engine_kernels(pybind11::module_ &module) {
     bind_thunderkittens_reference(module);
-    module.def("dense_mxfp8_gemm_narrow", &chess_engine_4::dense::mxfp8_gemm_narrow);
-    module.def("dense_mxfp8_gemm_wide", &chess_engine_4::dense::mxfp8_gemm_wide);
-    module.def("dense_bf16_gemm_small", &chess_engine_4::dense::bf16_gemm_small);
+    module.def("dense_mxfp8_gemm", &chess_engine_4::dense::mxfp8_gemm);
+    module.def("dense_bf16_gemm", &chess_engine_4::dense::bf16_gemm);
     module.def("dense_quantize_mxfp8", &chess_engine_4::dense::quantize_mxfp8);
     module.def(
         "dense_quantize_mxfp8_transpose",
