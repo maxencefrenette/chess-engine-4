@@ -1,4 +1,4 @@
-"""Paired Modal benchmarks for the d128 MoE expert implementation."""
+"""Paired Modal benchmarks for specialized MoE expert implementations."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import modal
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_train import app, base_image
 
-BATCH_SIZE = 16_384
 ACTIVE_EXPERTS = 2
 EXPERT_COUNT = 64
 TOKEN_ALIGNMENT = 128
@@ -26,8 +25,9 @@ benchmark_image = with_cuda_kernels(base_image)
 
 def benchmark_moe_kernels_modal() -> None:
     parser = argparse.ArgumentParser(
-        description="Compare the d128 SM120 MoE kernel with TE MXFP8 on B200."
+        description="Compare an SM120 MoE kernel with TE MXFP8 on B200."
     )
+    parser.add_argument("--d-model", type=int, choices=(128, 256, 512), default=128)
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iterations", type=int, default=100)
     parser.add_argument("--json", action="store_true")
@@ -38,8 +38,8 @@ def benchmark_moe_kernels_modal() -> None:
         parser.error("iterations must be positive")
 
     with modal.enable_output(), app.run():
-        custom_call = _benchmark_custom.spawn(args.warmup, args.iterations)
-        baseline_call = _benchmark_te.spawn(args.warmup, args.iterations)
+        custom_call = _benchmark_custom.spawn(args.d_model, args.warmup, args.iterations)
+        baseline_call = _benchmark_te.spawn(args.d_model, args.warmup, args.iterations)
         custom = custom_call.get()
         baseline = baseline_call.get()
     result = _comparison(custom, baseline)
@@ -50,19 +50,19 @@ def benchmark_moe_kernels_modal() -> None:
 
 
 @app.function(image=benchmark_image, gpu="RTX-PRO-6000", cpu=CPU_CORES, timeout=60 * 60)
-def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
+def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, Any]:
     import torch
     from torch.nn import functional as F
 
-    from chess_engine_4.kernels import moe_d128_trainable
+    from chess_engine_4.kernels import moe_trainable
 
     torch.manual_seed(2026)
-    correctness = _make_inputs(torch, [16] * EXPERT_COUNT)
+    correctness = _make_inputs(torch, d_model, [16] * EXPERT_COUNT)
     correctness_tensors = tuple(
         tensor.detach().clone().requires_grad_(True)
         for tensor in correctness[:4]
     )
-    custom_output = moe_d128_trainable(
+    custom_output = moe_trainable(
         *correctness_tensors,
         correctness[4],
     )
@@ -102,7 +102,7 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
             self.down_weight = torch.nn.Parameter(down_weight)
 
         def forward(self, x: Any, probs: Any, offsets: Any) -> Any:
-            return moe_d128_trainable(
+            return moe_trainable(
                 x,
                 self.gate_up_weight,
                 self.down_weight,
@@ -110,7 +110,8 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
                 offsets,
             )
 
-    x, gate_up, down, probs, offsets, _ = _inputs(torch)
+    batch_size = 128 * d_model
+    x, gate_up, down, probs, offsets, _ = _inputs(torch, d_model, batch_size)
     x.requires_grad_(True)
     probs.requires_grad_(True)
     experts = CustomExperts(gate_up, down).cuda().train()
@@ -132,7 +133,8 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
         "implementation": "custom-bf16",
         "gpu": "RTX-PRO-6000",
         "device_name": torch.cuda.get_device_name(),
-        "batch_size": BATCH_SIZE,
+        "d_model": d_model,
+        "batch_size": batch_size,
         "padded_tokens": x.shape[0],
         "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
         "backward_ms": _cuda_time_backward(
@@ -148,7 +150,7 @@ def _benchmark_custom(warmup: int, iterations: int) -> dict[str, Any]:
 
 
 @app.function(image=benchmark_image, gpu="B200", cpu=CPU_CORES, timeout=60 * 60)
-def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
+def _benchmark_te(d_model: int, warmup: int, iterations: int) -> dict[str, Any]:
     import torch
 
     from chess_engine_4.model import Moe64A2ChessNetConfig
@@ -156,7 +158,8 @@ def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
     from chess_engine_4.model.transformer_engine import autocast_context, mxfp8_recipe, te
 
     torch.manual_seed(2026)
-    x, _, _, probs, _, splits = _inputs(torch)
+    batch_size = 128 * d_model
+    x, _, _, probs, _, splits = _inputs(torch, d_model, batch_size)
     x.requires_grad_(True)
     probs.requires_grad_(True)
     split_tensor = torch.tensor(splits, device="cuda", dtype=torch.int64)
@@ -164,7 +167,7 @@ def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
     class TeExperts(torch.nn.Module):
         def __init__(self) -> None:
             super().__init__()
-            self.experts = MoeBlock(Moe64A2ChessNetConfig(d_model=128)).experts
+            self.experts = MoeBlock(Moe64A2ChessNetConfig(d_model=d_model)).experts
 
         def forward(self, x: Any, probs: Any, splits: Any) -> Any:
             return self.experts(x, splits, probs, splits)
@@ -190,7 +193,8 @@ def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
         "implementation": "te-mxfp8",
         "gpu": "B200",
         "device_name": torch.cuda.get_device_name(),
-        "batch_size": BATCH_SIZE,
+        "d_model": d_model,
+        "batch_size": batch_size,
         "padded_tokens": x.shape[0],
         "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
         "backward_ms": _cuda_time_backward(
@@ -203,25 +207,48 @@ def _benchmark_te(warmup: int, iterations: int) -> dict[str, Any]:
     }
 
 
-def _inputs(torch: Any) -> tuple[Any, Any, Any, Any, Any, list[int]]:
-    routed_tokens = BATCH_SIZE * ACTIVE_EXPERTS
+def _inputs(
+    torch: Any,
+    d_model: int,
+    batch_size: int,
+) -> tuple[Any, Any, Any, Any, Any, list[int]]:
+    routed_tokens = batch_size * ACTIVE_EXPERTS
     tokens_per_expert = routed_tokens // EXPERT_COUNT
-    padded_tokens = BATCH_SIZE * ACTIVE_EXPERTS + EXPERT_COUNT * (TOKEN_ALIGNMENT - 1)
+    padded_tokens = batch_size * ACTIVE_EXPERTS + EXPERT_COUNT * (TOKEN_ALIGNMENT - 1)
     padded_tokens = _round_up(padded_tokens, TOKEN_ALIGNMENT)
     splits = [tokens_per_expert] * EXPERT_COUNT
     splits[-1] += padded_tokens - sum(splits)
-    return _make_inputs(torch, splits)
+    return _make_inputs(torch, d_model, splits)
 
 
-def _make_inputs(torch: Any, splits: list[int]) -> tuple[Any, Any, Any, Any, Any, list[int]]:
+def _make_inputs(
+    torch: Any,
+    d_model: int,
+    splits: list[int],
+) -> tuple[Any, Any, Any, Any, Any, list[int]]:
     padded_tokens = sum(splits)
+    hidden_dim = 2 * d_model
     offsets = [0]
     for split in splits:
         offsets.append(offsets[-1] + split)
     return (
-        torch.randn(padded_tokens, 128, device="cuda", dtype=torch.bfloat16),
-        torch.randn(64, 512, 128, device="cuda", dtype=torch.bfloat16) / 128**0.5,
-        torch.randn(64, 128, 256, device="cuda", dtype=torch.bfloat16) / 256**0.5,
+        torch.randn(padded_tokens, d_model, device="cuda", dtype=torch.bfloat16),
+        torch.randn(
+            EXPERT_COUNT,
+            2 * hidden_dim,
+            d_model,
+            device="cuda",
+            dtype=torch.bfloat16,
+        )
+        / d_model**0.5,
+        torch.randn(
+            EXPERT_COUNT,
+            d_model,
+            hidden_dim,
+            device="cuda",
+            dtype=torch.bfloat16,
+        )
+        / hidden_dim**0.5,
         torch.rand(padded_tokens, device="cuda", dtype=torch.bfloat16),
         torch.tensor(offsets, device="cuda", dtype=torch.int32),
         splits,

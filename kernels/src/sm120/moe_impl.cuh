@@ -1,22 +1,17 @@
-#include "kittens.cuh"
-#include "pyutils/torchutils.cuh"
-
-#include <ATen/cuda/CUDAContext.h>
-#include <c10/cuda/CUDAGuard.h>
-#include <cuda_bf16.h>
-#include <pybind11/pybind11.h>
-
-namespace chess_engine_4::sm120::moe_d128 {
+namespace MOE_NAMESPACE {
 
 using namespace kittens;
 
 constexpr int NUM_EXPERTS = 64;
-constexpr int D_MODEL = 128;
-constexpr int HIDDEN_DIM = 256;
+constexpr int D_MODEL = MOE_D_MODEL;
+constexpr int HIDDEN_DIM = 2 * D_MODEL;
 constexpr int GATE_UP_DIM = 2 * HIDDEN_DIM;
 constexpr int TILE = 16;
 constexpr int WARPS_PER_BLOCK = 8;
 constexpr int THREADS = WARPS_PER_BLOCK * 32;
+constexpr int WGRAD_OUTPUT_TILE = 32;
+constexpr int WGRAD_INPUT_TILE = 64;
+constexpr int ACTIVATION_OUTPUT_TILE = D_MODEL >= 256 ? 64 : TILE;
 
 using ActivationGlobal = gl<bf16, 1, 1, -1, D_MODEL>;
 using GateUpWeightGlobal = gl<bf16, 1, NUM_EXPERTS, GATE_UP_DIM, D_MODEL>;
@@ -54,6 +49,15 @@ struct GradGateUpGlobals {
     ActivationGlobal input;
     GateUpWeightGlobal weight;
     HiddenGlobal grad_hidden;
+    GateUpGradientGlobal grad_gate_up;
+    OffsetGlobal expert_offsets;
+};
+
+struct FusedGradGateUpGlobals {
+    OutputGlobal grad_output;
+    DownWeightGlobal down_weight;
+    ActivationGlobal input;
+    GateUpWeightGlobal gate_up_weight;
     GateUpGradientGlobal grad_gate_up;
     OffsetGlobal expert_offsets;
 };
@@ -100,7 +104,7 @@ __device__ __forceinline__ int expert_for_row(
 __global__ void gate_swiglu_kernel(const GateSwiGLUGlobals globals) {
     const int warp = threadIdx.x / 32;
     const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
-    const int output_tiles = HIDDEN_DIM / TILE;
+    const int output_tiles = HIDDEN_DIM / ACTIVATION_OUTPUT_TILE;
     const int total_tasks = total_row_tiles * output_tiles;
 
     for (
@@ -113,9 +117,9 @@ __global__ void gate_swiglu_kernel(const GateSwiGLUGlobals globals) {
         const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
 
         rt_bf<TILE, TILE> input_tile;
-        rt_bf<TILE, TILE> weight_tile;
-        rt_fl<TILE, TILE> gate;
-        rt_fl<TILE, TILE> up;
+        rt_bf<ACTIVATION_OUTPUT_TILE, TILE> weight_tile;
+        rt_fl<TILE, ACTIVATION_OUTPUT_TILE> gate;
+        rt_fl<TILE, ACTIVATION_OUTPUT_TILE> up;
         warp::zero(gate);
         warp::zero(up);
 
@@ -131,7 +135,12 @@ __global__ void gate_swiglu_kernel(const GateSwiGLUGlobals globals) {
             warp::load(
                 weight_tile,
                 globals.weight,
-                {0, expert, HIDDEN_DIM / TILE + hidden_tile, reduction_tile}
+                {
+                    0,
+                    expert,
+                    HIDDEN_DIM / ACTIVATION_OUTPUT_TILE + hidden_tile,
+                    reduction_tile
+                }
             );
             warp::mma_ABt(up, input_tile, weight_tile, up);
         }
@@ -152,7 +161,7 @@ template <bool SAVE_RAW_OUTPUT>
 __global__ void down_kernel(const DownGlobals globals) {
     const int warp = threadIdx.x / 32;
     const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
-    const int output_tiles = D_MODEL / TILE;
+    const int output_tiles = D_MODEL / ACTIVATION_OUTPUT_TILE;
     const int total_tasks = total_row_tiles * output_tiles;
 
     for (
@@ -165,8 +174,8 @@ __global__ void down_kernel(const DownGlobals globals) {
         const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
 
         rt_bf<TILE, TILE> hidden_tile;
-        rt_bf<TILE, TILE> weight_tile;
-        rt_fl<TILE, TILE> output_tile_values;
+        rt_bf<ACTIVATION_OUTPUT_TILE, TILE> weight_tile;
+        rt_fl<TILE, ACTIVATION_OUTPUT_TILE> output_tile_values;
         warp::zero(output_tile_values);
 
         #pragma unroll
@@ -190,7 +199,7 @@ __global__ void down_kernel(const DownGlobals globals) {
                 {0, 0, row_tile, output_tile}
             );
         }
-        col_vec<rt_fl<TILE, TILE>> route_scale;
+        col_vec<rt_fl<TILE, ACTIVATION_OUTPUT_TILE>> route_scale;
         warp::load(route_scale, globals.route_probs, {row_tile});
         warp::mul_row(output_tile_values, output_tile_values, route_scale);
         warp::store(globals.output, output_tile_values, {0, 0, row_tile, output_tile});
@@ -221,13 +230,14 @@ __global__ void scale_gradient_kernel(
     for (int delta = 16; delta > 0; delta /= 2) {
         route_grad += __shfl_down_sync(0xffffffff, route_grad, delta);
     }
-    __shared__ float warp_sums[4];
+    constexpr int WARPS_PER_ROW = D_MODEL / 32;
+    __shared__ float warp_sums[WARPS_PER_ROW];
     if (column % 32 == 0) {
         warp_sums[column / 32] = route_grad;
     }
     __syncthreads();
     if (column < 32) {
-        route_grad = column < 4 ? warp_sums[column] : 0.0f;
+        route_grad = column < WARPS_PER_ROW ? warp_sums[column] : 0.0f;
         #pragma unroll
         for (int delta = 16; delta > 0; delta /= 2) {
             route_grad += __shfl_down_sync(0xffffffff, route_grad, delta);
@@ -322,6 +332,96 @@ __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
             const float up_y = up.tiles[0][0].data[slot].y;
             const float grad_x = __bfloat162float(grad_hidden.tiles[0][0].data[slot].x);
             const float grad_y = __bfloat162float(grad_hidden.tiles[0][0].data[slot].y);
+            const float sigmoid_x = 1.0f / (1.0f + __expf(-gate_x));
+            const float sigmoid_y = 1.0f / (1.0f + __expf(-gate_y));
+            grad_gate.tiles[0][0].data[slot] = make_float2(
+                grad_x * up_x * sigmoid_x * (1.0f + gate_x * (1.0f - sigmoid_x)),
+                grad_y * up_y * sigmoid_y * (1.0f + gate_y * (1.0f - sigmoid_y))
+            );
+            grad_up.tiles[0][0].data[slot] = make_float2(
+                grad_x * gate_x * sigmoid_x,
+                grad_y * gate_y * sigmoid_y
+            );
+        }
+        warp::store(
+            globals.grad_gate_up,
+            grad_gate,
+            {0, 0, row_tile, hidden_tile}
+        );
+        warp::store(
+            globals.grad_gate_up,
+            grad_up,
+            {0, 0, row_tile, HIDDEN_DIM / TILE + hidden_tile}
+        );
+    }
+}
+
+__global__ void fused_grad_gate_up_kernel(const FusedGradGateUpGlobals globals) {
+    const int warp = threadIdx.x / 32;
+    const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
+    const int hidden_tiles = HIDDEN_DIM / TILE;
+    const int total_tasks = total_row_tiles * hidden_tiles;
+
+    for (
+        int task = blockIdx.x * WARPS_PER_BLOCK + warp;
+        task < total_tasks;
+        task += gridDim.x * WARPS_PER_BLOCK
+    ) {
+        const int row_tile = task / hidden_tiles;
+        const int hidden_tile = task % hidden_tiles;
+        const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
+        rt_bf<TILE, TILE> input_tile;
+        rt_bf<TILE, TILE> gate_up_weight_tile;
+        rt_fl<TILE, TILE> gate;
+        rt_fl<TILE, TILE> up;
+        warp::zero(gate);
+        warp::zero(up);
+        #pragma unroll
+        for (int reduction_tile = 0; reduction_tile < D_MODEL / TILE; ++reduction_tile) {
+            warp::load(input_tile, globals.input, {0, 0, row_tile, reduction_tile});
+            warp::load(
+                gate_up_weight_tile,
+                globals.gate_up_weight,
+                {0, expert, hidden_tile, reduction_tile}
+            );
+            warp::mma_ABt(gate, input_tile, gate_up_weight_tile, gate);
+            warp::load(
+                gate_up_weight_tile,
+                globals.gate_up_weight,
+                {0, expert, HIDDEN_DIM / TILE + hidden_tile, reduction_tile}
+            );
+            warp::mma_ABt(up, input_tile, gate_up_weight_tile, up);
+        }
+
+        rt_bf<TILE, TILE> grad_output_tile;
+        rt_bf<TILE, TILE, col_l> down_weight_tile;
+        rt_fl<TILE, TILE> grad_hidden;
+        warp::zero(grad_hidden);
+        #pragma unroll
+        for (int reduction_tile = 0; reduction_tile < D_MODEL / TILE; ++reduction_tile) {
+            warp::load(
+                grad_output_tile,
+                globals.grad_output,
+                {0, 0, row_tile, reduction_tile}
+            );
+            warp::load(
+                down_weight_tile,
+                globals.down_weight,
+                {0, expert, reduction_tile, hidden_tile}
+            );
+            warp::mma_AB(grad_hidden, grad_output_tile, down_weight_tile, grad_hidden);
+        }
+
+        rt_fl<TILE, TILE> grad_gate;
+        rt_fl<TILE, TILE> grad_up;
+        #pragma unroll
+        for (int slot = 0; slot < rt_fl<TILE, TILE>::packed_per_tile; ++slot) {
+            const float gate_x = gate.tiles[0][0].data[slot].x;
+            const float gate_y = gate.tiles[0][0].data[slot].y;
+            const float up_x = up.tiles[0][0].data[slot].x;
+            const float up_y = up.tiles[0][0].data[slot].y;
+            const float grad_x = grad_hidden.tiles[0][0].data[slot].x;
+            const float grad_y = grad_hidden.tiles[0][0].data[slot].y;
             const float sigmoid_x = 1.0f / (1.0f + __expf(-gate_x));
             const float sigmoid_y = 1.0f / (1.0f + __expf(-gate_y));
             grad_gate.tiles[0][0].data[slot] = make_float2(
@@ -468,6 +568,80 @@ __global__ void gate_up_weight_gradient_kernel(const GateUpWeightGradientGlobals
     }
 }
 
+template <typename GradientGlobal, typename ActivationGlobal, typename WeightGlobal>
+__device__ void wide_weight_gradient(
+    const GradientGlobal &gradient,
+    const ActivationGlobal &activation,
+    const WeightGlobal &grad_weight,
+    const OffsetGlobal &expert_offsets,
+    int output_blocks,
+    int input_blocks
+) {
+    const int warp = threadIdx.x / 32;
+    const int tasks_per_expert = output_blocks * input_blocks;
+    const int total_tasks = NUM_EXPERTS * tasks_per_expert;
+    for (
+        int task = blockIdx.x * WARPS_PER_BLOCK + warp;
+        task < total_tasks;
+        task += gridDim.x * WARPS_PER_BLOCK
+    ) {
+        const int expert = task / tasks_per_expert;
+        const int expert_task = task % tasks_per_expert;
+        const int output_block = expert_task / input_blocks;
+        const int input_block = expert_task % input_blocks;
+        const int first_row_tile = expert_offsets[{expert}] / TILE;
+        const int end_row_tile = expert_offsets[{expert + 1}] / TILE;
+        rt_bf<TILE, WGRAD_OUTPUT_TILE, col_l> gradient_tile;
+        rt_bf<TILE, WGRAD_INPUT_TILE, col_l> activation_tile;
+        rt_fl<WGRAD_OUTPUT_TILE, WGRAD_INPUT_TILE> result;
+        warp::zero(result);
+        for (int row_tile = first_row_tile; row_tile < end_row_tile; ++row_tile) {
+            warp::load(
+                gradient_tile,
+                gradient,
+                {0, 0, row_tile, output_block}
+            );
+            warp::load(
+                activation_tile,
+                activation,
+                {0, 0, row_tile, input_block}
+            );
+            warp::mma_AtB(result, gradient_tile, activation_tile, result);
+        }
+        warp::store(
+            grad_weight,
+            result,
+            {0, expert, output_block, input_block}
+        );
+    }
+}
+
+__global__ void down_weight_gradient_wide_kernel(
+    const DownWeightGradientGlobals globals
+) {
+    wide_weight_gradient(
+        globals.grad_output,
+        globals.hidden,
+        globals.grad_weight,
+        globals.expert_offsets,
+        D_MODEL / WGRAD_OUTPUT_TILE,
+        HIDDEN_DIM / WGRAD_INPUT_TILE
+    );
+}
+
+__global__ void gate_up_weight_gradient_wide_kernel(
+    const GateUpWeightGradientGlobals globals
+) {
+    wide_weight_gradient(
+        globals.grad_gate_up,
+        globals.input,
+        globals.grad_weight,
+        globals.expert_offsets,
+        GATE_UP_DIM / WGRAD_OUTPUT_TILE,
+        D_MODEL / WGRAD_INPUT_TILE
+    );
+}
+
 void check_tensor(
     const at::Tensor &tensor,
     const char *name,
@@ -499,7 +673,7 @@ void launch_forward(
     at::Tensor &output
 ) {
     TORCH_CHECK(input.dim() == 2, "input must be a matrix");
-    TORCH_CHECK(input.size(1) == D_MODEL, "input width must be 128");
+    TORCH_CHECK(input.size(1) == D_MODEL, "input width must be ", D_MODEL);
     TORCH_CHECK(input.size(0) % TILE == 0, "input rows must be divisible by 16");
     const int64_t rows = input.size(0);
     check_tensor(input, "input", at::kBFloat16, {rows, D_MODEL});
@@ -536,7 +710,7 @@ void launch_forward(
     CUDACHECK(cudaGetDeviceProperties(&properties, input.get_device()));
     TORCH_CHECK(
         properties.major == 12 && properties.minor == 0,
-        "moe_d128_forward requires SM120, got compute capability ",
+        "SM120 MoE forward requires compute capability 12.0, got ",
         properties.major,
         ".",
         properties.minor
@@ -670,7 +844,7 @@ void backward(
     CUDACHECK(cudaGetDeviceProperties(&properties, input.get_device()));
     TORCH_CHECK(
         properties.major == 12 && properties.minor == 0,
-        "moe_d128_backward requires SM120"
+        "SM120 MoE backward requires compute capability 12.0"
     );
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const int blocks = properties.multiProcessorCount * 2;
@@ -696,6 +870,14 @@ void backward(
         .grad_gate_up = kittens::py::tensor_to_gl<GateUpGradientGlobal>(grad_gate_up),
         .expert_offsets = kittens::py::tensor_to_gl<OffsetGlobal>(expert_offsets),
     };
+    FusedGradGateUpGlobals fused_grad_gate_up_globals{
+        .grad_output = kittens::py::tensor_to_gl<OutputGlobal>(grad_unscaled_output),
+        .down_weight = kittens::py::tensor_to_gl<DownWeightGlobal>(down_weight),
+        .input = kittens::py::tensor_to_gl<ActivationGlobal>(input),
+        .gate_up_weight = kittens::py::tensor_to_gl<GateUpWeightGlobal>(gate_up_weight),
+        .grad_gate_up = kittens::py::tensor_to_gl<GateUpGradientGlobal>(grad_gate_up),
+        .expert_offsets = kittens::py::tensor_to_gl<OffsetGlobal>(expert_offsets),
+    };
     GradInputGlobals grad_input_globals{
         .grad_gate_up = kittens::py::tensor_to_gl<GateUpGradientGlobal>(grad_gate_up),
         .weight = kittens::py::tensor_to_gl<GateUpWeightGlobal>(gate_up_weight),
@@ -714,21 +896,39 @@ void backward(
         .grad_weight = kittens::py::tensor_to_gl<GateUpWeightGlobal>(grad_gate_up_weight),
         .expert_offsets = kittens::py::tensor_to_gl<OffsetGlobal>(expert_offsets),
     };
-    grad_hidden_kernel<<<blocks, THREADS, 0, stream>>>(grad_hidden_globals);
-    grad_gate_up_kernel<<<blocks, THREADS, 0, stream>>>(grad_gate_up_globals);
+    if constexpr (D_MODEL >= 256) {
+        fused_grad_gate_up_kernel<<<blocks, THREADS, 0, stream>>>(
+            fused_grad_gate_up_globals
+        );
+    } else {
+        grad_hidden_kernel<<<blocks, THREADS, 0, stream>>>(grad_hidden_globals);
+        grad_gate_up_kernel<<<blocks, THREADS, 0, stream>>>(grad_gate_up_globals);
+    }
     grad_input_kernel<<<blocks, THREADS, 0, stream>>>(grad_input_globals);
-    down_weight_gradient_kernel<<<blocks, THREADS, 0, stream>>>(down_weight_globals);
-    gate_up_weight_gradient_kernel<<<blocks, THREADS, 0, stream>>>(gate_up_weight_globals);
+    if constexpr (D_MODEL >= 256) {
+        constexpr int down_tasks = NUM_EXPERTS
+            * (D_MODEL / WGRAD_OUTPUT_TILE)
+            * (HIDDEN_DIM / WGRAD_INPUT_TILE);
+        constexpr int gate_up_tasks = NUM_EXPERTS
+            * (GATE_UP_DIM / WGRAD_OUTPUT_TILE)
+            * (D_MODEL / WGRAD_INPUT_TILE);
+        constexpr int down_blocks =
+            (down_tasks + WARPS_PER_BLOCK - 1) / WARPS_PER_BLOCK;
+        constexpr int gate_up_blocks =
+            (gate_up_tasks + WARPS_PER_BLOCK - 1) / WARPS_PER_BLOCK;
+        down_weight_gradient_wide_kernel<<<down_blocks, THREADS, 0, stream>>>(
+            down_weight_globals
+        );
+        gate_up_weight_gradient_wide_kernel<<<gate_up_blocks, THREADS, 0, stream>>>(
+            gate_up_weight_globals
+        );
+    } else {
+        down_weight_gradient_kernel<<<blocks, THREADS, 0, stream>>>(down_weight_globals);
+        gate_up_weight_gradient_kernel<<<blocks, THREADS, 0, stream>>>(
+            gate_up_weight_globals
+        );
+    }
     CUDACHECK(cudaPeekAtLastError());
 }
 
-}  // namespace chess_engine_4::sm120::moe_d128
-
-void bind_moe_d128_kernels(pybind11::module_ &module) {
-    module.def("moe_d128_forward", &chess_engine_4::sm120::moe_d128::forward);
-    module.def(
-        "moe_d128_training_forward",
-        &chess_engine_4::sm120::moe_d128::training_forward
-    );
-    module.def("moe_d128_backward", &chess_engine_4::sm120::moe_d128::backward);
-}
+}  // namespace MOE_NAMESPACE

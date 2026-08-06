@@ -22,7 +22,7 @@ _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.18
 _KERNEL_BACKEND_BY_WIDTH: dict[int, KernelBackend] = {
     128: "custom",
-    256: "te",
+    256: "custom",
     512: "te",
     1024: "te",
     2048: "te",

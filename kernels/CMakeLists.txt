@@ -32,7 +32,7 @@ endif()
 pybind11_add_module(_chess_engine_4_kernels MODULE
   src/bindings.cpp
   src/sm100/dense.cu
-  src/sm120/moe_d128.cu
+  src/sm120/moe.cu
 )
 
 target_include_directories(_chess_engine_4_kernels PRIVATE
@@ -63,7 +63,7 @@ set_source_files_properties(src/sm100/dense.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM100
   COMPILE_OPTIONS "-gencode=arch=compute_100a,code=sm_100a"
 )
-set_source_files_properties(src/sm120/moe_d128.cu PROPERTIES
+set_source_files_properties(src/sm120/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM120
   COMPILE_OPTIONS "-gencode=arch=compute_120a,code=sm_120a"
 )

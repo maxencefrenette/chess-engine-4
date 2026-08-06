@@ -117,14 +117,14 @@ def validate_training_hardware(config: TrainingConfig) -> None:
         return
     if (
         config.model.kind == "moe64a2"
-        and config.model.d_model == 128
+        and config.model.d_model in {128, 256, 512}
         and config.model.precision == "bf16"
         and config.infra.gpu == "RTX-PRO-6000"
     ):
         return
     raise ValueError(
         "custom kernels require either a dense model on B200 or "
-        "a BF16 moe64a2 d128 model on RTX-PRO-6000"
+        "a supported BF16 moe64a2 model on RTX-PRO-6000"
     )
 
 

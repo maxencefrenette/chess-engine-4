@@ -76,12 +76,22 @@ def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
         validate_training_hardware(config)
 
 
-def test_custom_moe_kernel_requires_d128_bf16_on_rtx_pro_6000() -> None:
-    config = load_training_config("configs/moe64a2.py", d_model=128)
+@pytest.mark.parametrize("d_model", [128, 256, 512])
+def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
+    d_model: int,
+) -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=d_model)
+    if d_model == 512:
+        config = with_overrides(
+            config,
+            gpu="RTX-PRO-6000",
+            quantization_recipe="bf16",
+            kernel_backend="custom",
+        )
 
     validate_training_hardware(config)
 
-    with pytest.raises(ValueError, match="BF16 moe64a2 d128"):
+    with pytest.raises(ValueError, match="supported BF16 moe64a2"):
         validate_training_hardware(with_overrides(config, gpu="B200"))
 
 

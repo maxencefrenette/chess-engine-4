@@ -261,13 +261,18 @@ class MoeBlock(nn.Module):
         return routed.sum(dim=1), tokens_per_expert
 
     def enable_custom_kernels(self) -> None:
+        from chess_engine_4.kernels.moe import SUPPORTED_MOE_WIDTHS
+
         if self._custom_kernels_enabled:
             return
-        if self.d_model != 128 or self.hidden_dim != 256:
-            raise ValueError("the custom MoE kernel requires d_model=128 and expansion_ratio=2")
+        if self.d_model not in SUPPORTED_MOE_WIDTHS or self.hidden_dim != 2 * self.d_model:
+            raise ValueError(
+                "the custom MoE kernel requires d_model in "
+                f"{sorted(SUPPORTED_MOE_WIDTHS)} and expansion_ratio=2"
+            )
         gate_up = self.experts[0]
         down = self.experts[2]
-        self.experts = _CustomD128Experts(
+        self.experts = _CustomExperts(
             torch.stack(
                 [getattr(gate_up, f"weight{expert}").detach() for expert in range(EXPERT_COUNT)]
             ),
@@ -278,7 +283,7 @@ class MoeBlock(nn.Module):
         self._custom_kernels_enabled = True
 
 
-class _CustomD128Experts(nn.Module):
+class _CustomExperts(nn.Module):
     def __init__(self, gate_up_weight: torch.Tensor, down_weight: torch.Tensor) -> None:
         super().__init__()
         self.gate_up_weight = nn.Parameter(gate_up_weight)
@@ -290,9 +295,9 @@ class _CustomD128Experts(nn.Module):
         route_probs: torch.Tensor,
         expert_offsets: torch.Tensor,
     ) -> torch.Tensor:
-        from chess_engine_4.kernels import moe_d128_trainable
+        from chess_engine_4.kernels import moe_trainable
 
-        return moe_d128_trainable(
+        return moe_trainable(
             x,
             self.gate_up_weight,
             self.down_weight,
