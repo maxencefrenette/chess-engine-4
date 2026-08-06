@@ -19,7 +19,8 @@ from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import TrainingConfig
 from chess_engine_4.training.flops import measure_training_flops_per_sample
-from chess_engine_4.training.losses import PolicyTarget, lczero_loss
+from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
+from chess_engine_4.training.losses import lczero_loss
 from chess_engine_4.training.packed_input import (
     PackedPlaneInput,
     build_training_model,
@@ -35,15 +36,6 @@ _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 _B200_TFLOPS = {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0}
-
-type NativeBatch = tuple[
-    torch.Tensor,
-    torch.Tensor,
-    torch.Tensor,
-    torch.Tensor,
-    torch.Tensor,
-]
-
 
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
@@ -106,6 +98,10 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
 
     training_model.train()
+    batch_pipeline = TrainingBatchPipeline(
+        kind=config.model.input_pipeline,
+        device=device,
+    )
     start = time.perf_counter()
     profile_records: list[dict[str, Any]] = []
     profile_measured_wall_start: float | None = None
@@ -155,25 +151,32 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             pin_start = fetch_end
         if trace_profiler is not None:
             with torch.profiler.record_function("pin_memory"):
-                pinned_batch = _pin_batch(batch)
+                staged_batch = batch_pipeline.stage(batch)
         else:
-            pinned_batch = _pin_batch(batch)
+            staged_batch = batch_pipeline.stage(batch)
         if options.profile is not None:
             pin_end = time.perf_counter()
             copy_start = torch.cuda.Event(enable_timing=True)
             copy_end = torch.cuda.Event(enable_timing=True)
             train_start = torch.cuda.Event(enable_timing=True)
             train_end = torch.cuda.Event(enable_timing=True)
-            copy_start.record()
             h2d_enqueue_start = time.perf_counter()
         if trace_profiler is not None:
             with torch.profiler.record_function("h2d_transfer"):
-                planes, policy, value = _copy_batch_to_device(pinned_batch, device=device)
+                planes, policy, value = batch_pipeline.transfer(
+                    staged_batch,
+                    copy_start=copy_start if options.profile is not None else None,
+                    copy_end=copy_end if options.profile is not None else None,
+                )
         else:
-            planes, policy, value = _copy_batch_to_device(pinned_batch, device=device)
+            planes, policy, value = batch_pipeline.transfer(
+                staged_batch,
+                copy_start=copy_start if options.profile is not None else None,
+                copy_end=copy_end if options.profile is not None else None,
+            )
         if options.profile is not None:
             h2d_enqueue_end = time.perf_counter()
-            copy_end.record()
+        if options.profile is not None:
             train_start.record()
         current_lr = _set_scheduled_lr(
             optimizer,
@@ -359,6 +362,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "flops_per_sample": flops_per_sample,
         "device": str(device),
         "precision": config.precision.recipe,
+        "input_pipeline": config.model.input_pipeline,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -437,47 +441,6 @@ def inspect_data() -> None:
 def _seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
-
-def _move_batch_to_device(
-    batch: NativeBatch,
-    *,
-    device: torch.device,
-) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
-    return _copy_batch_to_device(_pin_batch(batch), device=device)
-
-
-def _pin_batch(batch: NativeBatch) -> NativeBatch:
-    return (
-        batch[0].pin_memory(),
-        batch[1].pin_memory(),
-        batch[2].pin_memory(),
-        batch[3].pin_memory(),
-        batch[4].pin_memory(),
-    )
-
-
-def _copy_batch_to_device(
-    batch: NativeBatch,
-    *,
-    device: torch.device,
-) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
-    packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
-    packed_planes = packed_planes.to(device=device, non_blocking=True)
-    plane_scalars = plane_scalars.to(
-        device=device,
-        dtype=torch.bfloat16,
-        non_blocking=True,
-    )
-    planes = (packed_planes, plane_scalars)
-    return (
-        planes,
-        (
-            policy_indices.to(device=device, non_blocking=True),
-            policy_probs.to(device=device, non_blocking=True),
-        ),
-        value.to(device, non_blocking=True),
-    )
 
 
 def _input_batch_size(planes: PackedPlaneInput) -> int:
@@ -666,6 +629,7 @@ def _init_wandb(
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
         "precision": config.precision.recipe,
+        "input_pipeline": config.model.input_pipeline,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,
         "dataloader_threads": config.infra.dataloader_threads,

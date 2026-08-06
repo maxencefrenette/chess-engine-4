@@ -53,13 +53,12 @@ def summarize_profile(
     copy_ms = [record["copy_start"].elapsed_time(record["copy_end"]) for record in measured]
     train_ms = [record["train_start"].elapsed_time(record["train_end"]) for record in measured]
     idle_gap_ms = [
-        previous["train_end"].elapsed_time(current["copy_start"])
+        previous["train_end"].elapsed_time(current["train_start"])
         for previous, current in zip(previous_for_gap, current_for_gap, strict=True)
     ]
     measured_wall_ms_per_step = (measured_wall_end - measured_wall_start) * 1000.0 / len(measured)
     train_gpu_mean_ms = statistics.fmean(train_ms)
     achieved_train_only_tflops = batch_size * flops_per_sample / (train_gpu_mean_ms / 1000.0) / 1e12
-    gpu_work_mean_ms = statistics.fmean(copy_ms) + train_gpu_mean_ms
     gpu_idle_gap_mean_ms = statistics.fmean(idle_gap_ms) if idle_gap_ms else 0.0
 
     return {
@@ -81,7 +80,6 @@ def summarize_profile(
             if theoretical_tflops and measured_wall_ms_per_step > 0
             else None
         ),
-        "gpu_work_mean_ms": gpu_work_mean_ms,
         "gpu_idle_gap_mean_ms": gpu_idle_gap_mean_ms,
         "gpu_idle_fraction_of_step": gpu_idle_gap_mean_ms / measured_wall_ms_per_step,
         "data_fetch_wall": _summarize([record["fetch_wall_ms"] for record in measured]),
@@ -92,9 +90,6 @@ def summarize_profile(
         "h2d_copy_gpu": _summarize(copy_ms),
         "train_gpu": _summarize(train_ms),
         "gpu_idle_gap": _summarize(idle_gap_ms),
-        "stream_copy_plus_train": _summarize(
-            [record["copy_start"].elapsed_time(record["train_end"]) for record in measured]
-        ),
     }
 
 

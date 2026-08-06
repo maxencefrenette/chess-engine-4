@@ -94,6 +94,7 @@ def _print_profile(result: dict[str, Any]) -> None:
         f"profile_complete run={result['run_name']} gpu={result['device_name']} "
         f"steps={result['profile_steps']} warmup={result['warmup_steps']} "
         f"batch_size={result['batch_size']} "
+        f"input_pipeline={result['input_pipeline']} "
         f"threads={result['dataloader_threads']} "
         f"prefetch_per_thread={result['dataloader_prefetch_per_thread']}"
     )
@@ -106,7 +107,6 @@ def _print_profile(result: dict[str, Any]) -> None:
         ("exposed GPU idle gap", result["gpu_idle_gap_mean_ms"]),
         ("H2D copy on GPU stream", result["h2d_copy_gpu"]["mean_ms"]),
         ("train GPU kernels", result["train_gpu"]["mean_ms"]),
-        ("copy + train GPU work", result["gpu_work_mean_ms"]),
     ]
     width = max(len(name) for name, _ in rows)
     for name, value in rows:

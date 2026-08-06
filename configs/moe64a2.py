@@ -66,6 +66,7 @@ def config(
             expansion_ratio=2.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
+            input_pipeline="pinned",
         ),
         optimizer=OptimizerConfig(
             lr=_round_significant(

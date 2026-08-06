@@ -238,7 +238,7 @@ def _benchmark_production(
     import torch
 
     from chess_engine_4.data.leela import LeelaParquetDataset
-    from chess_engine_4.training.cli import _move_batch_to_device
+    from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
 
     dataset = LeelaParquetDataset(
         batch_size=config.run.batch_size,
@@ -246,9 +246,17 @@ def _benchmark_production(
         threads=config.infra.dataloader_threads,
     )
     iterator = iter(dataset)
+    pipelines = {
+        runner: TrainingBatchPipeline(
+            kind=config.model.input_pipeline,
+            device=torch.device("cuda"),
+        )
+        for runner in (te_runner, custom_runner)
+    }
 
     def production_step(runner: _TrainingRunner) -> None:
-        batch = _move_batch_to_device(next(iterator), device=torch.device("cuda"))
+        pipeline = pipelines[runner]
+        batch = pipeline.transfer(pipeline.stage(next(iterator)))
         runner.step(batch)
 
     return _paired_measure(

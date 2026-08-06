@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
+from chess_engine_4.model import DenseChessNetConfig, InputPipeline, dense_parameter_count
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
@@ -21,6 +21,16 @@ _BATCH_PER_WIDTH = 32
 _LR_PARAMETER_COEFFICIENT = 31.75
 _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
+_INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
+    32: "pageable",
+    64: "pageable",
+    128: "staging",
+    256: "staging",
+    512: "overlap",
+    1024: "overlap",
+    1536: "overlap",
+    2048: "overlap",
+}
 
 
 def config(
@@ -33,6 +43,9 @@ def config(
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
         raise ValueError("d_model must be a positive multiple of 32.")
+    if d_model not in _INPUT_PIPELINE_BY_WIDTH:
+        choices = ", ".join(str(width) for width in _INPUT_PIPELINE_BY_WIDTH)
+        raise ValueError(f"d_model must be one of: {choices}.")
     if training_ratio <= 0:
         raise ValueError("training_ratio must be positive.")
     if not 1 <= history_length <= 8:
@@ -68,6 +81,7 @@ def config(
             expansion_ratio=4.0,
             activation="swiglu",
             rms_norm_eps=1e-6,
+            input_pipeline=_INPUT_PIPELINE_BY_WIDTH[d_model],
         ),
         optimizer=OptimizerConfig(
             lr=_round_significant(

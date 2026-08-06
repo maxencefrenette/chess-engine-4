@@ -10,6 +10,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.model.config import InputPipeline
 from chess_engine_4.model.dense import (
     HISTORY_LENGTH,
     PLANES_PER_HISTORY_POSITION,
@@ -58,6 +59,7 @@ class Moe64A2ChessNetConfig:
     expansion_ratio: float = 2.0
     activation: str = "swiglu"
     rms_norm_eps: float = 1e-6
+    input_pipeline: InputPipeline = "pinned"
 
     num_experts: ClassVar[int] = EXPERT_COUNT
     num_active_experts: ClassVar[int] = ACTIVE_EXPERT_COUNT
