@@ -100,12 +100,16 @@ To profile the Modal training loop:
 uv run profile-training --d-model 64
 ```
 
-To capture a post-warmup CPU/CUDA timeline and download a Chrome trace into
-`profiles/traces/`:
+The profiler separates loader and tensor-wrapping time, host pinning, H2D
+submission and GPU copy time, exposed GPU idle time, and training kernels.
+
+To capture a post-warmup CPU/CUDA timeline from the same profiler:
 
 ```sh
-uv run profile-training-trace --d-model 256 --profile-steps 10
-uv run profile-training-trace --d-model 256 --experimental-dense-kernel
+uv run profile-training --d-model 256 --profile-steps 10 \
+  --trace-output profiles/traces/d256.json
+uv run profile-training --d-model 256 --experimental-dense-kernel \
+  --profile-steps 10 --trace-output profiles/traces/d256-custom.json
 ```
 
 Experimental Blackwell kernels live under `kernels/` with ThunderKittens pinned
@@ -115,16 +119,12 @@ correctness and latency benchmark directly on Modal:
 ```sh
 git submodule update --init
 uv run build-kernels
-uv run benchmark-kernel-modal --kernel dense-d128-mxfp8-forward
-```
-
-To compare TE and custom kernels in one B200 process at the isolated-layer,
-synthetic-training-step, and production-loop levels:
-
-```sh
 uv run benchmark-training-modal --d-model 256
 uv run benchmark-training-modal --widths 128 256 512 --level step
 ```
+
+The benchmark compares TE and custom kernels in one B200 process at the
+isolated-layer, synthetic-training-step, and production-loop levels.
 
 These kernels remain opt-in until both forward and backward paths beat the
 canonical Transformer Engine training implementation.

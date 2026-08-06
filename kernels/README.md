@@ -28,5 +28,6 @@ normalization remain separate launches; keep it behind
 
 The backward path fuses transpose with MXFP8 quantization, avoiding six BF16
 transpose materializations per block, and uses width-specialized BF16-pair
-SwiGLU kernels. Run `uv run benchmark-kernel-modal --d-model WIDTH` to compare
+SwiGLU kernels. Run
+`uv run benchmark-training-modal --d-model WIDTH --level layer` to compare
 forward and backward latency independently against Transformer Engine.

@@ -85,7 +85,10 @@ def summarize_profile(
         "gpu_idle_gap_mean_ms": gpu_idle_gap_mean_ms,
         "gpu_idle_fraction_of_step": gpu_idle_gap_mean_ms / measured_wall_ms_per_step,
         "data_fetch_wall": _summarize([record["fetch_wall_ms"] for record in measured]),
-        "enqueue_wall": _summarize([record["enqueue_wall_ms"] for record in measured]),
+        "pin_memory_wall": _summarize([record["pin_wall_ms"] for record in measured]),
+        "h2d_enqueue_wall": _summarize(
+            [record["h2d_enqueue_wall_ms"] for record in measured]
+        ),
         "h2d_copy_gpu": _summarize(copy_ms),
         "train_gpu": _summarize(train_ms),
         "gpu_idle_gap": _summarize(idle_gap_ms),

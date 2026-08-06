@@ -152,17 +152,27 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 break
         if options.profile is not None:
             fetch_end = time.perf_counter()
+            pin_start = fetch_end
+        if trace_profiler is not None:
+            with torch.profiler.record_function("pin_memory"):
+                pinned_batch = _pin_batch(batch)
+        else:
+            pinned_batch = _pin_batch(batch)
+        if options.profile is not None:
+            pin_end = time.perf_counter()
             copy_start = torch.cuda.Event(enable_timing=True)
             copy_end = torch.cuda.Event(enable_timing=True)
             train_start = torch.cuda.Event(enable_timing=True)
             train_end = torch.cuda.Event(enable_timing=True)
             copy_start.record()
+            h2d_enqueue_start = time.perf_counter()
         if trace_profiler is not None:
             with torch.profiler.record_function("h2d_transfer"):
-                planes, policy, value = _move_batch_to_device(batch, device=device)
+                planes, policy, value = _copy_batch_to_device(pinned_batch, device=device)
         else:
-            planes, policy, value = _move_batch_to_device(batch, device=device)
+            planes, policy, value = _copy_batch_to_device(pinned_batch, device=device)
         if options.profile is not None:
+            h2d_enqueue_end = time.perf_counter()
             copy_end.record()
             train_start.record()
         current_lr = _set_scheduled_lr(
@@ -219,7 +229,11 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             profile_records.append(
                 {
                     "fetch_wall_ms": (fetch_end - fetch_start) * 1000.0,
-                    "enqueue_wall_ms": (time.perf_counter() - fetch_end) * 1000.0,
+                    "pin_wall_ms": (pin_end - pin_start) * 1000.0,
+                    "h2d_enqueue_wall_ms": (
+                        h2d_enqueue_end - h2d_enqueue_start
+                    )
+                    * 1000.0,
                     "copy_start": copy_start,
                     "copy_end": copy_end,
                     "train_start": train_start,
@@ -430,7 +444,24 @@ def _move_batch_to_device(
     *,
     device: torch.device,
 ) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
-    batch = tuple(tensor.pin_memory() for tensor in batch)
+    return _copy_batch_to_device(_pin_batch(batch), device=device)
+
+
+def _pin_batch(batch: NativeBatch) -> NativeBatch:
+    return (
+        batch[0].pin_memory(),
+        batch[1].pin_memory(),
+        batch[2].pin_memory(),
+        batch[3].pin_memory(),
+        batch[4].pin_memory(),
+    )
+
+
+def _copy_batch_to_device(
+    batch: NativeBatch,
+    *,
+    device: torch.device,
+) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
     packed_planes, plane_scalars, policy_indices, policy_probs, value = batch
     packed_planes = packed_planes.to(device=device, non_blocking=True)
     plane_scalars = plane_scalars.to(

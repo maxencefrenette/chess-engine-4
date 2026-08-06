@@ -22,6 +22,8 @@ def test_throughput_result_round_trip(tmp_path: Path) -> None:
         "flops_per_sample": 1234,
         "measured_wall_ms_per_step": 10.0,
         "train_gpu": {"mean_ms": 8.0},
+        "pin_memory_wall": {"mean_ms": 0.3},
+        "h2d_enqueue_wall": {"mean_ms": 0.1},
         "h2d_copy_gpu": {"mean_ms": 1.0},
         "data_fetch_wall": {"mean_ms": 0.5},
         "gpu_idle_gap_mean_ms": 0.2,

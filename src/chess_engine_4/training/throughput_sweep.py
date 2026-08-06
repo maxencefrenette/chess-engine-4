@@ -199,6 +199,8 @@ def make_entry(
         "measured_wall_ms_per_step": milliseconds,
         "samples_per_sec": config.run.batch_size / (milliseconds / 1000.0),
         "train_gpu_ms_per_step": float(profile["train_gpu"]["mean_ms"]),
+        "pin_memory_ms_per_step": float(profile["pin_memory_wall"]["mean_ms"]),
+        "h2d_enqueue_ms_per_step": float(profile["h2d_enqueue_wall"]["mean_ms"]),
         "h2d_copy_ms_per_step": float(profile["h2d_copy_gpu"]["mean_ms"]),
         "data_fetch_ms_per_step": float(profile["data_fetch_wall"]["mean_ms"]),
         "gpu_idle_gap_ms_per_step": float(profile["gpu_idle_gap_mean_ms"]),

@@ -1,84 +1,14 @@
-"""Build and benchmark project-owned CUDA kernels on Modal."""
+"""Correctness and latency benchmarks for project-owned CUDA kernels."""
 
 from __future__ import annotations
 
-import argparse
-import json
 from typing import Any
-
-from chess_engine_4.kernels.modal import with_cuda_kernels
-from chess_engine_4.modal_train import app, base_image
 
 KERNEL_NAME = "dense-mxfp8"
 SUPPORTED_WIDTHS = (128, 256, 512, 1024, 2048)
 MIN_COSINE_SIMILARITY = 0.999
 MAX_MEAN_ABSOLUTE_ERROR = 1e-3
 MIN_GRADIENT_COSINE_SIMILARITY = 0.99
-
-kernel_image = with_cuda_kernels(base_image)
-
-
-def benchmark_kernel_modal() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark a CUDA kernel on Modal.")
-    parser.add_argument("--kernel", choices=(KERNEL_NAME,), default=KERNEL_NAME)
-    parser.add_argument("--d-model", type=int, choices=SUPPORTED_WIDTHS, default=128)
-    parser.add_argument("--batch-size", type=int, default=None)
-    parser.add_argument("--warmup", type=int, default=100)
-    parser.add_argument("--iterations", type=int, default=500)
-    parser.add_argument("--json", action="store_true")
-    args = parser.parse_args()
-    batch_size = args.batch_size or 32 * args.d_model
-    if batch_size <= 0 or batch_size % 256:
-        parser.error("batch-size must be a positive multiple of 256")
-    if args.warmup < 0:
-        parser.error("warmup must be non-negative")
-    if args.iterations <= 0:
-        parser.error("iterations must be positive")
-
-    with app.run():
-        result = _benchmark_dense_mxfp8.remote(
-            args.d_model,
-            batch_size,
-            args.warmup,
-            args.iterations,
-        )
-    if args.json:
-        print(json.dumps(result, indent=2, sort_keys=True))
-        return
-    print(
-        f"kernel={KERNEL_NAME} d_model={result['d_model']} batch_size={result['batch_size']} "
-        f"custom_ms={result['custom_ms']:.4f} te_ms={result['te_ms']:.4f} "
-        f"speedup={result['speedup_vs_te']:.3f}x"
-    )
-    print(
-        f"custom_backward_ms={result['custom_backward_ms']:.4f} "
-        f"te_backward_ms={result['te_backward_ms']:.4f} "
-        f"backward_speedup={result['backward_speedup_vs_te']:.3f}x"
-    )
-    print(
-        f"mean_abs_error={result['mean_abs_error_vs_te']:.6f} "
-        f"max_abs_error={result['max_abs_error_vs_te']:.6f} "
-        f"cosine_similarity={result['cosine_similarity_vs_te']:.8f}"
-    )
-    print(
-        "gradient_cosine_similarity_vs_te="
-        f"{result['gradient_cosine_similarity_vs_te']:.8f}"
-    )
-
-
-@app.function(image=kernel_image, gpu="B200", timeout=30 * 60)
-def _benchmark_dense_mxfp8(
-    d_model: int,
-    batch_size: int,
-    warmup: int,
-    iterations: int,
-) -> dict[str, Any]:
-    return benchmark_dense_layer(
-        d_model=d_model,
-        batch_size=batch_size,
-        warmup=warmup,
-        iterations=iterations,
-    )
 
 
 def benchmark_dense_layer(
