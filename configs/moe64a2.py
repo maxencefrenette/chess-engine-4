@@ -31,21 +31,18 @@ _KERNEL_BACKEND_BY_WIDTH: dict[int, KernelBackend] = {
     256: "custom",
     512: "te",
     1024: "te",
-    2048: "te",
 }
 _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
     128: "RTX-PRO-6000",
     256: "RTX-PRO-6000",
     512: "B200",
     1024: "B200",
-    2048: "B200",
 }
 _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     128: "overlap",
     256: "overlap",
     512: "overlap",
     1024: "overlap",
-    2048: "overlap",
 }
 
 

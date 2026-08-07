@@ -113,8 +113,8 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
-@pytest.mark.parametrize("d_model", [32, 64])
-def test_moe64a2_recipe_rejects_widths_with_unreliable_expert_utilization(
+@pytest.mark.parametrize("d_model", [32, 64, 2048])
+def test_moe64a2_recipe_rejects_unsupported_widths(
     d_model: int,
 ) -> None:
     with pytest.raises(ValueError, match="d_model must be one of"):

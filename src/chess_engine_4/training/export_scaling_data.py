@@ -36,6 +36,7 @@ FAMILIES = {
         "best_runs": Path("experiments/best-runs-moe64a2.toml"),
         "config": Path("configs/moe64a2.py"),
         "training_ratio": 0.02,
+        "extrapolate": False,
     },
 }
 
@@ -86,24 +87,32 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
         observed_point(result, result.flops, raw_runs, family_id) for result in stale_results
     ]
     target_width = max(result.d_model for result in results) * 2
-    target_config = load_training_config(
-        metadata["config"],
-        d_model=target_width,
-        training_ratio=training_ratio,
-    )
-    target_flops_per_sample = measure_training_flops_per_sample(
-        target_config.model,
-        batch_size=target_config.run.batch_size,
-    )
-    target_flops = target_flops_per_sample * target_config.run.batch_size * target_config.run.steps
-    extrapolated = [
-        extrapolated_recipe_point(
-            target_config,
-            target_flops,
-            loss_law=loss_law,
-            policy_law=policy_law,
+    target_config = None
+    if metadata.get("extrapolate", True):
+        target_config = load_training_config(
+            metadata["config"],
+            d_model=target_width,
+            training_ratio=training_ratio,
         )
-    ]
+
+    extrapolated = []
+    target_flops = max(result_flops.values())
+    if target_config is not None:
+        target_flops_per_sample = measure_training_flops_per_sample(
+            target_config.model,
+            batch_size=target_config.run.batch_size,
+        )
+        target_flops = (
+            target_flops_per_sample * target_config.run.batch_size * target_config.run.steps
+        )
+        extrapolated.append(
+            extrapolated_recipe_point(
+                target_config,
+                target_flops,
+                loss_law=loss_law,
+                policy_law=policy_law,
+            )
+        )
 
     min_log_flops = math.log10(min(result_flops.values()))
     max_log_flops = math.log10(target_flops)
