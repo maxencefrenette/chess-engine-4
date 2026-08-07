@@ -4,7 +4,7 @@ project(chess_engine_4_kernels LANGUAGES CXX CUDA)
 
 option(CE4_BUILD_PYTHON "Build the PyTorch training extension" ON)
 option(CE4_BUILD_INFERENCE "Build the standalone inference runtime" OFF)
-set(CE4_CUDA_ARCH "100a" CACHE STRING "CUDA architecture for the inference runtime")
+set(CE4_CUDA_ARCH "120a" CACHE STRING "CUDA architecture for the inference runtime")
 
 # CMake 3.25 predates CUDA 13's C++20 dialect table.
 set(CMAKE_CUDA20_STANDARD_COMPILE_OPTION "--std=c++20")
@@ -15,17 +15,23 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 if(CE4_BUILD_INFERENCE)
   find_package(CUDAToolkit REQUIRED)
   find_package(nlohmann_json CONFIG REQUIRED)
-  add_library(ce4_inference STATIC
-    src/inference/dense.cu
-    src/inference/tk_bf16.cu
-  )
+  if(CE4_CUDA_ARCH STREQUAL "100a")
+    set(CE4_INFERENCE_GEMM_SOURCE src/inference/tk_bf16.cu)
+    set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM100)
+  elseif(CE4_CUDA_ARCH STREQUAL "120a")
+    set(CE4_INFERENCE_GEMM_SOURCE src/inference/sm120_bf16.cu)
+    set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM120)
+  else()
+    message(FATAL_ERROR "CE4 inference supports only CUDA architectures 100a and 120a")
+  endif()
+  add_library(ce4_inference STATIC src/inference/dense.cu ${CE4_INFERENCE_GEMM_SOURCE})
   target_include_directories(ce4_inference
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE
       "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens/include"
       "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens/prototype"
   )
-  target_compile_definitions(ce4_inference PRIVATE KITTENS_SM100)
+  target_compile_definitions(ce4_inference PRIVATE ${CE4_INFERENCE_ARCH_DEFINITION})
   target_link_libraries(
     ce4_inference
     PUBLIC CUDA::cuda_driver CUDA::cudart CUDA::cublas nlohmann_json::nlohmann_json

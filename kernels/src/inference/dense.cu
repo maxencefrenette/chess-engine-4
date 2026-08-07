@@ -1,5 +1,5 @@
 #include "chess_engine_4/inference.h"
-#include "tk_bf16.h"
+#include "bf16_gemm.h"
 
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
@@ -410,7 +410,7 @@ public:
         CheckCublas(cublasSetStream(cublas_, stream_), "cublasSetStream");
         CheckCublas(cublasSetMathMode(cublas_, CUBLAS_TENSOR_OP_MATH), "cublasSetMathMode");
 
-        const std::size_t batch = maximum_batch_size;
+        const std::size_t batch = (maximum_batch_size + 15) / 16 * 16;
         device_planes_ = Allocate<InputPlane>(batch * kInputPlanes, "allocate planes");
         expanded_ = Allocate<__nv_bfloat16>(batch * input_dim_, "allocate expanded input");
         x_[0] = Allocate<__nv_bfloat16>(batch * info_.d_model, "allocate x0");
@@ -573,8 +573,17 @@ private:
         int columns,
         int reduction
     ) {
-        if (TkBf16GemmSupported(rows, columns, reduction)) {
-            LaunchTkBf16Gemm(input, weight, output, rows, columns, reduction, stream_);
+        const int padded_rows = (rows + 15) / 16 * 16;
+        if (CustomBf16GemmSupported(padded_rows, columns, reduction)) {
+            LaunchCustomBf16Gemm(
+                input,
+                weight,
+                output,
+                padded_rows,
+                columns,
+                reduction,
+                stream_
+            );
             return;
         }
         const float alpha = 1.0f;

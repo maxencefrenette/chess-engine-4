@@ -186,7 +186,7 @@ def eval_modal() -> None:
         "startup_ms": args.startup_ms,
         "ping_ms": args.ping_ms,
         "candidate_backend": "ce4",
-        "baseline_backend": "cuda",
+        "baseline_backend": "cudnn-fp16",
         "candidate_name": args.candidate_name,
         "baseline_name": args.baseline_name,
         "baseline_weights": args.baseline_weights,
@@ -210,9 +210,13 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
-    parser.add_argument("--gpu", choices=("B200",), default="B200")
-    parser.add_argument("--player1-backend", choices=("ce4", "cuda"), default="ce4")
-    parser.add_argument("--player2-backend", choices=("ce4", "cuda"), default="cuda")
+    parser.add_argument("--gpu", choices=("RTX-PRO-6000",), default="RTX-PRO-6000")
+    parser.add_argument(
+        "--player1-backend", choices=("ce4", "cudnn-fp16"), default="ce4"
+    )
+    parser.add_argument(
+        "--player2-backend", choices=("ce4", "cudnn-fp16"), default="cudnn-fp16"
+    )
     args = parser.parse_args()
     if args.games <= 0 or args.games % 2:
         parser.error("--games must be a positive even number.")
@@ -421,7 +425,7 @@ def _prepare_lc0_remote(output: str) -> dict[str, str]:
 
 @app.function(
     image=image,
-    gpu="B200",
+    gpu="RTX-PRO-6000",
     volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
     timeout=30 * 60,
 )
@@ -510,7 +514,7 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
 
 @app.function(
     image=image,
-    gpu="B200",
+    gpu="RTX-PRO-6000",
     volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
     timeout=24 * 60 * 60,
 )

@@ -17,7 +17,7 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
         "candidate_nodes": 100,
         "baseline_name": "baseline",
         "baseline_weights": "/artifacts/leela/baseline.pb.gz",
-        "baseline_backend": "cuda",
+        "baseline_backend": "cudnn-fp16",
         "baseline_nodes": 100,
         "nodes": None,
         "tc": "1.0+0.01",
@@ -43,7 +43,7 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
         "visits": 16,
         "parallelism": 32,
         "player1": {"weights": "/dense.safetensors", "backend": "ce4"},
-        "player2": {"weights": "/t74.pb.gz", "backend": "cuda"},
+        "player2": {"weights": "/t74.pb.gz", "backend": "cudnn-fp16"},
     }
 
     command = _selfplay_command(payload, Path("/results.pgn"))
@@ -54,4 +54,4 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--temperature=0.0" in command
     assert "--noise-epsilon=0.0" in command
     assert "--player1.backend-opts=child(backend=ce4,max_batch=256,threads=1)" in command
-    assert "--player2.backend-opts=child(backend=cuda,max_batch=256,threads=1)" in command
+    assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command

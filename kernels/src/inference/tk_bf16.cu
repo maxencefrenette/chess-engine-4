@@ -1,4 +1,4 @@
-#include "tk_bf16.h"
+#include "bf16_gemm.h"
 
 #include "kittens.cuh"
 
@@ -95,7 +95,7 @@ void DispatchReduction(
 
 }  // namespace
 
-bool TkBf16GemmSupported(int rows, int columns, int reduction) {
+bool CustomBf16GemmSupported(int rows, int columns, int reduction) {
     const bool columns_supported =
         columns == 32 || columns == 64 || columns == 128 || columns % 256 == 0;
     const bool reduction_supported =
@@ -103,7 +103,7 @@ bool TkBf16GemmSupported(int rows, int columns, int reduction) {
     return rows % 256 == 0 && columns_supported && reduction_supported;
 }
 
-void LaunchTkBf16Gemm(
+void LaunchCustomBf16Gemm(
     const __nv_bfloat16* input,
     const __nv_bfloat16* weight,
     __nv_bfloat16* output,

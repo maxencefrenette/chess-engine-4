@@ -12,6 +12,7 @@ def build_lc0() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernels-build-dir", type=Path, default=Path("kernels/build/inference"))
     parser.add_argument("--lc0-build-type", choices=("debug", "release"), default="release")
+    parser.add_argument("--cuda-arch", choices=("100a", "120a"), default="120a")
     args = parser.parse_args()
 
     root = _project_root()
@@ -31,7 +32,7 @@ def build_lc0() -> None:
             "Ninja",
             "-DCE4_BUILD_PYTHON=OFF",
             "-DCE4_BUILD_INFERENCE=ON",
-            "-DCE4_CUDA_ARCH=100a",
+            f"-DCE4_CUDA_ARCH={args.cuda_arch}",
             "-DCMAKE_BUILD_TYPE=Release",
         ],
         check=True,
@@ -49,12 +50,12 @@ def build_lc0() -> None:
             args.lc0_build_type,
             "-Dgtest=false",
             "-Donnx=false",
-            "-Dcudnn=false",
+            "-Dcudnn=true",
             "-Dplain_cuda=true",
             "-Dcutlass=false",
             "-Dnative_arch=false",
             "-Dnative_cuda=false",
-            "-Dcc_cuda=100",
+            f"-Dcc_cuda={args.cuda_arch.removesuffix('a')}",
             "-Ddefault_backend=ce4",
             f"-Dce4_kernels_dir={kernels_dir}",
         ],

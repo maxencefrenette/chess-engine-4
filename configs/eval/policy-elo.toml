@@ -1,9 +1,11 @@
 [tournament]
 name = "policy-elo"
-gpu = "B200"
+gpu = "RTX-PRO-6000"
 games_per_matchup = 64
+waves = 4
 max_concurrency = 8
 policy_mode_size = 32
+parallelism = 64
 
 [[engines]]
 name = "dense-1e20"
@@ -32,19 +34,19 @@ training_flops = 4.1810166518836106e18
 [[engines]]
 name = "BT4-1740"
 weights = "/artifacts/leela/BT4-1740.pb.gz"
-backend = "cuda"
+backend = "cudnn-fp16"
 
 [[engines]]
 name = "T1-256x10"
 weights = "/artifacts/leela/t1-256x10-distilled-swa-2432500.pb.gz"
-backend = "cuda"
+backend = "cudnn-fp16"
 
 [[engines]]
 name = "T3-512x15"
 weights = "/artifacts/leela/t3-512x15x16h-distill-swa-2767500.pb.gz"
-backend = "cuda"
+backend = "cudnn-fp16"
 
 [[engines]]
 name = "T74-744706"
 weights = "/artifacts/leela/t74-744706.pb.gz"
-backend = "cuda"
+backend = "cudnn-fp16"
