@@ -201,6 +201,20 @@ files += [
   'src/utils/weights_adapter.cc',
 ]
 
+ce4_kernels_dir = get_option('ce4_kernels_dir')
+if ce4_kernels_dir != ''
+  ce4_library = cc.find_library(
+    'ce4_inference',
+    dirs: ce4_kernels_dir / 'build' / 'inference',
+    required: true,
+    static: true,
+  )
+  includes += include_directories(ce4_kernels_dir / 'include')
+  deps += ce4_library
+  files += 'src/neural/backends/ce4/backend.cc'
+  has_backends = true
+endif
+
 files += [
   'src/search/instamove/instamove.cc',
 ]
@@ -461,6 +475,13 @@ if get_option('build_backends')
   cu_blas = cc.find_library('cublas', dirs: cudnn_libdirs, required: false)
   cu_dnn = cc.find_library('cudnn', dirs: cudnn_libdirs, required: false)
   cu_dart = cc.find_library('cudart', dirs: cudnn_libdirs, required: false)
+  cu_driver = cc.find_library('cuda', dirs: cudnn_libdirs, required: false)
+  if ce4_kernels_dir != ''
+    if not cu_blas.found() or not cu_dart.found() or not cu_driver.found()
+      error('The ce4 backend requires the CUDA driver, runtime, and cuBLAS')
+    endif
+    deps += [cu_driver, cu_blas, cu_dart]
+  endif
   nvcc = find_program(nvcc_paths,
                       required: false)
   nvcc_ok = false

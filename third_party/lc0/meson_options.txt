@@ -88,6 +88,11 @@ option('plain_cuda',
        value: true,
        description: 'Enable CUDA backend')
 
+option('ce4_kernels_dir',
+       type: 'string',
+       value: '',
+       description: 'Path to chess-engine-4 kernels with include/ and build/inference/')
+
 option('cutlass',
        type: 'boolean',
        value: true,

@@ -14,10 +14,9 @@ dependencies = [
     "nvidia-cuda-crt==13.0.88; sys_platform == 'linux'",
     "nvidia-cuda-nvcc==13.0.88; sys_platform == 'linux'",
     "nvidia-nvvm==13.0.88; sys_platform == 'linux'",
-    "onnx>=1.21.0",
-    "onnxscript>=0.7.0",
     "pybind11>=3.0; sys_platform == 'linux'",
     "python-dotenv>=1.2.2",
+    "safetensors>=0.6.2",
     "scipy>=1.18.0",
     "tomli-w>=1.2.0",
     "torch==2.11.0",
@@ -29,6 +28,7 @@ dependencies = [
 train-modal = "chess_engine_4.modal_train:train_modal"
 profile-training = "chess_engine_4.modal_profile:profile_training"
 build-kernels = "chess_engine_4.kernels.build:build_kernels"
+build-lc0 = "chess_engine_4.build_lc0:build_lc0"
 benchmark-training-modal = "chess_engine_4.modal_training_benchmark:benchmark_training_modal"
 benchmark-moe-kernels-modal = "chess_engine_4.modal_moe_kernels:benchmark_moe_kernels_modal"
 throughput-sweep = "chess_engine_4.training.throughput_sweep:throughput_sweep"
@@ -37,6 +37,7 @@ eval-selfplay-modal = "chess_engine_4.modal_eval:eval_selfplay_modal"
 eval-roundrobin-modal = "chess_engine_4.evaluation.round_robin:eval_roundrobin_modal"
 eval-precision-modal = "chess_engine_4.modal_precision_eval:eval_precision_modal"
 prepare-lc0-modal = "chess_engine_4.modal_eval:prepare_lc0_modal"
+benchmark-lc0-modal = "chess_engine_4.modal_eval:benchmark_lc0_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 lc0-to-parquet = "chess_engine_4.data.parquet:lc0_to_parquet"
 convert-data-modal = "chess_engine_4.modal_data:convert_data_modal"
@@ -45,7 +46,7 @@ export-scaling-data = "chess_engine_4.training.export_scaling_data:export_scalin
 website = "chess_engine_4.website:website"
 wandb-metrics = "chess_engine_4.training.wandb_metrics:wandb_metrics"
 compare-run = "chess_engine_4.training.compare_run:compare_run"
-checkpoint2leela = "chess_engine_4.training.checkpoint2leela:checkpoint2leela"
+export-model = "chess_engine_4.training.export_model:export_model"
 
 [dependency-groups]
 dev = [

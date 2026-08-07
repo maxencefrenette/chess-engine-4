@@ -25,19 +25,13 @@ OPENING_BOOK_SEED = 1
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
-ORT_VERSION = "1.23.2"
-LC0_COMMIT = "d8ce48258c39d331c119f8c8729374ceb3df8409"
 FASTCHESS_VERSION = "1.8.0-alpha"
 FASTCHESS_URL = (
     f"https://github.com/Disservin/fastchess/releases/download/v{FASTCHESS_VERSION}/"
     "fastchess-linux-x86-64.tar"
 )
-DEFAULT_LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0"
-RUNTIME_LIBRARY_PATH = (
-    "/opt/onnxruntime/lib:"
-    "/usr/local/lib/python3.12/site-packages/tensorrt_libs:"
-    "/usr/local/cuda/lib64"
-)
+LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0"
+RUNTIME_LIBRARY_PATH = "/usr/local/cuda/lib64"
 
 app = modal.App(APP_NAME)
 artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME, create_if_missing=True)
@@ -56,19 +50,7 @@ image = (
         "unzip",
         "zlib1g",
     )
-    .pip_install(
-        "numpy>=2.2",
-        "python-dotenv>=1.2.2",
-        "tensorrt-cu12==10.13.3.9",
-    )
     .run_commands(
-        "find /usr/local/lib/python3.12/site-packages -type d -name '*libs' "
-        "> /etc/ld.so.conf.d/python-wheel-libs.conf && ldconfig"
-    )
-    .run_commands(
-        f"curl -L https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/"
-        f"onnxruntime-linux-x64-gpu-{ORT_VERSION}.tgz | tar -xz -C /opt",
-        f"mv /opt/onnxruntime-linux-x64-gpu-{ORT_VERSION} /opt/onnxruntime",
         f"curl -L {FASTCHESS_URL} | tar -x -C /opt",
         "install -m 755 /opt/fastchess-linux-x86-64/fastchess /usr/local/bin/fastchess",
     )
@@ -82,29 +64,35 @@ lc0_builder_image = (
     )
     .apt_install(
         "ca-certificates",
+        "cmake",
         "curl",
         "g++",
         "git",
         "libopenblas-dev",
         "libprotobuf-dev",
+        "nlohmann-json3-dev",
         "meson",
         "ninja-build",
         "pkg-config",
         "protobuf-compiler",
         "zlib1g-dev",
     )
+    .add_local_dir("kernels", remote_path="/root/kernels", copy=True)
+    .add_local_dir(
+        "third_party/ThunderKittens",
+        remote_path="/root/third_party/ThunderKittens",
+        copy=True,
+    )
+    .add_local_dir("third_party/lc0", remote_path="/root/third_party/lc0", copy=True)
+    .add_local_file("pyproject.toml", remote_path="/root/pyproject.toml", copy=True)
+    .add_local_file(
+        "src/chess_engine_4/build_lc0.py",
+        remote_path="/root/src/chess_engine_4/build_lc0.py",
+        copy=True,
+    )
     .run_commands(
-        f"curl -L https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/"
-        f"onnxruntime-linux-x64-gpu-{ORT_VERSION}.tgz | tar -xz -C /opt",
-        f"mv /opt/onnxruntime-linux-x64-gpu-{ORT_VERSION} /opt/onnxruntime",
-        "git clone --filter=blob:none --no-checkout "
-        "https://github.com/LeelaChessZero/lc0.git /opt/lc0",
-        f"cd /opt/lc0 && git checkout {LC0_COMMIT} && "
-        "git submodule update --init --recursive --depth 1",
-        "cd /opt/lc0 && ./build.sh release -Dgtest=false -Donnx=true "
-        "-Donnx_libdir=/opt/onnxruntime/lib -Donnx_include=/opt/onnxruntime/include "
-        "-Dnative_arch=false -Dnative_cuda=false -Ddefault_backend=cuda",
-        "install -m 755 /opt/lc0/build/release/lc0 /usr/local/bin/lc0",
+        "cd /root && python3 /root/src/chess_engine_4/build_lc0.py",
+        "install -m 755 /root/third_party/lc0/build/release/lc0 /usr/local/bin/lc0",
     )
     .env({"LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH})
 )
@@ -114,13 +102,37 @@ def prepare_lc0_modal() -> None:
     parser = argparse.ArgumentParser(
         description="Build lc0 once on Modal and cache the Linux binary in the artifacts Volume."
     )
-    parser.add_argument("--output", default=str(DEFAULT_LC0_REMOTE_PATH))
-    args = parser.parse_args()
+    parser.parse_args()
 
-    with app.run():
-        result = _prepare_lc0_remote.remote(args.output)
+    with modal.enable_output(), app.run():
+        result = _prepare_lc0_remote.remote(str(LC0_REMOTE_PATH))
     print(f"lc0_path={result['lc0_path']}")
-    print(result["version"])
+
+
+def benchmark_lc0_modal() -> None:
+    parser = argparse.ArgumentParser(
+        description="Benchmark a Safetensors model in the ce4 backend."
+    )
+    parser.add_argument("model", type=Path)
+    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--batches", type=int, default=100)
+    args = parser.parse_args()
+    if not args.model.exists():
+        raise FileNotFoundError(args.model)
+    if args.batch_size <= 0 or args.batch_size > 1024 or args.batches <= 0:
+        parser.error("--batch-size must be in [1, 1024] and --batches must be positive")
+
+    remote_model = Path(REMOTE_ARTIFACT_PATH) / "models" / args.model.name
+    _upload_candidate(args.model, remote_model)
+    payload = {
+        "model": str(remote_model),
+        "batch_size": args.batch_size,
+        "batches": args.batches,
+        "lc0_path": str(LC0_REMOTE_PATH),
+    }
+    with modal.enable_output(), app.run():
+        result = _benchmark_lc0.remote(payload)
+    print(result)
 
 
 def eval_modal() -> None:
@@ -136,8 +148,6 @@ def eval_modal() -> None:
     parser.add_argument("--baseline-nodes", type=int, default=None)
     parser.add_argument("--startup-ms", type=int, default=120_000)
     parser.add_argument("--ping-ms", type=int, default=120_000)
-    parser.add_argument("--candidate-backend", default="onnx-trt")
-    parser.add_argument("--baseline-backend", default="cuda")
     parser.add_argument("--candidate-name", default="candidate")
     parser.add_argument("--baseline-name", default="BT4-1740")
     parser.add_argument(
@@ -150,18 +160,17 @@ def eval_modal() -> None:
         default=BT4_URL,
         help="Optional URL to download the baseline weights if missing.",
     )
-    parser.add_argument(
-        "--lc0-path",
-        default=str(DEFAULT_LC0_REMOTE_PATH),
-        help="Remote Modal Volume path to the lc0 binary built by prepare-lc0-modal.",
-    )
     args = parser.parse_args()
 
     if not args.candidate_weights.exists():
         raise FileNotFoundError(args.candidate_weights)
 
     run_name = args.name or args.candidate_weights.stem
-    remote_candidate = REMOTE_LEELA_PATH / args.candidate_weights.name
+    if args.candidate_weights.suffix != ".safetensors":
+        parser.error(
+            "candidate_weights must be a Safetensors model exported by `uv run export-model`"
+        )
+    remote_candidate = Path(REMOTE_ARTIFACT_PATH) / "models" / args.candidate_weights.name
     _upload_candidate(args.candidate_weights, remote_candidate)
 
     payload = {
@@ -176,13 +185,13 @@ def eval_modal() -> None:
         "baseline_nodes": args.baseline_nodes,
         "startup_ms": args.startup_ms,
         "ping_ms": args.ping_ms,
-        "candidate_backend": args.candidate_backend,
-        "baseline_backend": args.baseline_backend,
+        "candidate_backend": "ce4",
+        "baseline_backend": "cuda",
         "candidate_name": args.candidate_name,
         "baseline_name": args.baseline_name,
         "baseline_weights": args.baseline_weights,
         "baseline_url": args.baseline_url,
-        "lc0_path": args.lc0_path,
+        "lc0_path": str(LC0_REMOTE_PATH),
     }
 
     with app.run():
@@ -201,10 +210,9 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
-    parser.add_argument("--gpu", choices=("T4", "L4", "B200"), default="T4")
-    parser.add_argument("--player1-backend", default="onnx-trt")
-    parser.add_argument("--player2-backend", default="cuda")
-    parser.add_argument("--lc0-path", default=str(DEFAULT_LC0_REMOTE_PATH))
+    parser.add_argument("--gpu", choices=("B200",), default="B200")
+    parser.add_argument("--player1-backend", choices=("ce4", "cuda"), default="ce4")
+    parser.add_argument("--player2-backend", choices=("ce4", "cuda"), default="cuda")
     args = parser.parse_args()
     if args.games <= 0 or args.games % 2:
         parser.error("--games must be a positive even number.")
@@ -223,7 +231,7 @@ def eval_selfplay_modal() -> None:
             "weights": args.player2_weights,
             "backend": args.player2_backend,
         },
-        "lc0_path": args.lc0_path,
+        "lc0_path": str(LC0_REMOTE_PATH),
     }
     eval_function = selfplay_eval_function(args.gpu)
     with app.run():
@@ -408,16 +416,37 @@ def _prepare_lc0_remote(output: str) -> dict[str, str]:
     shutil.copy2("/usr/local/bin/lc0", output_path)
     output_path.chmod(0o755)
     artifact_volume.commit()
+    return {"lc0_path": str(output_path)}
 
+
+@app.function(
+    image=image,
+    gpu="B200",
+    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+    timeout=30 * 60,
+)
+def _benchmark_lc0(payload: dict[str, Any]) -> str:
+    batch_size = int(payload["batch_size"])
+    command = [
+        str(payload["lc0_path"]),
+        "backendbench",
+        f"--weights={payload['model']}",
+        "--backend=ce4",
+        f"--backend-opts=max_batch={batch_size}",
+        f"--batches={payload['batches']}",
+        f"--start-batch-size={batch_size}",
+        f"--max-batch-size={batch_size}",
+        f"--batch-step={batch_size}",
+    ]
     completed = subprocess.run(
-        [str(output_path), "--version"],
+        command,
         check=True,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         env={**os.environ, "LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH},
     )
-    return {"lc0_path": str(output_path), "version": completed.stdout.strip()}
+    return completed.stdout
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:

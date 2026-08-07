@@ -2,11 +2,53 @@ cmake_minimum_required(VERSION 3.25)
 
 project(chess_engine_4_kernels LANGUAGES CXX CUDA)
 
+option(CE4_BUILD_PYTHON "Build the PyTorch training extension" ON)
+option(CE4_BUILD_INFERENCE "Build the standalone inference runtime" OFF)
+set(CE4_CUDA_ARCH "100a" CACHE STRING "CUDA architecture for the inference runtime")
+
 # CMake 3.25 predates CUDA 13's C++20 dialect table.
 set(CMAKE_CUDA20_STANDARD_COMPILE_OPTION "--std=c++20")
 set(CMAKE_CUDA20_EXTENSION_COMPILE_OPTION "--std=c++20")
 set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+if(CE4_BUILD_INFERENCE)
+  find_package(CUDAToolkit REQUIRED)
+  find_package(nlohmann_json CONFIG REQUIRED)
+  add_library(ce4_inference STATIC
+    src/inference/dense.cu
+    src/inference/tk_bf16.cu
+  )
+  target_include_directories(ce4_inference
+    PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens/include"
+      "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens/prototype"
+  )
+  target_compile_definitions(ce4_inference PRIVATE KITTENS_SM100)
+  target_link_libraries(
+    ce4_inference
+    PUBLIC CUDA::cuda_driver CUDA::cudart CUDA::cublas nlohmann_json::nlohmann_json
+  )
+  target_compile_options(ce4_inference PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:
+      -O3
+      --use_fast_math
+      --expt-extended-lambda
+      --expt-relaxed-constexpr
+      -gencode=arch=compute_${CE4_CUDA_ARCH},code=sm_${CE4_CUDA_ARCH}
+    >
+  )
+  set_target_properties(ce4_inference PROPERTIES
+    CUDA_ARCHITECTURES OFF
+    POSITION_INDEPENDENT_CODE ON
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+  )
+endif()
+
+if(NOT CE4_BUILD_PYTHON)
+  return()
+endif()
 
 find_package(Python REQUIRED COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG REQUIRED)

@@ -15,8 +15,7 @@ from typing import Any
 import numpy as np
 
 from chess_engine_4.modal_eval import (
-    DEFAULT_LC0_REMOTE_PATH,
-    LC0_COMMIT,
+    LC0_REMOTE_PATH,
     POLICY_OPENING_BOOK_PATH,
     app,
     selfplay_eval_function,
@@ -79,7 +78,6 @@ def eval_roundrobin_modal() -> None:
     ratings = fit_elos(engines, matches)
     report = {
         "tournament": asdict(tournament),
-        "lc0_commit": LC0_COMMIT,
         "opening_book": str(POLICY_OPENING_BOOK_PATH),
         "engines": [asdict(engine) for engine in engines],
         "matches": [asdict(match) for match in matches],
@@ -104,6 +102,11 @@ def load_roundrobin_config(path: Path) -> tuple[Tournament, list[Engine]]:
         raise ValueError("A round robin requires at least two engines.")
     if len({engine.name for engine in engines}) != len(engines):
         raise ValueError("Engine names must be unique.")
+    for engine in engines:
+        if engine.backend not in {"ce4", "cuda"}:
+            raise ValueError(f"Engine {engine.name!r} has unsupported backend {engine.backend!r}.")
+        if engine.backend == "ce4" and Path(engine.weights).suffix != ".safetensors":
+            raise ValueError(f"Engine {engine.name!r} must use Safetensors with the ce4 backend.")
     if tournament.games_per_matchup <= 0 or tournament.games_per_matchup % 2:
         raise ValueError("games_per_matchup must be a positive even number.")
     return tournament, engines
@@ -120,7 +123,7 @@ def build_match_payloads(tournament: Tournament, engines: list[Engine]) -> list[
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
-            "lc0_path": str(DEFAULT_LC0_REMOTE_PATH),
+            "lc0_path": str(LC0_REMOTE_PATH),
         }
         for player1, player2 in itertools.combinations(engines, 2)
     ]

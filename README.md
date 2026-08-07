@@ -1,7 +1,8 @@
 # Chess Engine 4
 
 Chess Engine 4 trains LCZero-compatible neural networks on Modal. The goal is
-to create strong nets that can run directly inside lc0 through its ONNX backend.
+to create strong nets that run directly inside lc0 through project-owned CUDA
+kernels.
 
 The repository is intentionally monolithic: model definitions, training,
 datasets, evaluation, experiments, custom kernels, and the scaling dashboard
@@ -84,13 +85,18 @@ automatically.
 | `uv run profile-training` | Profile the production training loop |
 | `uv run throughput-sweep` | Refresh cached throughput measurements |
 | `uv run benchmark-training-modal` | Compare Transformer Engine and custom kernels |
-| `uv run checkpoint2leela` | Export a dense checkpoint for lc0 |
+| `uv run export-model` | Export a BF16 dense checkpoint as Safetensors |
+| `uv run build-lc0` | Build the vendored lc0 fork and custom backend |
+| `uv run benchmark-lc0-modal` | Benchmark the custom lc0 backend on B200 |
 | `uv run eval-modal` | Evaluate an exported net with lc0 and fastchess |
 | `uv run compare-run` | Compare a W&B run with the training frontier |
 
 Use `--help` on a command for its options. Custom-kernel development is
 documented in [kernels/README.md](kernels/README.md); experiment reports live in
 [`experiments/`](experiments/).
+
+The lc0 fork is maintained as a git subtree in `third_party/lc0`. Update it with
+`git subtree pull --prefix=third_party/lc0 https://github.com/LeelaChessZero/lc0.git master --squash`.
 
 ## Verification
 
