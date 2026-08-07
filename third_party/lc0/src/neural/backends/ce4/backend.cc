@@ -74,7 +74,7 @@ class Ce4Backend final : public Backend {
     }
     backend_options.CheckAllOptionsRead("ce4");
 
-    model_ = chess_engine_4::inference::DenseModel::Load(
+    model_ = chess_engine_4::inference::Model::Load(
         weights_path_, gpu, maximum_batch_size_);
     UpdateConfiguration(options);
   }
@@ -111,7 +111,7 @@ class Ce4Backend final : public Backend {
   }
 
  private:
-  std::unique_ptr<chess_engine_4::inference::DenseModel> model_;
+  std::unique_ptr<chess_engine_4::inference::Model> model_;
   std::mutex model_mutex_;
   int maximum_batch_size_;
   float policy_temperature_ = 1.0f;

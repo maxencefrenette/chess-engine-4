@@ -24,7 +24,11 @@ if(CE4_BUILD_INFERENCE)
   else()
     message(FATAL_ERROR "CE4 inference supports only CUDA architectures 100a and 120a")
   endif()
-  add_library(ce4_inference STATIC src/inference/dense.cu ${CE4_INFERENCE_GEMM_SOURCE})
+  add_library(ce4_inference STATIC
+    src/inference/dense.cu
+    src/inference/moe_bf16.cu
+    ${CE4_INFERENCE_GEMM_SOURCE}
+  )
   target_include_directories(ce4_inference
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
     PRIVATE

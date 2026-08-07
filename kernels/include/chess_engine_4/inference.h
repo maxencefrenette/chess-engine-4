@@ -26,27 +26,27 @@ struct Outputs {
     std::span<float> moves_left;
 };
 
-class DenseModel {
+class Model {
 public:
-    static std::unique_ptr<DenseModel> Load(
+    static std::unique_ptr<Model> Load(
         const std::string &path,
         int gpu,
         int maximum_batch_size
     );
 
-    ~DenseModel();
-    DenseModel(DenseModel &&) noexcept;
-    DenseModel &operator=(DenseModel &&) noexcept;
+    ~Model();
+    Model(Model &&) noexcept;
+    Model &operator=(Model &&) noexcept;
 
-    DenseModel(const DenseModel &) = delete;
-    DenseModel &operator=(const DenseModel &) = delete;
+    Model(const Model &) = delete;
+    Model &operator=(const Model &) = delete;
 
     const ModelInfo &info() const;
     void Evaluate(std::span<const InputPlane> planes, int batch_size, Outputs outputs);
 
 private:
     class Impl;
-    explicit DenseModel(std::unique_ptr<Impl> impl);
+    explicit Model(std::unique_ptr<Impl> impl);
     std::unique_ptr<Impl> impl_;
 };
 

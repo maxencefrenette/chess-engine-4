@@ -1,0 +1,105 @@
+{
+  "gpu": "RTX-PRO-6000",
+  "batch_size": 256,
+  "batches": 500,
+  "engines": [
+    {
+      "name": "dense-d32",
+      "weights": "/artifacts/models/dense-d32.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 837543.0,
+      "mean_ms": 0.3057
+    },
+    {
+      "name": "dense-d64",
+      "weights": "/artifacts/models/dense-d64.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 831568.0,
+      "mean_ms": 0.3079
+    },
+    {
+      "name": "dense-d128",
+      "weights": "/artifacts/models/dense-d128.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 767284.0,
+      "mean_ms": 0.3336
+    },
+    {
+      "name": "dense-d256",
+      "weights": "/artifacts/models/dense-d256.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 669511.0,
+      "mean_ms": 0.3824
+    },
+    {
+      "name": "dense-d512",
+      "weights": "/artifacts/models/dense-d512.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 525674.0,
+      "mean_ms": 0.487
+    },
+    {
+      "name": "dense-d1024",
+      "weights": "/artifacts/models/dense-d1024.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 414952.0,
+      "mean_ms": 0.6169
+    },
+    {
+      "name": "moe64a2-d128",
+      "weights": "/artifacts/models/moe64a2-d128.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 589788.0,
+      "mean_ms": 0.4341
+    },
+    {
+      "name": "moe64a2-d256",
+      "weights": "/artifacts/models/moe64a2-d256.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 470640.0,
+      "mean_ms": 0.5439
+    },
+    {
+      "name": "moe64a2-d512",
+      "weights": "/artifacts/models/moe64a2-d512.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 323456.0,
+      "mean_ms": 0.7915
+    },
+    {
+      "name": "moe64a2-d1024",
+      "weights": "/artifacts/models/moe64a2-d1024.safetensors",
+      "backend": "ce4",
+      "nodes_per_sec": 206590.0,
+      "mean_ms": 1.239
+    },
+    {
+      "name": "BT4-1740",
+      "weights": "/artifacts/leela/BT4-1740.pb.gz",
+      "backend": "cudnn-fp16",
+      "nodes_per_sec": 11067.0,
+      "mean_ms": 23.13
+    },
+    {
+      "name": "T1-256x10",
+      "weights": "/artifacts/leela/t1-256x10-distilled-swa-2432500.pb.gz",
+      "backend": "cudnn-fp16",
+      "nodes_per_sec": 81943.0,
+      "mean_ms": 3.124
+    },
+    {
+      "name": "T3-512x15",
+      "weights": "/artifacts/leela/t3-512x15x16h-distill-swa-2767500.pb.gz",
+      "backend": "cudnn-fp16",
+      "nodes_per_sec": 28556.0,
+      "mean_ms": 8.965
+    },
+    {
+      "name": "T74-744706",
+      "weights": "/artifacts/leela/t74-744706.pb.gz",
+      "backend": "cudnn-fp16",
+      "nodes_per_sec": 303029.0,
+      "mean_ms": 0.8448
+    }
+  ]
+}

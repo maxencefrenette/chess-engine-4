@@ -18,8 +18,8 @@ def test_policy_config_builds_connected_opening_waves() -> None:
     second = select_pairings(engines, [], 1, tournament.games_per_matchup)
     payloads = build_match_payloads(tournament, first, 0)
 
-    assert len(engines) == 10
-    assert len(first) == len(second) == 5
+    assert len(engines) == 14
+    assert len(first) == len(second) == 7
     assert all(payload["visits"] is None for payload in payloads)
     assert all(payload["policy_mode_size"] == 256 for payload in payloads)
 

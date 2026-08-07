@@ -4,7 +4,11 @@ import pytest
 import torch
 from safetensors import safe_open
 
-from chess_engine_4.training.export_model import export_checkpoint, exported_dense_model
+from chess_engine_4.training.export_model import (
+    export_checkpoint,
+    exported_dense_model,
+    exported_moe_model,
+)
 
 
 def _checkpoint() -> dict:
@@ -74,3 +78,57 @@ def test_export_rejects_non_bf16_weights() -> None:
 
     with pytest.raises(ValueError, match="must be BF16"):
         exported_dense_model(checkpoint)
+
+
+def test_exported_moe_model_flattens_experts() -> None:
+    d_model = 32
+    hidden_dim = 64
+    state = _checkpoint()["model_state_dict"]
+    for name in list(state):
+        if name.startswith("blocks."):
+            del state[name]
+    state.update(
+        {
+            "blocks.0.norm.weight": torch.ones(d_model, dtype=torch.bfloat16),
+            "blocks.0.router.weight": torch.zeros(64, d_model, dtype=torch.bfloat16),
+            "blocks.1.layer.layer_norm_weight": torch.ones(
+                d_model, dtype=torch.bfloat16
+            ),
+            "blocks.1.layer.fc1_weight": torch.zeros(
+                256, d_model, dtype=torch.bfloat16
+            ),
+            "blocks.1.layer.fc2_weight": torch.zeros(
+                d_model, 128, dtype=torch.bfloat16
+            ),
+        }
+    )
+    for expert in range(64):
+        state[f"blocks.0.experts.0.weight{expert}"] = torch.zeros(
+            2 * hidden_dim, d_model, dtype=torch.bfloat16
+        )
+        state[f"blocks.0.experts.2.weight{expert}"] = torch.zeros(
+            d_model, hidden_dim, dtype=torch.bfloat16
+        )
+    checkpoint = {
+        "run_name": "moe-test",
+        "step": 7,
+        "config": {
+            "model": {
+                "kind": "moe64a2",
+                "d_model": d_model,
+                "depth": 2,
+                "expansion_ratio": 2.0,
+                "activation": "swiglu",
+                "history_length": 8,
+            }
+        },
+        "model_state_dict": state,
+    }
+
+    tensors, metadata = exported_moe_model(checkpoint)
+
+    assert metadata["architecture"] == "moe64a2"
+    assert metadata["num_experts"] == "64"
+    assert tensors["blocks.0.experts.gate_up.weight"].shape == (64, 128, 32)
+    assert tensors["blocks.0.experts.down.weight"].shape == (64, 32, 64)
+    assert tensors["blocks.1.gate_up.weight"].shape == (256, 32)

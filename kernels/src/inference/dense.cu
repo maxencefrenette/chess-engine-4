@@ -1,5 +1,6 @@
 #include "chess_engine_4/inference.h"
 #include "bf16_gemm.h"
+#include "moe_bf16.h"
 
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
@@ -274,23 +275,13 @@ __global__ void SwiGlu(
     hidden[index] = __float2bfloat16((gate / (1.0f + expf(-gate))) * up);
 }
 
-__global__ void AddResidual(
-    const __nv_bfloat16 *residual,
-    __nv_bfloat16 *output,
-    int elements
-) {
-    const int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < elements) {
-        output[index] = __float2bfloat16(
-            __bfloat162float(output[index]) + __bfloat162float(residual[index])
-        );
-    }
-}
-
 __global__ void ConvertOutputs(
     const __nv_bfloat16 *policy,
+    const __nv_bfloat16 *policy_bias,
     const __nv_bfloat16 *wdl,
+    const __nv_bfloat16 *wdl_bias,
     const __nv_bfloat16 *moves_left,
+    const __nv_bfloat16 *moves_left_bias,
     float *policy_output,
     float *wdl_output,
     float *moves_left_output,
@@ -300,14 +291,23 @@ __global__ void ConvertOutputs(
 ) {
     const int sample = blockIdx.x;
     for (int column = threadIdx.x; column < policy_size; column += blockDim.x) {
-        policy_output[sample * policy_size + column] =
-            __bfloat162float(policy[sample * policy_storage_size + column]);
+        policy_output[sample * policy_size + column] = __bfloat162float(
+            __float2bfloat16(
+                __bfloat162float(policy[sample * policy_storage_size + column])
+                + __bfloat162float(policy_bias[column])
+            )
+        );
     }
     if (threadIdx.x == 0) {
         float logits[3];
         float maximum = -INFINITY;
         for (int i = 0; i < 3; ++i) {
-            logits[i] = __bfloat162float(wdl[sample * 32 + i]);
+            logits[i] = __bfloat162float(
+                __float2bfloat16(
+                    __bfloat162float(wdl[sample * 32 + i])
+                    + __bfloat162float(wdl_bias[i])
+                )
+            );
             maximum = fmaxf(maximum, logits[i]);
         }
         float total = 0.0f;
@@ -318,13 +318,18 @@ __global__ void ConvertOutputs(
         for (int i = 0; i < 3; ++i) {
             wdl_output[sample * 3 + i] = logits[i] / total;
         }
-        moves_left_output[sample] = __bfloat162float(moves_left[sample * 32]);
+        moves_left_output[sample] = __bfloat162float(
+            __float2bfloat16(
+                __bfloat162float(moves_left[sample * 32])
+                + __bfloat162float(moves_left_bias[0])
+            )
+        );
     }
 }
 
 }  // namespace
 
-class DenseModel::Impl {
+class Model::Impl {
 public:
     Impl(const std::string &path, int gpu, int maximum_batch_size) {
         if (maximum_batch_size <= 0 || maximum_batch_size > 1024) {
@@ -333,9 +338,13 @@ public:
         CheckCuda(cudaSetDevice(gpu), "cudaSetDevice");
         const SafetensorsFile file = LoadSafetensors(path);
         if (file.metadata.at("format") != "chess-engine-4"
-            || file.metadata.at("format_version") != "1"
-            || file.metadata.at("architecture") != "dense") {
+            || file.metadata.at("format_version") != "1") {
             throw std::runtime_error("Unsupported model format");
+        }
+        const std::string architecture = file.metadata.at("architecture");
+        is_moe_ = architecture == "moe64a2";
+        if (architecture != "dense" && !is_moe_) {
+            throw std::runtime_error("Unsupported model architecture: " + architecture);
         }
         if (file.metadata.at("activation") != "swiglu"
             || file.metadata.at("input_format") != "lc0-classical-112"
@@ -343,7 +352,7 @@ public:
                 != "history-select-rule50-div99-v1"
             || MetadataInt(file.metadata, "input_planes") != kInputPlanes
             || MetadataInt(file.metadata, "board_size") != 8) {
-            throw std::runtime_error("Unsupported dense model contract");
+            throw std::runtime_error("Unsupported model contract");
         }
         info_ = ModelInfo{
             .d_model = MetadataInt(file.metadata, "d_model"),
@@ -358,7 +367,17 @@ public:
         if (info_.d_model <= 0 || info_.depth <= 0
             || info_.history_length <= 0 || info_.history_length > 8
             || info_.policy_size <= 0 || hidden_dim_ <= 0) {
-            throw std::runtime_error("Invalid dense model dimensions");
+            throw std::runtime_error("Invalid model dimensions");
+        }
+        if (is_moe_
+            && (MetadataInt(file.metadata, "num_experts") != kMoeExpertCount
+                || MetadataInt(file.metadata, "num_active_experts")
+                    != kMoeActiveExpertCount
+                || file.metadata.at("layer_pattern") != "alternating-moe-dense"
+                || info_.depth % 2 != 0
+                || (info_.d_model != 128 && info_.d_model != 256
+                    && info_.d_model != 512 && info_.d_model != 1024))) {
+            throw std::runtime_error("Unsupported MoE model contract");
         }
         selected_planes_ = info_.history_length * kPlanesPerHistory + (kInputPlanes - kHistoryPlanes);
         input_dim_ = selected_planes_ * 64;
@@ -390,19 +409,35 @@ public:
         blocks_.reserve(info_.depth);
         for (int layer = 0; layer < info_.depth; ++layer) {
             const std::string prefix = "blocks." + std::to_string(layer);
-            blocks_.push_back(Block{
+            Block block{
+                .is_moe = is_moe_ && layer % 2 == 0,
                 .norm = DeviceTensor(RequireTensor(
                     file, prefix + ".norm.weight", {info_.d_model}
                 )),
-                .gate_up = DeviceTensor(RequireTensor(
-                    file,
-                    prefix + ".gate_up.weight",
-                    {2 * hidden_dim_, info_.d_model}
-                )),
-                .down = DeviceTensor(RequireTensor(
-                    file, prefix + ".down.weight", {info_.d_model, hidden_dim_}
-                )),
-            });
+            };
+            if (block.is_moe) {
+                block.router = DeviceTensor(RequireTensor(
+                    file, prefix + ".router.weight", {kMoeExpertCount, info_.d_model}
+                ));
+                block.gate_up = DeviceTensor(RequireTensor(
+                    file, prefix + ".experts.gate_up.weight",
+                    {kMoeExpertCount, 2 * hidden_dim_, info_.d_model}
+                ));
+                block.down = DeviceTensor(RequireTensor(
+                    file, prefix + ".experts.down.weight",
+                    {kMoeExpertCount, info_.d_model, hidden_dim_}
+                ));
+            } else {
+                const int dense_hidden_dim = is_moe_ ? 4 * info_.d_model : hidden_dim_;
+                block.gate_up = DeviceTensor(RequireTensor(
+                    file, prefix + ".gate_up.weight",
+                    {2 * dense_hidden_dim, info_.d_model}
+                ));
+                block.down = DeviceTensor(RequireTensor(
+                    file, prefix + ".down.weight", {info_.d_model, dense_hidden_dim}
+                ));
+            }
+            blocks_.push_back(std::move(block));
         }
 
         CheckCublas(cublasCreate(&cublas_), "cublasCreate");
@@ -416,8 +451,34 @@ public:
         x_[0] = Allocate<__nv_bfloat16>(batch * info_.d_model, "allocate x0");
         x_[1] = Allocate<__nv_bfloat16>(batch * info_.d_model, "allocate x1");
         normalized_ = Allocate<__nv_bfloat16>(batch * info_.d_model, "allocate normalized");
-        gate_up_ = Allocate<__nv_bfloat16>(batch * 2 * hidden_dim_, "allocate gate_up");
-        hidden_ = Allocate<__nv_bfloat16>(batch * hidden_dim_, "allocate hidden");
+        dense_hidden_dim_ = is_moe_ ? 4 * info_.d_model : hidden_dim_;
+        gate_up_ = Allocate<__nv_bfloat16>(batch * 2 * dense_hidden_dim_, "allocate gate_up");
+        hidden_ = Allocate<__nv_bfloat16>(batch * dense_hidden_dim_, "allocate hidden");
+        if (is_moe_) {
+            maximum_padded_expert_rows_ = static_cast<int>(batch * 2 + kMoeExpertCount * 15);
+            maximum_padded_expert_rows_ =
+                (maximum_padded_expert_rows_ + 15) / 16 * 16;
+            router_logits_ = Allocate<__nv_bfloat16>(batch * kMoeExpertCount, "allocate router logits");
+            expert_input_ = Allocate<__nv_bfloat16>(
+                maximum_padded_expert_rows_ * info_.d_model, "allocate expert input"
+            );
+            expert_probabilities_ = Allocate<__nv_bfloat16>(
+                maximum_padded_expert_rows_ + batch * 2, "allocate expert probabilities"
+            );
+            expert_hidden_ = Allocate<__nv_bfloat16>(
+                maximum_padded_expert_rows_ * hidden_dim_, "allocate expert hidden"
+            );
+            expert_output_ = Allocate<__nv_bfloat16>(
+                maximum_padded_expert_rows_ * info_.d_model, "allocate expert output"
+            );
+            expert_offsets_ = Allocate<int>(kMoeExpertCount + 1, "allocate expert offsets");
+            expert_counts_ = Allocate<int>(kMoeExpertCount, "allocate expert counts");
+            expert_cursors_ = Allocate<int>(kMoeExpertCount, "allocate expert cursors");
+            route_positions_ = Allocate<int>(batch * 4, "allocate route positions");
+            cudaDeviceProp properties{};
+            CheckCuda(cudaGetDeviceProperties(&properties, gpu), "get device properties");
+            multiprocessor_count_ = properties.multiProcessorCount;
+        }
         policy_ = Allocate<__nv_bfloat16>(batch * policy_storage_size_, "allocate policy");
         wdl_ = Allocate<__nv_bfloat16>(batch * 32, "allocate wdl");
         moves_left_ = Allocate<__nv_bfloat16>(batch * 32, "allocate moves left");
@@ -440,6 +501,15 @@ public:
         cudaFree(normalized_);
         cudaFree(gate_up_);
         cudaFree(hidden_);
+        cudaFree(router_logits_);
+        cudaFree(expert_input_);
+        cudaFree(expert_probabilities_);
+        cudaFree(expert_hidden_);
+        cudaFree(expert_output_);
+        cudaFree(expert_offsets_);
+        cudaFree(expert_counts_);
+        cudaFree(expert_cursors_);
+        cudaFree(route_positions_);
         cudaFree(policy_);
         cudaFree(wdl_);
         cudaFree(moves_left_);
@@ -486,7 +556,9 @@ public:
 
 private:
     struct Block {
+        bool is_moe = false;
         DeviceTensor norm;
+        DeviceTensor router;
         DeviceTensor gate_up;
         DeviceTensor down;
     };
@@ -505,21 +577,42 @@ private:
                 x_[current], block.norm.data(), normalized_, batch_size,
                 info_.d_model, rms_norm_eps_
             );
-            Gemm(
-                normalized_, block.gate_up.data(), gate_up_, batch_size,
-                2 * hidden_dim_, info_.d_model
-            );
-            const int hidden_elements = batch_size * hidden_dim_;
-            SwiGlu<<<(hidden_elements + 255) / 256, 256, 0, stream_>>>(
-                gate_up_, hidden_, hidden_elements, hidden_dim_
-            );
-            Gemm(hidden_, block.down.data(), x_[1 - current], batch_size,
-                 info_.d_model, hidden_dim_);
-            const int residual_elements = batch_size * info_.d_model;
-            AddResidual<<<(residual_elements + 255) / 256, 256, 0, stream_>>>(
-                x_[current], x_[1 - current], residual_elements
-            );
-            current = 1 - current;
+            if (block.is_moe) {
+                Gemm(
+                    normalized_, block.router.data(), router_logits_, batch_size,
+                    kMoeExpertCount, info_.d_model
+                );
+                LaunchMoeDispatch(
+                    normalized_, router_logits_, expert_input_, expert_probabilities_,
+                    expert_offsets_, route_positions_, expert_counts_, expert_cursors_,
+                    batch_size, info_.d_model, maximum_padded_expert_rows_, stream_
+                );
+                LaunchMoeExperts(
+                    expert_input_, block.gate_up.data(), block.down.data(),
+                    expert_probabilities_, expert_offsets_, expert_hidden_, expert_output_,
+                    info_.d_model, maximum_padded_expert_rows_, multiprocessor_count_, stream_
+                );
+                LaunchMoeCombine(
+                    x_[current], expert_output_, route_positions_, x_[1 - current],
+                    batch_size, info_.d_model, stream_
+                );
+            } else {
+                Gemm(
+                    normalized_, block.gate_up.data(), gate_up_, batch_size,
+                    2 * dense_hidden_dim_, info_.d_model
+                );
+                const int hidden_elements = batch_size * dense_hidden_dim_;
+                SwiGlu<<<(hidden_elements + 255) / 256, 256, 0, stream_>>>(
+                    gate_up_, hidden_, hidden_elements, dense_hidden_dim_
+                );
+                Gemm(
+                    hidden_, block.down.data(), x_[current], batch_size,
+                    info_.d_model, dense_hidden_dim_, 1.0f
+                );
+            }
+            if (block.is_moe) {
+                current = 1 - current;
+            }
         }
         RmsNorm<<<batch_size, 256, 0, stream_>>>(
             x_[current], final_norm_.data(), normalized_, batch_size,
@@ -527,17 +620,15 @@ private:
         );
         Gemm(normalized_, policy_weight_.data(), policy_, batch_size,
              policy_storage_size_, info_.d_model);
-        Bias(policy_, policy_bias_.data(), batch_size, policy_storage_size_);
         Gemm(normalized_, wdl_weight_.data(), wdl_, batch_size, 32, info_.d_model);
-        Bias(wdl_, wdl_bias_.data(), batch_size, 32);
         Gemm(normalized_, moves_left_weight_.data(), moves_left_, batch_size, 32,
              info_.d_model);
-        Bias(moves_left_, moves_left_bias_.data(), batch_size, 32);
         ConvertOutputs<<<batch_size, 256, 0, stream_>>>(
-            policy_, wdl_, moves_left_, output_policy_, output_wdl_, output_moves_left_,
-            batch_size, info_.policy_size, policy_storage_size_
+            policy_, policy_bias_.data(), wdl_, wdl_bias_.data(), moves_left_,
+            moves_left_bias_.data(), output_policy_, output_wdl_, output_moves_left_, batch_size,
+            info_.policy_size, policy_storage_size_
         );
-        CheckCuda(cudaGetLastError(), "dense inference kernels");
+        CheckCuda(cudaGetLastError(), "inference kernels");
     }
 
     void RunGraph(int batch_size) {
@@ -571,10 +662,11 @@ private:
         __nv_bfloat16 *output,
         int rows,
         int columns,
-        int reduction
+        int reduction,
+        float beta = 0.0f
     ) {
         const int padded_rows = (rows + 15) / 16 * 16;
-        if (CustomBf16GemmSupported(padded_rows, columns, reduction)) {
+        if (beta == 0.0f && CustomBf16GemmSupported(padded_rows, columns, reduction)) {
             LaunchCustomBf16Gemm(
                 input,
                 weight,
@@ -587,7 +679,6 @@ private:
             return;
         }
         const float alpha = 1.0f;
-        const float beta = 0.0f;
         CheckCublas(
             cublasGemmEx(
                 cublas_, CUBLAS_OP_T, CUBLAS_OP_N,
@@ -612,9 +703,13 @@ private:
     }
 
     int hidden_dim_ = 0;
+    int dense_hidden_dim_ = 0;
     int selected_planes_ = 0;
     int input_dim_ = 0;
     int policy_storage_size_ = 0;
+    int maximum_padded_expert_rows_ = 0;
+    int multiprocessor_count_ = 0;
+    bool is_moe_ = false;
     float rms_norm_eps_ = 1e-6f;
     DeviceTensor input_weight_;
     DeviceTensor input_bias_;
@@ -634,6 +729,15 @@ private:
     __nv_bfloat16 *normalized_ = nullptr;
     __nv_bfloat16 *gate_up_ = nullptr;
     __nv_bfloat16 *hidden_ = nullptr;
+    __nv_bfloat16 *router_logits_ = nullptr;
+    __nv_bfloat16 *expert_input_ = nullptr;
+    __nv_bfloat16 *expert_probabilities_ = nullptr;
+    __nv_bfloat16 *expert_hidden_ = nullptr;
+    __nv_bfloat16 *expert_output_ = nullptr;
+    int *expert_offsets_ = nullptr;
+    int *expert_counts_ = nullptr;
+    int *expert_cursors_ = nullptr;
+    int *route_positions_ = nullptr;
     __nv_bfloat16 *policy_ = nullptr;
     __nv_bfloat16 *wdl_ = nullptr;
     __nv_bfloat16 *moves_left_ = nullptr;
@@ -643,23 +747,23 @@ private:
     std::unordered_map<int, cudaGraphExec_t> graphs_;
 };
 
-std::unique_ptr<DenseModel> DenseModel::Load(
+std::unique_ptr<Model> Model::Load(
     const std::string &path,
     int gpu,
     int maximum_batch_size
 ) {
-    return std::unique_ptr<DenseModel>(
-        new DenseModel(std::make_unique<Impl>(path, gpu, maximum_batch_size))
+    return std::unique_ptr<Model>(
+        new Model(std::make_unique<Impl>(path, gpu, maximum_batch_size))
     );
 }
 
-DenseModel::DenseModel(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
-DenseModel::~DenseModel() = default;
-DenseModel::DenseModel(DenseModel &&) noexcept = default;
-DenseModel &DenseModel::operator=(DenseModel &&) noexcept = default;
-const ModelInfo &DenseModel::info() const { return impl_->info_; }
+Model::Model(std::unique_ptr<Impl> impl) : impl_(std::move(impl)) {}
+Model::~Model() = default;
+Model::Model(Model &&) noexcept = default;
+Model &Model::operator=(Model &&) noexcept = default;
+const ModelInfo &Model::info() const { return impl_->info_; }
 
-void DenseModel::Evaluate(
+void Model::Evaluate(
     std::span<const InputPlane> planes,
     int batch_size,
     Outputs outputs

@@ -44,6 +44,30 @@ backend = "ce4"
 training_flops = 7.2993951137988608e17
 
 [[engines]]
+name = "moe64a2-d128"
+weights = "/artifacts/models/moe64a2-d128.safetensors"
+backend = "ce4"
+training_flops = 1.159730278432768e15
+
+[[engines]]
+name = "moe64a2-d256"
+weights = "/artifacts/models/moe64a2-d256.safetensors"
+backend = "ce4"
+training_flops = 1.408087901896704e16
+
+[[engines]]
+name = "moe64a2-d512"
+weights = "/artifacts/models/moe64a2-d512.safetensors"
+backend = "ce4"
+training_flops = 1.90648212541538304e17
+
+[[engines]]
+name = "moe64a2-d1024"
+weights = "/artifacts/models/moe64a2-d1024.safetensors"
+backend = "ce4"
+training_flops = 2.6054976891518976e18
+
+[[engines]]
 name = "BT4-1740"
 weights = "/artifacts/leela/BT4-1740.pb.gz"
 backend = "cudnn-fp16"
