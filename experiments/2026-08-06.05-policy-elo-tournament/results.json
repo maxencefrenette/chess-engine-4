@@ -1,0 +1,326 @@
+{
+  "tournament": {
+    "name": "policy-elo",
+    "gpu": "RTX-PRO-6000",
+    "games_per_matchup": 64,
+    "waves": 4,
+    "max_concurrency": 8,
+    "policy_mode_size": 256,
+    "parallelism": 64,
+    "visits": null
+  },
+  "opening_book": "/artifacts/books/noob_2moves.pgn",
+  "engines": [
+    {
+      "name": "dense-d32",
+      "weights": "/artifacts/models/dense-d32.safetensors",
+      "backend": "ce4",
+      "training_flops": 9629393928192.0,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "dense-d64",
+      "weights": "/artifacts/models/dense-d64.safetensors",
+      "backend": "ce4",
+      "training_flops": 59586439516160.0,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "dense-d128",
+      "weights": "/artifacts/models/dense-d128.safetensors",
+      "backend": "ce4",
+      "training_flops": 463100904849408.0,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "dense-d256",
+      "weights": "/artifacts/models/dense-d256.safetensors",
+      "backend": "ce4",
+      "training_flops": 4542506530111488.0,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "dense-d512",
+      "weights": "/artifacts/models/dense-d512.safetensors",
+      "backend": "ce4",
+      "training_flops": 5.393967438947942e+16,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "dense-d1024",
+      "weights": "/artifacts/models/dense-d1024.safetensors",
+      "backend": "ce4",
+      "training_flops": 7.299395113798861e+17,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "BT4-1740",
+      "weights": "/artifacts/leela/BT4-1740.pb.gz",
+      "backend": "cudnn-fp16",
+      "training_flops": null,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "T1-256x10",
+      "weights": "/artifacts/leela/t1-256x10-distilled-swa-2432500.pb.gz",
+      "backend": "cudnn-fp16",
+      "training_flops": null,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "T3-512x15",
+      "weights": "/artifacts/leela/t3-512x15x16h-distill-swa-2767500.pb.gz",
+      "backend": "cudnn-fp16",
+      "training_flops": null,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "T74-744706",
+      "weights": "/artifacts/leela/t74-744706.pb.gz",
+      "backend": "cudnn-fp16",
+      "training_flops": null,
+      "seed_elo": 0.0
+    }
+  ],
+  "completed_waves": 4,
+  "matches": [
+    {
+      "wave": 0,
+      "player1": "dense-d32",
+      "player2": "dense-d64",
+      "player1_wins": 1,
+      "player2_wins": 12,
+      "draws": 51,
+      "runtime_sec": 0.7364406029999999
+    },
+    {
+      "wave": 0,
+      "player1": "dense-d128",
+      "player2": "dense-d256",
+      "player1_wins": 2,
+      "player2_wins": 18,
+      "draws": 44,
+      "runtime_sec": 0.68889689
+    },
+    {
+      "wave": 0,
+      "player1": "dense-d512",
+      "player2": "dense-d1024",
+      "player1_wins": 6,
+      "player2_wins": 24,
+      "draws": 34,
+      "runtime_sec": 0.8742270649999999
+    },
+    {
+      "wave": 0,
+      "player1": "BT4-1740",
+      "player2": "T1-256x10",
+      "player1_wins": 48,
+      "player2_wins": 3,
+      "draws": 13,
+      "runtime_sec": 7.3308113310000005
+    },
+    {
+      "wave": 0,
+      "player1": "T3-512x15",
+      "player2": "T74-744706",
+      "player1_wins": 63,
+      "player2_wins": 0,
+      "draws": 1,
+      "runtime_sec": 5.879818739999999
+    },
+    {
+      "wave": 1,
+      "player1": "dense-d64",
+      "player2": "dense-d128",
+      "player1_wins": 1,
+      "player2_wins": 20,
+      "draws": 43,
+      "runtime_sec": 0.6709291439999987
+    },
+    {
+      "wave": 1,
+      "player1": "dense-d256",
+      "player2": "dense-d512",
+      "player1_wins": 5,
+      "player2_wins": 16,
+      "draws": 43,
+      "runtime_sec": 0.647329920999999
+    },
+    {
+      "wave": 1,
+      "player1": "dense-d1024",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 61,
+      "draws": 3,
+      "runtime_sec": 4.765875059999999
+    },
+    {
+      "wave": 1,
+      "player1": "T1-256x10",
+      "player2": "T3-512x15",
+      "player1_wins": 13,
+      "player2_wins": 32,
+      "draws": 19,
+      "runtime_sec": 8.818551642999997
+    },
+    {
+      "wave": 1,
+      "player1": "T74-744706",
+      "player2": "dense-d32",
+      "player1_wins": 63,
+      "player2_wins": 0,
+      "draws": 1,
+      "runtime_sec": 1.3743340679999996
+    },
+    {
+      "wave": 2,
+      "player1": "dense-d32",
+      "player2": "dense-d128",
+      "player1_wins": 0,
+      "player2_wins": 26,
+      "draws": 38,
+      "runtime_sec": 0.5486195480000013
+    },
+    {
+      "wave": 2,
+      "player1": "dense-d64",
+      "player2": "BT4-1740",
+      "player1_wins": 0,
+      "player2_wins": 64,
+      "draws": 0,
+      "runtime_sec": 4.804780875000002
+    },
+    {
+      "wave": 2,
+      "player1": "dense-d256",
+      "player2": "T74-744706",
+      "player1_wins": 0,
+      "player2_wins": 60,
+      "draws": 4,
+      "runtime_sec": 2.013991075
+    },
+    {
+      "wave": 2,
+      "player1": "dense-d512",
+      "player2": "T1-256x10",
+      "player1_wins": 0,
+      "player2_wins": 63,
+      "draws": 1,
+      "runtime_sec": 3.1191388920000023
+    },
+    {
+      "wave": 2,
+      "player1": "dense-d1024",
+      "player2": "T3-512x15",
+      "player1_wins": 0,
+      "player2_wins": 62,
+      "draws": 2,
+      "runtime_sec": 6.238966617000001
+    },
+    {
+      "wave": 3,
+      "player1": "dense-d32",
+      "player2": "dense-d256",
+      "player1_wins": 0,
+      "player2_wins": 24,
+      "draws": 40,
+      "runtime_sec": 0.6528853920000017
+    },
+    {
+      "wave": 3,
+      "player1": "dense-d64",
+      "player2": "dense-d512",
+      "player1_wins": 0,
+      "player2_wins": 58,
+      "draws": 6,
+      "runtime_sec": 0.8016146240000026
+    },
+    {
+      "wave": 3,
+      "player1": "dense-d128",
+      "player2": "dense-d1024",
+      "player1_wins": 0,
+      "player2_wins": 55,
+      "draws": 9,
+      "runtime_sec": 0.7589787779999995
+    },
+    {
+      "wave": 3,
+      "player1": "BT4-1740",
+      "player2": "T3-512x15",
+      "player1_wins": 30,
+      "player2_wins": 9,
+      "draws": 25,
+      "runtime_sec": 11.552330655999999
+    },
+    {
+      "wave": 3,
+      "player1": "T1-256x10",
+      "player2": "T74-744706",
+      "player1_wins": 54,
+      "player2_wins": 1,
+      "draws": 9,
+      "runtime_sec": 4.510370027999997
+    }
+  ],
+  "ratings": [
+    {
+      "name": "BT4-1740",
+      "elo": 845.4883569269514,
+      "elo_95ci": 124.6767689806503
+    },
+    {
+      "name": "T3-512x15",
+      "elo": 716.9582122935531,
+      "elo_95ci": 117.09770897254555
+    },
+    {
+      "name": "T1-256x10",
+      "elo": 581.625904211545,
+      "elo_95ci": 114.32221862573145
+    },
+    {
+      "name": "T74-744706",
+      "elo": 152.70483136194633,
+      "elo_95ci": 107.35819182401143
+    },
+    {
+      "name": "dense-d1024",
+      "elo": -78.33430293713337,
+      "elo_95ci": 93.19381722161673
+    },
+    {
+      "name": "dense-d512",
+      "elo": -219.38703898349274,
+      "elo_95ci": 81.78127956168821
+    },
+    {
+      "name": "dense-d256",
+      "elo": -369.48665047517324,
+      "elo_95ci": 75.16238936447958
+    },
+    {
+      "name": "dense-d128",
+      "elo": -463.5296774473381,
+      "elo_95ci": 79.28170878717874
+    },
+    {
+      "name": "dense-d64",
+      "elo": -574.6193771139065,
+      "elo_95ci": 85.54996127673512
+    },
+    {
+      "name": "dense-d32",
+      "elo": -591.4202578369527,
+      "elo_95ci": 82.24721660833882
+    }
+  ],
+  "flops_scaling_law": {
+    "elo_per_decade": 109.63327426877845,
+    "intercept": -2057.936237809151
+  },
+  "total_games": 1280,
+  "total_gpu_runtime_sec": 66.78889095
+}

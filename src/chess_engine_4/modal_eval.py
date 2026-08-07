@@ -430,27 +430,58 @@ def _prepare_lc0_remote(output: str) -> dict[str, str]:
     timeout=30 * 60,
 )
 def _benchmark_lc0(payload: dict[str, Any]) -> str:
+    return _run_backendbench_remote(payload)["output"]
+
+
+def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
+    _require_lc0(payload)
     batch_size = int(payload["batch_size"])
+    weights = payload.get("weights", payload.get("model"))
+    if weights is None:
+        raise ValueError("backendbench requires weights.")
+    if not Path(weights).exists():
+        raise FileNotFoundError(weights)
     command = [
         str(payload["lc0_path"]),
         "backendbench",
-        f"--weights={payload['model']}",
-        "--backend=ce4",
-        f"--backend-opts=max_batch={batch_size}",
+        f"--weights={weights}",
+        f"--backend={payload.get('backend', 'ce4')}",
         f"--batches={payload['batches']}",
         f"--start-batch-size={batch_size}",
         f"--max-batch-size={batch_size}",
         f"--batch-step={batch_size}",
     ]
+    if payload.get("backend", "ce4") == "ce4":
+        command.append(f"--backend-opts=max_batch={batch_size}")
     completed = subprocess.run(
         command,
-        check=True,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         env={**os.environ, "LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH},
     )
-    return completed.stdout
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "lc0 backendbench failed with exit code "
+            f"{completed.returncode}\ncommand={' '.join(command)}\n{completed.stdout}"
+        )
+    return {
+        "name": payload.get("name", Path(weights).stem),
+        "weights": weights,
+        "backend": payload.get("backend", "ce4"),
+        "output": completed.stdout,
+    }
+
+
+def backendbench_function(gpu: str, *, max_containers: int) -> modal.Function:
+    return app.function(
+        image=image,
+        gpu=gpu,
+        volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+        timeout=30 * 60,
+        max_containers=max_containers,
+        name=f"backendbench_{gpu.lower()}",
+    )(_run_backendbench_remote)
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:

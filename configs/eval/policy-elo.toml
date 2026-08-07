@@ -4,32 +4,44 @@ gpu = "RTX-PRO-6000"
 games_per_matchup = 64
 waves = 4
 max_concurrency = 8
-policy_mode_size = 32
+policy_mode_size = 256
 parallelism = 64
 
 [[engines]]
-name = "dense-1e20"
-weights = "/artifacts/models/dense-policy-elo-1e20.safetensors"
+name = "dense-d32"
+weights = "/artifacts/models/dense-d32.safetensors"
 backend = "ce4"
-training_flops = 8.73663132598272e15
+training_flops = 9.629393928192e12
 
 [[engines]]
-name = "dense-1e21"
-weights = "/artifacts/models/dense-policy-elo-1e21.safetensors"
+name = "dense-d64"
+weights = "/artifacts/models/dense-d64.safetensors"
 backend = "ce4"
-training_flops = 7.077744413376512e16
+training_flops = 5.958643951616e13
 
 [[engines]]
-name = "dense-1e22"
-weights = "/artifacts/models/dense-policy-elo-1e22.safetensors"
+name = "dense-d128"
+weights = "/artifacts/models/dense-d128.safetensors"
 backend = "ce4"
-training_flops = 5.1127285449228275e17
+training_flops = 4.63100904849408e14
 
 [[engines]]
-name = "dense-1e23"
-weights = "/artifacts/models/dense-policy-elo-1e23.safetensors"
+name = "dense-d256"
+weights = "/artifacts/models/dense-d256.safetensors"
 backend = "ce4"
-training_flops = 4.1810166518836106e18
+training_flops = 4.542506530111488e15
+
+[[engines]]
+name = "dense-d512"
+weights = "/artifacts/models/dense-d512.safetensors"
+backend = "ce4"
+training_flops = 5.3939674389479424e16
+
+[[engines]]
+name = "dense-d1024"
+weights = "/artifacts/models/dense-d1024.safetensors"
+backend = "ce4"
+training_flops = 7.2993951137988608e17
 
 [[engines]]
 name = "BT4-1740"

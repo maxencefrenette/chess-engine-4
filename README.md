@@ -88,6 +88,7 @@ automatically.
 | `uv run export-model` | Export a BF16 dense checkpoint as Safetensors |
 | `uv run build-lc0` | Build the vendored lc0 fork and custom backend |
 | `uv run benchmark-lc0-modal` | Benchmark the custom lc0 backend on RTX PRO 6000 |
+| `uv run benchmark-tournament-modal` | Benchmark every engine in a tournament config |
 | `uv run eval-modal` | Evaluate an exported net with lc0 and fastchess |
 | `uv run eval-tournament-modal` | Run an adaptive, resumable Elo tournament |
 | `uv run compare-run` | Compare a W&B run with the training frontier |

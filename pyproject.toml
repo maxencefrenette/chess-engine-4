@@ -38,6 +38,7 @@ eval-tournament-modal = "chess_engine_4.evaluation.tournament:eval_tournament_mo
 eval-precision-modal = "chess_engine_4.modal_precision_eval:eval_precision_modal"
 prepare-lc0-modal = "chess_engine_4.modal_eval:prepare_lc0_modal"
 benchmark-lc0-modal = "chess_engine_4.modal_eval:benchmark_lc0_modal"
+benchmark-tournament-modal = "chess_engine_4.evaluation.backendbench:benchmark_tournament_modal"
 inspect-data = "chess_engine_4.training.cli:inspect_data"
 lc0-to-parquet = "chess_engine_4.data.parquet:lc0_to_parquet"
 convert-data-modal = "chess_engine_4.modal_data:convert_data_modal"
