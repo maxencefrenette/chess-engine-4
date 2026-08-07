@@ -49,7 +49,7 @@ _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
 def config(
     *,
     d_model: int,
-    training_ratio: float = 0.02,
+    training_ratio: float = 0.05,
     history_length: int = 8,
 ) -> TrainingConfig:
     """Generate the canonical moe64a2 scaling recipe for one residual width."""

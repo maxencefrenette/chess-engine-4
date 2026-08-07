@@ -35,7 +35,7 @@ FAMILIES = {
         "description": "Stacked MLP with alternating dense and 64-expert, 2-active layers.",
         "best_runs": Path("experiments/best-runs-moe64a2.toml"),
         "config": Path("configs/moe64a2.py"),
-        "training_ratio": 0.02,
+        "training_ratio": 0.05,
         "extrapolate": False,
     },
 }

@@ -1,0 +1,323 @@
+[[runs]]
+family = "dense"
+d_model = 128
+training_ratio = 0.1
+steps = 3349
+batch_size = 4096
+lr = 0.0023
+params = 2743456
+flops_per_sample = 16879926
+loss = 3.5382154099419223
+policy_top1 = 0.32158924336133077
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 12.959719712
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fpzgndsx"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 256
+training_ratio = 0.1
+steps = 5268
+batch_size = 8192
+lr = 0.001
+params = 8630688
+flops_per_sample = 52629574
+loss = 3.2842561350113906
+policy_top1 = 0.3855713820143354
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 24.846100842
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4xvc1vvj"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 512
+training_ratio = 0.1
+steps = 9107
+batch_size = 16384
+lr = 0.0004
+params = 29842336
+flops_per_sample = 180751974
+loss = 3.0833433992249746
+policy_top1 = 0.4379144916699976
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 71.916133005
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/t1rm3bo0"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 128
+training_ratio = 0.2
+steps = 6698
+batch_size = 4096
+lr = 0.0015
+params = 2743456
+flops_per_sample = 16879926
+loss = 3.484933865134214
+policy_top1 = 0.33256895801431896
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 28.72951413
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/votcuh04"
+source = "incumbent"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 256
+training_ratio = 0.2
+steps = 10536
+batch_size = 8192
+lr = 0.00064
+params = 8630688
+flops_per_sample = 52629574
+loss = 3.2310701769902725
+policy_top1 = 0.3955887433257338
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 56.468993141
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/f25b7mud"
+source = "incumbent"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 512
+training_ratio = 0.2
+steps = 18214
+batch_size = 16384
+lr = 0.00026
+params = 29842336
+flops_per_sample = 180751974
+loss = 3.0316757731577573
+policy_top1 = 0.45221554940703057
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 455.077747744
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/nd28y2wg"
+source = "incumbent"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 128
+training_ratio = 0.5
+steps = 16745
+batch_size = 4096
+lr = 0.00085
+params = 2743456
+flops_per_sample = 16879926
+loss = 3.295114010955557
+policy_top1 = 0.3710514781041865
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 54.29274428
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/osms2d87"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 256
+training_ratio = 0.5
+steps = 26339
+batch_size = 8192
+lr = 0.00036
+params = 8630688
+flops_per_sample = 52629574
+loss = 3.0898337074461466
+policy_top1 = 0.4352601796876183
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 116.530664095
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2zif1vfx"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "dense"
+d_model = 512
+training_ratio = 0.5
+steps = 45536
+batch_size = 16384
+lr = 0.00014
+params = 29842336
+flops_per_sample = 180751974
+loss = 2.937496792893929
+policy_top1 = 0.48131627240617
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 287.931229154
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2hqtj0ya"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 128
+training_ratio = 0.01
+steps = 829
+batch_size = 16384
+lr = 0.0037
+params = 27155616
+flops_per_sample = 17081158
+loss = 3.6711305888840897
+policy_top1 = 0.294623012899795
+loss_spike_count = 0
+dead_experts = 7
+runtime_sec = 13.090316664
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/wx2nl0oz"
+source = "new"
+eligible = false
+
+[[runs]]
+family = "moe64a2"
+d_model = 256
+training_ratio = 0.01
+steps = 1621
+batch_size = 32768
+lr = 0.0014
+params = 106213792
+flops_per_sample = 53031510
+loss = 3.3249099117076555
+policy_top1 = 0.37596204336386785
+loss_spike_count = 1
+dead_experts = 0
+runtime_sec = 63.493002164
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ibadj48w"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 512
+training_ratio = 0.01
+steps = 3205
+batch_size = 65536
+lr = 0.00049
+params = 420043680
+flops_per_sample = 181555318
+loss = 3.089326668898098
+policy_top1 = 0.4413842503195751
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 180.109708418
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/bt4ew7b0"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 128
+training_ratio = 0.02
+steps = 1657
+batch_size = 16384
+lr = 0.0033
+params = 27155616
+flops_per_sample = 17081158
+loss = 3.4628191638202934
+policy_top1 = 0.340399017656555
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 20.394101092
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/arwnxz7u"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 256
+training_ratio = 0.02
+steps = 3241
+batch_size = 32768
+lr = 0.0012
+params = 106213792
+flops_per_sample = 53031510
+loss = 3.178672114495252
+policy_top1 = 0.41449092369614526
+loss_spike_count = 1
+dead_experts = 0
+runtime_sec = 114.426265799
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3a1yixue"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 512
+training_ratio = 0.02
+steps = 6409
+batch_size = 65536
+lr = 0.00044
+params = 420043680
+flops_per_sample = 181555318
+loss = 2.9752271687407754
+policy_top1 = 0.4749161466925229
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 329.642284976
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/64th71sp"
+source = "incumbent"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 128
+training_ratio = 0.05
+steps = 4144
+batch_size = 16384
+lr = 0.0028
+params = 27155616
+flops_per_sample = 17081158
+loss = 3.307823133723191
+policy_top1 = 0.3753522718026612
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 47.509547279
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4u3r52ad"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 256
+training_ratio = 0.05
+steps = 8103
+batch_size = 32768
+lr = 0.001
+params = 106213792
+flops_per_sample = 53031510
+loss = 3.0387307741673717
+policy_top1 = 0.4572393706418621
+loss_spike_count = 1
+dead_experts = 0
+runtime_sec = 273.155501765
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/a7tqm2vv"
+source = "new"
+eligible = true
+
+[[runs]]
+family = "moe64a2"
+d_model = 512
+training_ratio = 0.05
+steps = 16023
+batch_size = 65536
+lr = 0.00037
+params = 420043680
+flops_per_sample = 181555318
+loss = 2.8584442247500155
+policy_top1 = 0.5089923832054736
+loss_spike_count = 0
+dead_experts = 0
+runtime_sec = 693.686171376
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/gsvn6lgm"
+source = "new"
+eligible = true

@@ -98,10 +98,10 @@ def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
 def test_moe64a2_family_recipe_round_trips() -> None:
     config = load_training_config("configs/moe64a2.py", d_model=128)
 
-    assert config.run.name == "moe64a2-d128-r0.02"
-    assert config.run.training_ratio == 0.02
+    assert config.run.name == "moe64a2-d128-r0.05"
+    assert config.run.training_ratio == 0.05
     assert config.run.batch_size == 16_384
-    assert config.optimizer.lr == 3.3e-3
+    assert config.optimizer.lr == 2.8e-3
     assert config.model.kind == "moe64a2"
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2
