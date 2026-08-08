@@ -1,0 +1,91 @@
+format_version = 1
+base_url = "https://data.lczero.org/files/training_data/test80"
+volume = "chess-engine-4-training-data"
+remote_manifest_prefix = "/source-manifests"
+total_sources = 17
+total_bytes = 25723576320
+
+[[source]]
+name = "training-run1-test80-20240428-1417.tar"
+bytes = 1639280640
+sha256 = "182a73876f08eda5367011d951acd0e91d52fa84729faab638735d52cf890af7"
+
+[[source]]
+name = "training-run1-test80-20240428-1517.tar"
+bytes = 1487001600
+sha256 = "e4f469b6ff7ee53747753beb148dfa76d63acb5adcdf051883dab06acd4f21d2"
+
+[[source]]
+name = "training-run1-test80-20240428-1617.tar"
+bytes = 1512396800
+sha256 = "af637d87105e9383f9f38af05130f83ba907710410f7ae9eb38746b4ca337812"
+
+[[source]]
+name = "training-run1-test80-20240428-1717.tar"
+bytes = 1495009280
+sha256 = "8c71a844d769f49c55f222ed2638d7c985a6d177d2fae986f00533aa39a84bd9"
+
+[[source]]
+name = "training-run1-test80-20240428-1917.tar"
+bytes = 1196288000
+sha256 = "73e62e3dc8bcbe9df81a6dde784c7e7c4c8cb5263e640ee7d520d9c024ce57e9"
+
+[[source]]
+name = "training-run1-test80-20240428-2017.tar"
+bytes = 1648906240
+sha256 = "c2a0ec41571071f12866c715f86bae21ca01933965a374e57bed5d47c6067e78"
+
+[[source]]
+name = "training-run1-test80-20240428-2117.tar"
+bytes = 1543249920
+sha256 = "02a267b63b907970073e61cc34215937887c191c46eddd1db79fdf3ed470b8af"
+
+[[source]]
+name = "training-run1-test80-20240428-2217.tar"
+bytes = 1528473600
+sha256 = "f9badc824a0c88411331e63ee3eded8626a11c9a7c84bd3a214397de26525a5a"
+
+[[source]]
+name = "training-run1-test80-20240428-2317.tar"
+bytes = 1562050560
+sha256 = "d883c51f0d527953df8a60dada6ad9e6c0ef223855038b204ce474567a305b41"
+
+[[source]]
+name = "training-run1-test80-20240429-0017.tar"
+bytes = 1614438400
+sha256 = "32f7ce9051b494b8ffb4c5ee389b72969a24c7b65b8bc3cecf24d64e024523a9"
+
+[[source]]
+name = "training-run1-test80-20240429-0117.tar"
+bytes = 1489018880
+sha256 = "8d589eb3dfce934765c6bd705f6d3ff7ed70101310013ca0cf77166faf0dbb36"
+
+[[source]]
+name = "training-run1-test80-20240429-0217.tar"
+bytes = 1375723520
+sha256 = "67bc555097c3d56682b720d862cf8a45989577e91e0a7cf8ec54606ae1abfb0e"
+
+[[source]]
+name = "training-run1-test80-20240429-0317.tar"
+bytes = 1568276480
+sha256 = "57d6d8766beb65a3627a5669ae02cf757f134d6ed2ee9fe7c60a124b03827232"
+
+[[source]]
+name = "training-run1-test80-20240429-0417.tar"
+bytes = 1539676160
+sha256 = "b28e163b177d470e1643d03e854bd3ae330b7da278709217ddf7271e8103afe1"
+
+[[source]]
+name = "training-run1-test80-20240429-0517.tar"
+bytes = 1480714240
+sha256 = "b32a6379cf0990d6c5dffe1ac20d81f23be50104cfed817da4bc9f2eb1914471"
+
+[[source]]
+name = "training-run1-test80-20240429-0617.tar"
+bytes = 1513564160
+sha256 = "1d27764cd6a6e12049fe39ecc125cd79880685b34fe0063b7b3441964c23fd06"
+
+[[source]]
+name = "training-run1-test80-20240429-0717.tar"
+bytes = 1529507840
+sha256 = "8e37c2d66637f0e82a948e429657769db96ed26c8e5aa02af6ddbbc17dca7011"

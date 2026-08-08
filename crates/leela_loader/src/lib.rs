@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -311,6 +312,10 @@ impl SimpleTarReader {
     }
 
     pub(crate) fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
+        Ok(self.next_regular_entry()?.map(|(_, payload)| payload))
+    }
+
+    fn next_regular_entry(&mut self) -> PyResult<Option<(String, Vec<u8>)>> {
         loop {
             let mut header = [0_u8; 512];
             if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
@@ -348,7 +353,7 @@ impl SimpleTarReader {
                 if name.rsplit('/').next() == Some("LICENSE") {
                     continue;
                 }
-                return decompress_if_gzip(payload);
+                return Ok(decompress_if_gzip(payload)?.map(|payload| (name, payload)));
             }
 
             self.file
@@ -444,6 +449,40 @@ fn convert_lc0_tar_to_parquet(input: PathBuf, output: PathBuf) -> PyResult<(usiz
     converter::convert_lc0_tar_to_parquet(input, output)
 }
 
+#[pyfunction]
+fn parquet_row_counts(paths: Vec<PathBuf>) -> PyResult<Vec<(String, usize)>> {
+    parquet_loader::parquet_row_counts(paths)
+}
+
+#[pyfunction]
+fn inspect_lc0_tars(paths: Vec<PathBuf>) -> PyResult<(Vec<(String, usize, usize)>, usize)> {
+    let mut game_names = HashSet::new();
+    let mut duplicate_games = 0;
+    let mut results = Vec::with_capacity(paths.len());
+    for path in paths {
+        let mut reader = SimpleTarReader::open(path.clone())?;
+        let mut games = 0;
+        let mut rows = 0;
+        while let Some((name, payload)) = reader.next_regular_entry()? {
+            if payload.len() % RECORD_SIZE != 0 {
+                return Err(PyValueError::new_err(format!(
+                    "LCZero chunk has {} bytes, not a multiple of {RECORD_SIZE}",
+                    payload.len()
+                )));
+            }
+            validate_versions(&payload)?;
+            games += 1;
+            rows += payload.len() / RECORD_SIZE;
+            let game_id = name.rsplit('/').next().unwrap_or(&name).to_owned();
+            if !game_names.insert(game_id) {
+                duplicate_games += 1;
+            }
+        }
+        results.push((path.to_string_lossy().into_owned(), games, rows));
+    }
+    Ok((results, duplicate_games))
+}
+
 fn next_path(paths: &Arc<Mutex<VecDeque<PathBuf>>>) -> Option<PathBuf> {
     paths.lock().expect("paths mutex poisoned").pop_front()
 }
@@ -471,6 +510,8 @@ fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
     module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
+    module.add_function(wrap_pyfunction!(parquet_row_counts, module)?)?;
+    module.add_function(wrap_pyfunction!(inspect_lc0_tars, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;

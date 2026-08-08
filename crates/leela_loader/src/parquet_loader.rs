@@ -170,6 +170,17 @@ pub(crate) fn iter_prefetched_parquet_batches(
     })
 }
 
+pub(crate) fn parquet_row_counts(paths: Vec<PathBuf>) -> PyResult<Vec<(String, usize)>> {
+    paths
+        .into_iter()
+        .map(|path| {
+            let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
+            let rows = reader.num_rows().map_err(polars_error)?;
+            Ok((path.to_string_lossy().into_owned(), rows))
+        })
+        .collect()
+}
+
 fn build_batch_data(frame: &DataFrame) -> PyResult<PackedBatchData> {
     let records = frame.height();
     let planes = frame
