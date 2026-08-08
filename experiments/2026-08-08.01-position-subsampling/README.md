@@ -2,9 +2,10 @@
 
 ## Status
 
-Resumed with a corrected streaming design. The exact startup snapshot and sub-`$1.50` launch plan
-are recorded below. No training run, W&B run, checkpoint export, tournament, sampling-rule
-promotion, or canonical data mutation has yet been performed by this task.
+Blocked pending authorization to replace three aborted runs. The exact startup snapshot and
+prelaunch plan are recorded below, followed by the live-throughput evidence that invalidated its
+cost bound. No run completed, no checkpoint was exported, and no tournament, sampling-rule
+promotion, or canonical data mutation has been performed by this task.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
@@ -24,9 +25,11 @@ four. The treatments retain residues `< 4`, `< 2`, and `< 1`, respectively, for 
 `0.5`, and `0.25`. The quarter subset is therefore nested inside the half subset, which is nested
 inside the full corpus. Decisions are independent of worker scheduling and global RNG state.
 
-The three experiment commands will override the Parquet loader to one thread. With sorted shard
-paths, this also makes the consumed row sequence and the final partial-shard cutoff reproducible,
-not merely each row's accept/reject decision. The same one-thread setting is used for every arm.
+The first launch commands overrode the Parquet loader to one thread. With sorted shard paths, this
+made the consumed row sequence and final partial-shard cutoff reproducible, not merely each row's
+accept/reject decision. It also created a severe input bottleneck. The row decision itself remains
+reproducible with multithreaded prefetch because it depends only on shard identity and row index,
+as the user required.
 Each shard still drops an incomplete final batch, matching the existing loader contract; the
 footer audit reports both accepted rows and exact batch-usable rows so all treatments can use the
 quarter arm's common step count without repetition.
@@ -103,7 +106,37 @@ uv run train-modal --dry-run --config configs/moe64a2.py --d-model 512 \
   --wandb-name position-subsampling-rRATE
 ```
 
-Remove `--dry-run` for exactly the three authorized `RATE` values `1.0`, `0.5`, and `0.25`.
+The three corresponding paid commands were launched concurrently for `RATE` values `1.0`, `0.5`,
+and `0.25`. They were stopped as soon as live throughput proved that completing them would violate
+the strict per-run cap.
+
+## Aborted-run evidence and corrected cost model
+
+The prelaunch estimate assumed that the measured eight-thread fetch time could be scaled to a
+single thread and by inverse retention while the rest of the step remained unchanged. That model
+was wrong: decoding and rejecting rows serialized the input pipeline and starved the GPU. The
+three apps were stopped at the same wall-clock decision point, before any final checkpoint:
+
+| Rate | Modal app | W&B | Last observed step | Representative samples/s | Projected cost to 15,000 steps |
+| ---: | --- | --- | ---: | ---: | ---: |
+| 1.0 | `ap-TAvG8K14mlB9iVyCxIEdJz` | [5e4itcmi](https://wandb.ai/maxence-frenette/uncategorized/runs/5e4itcmi) | 6,500 | ~0.83M | ~$2.18 |
+| 0.5 | `ap-xpxRwoF129uYqToCVgFElh` | [fl24lk80](https://wandb.ai/maxence-frenette/uncategorized/runs/fl24lk80) | 1,680 | ~0.23M | ~$7.91 |
+| 0.25 | `ap-DA8ZQ2oKGmUrOWnLv0pFgV` | [res2mpla](https://wandb.ai/maxence-frenette/uncategorized/runs/res2mpla) | 1,120 | ~0.145M | ~$12.49 |
+
+The apps ran for roughly 8.5 minutes each. At `$0.0018408/s`, the provisional realized charge is
+approximately `$0.94` per arm (`$2.82` total); exact Modal billing is not available in the training
+result because termination prevented normal return. These are invalid partial runs and must not be
+used for the retention comparison.
+
+The faithful replacement plan uses the configured eight loader threads and reduces every arm to
+8,500 steps / 557,056,000 samples. The bound separates the measured ~40.5 ms fixed model step from
+each observed single-thread step, divides only the inferred loader overhead by eight, then restores
+the fixed model time. This projects about 45.3 / 71.1 / 91.7 ms per step for full / half / quarter,
+or `$0.71` / `$1.11` / `$1.44`. This corrected estimate still requires inspection of all three
+revised launch summaries and active monitoring; any live projection above `$1.50` must stop.
+
+The original authorization allowed exactly three bounded training runs. Because these three were
+started and then aborted, no replacement run will be launched without explicit user approval.
 
 ## Evaluation protocol
 
@@ -116,5 +149,6 @@ approval if it exceeds `$1`.
 
 ## Current recommendation
 
-Do not promote or reject a retention rate yet. Keep canonical configs and data unchanged and
-preserve the sampler branch unmerged until the three matched runs and searched tournament finish.
+Do not promote or reject a retention rate. Keep canonical configs and data unchanged and preserve
+the sampler branch unmerged. The experiment cannot continue until the user authorizes three
+replacement runs under the corrected eight-thread, 8,500-step plan.

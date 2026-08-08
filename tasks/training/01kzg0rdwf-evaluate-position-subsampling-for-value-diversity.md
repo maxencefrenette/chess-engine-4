@@ -36,8 +36,10 @@ FLOPs or matched dollar cost.
 The raw-archive capacity blocker was superseded by the user's corrected design. A deterministic
 row-identity sampler now streams canonical Parquet directly without derived datasets or game-boundary
 assumptions. A 497-shard startup manifest fixes the exact input snapshot despite concurrent atomic
-corpus appends; the matched 15,000-step launch plan is retained in
-`experiments/2026-08-08.01-position-subsampling/README.md`.
+corpus appends. The three authorized 15,000-step runs were stopped after live single-thread loader
+throughput invalidated the sub-$1.50 cost estimate; none completed or produced a final checkpoint.
+The retained report proposes an eight-thread, matched 8,500-step replacement plan, but replacement
+runs require explicit user authorization.
 
 ## Source
 
