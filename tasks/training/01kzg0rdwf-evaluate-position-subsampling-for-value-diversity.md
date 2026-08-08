@@ -40,6 +40,11 @@ ceiling needs 1,305,804,800 unique rows per treatment. The quarter-rate arm ther
 `experiments/2026-08-08.01-position-subsampling/README.md` for the audited arithmetic and resume
 conditions.
 
+The final corpus audit at commit `c678bcb` retained 17 hashed sources with 125,250,708 positions
+and no duplicate game IDs. Keep this task stopped until the user either authorizes a sequential
+streaming design that may delete verified temporary raw archives, or shrinks the experiment to a
+storage-limited model and matched row target.
+
 ## Source
 
 [Lc0 Net](https://app.notion.com/p/35a8054d223580b79ebadc55321dd4d3)

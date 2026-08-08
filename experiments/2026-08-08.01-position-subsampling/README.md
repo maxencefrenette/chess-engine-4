@@ -107,9 +107,15 @@ for the `0.25` treatment under the declared storage policy. Training on fewer ro
 choosing a weaker sample-limited model after the fact, or overwriting canonical data would each
 violate the experiment design. The experiment stopped at this gate.
 
-Acquisition stopped after 17 complete source archives had been hashed and manifested. The corpus
-task removed only the incomplete successor `.tmp`; it preserved all completed sources and
-manifests. No canonical conversion occurred.
+Acquisition stopped after 17 complete source archives had been hashed and manifested. The final
+audit at corpus-task commit `c678bcb` records 25,723,576,320 source bytes, 1,143,453 games,
+125,250,708 v6 positions, and zero duplicate canonical game IDs. Live combined Modal Volume usage
+was 716,018,279,187 bytes, leaving 250,349,362,413 bytes below the 900 GiB operational ceiling.
+The corpus task removed only the incomplete successor `.tmp`; it preserved all completed sources
+and manifests. Its retained evidence is
+`experiments/2026-08-08.01-training-corpus-capacity/README.md` and `sources.toml` on branch
+`codex/expand-final-training-corpus`. No canonical conversion or `training-data.toml` change
+occurred.
 
 ## Training and tournament results
 
@@ -125,6 +131,13 @@ existing unpaired estimator must not be independently rewritten here.
 ## Recommendation
 
 Do not retain or reject any sampling rate on experimental grounds: no treatment was trained.
-Keep canonical configs and data unchanged. Resume only if the user either supplies enough external
-source/data storage for the exact matched design or explicitly authorizes a smaller, storage-limited
-model-selection objective.
+Keep canonical configs and data unchanged. Resume only after the user chooses one of these scope
+changes:
+
+1. authorize deletion of verified temporary raw archives after each isolated treatment is
+   materialized, enabling a sequential streaming design whose exact peak-storage plan must be
+   rechecked before any deletion or launch; or
+2. explicitly authorize a smaller, storage-limited model and matched row target.
+
+Supplying enough external source/data storage for the original design would also clear the
+blocker. Until then, preserve all 17 completed sources and keep this task stopped.
