@@ -1,13 +1,14 @@
 ---
 id: "01kzg0rdd6"
 title: "Tighten tournament Elo confidence intervals"
-status: pending
+status: completed
 priority: high
 effort: medium
 dependencies: []
 tags: ["evaluation", "notion-import"]
 touches: ["evaluation", "experiments"]
 created_at: 2026-08-07
+completed_at: 2026-08-08
 ---
 
 # Tighten tournament Elo confidence intervals
@@ -21,10 +22,10 @@ confidence intervals for the same GPU cost.
 
 ## Tasks
 
-- [ ] Audit the tournament output retained for paired-game information.
-- [ ] Implement statistically appropriate rating and confidence-interval reporting.
-- [ ] Compare the new estimator with the current estimator on retained tournaments.
-- [ ] Run a small validation tournament if retained data is insufficient.
+- [x] Audit the tournament output retained for paired-game information.
+- [x] Implement statistically appropriate rating and confidence-interval reporting.
+- [x] Compare the new estimator with the current estimator on retained tournaments.
+- [x] Validate against the retained 100-pair searched PGN; no new tournament was needed.
 
 ## Acceptance Criteria
 

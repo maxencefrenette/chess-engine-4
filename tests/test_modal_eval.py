@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from chess_engine_4.modal_eval import OPENING_BOOK_PATH, _fastchess_command, _selfplay_command
+from chess_engine_4.modal_eval import (
+    OPENING_BOOK_PATH,
+    _fastchess_command,
+    _parse_fastchess_pair_scores,
+    _parse_fastchess_pentanomial,
+    _selfplay_command,
+)
 
 
 def test_fastchess_command_uses_fixed_paired_openings() -> None:
@@ -55,3 +61,30 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--noise-epsilon=0.0" in command
     assert "--player1.backend-opts=child(backend=ce4,max_batch=256,threads=1)" in command
     assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command
+
+
+def test_fastchess_pgn_parser_retains_pentanomial_pairs() -> None:
+    pgn = """
+[Round "1"]
+[White "candidate"]
+[Black "baseline"]
+[Result "1-0"]
+
+[Round "1"]
+[White "baseline"]
+[Black "candidate"]
+[Result "1/2-1/2"]
+
+[Round "2"]
+[White "candidate"]
+[Black "baseline"]
+[Result "0-1"]
+
+[Round "2"]
+[White "baseline"]
+[Black "candidate"]
+[Result "1-0"]
+"""
+
+    assert _parse_fastchess_pentanomial(pgn, "candidate") == (1, 0, 0, 1, 0)
+    assert _parse_fastchess_pair_scores(pgn, "candidate") == (3, 0)

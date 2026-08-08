@@ -1,8 +1,15 @@
+import json
+import math
+from dataclasses import asdict
 from pathlib import Path
+
+import pytest
 
 from chess_engine_4.evaluation.tournament import (
     Engine,
     MatchResult,
+    Tournament,
+    _load_completed_matches,
     build_match_payloads,
     fit_elos,
     load_tournament_config,
@@ -66,6 +73,38 @@ def test_parse_match_result_combines_both_colors() -> None:
     assert match.player1_wins == 5
     assert match.player2_wins == 1
     assert match.draws == 2
+    assert match.pentanomial is None
+
+
+def test_parse_match_result_retains_lc0_opening_pairs() -> None:
+    payload = {
+        "wave": 0,
+        "games": 4,
+        "player1": {"name": "alpha", "weights": "/alpha"},
+        "player2": {"name": "beta", "weights": "/beta"},
+    }
+    result = {
+        "runtime_sec": 1.0,
+        "results": """
+[White "/alpha"]
+[Black "/beta"]
+[Results "1 0 1"]
+[White "/beta"]
+[Black "/alpha"]
+[Results "0 1 1"]
+""",
+        "lc0_output": """
+gameready gameid 3 play_start_ply 4 player1 black result draw
+gameready gameid 0 play_start_ply 4 player1 white result whitewon
+gameready gameid 2 play_start_ply 4 player1 white result draw
+gameready gameid 1 play_start_ply 4 player1 black result blackwon
+""",
+    }
+
+    match = parse_match_result(payload, result)
+
+    assert match.pentanomial == (0, 0, 1, 0, 1)
+    assert match.pair_scores == (4, 2)
 
 
 def test_fit_elos_orders_engines_by_score() -> None:
@@ -76,3 +115,114 @@ def test_fit_elos_orders_engines_by_score() -> None:
 
     assert ratings[0]["name"] == "strong"
     assert ratings[0]["elo"] > ratings[1]["elo"]
+    assert math.isfinite(ratings[0]["elo_95ci"])
+
+
+def test_fit_elos_uses_paired_evidence_for_balanced_results() -> None:
+    engines = [Engine("alpha", "/alpha", "cuda"), Engine("beta", "/beta", "cuda")]
+    pair_scores = (0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4)
+    paired = MatchResult(
+        0, "alpha", "beta", 10, 10, 20, 1.0, (2, 3, 10, 3, 2), pair_scores
+    )
+
+    rating = fit_elos(engines, [paired])[0]
+
+    assert rating["elo"] == pytest.approx(0.0)
+    assert rating["elo_95ci"] > 0.0
+    assert rating["ci_method"] == "paired-opening cluster-robust sandwich"
+
+
+def test_paired_draw_heavy_evidence_does_not_claim_independent_games() -> None:
+    engines = [Engine("alpha", "/alpha", "cuda"), Engine("beta", "/beta", "cuda")]
+    paired = MatchResult(0, "alpha", "beta", 2, 2, 36, 1.0, (0, 0, 20, 0, 0))
+    unpaired = MatchResult(0, "alpha", "beta", 2, 2, 36, 1.0)
+
+    paired_rating = fit_elos(engines, [paired])[0]
+    unpaired_rating = fit_elos(engines, [unpaired])[0]
+
+    assert paired_rating["elo_95ci"] == pytest.approx(0.0)
+    assert unpaired_rating["elo_95ci"] > 0.0
+    assert unpaired_rating["ci_method"] == "unpaired game-level robust sandwich"
+
+
+def test_same_indexed_openings_are_clustered_across_matchups() -> None:
+    engines = [Engine("alpha", "/alpha", "cuda"), Engine("beta", "/beta", "cuda")]
+    pair_scores = (0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4)
+    pentanomial = (2, 3, 10, 3, 2)
+    raw_matches = [
+        MatchResult(wave, "alpha", "beta", 10, 10, 20, 1.0, pentanomial, pair_scores)
+        for wave in range(2)
+    ]
+    aggregate_matches = [
+        MatchResult(wave, "alpha", "beta", 10, 10, 20, 1.0, pentanomial)
+        for wave in range(2)
+    ]
+
+    raw_width = fit_elos(engines, raw_matches)[0]["elo_95ci"]
+    aggregate_width = fit_elos(engines, aggregate_matches)[0]["elo_95ci"]
+
+    assert raw_width > aggregate_width
+
+
+def test_fit_elos_handles_decisive_and_degenerate_results() -> None:
+    engines = [Engine("alpha", "/alpha", "cuda"), Engine("beta", "/beta", "cuda")]
+    decisive = MatchResult(0, "alpha", "beta", 30, 5, 5, 1.0, (0, 2, 2, 5, 11))
+    swept = MatchResult(0, "alpha", "beta", 40, 0, 0, 1.0, (0, 0, 0, 0, 20))
+
+    decisive_rating = fit_elos(engines, [decisive])[0]
+    swept_rating = fit_elos(engines, [swept])[0]
+
+    assert decisive_rating["elo"] > 0.0
+    assert math.isfinite(decisive_rating["elo_95ci"])
+    assert swept_rating["elo"] > decisive_rating["elo"]
+    assert math.isfinite(swept_rating["elo"])
+
+
+def test_fit_elos_rejects_disconnected_comparison_graph() -> None:
+    engines = [
+        Engine("alpha", "/alpha", "cuda"),
+        Engine("beta", "/beta", "cuda"),
+        Engine("isolated", "/isolated", "cuda"),
+    ]
+
+    with pytest.raises(ValueError, match="disconnected"):
+        fit_elos(engines, [MatchResult(0, "alpha", "beta", 1, 1, 2, 1.0)])
+
+
+def test_resume_loads_legacy_and_paired_match_evidence(tmp_path: Path) -> None:
+    tournament = Tournament("test", "L4", 4, 2, 1, 1)
+    engines = [
+        Engine("alpha", "/alpha.safetensors", "ce4"),
+        Engine("beta", "/beta.safetensors", "ce4"),
+    ]
+    output = tmp_path / "results.json"
+    match = {
+        "wave": 0,
+        "player1": "alpha",
+        "player2": "beta",
+        "player1_wins": 1,
+        "player2_wins": 1,
+        "draws": 2,
+        "runtime_sec": 1.0,
+    }
+    payload = {
+        "tournament": asdict(tournament),
+        "engines": [asdict(engine) for engine in engines],
+        "matches": [match],
+    }
+    output.write_text(json.dumps(payload))
+
+    assert _load_completed_matches(output, tournament, engines)[0].pentanomial is None
+
+    payload["matches"][0]["pentanomial"] = [0, 0, 2, 0, 0]
+    payload["matches"][0]["pair_scores"] = [2, 2]
+    output.write_text(json.dumps(payload))
+
+    assert _load_completed_matches(output, tournament, engines)[0].pentanomial == (
+        0,
+        0,
+        2,
+        0,
+        0,
+    )
+    assert _load_completed_matches(output, tournament, engines)[0].pair_scores == (2, 2)

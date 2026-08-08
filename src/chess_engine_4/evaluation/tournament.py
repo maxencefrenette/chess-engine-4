@@ -25,8 +25,17 @@ _RESULT_BLOCK = re.compile(
     r'\[Black "(?P<black>[^"]+)"\]\s*'
     r'\[Results "(?P<white_wins>\d+) (?P<black_wins>\d+) (?P<draws>\d+)"\]'
 )
+_GAME_READY = re.compile(
+    r"^gameready\b.*?\bgameid (?P<game_id>\d+)\b.*?"
+    r"\bplayer1 (?P<player1>white|black)\b.*?"
+    r"\bresult (?P<result>whitewon|blackwon|draw)\b",
+    re.MULTILINE,
+)
 _ELO_SCALE = math.log(10.0) / 400.0
 _SCHEDULE_PRIOR_STD = 400.0
+_REPORT_PRIOR_STD = 10_000.0
+_CI_LEVEL = 0.95
+_CI_Z = 1.959963984540054
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +68,11 @@ class MatchResult:
     player2_wins: int
     draws: int
     runtime_sec: float
+    # Counts of mirrored opening-pair scores for player1: 0, 0.5, 1, 1.5, 2.
+    # None identifies legacy or genuinely unpaired evidence.
+    pentanomial: tuple[int, int, int, int, int] | None = None
+    # Ordered half-point pair scores (0..4) by lc0 opening-pair game id.
+    pair_scores: tuple[int, ...] | None = None
 
 
 def eval_tournament_modal() -> None:
@@ -191,6 +205,16 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         games += white_wins + black_wins + block_draws
     if games != payload["games"]:
         raise ValueError(f"Expected {payload['games']} games, parsed {games}.")
+    pair_scores = _parse_lc0_pair_scores(result.get("lc0_output", ""), games)
+    pentanomial = _pentanomial(pair_scores) if pair_scores is not None else None
+    if pentanomial is not None:
+        paired_score = sum(index * count / 2 for index, count in enumerate(pentanomial))
+        aggregate_score = scores[payload["player1"]["name"]] + 0.5 * draws
+        if paired_score != aggregate_score:
+            raise ValueError(
+                "Lc0 per-game evidence disagrees with aggregate tournament results: "
+                f"{paired_score} != {aggregate_score}."
+            )
     return MatchResult(
         wave=int(payload["wave"]),
         player1=payload["player1"]["name"],
@@ -199,38 +223,190 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         player2_wins=scores[payload["player2"]["name"]],
         draws=draws,
         runtime_sec=float(result["runtime_sec"]),
+        pentanomial=pentanomial,
+        pair_scores=pair_scores,
     )
 
 
-def fit_elos(engines: list[Engine], matches: list[MatchResult]) -> list[dict[str, float | str]]:
+def fit_elos(engines: list[Engine], matches: list[MatchResult]) -> list[dict[str, Any]]:
+    if not _comparison_graph_connected(engines, matches):
+        raise ValueError("Cannot fit Elo ratings for a disconnected comparison graph.")
     indices = {engine.name: index for index, engine in enumerate(engines)}
-    ratings = np.zeros(len(engines), dtype=np.float64)
+    transform = np.vstack(
+        (np.eye(len(engines) - 1), -np.ones((1, len(engines) - 1)))
+    )
+    parameters = np.zeros(len(engines) - 1, dtype=np.float64)
+    prior_precision = 1.0 / _REPORT_PRIOR_STD**2
     for _ in range(100):
+        ratings = transform @ parameters
         gradient, hessian = _elo_derivatives(ratings, indices, matches)
-        step = np.linalg.solve(
-            hessian[:-1, :-1] + np.eye(len(engines) - 1) * 1e-9,
-            gradient[:-1],
-        )
-        ratings[:-1] -= step
+        gradient += prior_precision * ratings
+        hessian += np.eye(len(engines)) * prior_precision
+        step = np.linalg.solve(transform.T @ hessian @ transform, transform.T @ gradient)
+        parameters -= step
         if np.max(np.abs(step)) < 1e-8:
             break
-    ratings -= ratings.mean()
+    ratings = transform @ parameters
     _, hessian = _elo_derivatives(ratings, indices, matches)
-    covariance = np.zeros_like(hessian)
-    covariance[:-1, :-1] = np.linalg.inv(
-        hessian[:-1, :-1] + np.eye(len(engines) - 1) * 1e-9
+    hessian += np.eye(len(engines)) * prior_precision
+    centered_covariance = _cluster_robust_covariance(
+        ratings, indices, matches, hessian, transform
     )
-    center = np.eye(len(engines)) - np.ones_like(hessian) / len(engines)
-    centered_covariance = center @ covariance @ center
+    paired_matches = sum(
+        match.pair_scores is not None or match.pentanomial is not None for match in matches
+    )
+    if paired_matches == len(matches):
+        method = "paired-opening cluster-robust sandwich"
+    elif paired_matches:
+        method = "mixed paired-opening and unpaired cluster-robust sandwich"
+    else:
+        method = "unpaired game-level robust sandwich"
     rows = [
         {
             "name": engine.name,
             "elo": float(ratings[index]),
-            "elo_95ci": float(1.96 * math.sqrt(max(centered_covariance[index, index], 0.0))),
+            "elo_95ci": float(
+                _CI_Z * math.sqrt(max(centered_covariance[index, index], 0.0))
+            ),
+            "elo_95ci_low": float(
+                ratings[index]
+                - _CI_Z * math.sqrt(max(centered_covariance[index, index], 0.0))
+            ),
+            "elo_95ci_high": float(
+                ratings[index]
+                + _CI_Z * math.sqrt(max(centered_covariance[index, index], 0.0))
+            ),
+            "ci_method": method,
         }
         for index, engine in enumerate(engines)
     ]
     return sorted(rows, key=lambda row: float(row["elo"]), reverse=True)
+
+
+def _parse_lc0_pair_scores(output: str, expected_games: int) -> tuple[int, ...] | None:
+    """Recover mirrored-pair scores from lc0's per-game completion records."""
+    if not output:
+        return None
+    scores: dict[int, float] = {}
+    for match in _GAME_READY.finditer(output):
+        game_id = int(match.group("game_id"))
+        if game_id in scores:
+            raise ValueError(f"Duplicate lc0 gameid {game_id} in tournament output.")
+        result = match.group("result")
+        if result == "draw":
+            score = 0.5
+        else:
+            player1_won = (result == "whitewon") == (match.group("player1") == "white")
+            score = 1.0 if player1_won else 0.0
+        scores[game_id] = score
+    if not scores:
+        return None
+    expected_ids = set(range(expected_games))
+    if set(scores) != expected_ids:
+        raise ValueError(
+            "Incomplete lc0 per-game evidence: expected gameids "
+            f"0..{expected_games - 1}, got {sorted(scores)}."
+        )
+    pair_scores = []
+    for game_id in range(0, expected_games, 2):
+        pair_score = scores[game_id] + scores[game_id + 1]
+        pair_scores.append(int(pair_score * 2))
+    return tuple(pair_scores)
+
+
+def _pentanomial(pair_scores: tuple[int, ...]) -> tuple[int, int, int, int, int]:
+    counts = [0, 0, 0, 0, 0]
+    for score in pair_scores:
+        counts[score] += 1
+    return tuple(counts)  # type: ignore[return-value]
+
+
+def _cluster_robust_covariance(
+    ratings: np.ndarray,
+    indices: dict[str, int],
+    matches: list[MatchResult],
+    hessian: np.ndarray,
+    transform: np.ndarray,
+) -> np.ndarray:
+    """Return CR1 covariance, clustering mirrored games by opening pair."""
+    parameter_count = len(ratings) - 1
+    bread = np.linalg.inv(transform.T @ hessian @ transform)
+    meat = np.zeros_like(bread)
+    clusters = 0
+    indexed_opening_gradients: dict[int, np.ndarray] = {}
+    for match in matches:
+        left = indices[match.player1]
+        right = indices[match.player2]
+        direction = np.zeros(len(ratings), dtype=np.float64)
+        direction[left] = _ELO_SCALE
+        direction[right] = -_ELO_SCALE
+        reduced_direction = transform.T @ direction
+        probability = _win_probability(ratings[left] - ratings[right])
+        if match.pair_scores is not None:
+            if len(match.pair_scores) * 2 != _match_games(match):
+                raise ValueError(
+                    f"Invalid pair scores for {match.player1} vs {match.player2}."
+                )
+            if any(score < 0 or score > 4 for score in match.pair_scores):
+                raise ValueError(
+                    f"Pair scores outside 0..4 for {match.player1} vs {match.player2}."
+                )
+            if (
+                match.pentanomial is not None
+                and _pentanomial(match.pair_scores) != match.pentanomial
+            ):
+                raise ValueError(
+                    f"Pair scores disagree with pentanomial counts for "
+                    f"{match.player1} vs {match.player2}."
+                )
+            for opening_index, score_index in enumerate(match.pair_scores):
+                residual = 2.0 * probability - 0.5 * score_index
+                gradient = residual * reduced_direction
+                indexed_opening_gradients[opening_index] = (
+                    indexed_opening_gradients.get(
+                        opening_index, np.zeros(parameter_count, dtype=np.float64)
+                    )
+                    + gradient
+                )
+        elif match.pentanomial is not None:
+            if sum(match.pentanomial) * 2 != _match_games(match):
+                raise ValueError(
+                    f"Invalid pentanomial counts for {match.player1} vs {match.player2}."
+                )
+            for score_index, count in enumerate(match.pentanomial):
+                residual = 2.0 * probability - 0.5 * score_index
+                meat += count * residual**2 * np.outer(reduced_direction, reduced_direction)
+                clusters += count
+        else:
+            outcomes = ((1.0, match.player1_wins), (0.5, match.draws), (0.0, match.player2_wins))
+            for outcome, count in outcomes:
+                residual = probability - outcome
+                meat += count * residual**2 * np.outer(reduced_direction, reduced_direction)
+                clusters += count
+    for gradient in indexed_opening_gradients.values():
+        meat += np.outer(gradient, gradient)
+        clusters += 1
+    if clusters > parameter_count:
+        meat *= clusters / (clusters - parameter_count)
+    reduced_covariance = bread @ meat @ bread
+    return transform @ reduced_covariance @ transform.T
+
+
+def _match_games(match: MatchResult) -> int:
+    return match.player1_wins + match.player2_wins + match.draws
+
+
+def _evidence_cluster_count(matches: list[MatchResult]) -> int:
+    indexed_openings: set[int] = set()
+    independent_clusters = 0
+    for match in matches:
+        if match.pair_scores is not None:
+            indexed_openings.update(range(len(match.pair_scores)))
+        elif match.pentanomial is not None:
+            independent_clusters += sum(match.pentanomial)
+        else:
+            independent_clusters += _match_games(match)
+    return len(indexed_openings) + independent_clusters
 
 
 def _schedule_posterior(
@@ -322,7 +498,7 @@ def _elo_derivatives(
 
 
 def fit_flops_scaling_law(
-    engines: list[Engine], ratings: list[dict[str, float | str]]
+    engines: list[Engine], ratings: list[dict[str, Any]]
 ) -> dict[str, float] | None:
     rating_by_name = {str(row["name"]): float(row["elo"]) for row in ratings}
     points = [
@@ -343,6 +519,9 @@ def build_report(
     matches: list[MatchResult],
 ) -> dict[str, Any]:
     ratings = fit_elos(engines, matches) if _comparison_graph_connected(engines, matches) else []
+    paired_matches = sum(
+        match.pair_scores is not None or match.pentanomial is not None for match in matches
+    )
     return {
         "tournament": asdict(tournament),
         "opening_book": str(POLICY_OPENING_BOOK_PATH),
@@ -350,9 +529,24 @@ def build_report(
         "completed_waves": max((match.wave for match in matches), default=-1) + 1,
         "matches": [asdict(match) for match in matches],
         "ratings": ratings,
+        "rating_model": {
+            "point_estimate": "Bradley-Terry score quasi-MLE with draws worth 0.5",
+            "regularization": f"centered Normal(0, {_REPORT_PRIOR_STD:g} Elo) stabilization prior",
+            "confidence_level": _CI_LEVEL,
+            "interval": "two-sided Wald interval",
+            "covariance": (
+                "CR1 sandwich; mirrored games and the same indexed opening reused across "
+                "matchups are clustered when ordered pair scores are retained; aggregate "
+                "pentanomial pairs are clustered within matchup; otherwise games are unpaired"
+            ),
+            "paired_matches": paired_matches,
+            "unpaired_matches": len(matches) - paired_matches,
+            "clusters": _evidence_cluster_count(matches),
+            "free_rating_parameters": len(engines) - 1,
+        },
         "flops_scaling_law": fit_flops_scaling_law(engines, ratings) if ratings else None,
         "total_games": sum(
-            match.player1_wins + match.player2_wins + match.draws for match in matches
+            _match_games(match) for match in matches
         ),
         "total_gpu_runtime_sec": sum(match.runtime_sec for match in matches),
     }
@@ -390,7 +584,24 @@ def _load_completed_matches(
         raise ValueError("Existing tournament output does not match the tournament config.")
     if payload["engines"] != [asdict(engine) for engine in engines]:
         raise ValueError("Existing tournament output does not match the configured engines.")
-    return [MatchResult(**match) for match in payload["matches"]]
+    return [
+        MatchResult(
+            **{
+                **match,
+                "pentanomial": (
+                    tuple(match["pentanomial"])
+                    if match.get("pentanomial") is not None
+                    else None
+                ),
+                "pair_scores": (
+                    tuple(match["pair_scores"])
+                    if match.get("pair_scores") is not None
+                    else None
+                ),
+            }
+        )
+        for match in payload["matches"]
+    ]
 
 
 def _write_report(output: Path, report: dict[str, Any]) -> None:
