@@ -2,6 +2,7 @@
 python = "3.14"
 rust = "1.95"
 uv = "latest"
+"ubi:driangle/taskmd" = "0.3.0"
 
 [tasks.test]
 description = "Run the test suite."

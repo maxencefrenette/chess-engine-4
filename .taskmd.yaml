@@ -1,0 +1,32 @@
+task-dir: ./tasks
+workflow: solo
+
+id:
+  strategy: ulid
+  length: 10
+
+scopes:
+  training:
+    paths:
+      - configs/
+      - src/chess_engine_4/training/
+  data:
+    paths:
+      - crates/
+      - src/chess_engine_4/data/
+  kernels:
+    paths:
+      - kernels/
+      - src/chess_engine_4/kernels/
+  evaluation:
+    paths:
+      - src/chess_engine_4/evaluation/
+      - src/chess_engine_4/modal_eval.py
+      - third_party/lc0/
+  website:
+    paths:
+      - website/
+      - src/chess_engine_4/website.py
+  experiments:
+    paths:
+      - experiments/

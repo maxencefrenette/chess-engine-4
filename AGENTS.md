@@ -30,6 +30,19 @@ for canonical experiment results.
   delete old results merely because the current methodology changed.
 - Follow `experiments/AGENTS.md` when adding a report.
 
+## Tasks
+
+Use taskmd for durable work that spans multiple commits, has dependencies, or
+should remain in the project backlog. Do not create tasks for incidental edits.
+
+- Run `taskmd next` before selecting backlog work.
+- Set a task to `in-progress` before starting it.
+- Respect its dependencies, acceptance criteria, and declared verification.
+- Set it to `completed` only after the implementation and verification finish.
+- Do not create separate task worklogs; keep relevant progress in the task file.
+- Keep permanent rules in `AGENTS.md` and completed experimental evidence in
+  `experiments/`; task files track work, not results.
+
 ## Verification
 
 For kernel work, follow `.agents/skills/kernel-development/SKILL.md` and inspect the local
