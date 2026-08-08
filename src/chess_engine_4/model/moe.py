@@ -241,8 +241,9 @@ class MoeBlock(nn.Module):
                 route_probs[:, route_index],
             )
         if self._custom_kernels_enabled:
+            # Trailing graph-capacity rows are storage, not expert work.
             expert_offsets = F.pad(
-                expert_splits.cumsum(dim=0, dtype=torch.int32),
+                aligned_splits.cumsum(dim=0, dtype=torch.int32),
                 (1, 0),
             )
             expert_output = self.experts(padded_x, padded_probs, expert_offsets)

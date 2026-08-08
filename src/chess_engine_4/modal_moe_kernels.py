@@ -26,7 +26,7 @@ benchmark_image = with_cuda_kernels(base_image)
 
 def benchmark_moe_kernels_modal() -> None:
     parser = argparse.ArgumentParser(
-        description="Compare an SM120 MoE kernel with TE MXFP8 on B200."
+        description="Compare a custom MoE kernel with TE MXFP8 on B200."
     )
     parser.add_argument("--d-model", type=int, choices=(128, 256, 512), default=128)
     parser.add_argument(
@@ -70,7 +70,7 @@ def _benchmark_custom(
     from chess_engine_4.kernels import moe_trainable
 
     torch.manual_seed(2026)
-    correctness = _make_inputs(torch, d_model, [16] * EXPERT_COUNT)
+    correctness = _make_inputs(torch, d_model, [128] * EXPERT_COUNT)
     correctness_tensors = tuple(
         tensor.detach().clone().requires_grad_(True) for tensor in correctness[:4]
     )
@@ -122,7 +122,12 @@ def _benchmark_custom(
             )
 
     batch_size = 128 * d_model
-    x, gate_up, down, probs, offsets, _ = _inputs(torch, d_model, batch_size)
+    x, gate_up, down, probs, offsets, _ = _inputs(
+        torch,
+        d_model,
+        batch_size,
+        assign_slack=False,
+    )
     x.requires_grad_(True)
     probs.requires_grad_(True)
     experts = CustomExperts(gate_up, down).cuda().train()
@@ -180,7 +185,12 @@ def _benchmark_te(d_model: int, warmup: int, iterations: int) -> dict[str, Any]:
 
     torch.manual_seed(2026)
     batch_size = 128 * d_model
-    x, _, _, probs, _, splits = _inputs(torch, d_model, batch_size)
+    x, _, _, probs, _, splits = _inputs(
+        torch,
+        d_model,
+        batch_size,
+        assign_slack=True,
+    )
     x.requires_grad_(True)
     probs.requires_grad_(True)
     split_tensor = torch.tensor(splits, device="cuda", dtype=torch.int64)
@@ -232,22 +242,27 @@ def _inputs(
     torch: Any,
     d_model: int,
     batch_size: int,
+    *,
+    assign_slack: bool,
 ) -> tuple[Any, Any, Any, Any, Any, list[int]]:
     routed_tokens = batch_size * ACTIVE_EXPERTS
     tokens_per_expert = routed_tokens // EXPERT_COUNT
     padded_tokens = batch_size * ACTIVE_EXPERTS + EXPERT_COUNT * (TOKEN_ALIGNMENT - 1)
     padded_tokens = _round_up(padded_tokens, TOKEN_ALIGNMENT)
     splits = [tokens_per_expert] * EXPERT_COUNT
-    splits[-1] += padded_tokens - sum(splits)
-    return _make_inputs(torch, d_model, splits)
+    if assign_slack:
+        splits[-1] += padded_tokens - sum(splits)
+    return _make_inputs(torch, d_model, splits, rows=padded_tokens)
 
 
 def _make_inputs(
     torch: Any,
     d_model: int,
     splits: list[int],
+    *,
+    rows: int | None = None,
 ) -> tuple[Any, Any, Any, Any, Any, list[int]]:
-    padded_tokens = sum(splits)
+    padded_tokens = rows or sum(splits)
     hidden_dim = 2 * d_model
     offsets = [0]
     for split in splits:

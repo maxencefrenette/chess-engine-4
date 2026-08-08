@@ -34,7 +34,7 @@ _KERNEL_BACKEND_BY_WIDTH: dict[int, KernelBackend] = {
 }
 _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
     128: "RTX-PRO-6000",
-    256: "RTX-PRO-6000",
+    256: "A100",
     512: "B200",
     1024: "B200",
 }
