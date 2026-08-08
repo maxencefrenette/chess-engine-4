@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
+from chess_engine_4.modal_train import _load_parquet_manifest, print_launch_summary
 from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import (
     load_training_config,
@@ -64,6 +66,34 @@ def test_training_config_round_trips_through_dict() -> None:
     config = load_training_config("configs/dense.py", d_model=64)
 
     assert training_config_from_dict(asdict(config)) == config
+
+
+def test_parquet_manifest_is_hashed_and_resolved_to_remote_paths(tmp_path: Path) -> None:
+    manifest = tmp_path / "parquet-files.txt"
+    contents = "first.parquet\nsecond.parquet\n"
+    manifest.write_text(contents)
+
+    paths, digest = _load_parquet_manifest(manifest)
+
+    assert paths == [
+        "/data/training_data/parquet/first.parquet",
+        "/data/training_data/parquet/second.parquet",
+    ]
+    assert digest == hashlib.sha256(contents.encode()).hexdigest()
+
+
+def test_launch_summary_records_retention_and_manifest(capsys) -> None:
+    config = load_training_config("configs/dense.py", d_model=64)
+
+    print_launch_summary(
+        config,
+        data_retention_rate=0.25,
+        data_manifest_sha256="abc123",
+    )
+
+    summary = capsys.readouterr().out
+    assert "data_retention_rate=0.25" in summary
+    assert "data_manifest_sha256=abc123" in summary
 
 
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:

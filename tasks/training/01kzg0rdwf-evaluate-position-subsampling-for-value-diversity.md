@@ -1,7 +1,7 @@
 ---
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
-status: blocked
+status: in-progress
 priority: high
 effort: medium
 dependencies: []
@@ -31,19 +31,13 @@ FLOPs or matched dollar cost.
 - The chosen sampling rule is deterministic and reproducible.
 - Any promoted rule improves the stated objective without a policy regression.
 
-## Blocker
+## Progress
 
-The strongest planner-selected configuration strictly below the `$1.50` steady-state GPU+CPU
-ceiling needs 1,305,804,800 unique rows per treatment. The quarter-rate arm therefore needs about
-5.2 billion raw positions, while the three isolated matched datasets alone exceed the remaining
-900 GiB operational headroom. No run was launched. See
-`experiments/2026-08-08.01-position-subsampling/README.md` for the audited arithmetic and resume
-conditions.
-
-The final corpus audit at commit `c678bcb` retained 17 hashed sources with 125,250,708 positions
-and no duplicate game IDs. Keep this task stopped until the user either authorizes a sequential
-streaming design that may delete verified temporary raw archives, or shrinks the experiment to a
-storage-limited model and matched row target.
+The raw-archive capacity blocker was superseded by the user's corrected design. A deterministic
+row-identity sampler now streams canonical Parquet directly without derived datasets or game-boundary
+assumptions. A 497-shard startup manifest fixes the exact input snapshot despite concurrent atomic
+corpus appends; the matched 15,000-step launch plan is retained in
+`experiments/2026-08-08.01-position-subsampling/README.md`.
 
 ## Source
 

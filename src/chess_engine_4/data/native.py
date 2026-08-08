@@ -54,6 +54,8 @@ def iter_native_parquet_batches(
     batch_size: int,
     prefetch_per_thread: int,
     threads: int,
+    retention_numerator: int = 4,
+    retention_denominator: int = 4,
 ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     chess_engine_4_native = _load_native_module()
     native_iter = chess_engine_4_native.iter_prefetched_parquet_batches(
@@ -61,6 +63,8 @@ def iter_native_parquet_batches(
         batch_size,
         prefetch_per_thread,
         threads,
+        retention_numerator,
+        retention_denominator,
     )
 
     def as_torch_batch(batch):
@@ -74,10 +78,10 @@ def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tu
     return native.convert_lc0_tar_to_parquet(str(input_path), str(output_path))
 
 
-def inspect_native_lc0_tar(
+def native_parquet_retention_counts(
     input_path: Path,
-) -> tuple[int, int, int, int, int, int, list[str]]:
-    """Count game members and deterministic ceil-rate retained positions."""
-
+    *,
+    batch_size: int,
+) -> tuple[int, int, int, int, int, int, int]:
     native = _load_native_module()
-    return native.inspect_lc0_tar(str(input_path))
+    return native.parquet_retention_counts(str(input_path), batch_size)

@@ -81,6 +81,7 @@ class LeelaParquetDataset(LeelaTarDataset):
         env_var: str = DEFAULT_DATA_ENV_VAR,
         prefetch_per_thread: int = 2,
         threads: int = 2,
+        retention_rate: float = 1.0,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive.")
@@ -88,17 +89,23 @@ class LeelaParquetDataset(LeelaTarDataset):
             raise ValueError("prefetch_per_thread must be positive.")
         if threads <= 0:
             raise ValueError("threads must be positive.")
+        if retention_rate not in {0.25, 0.5, 1.0}:
+            raise ValueError("retention_rate must be one of: 0.25, 0.5, 1.0.")
         self.paths = resolve_data_paths(paths, env_var=env_var, suffix=".parquet")
         self.batch_size = batch_size
         self.prefetch_per_thread = prefetch_per_thread
         self.threads = threads
+        self.retention_rate = retention_rate
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
+        retention_numerator = {0.25: 1, 0.5: 2, 1.0: 4}[self.retention_rate]
         return iter_native_parquet_batches(
             self.paths,
             batch_size=self.batch_size,
             prefetch_per_thread=self.prefetch_per_thread,
             threads=self.threads,
+            retention_numerator=retention_numerator,
+            retention_denominator=4,
         )
 
 

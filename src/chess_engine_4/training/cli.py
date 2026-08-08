@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -57,7 +57,9 @@ _GPU_SPECS = {
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
     config: TrainingConfig
-    data: str | None = None
+    data: Sequence[Path | str] | Path | str | None = None
+    data_retention_rate: float = 1.0
+    data_manifest_sha256: str | None = None
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -88,6 +90,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
+        retention_rate=options.data_retention_rate,
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
@@ -113,6 +116,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
+            data_retention_rate=options.data_retention_rate,
+            data_manifest_sha256=options.data_manifest_sha256,
         )
         if options.wandb
         else None
@@ -336,6 +341,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     samples_seen=seen,
                     flops_per_sample=flops_per_sample,
                     metrics=metrics,
+                    data_retention_rate=options.data_retention_rate,
+                    data_manifest_sha256=options.data_manifest_sha256,
                     final=step == steps,
                 )
             )
@@ -364,6 +371,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 samples_seen=seen,
                 flops_per_sample=flops_per_sample,
                 metrics=last_metrics,
+                data_retention_rate=options.data_retention_rate,
+                data_manifest_sha256=options.data_manifest_sha256,
                 final=True,
             )
         )
@@ -382,6 +391,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
+        "data_retention_rate": options.data_retention_rate,
+        "data_manifest_sha256": options.data_manifest_sha256 or "live-directory",
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -492,6 +503,8 @@ def _save_checkpoint(
     samples_seen: int,
     flops_per_sample: int,
     metrics: dict[str, float | int],
+    data_retention_rate: float,
+    data_manifest_sha256: str | None,
     final: bool,
 ) -> Path:
     if checkpoint_dir is None:
@@ -510,6 +523,8 @@ def _save_checkpoint(
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "metrics": metrics,
+            "data_retention_rate": data_retention_rate,
+            "data_manifest_sha256": data_manifest_sha256,
         },
         path,
     )
@@ -640,6 +655,8 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
+    data_retention_rate: float,
+    data_manifest_sha256: str | None,
 ) -> Any:
     import wandb
 
@@ -661,6 +678,8 @@ def _init_wandb(
         "theoretical_tflops": theoretical_tflops,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
+        "data_retention_rate": data_retention_rate,
+        "data_manifest_sha256": data_manifest_sha256 or "live-directory",
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,

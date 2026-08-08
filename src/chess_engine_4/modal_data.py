@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import itertools
 import os
 import time
@@ -20,31 +21,54 @@ from chess_engine_4.modal_train import (
 _CONVERSION_CONCURRENCY = 16
 
 
-def inspect_subsampling_sources_modal() -> None:
-    """Inspect source-game capacity for the position-subsampling experiment."""
+def audit_parquet_retention_modal() -> None:
+    """Count exact deterministic retention capacity without reading Parquet rows."""
 
-    sources = _source_names()
+    parser = argparse.ArgumentParser(description="Audit retained canonical Parquet rows.")
+    parser.add_argument("--batch-size", type=int, default=65_536)
+    parser.add_argument("--output-manifest", type=Path, default=None)
+    args = parser.parse_args()
+    if args.batch_size <= 0:
+        parser.error("batch-size must be positive")
+    sources = sorted(_converted_names())
     if not sources:
-        raise SystemExit("no LCZero tar source files found on the training-data Volume")
-    print(f"subsampling_source_plan files={len(sources)} concurrency={_CONVERSION_CONCURRENCY}")
+        parser.error("no canonical Parquet files found on the training-data Volume")
+    manifest = "".join(f"{source}\n" for source in sources)
+    manifest_sha256 = hashlib.sha256(manifest.encode()).hexdigest()
+    if args.output_manifest is not None:
+        args.output_manifest.parent.mkdir(parents=True, exist_ok=True)
+        args.output_manifest.write_text(manifest, encoding="utf-8")
+    print(
+        f"retention_audit_plan files={len(sources)} batch_size={args.batch_size:,} "
+        f"manifest_sha256={manifest_sha256} concurrency={_CONVERSION_CONCURRENCY}"
+    )
     results: list[dict[str, Any]] = []
     with app.run():
-        for result in _inspect_one_remote.map(sources, order_outputs=False):
+        for result in _audit_retention_one_remote.map(
+            sources,
+            itertools.repeat(args.batch_size),
+            order_outputs=False,
+        ):
             results.append(result)
-            print(
-                f"inspected file={result['file']} games={result['games']:,} "
-                f"positions={result['positions']:,} half={result['retained_half']:,} "
-                f"quarter={result['retained_quarter']:,}",
-                flush=True,
-            )
     totals = {
         key: sum(int(result[key]) for result in results)
-        for key in ("games", "positions", "retained_half", "retained_quarter")
+        for key in (
+            "raw_rows",
+            "full_rows",
+            "half_rows",
+            "quarter_rows",
+            "usable_full_rows",
+            "usable_half_rows",
+            "usable_quarter_rows",
+        )
     }
     print(
-        f"subsampling_source_complete files={len(results)} "
-        f"games={totals['games']:,} positions={totals['positions']:,} "
-        f"half={totals['retained_half']:,} quarter={totals['retained_quarter']:,}"
+        f"retention_audit_complete files={len(results)} raw_rows={totals['raw_rows']:,} "
+        f"full_rows={totals['full_rows']:,} half_rows={totals['half_rows']:,} "
+        f"quarter_rows={totals['quarter_rows']:,} "
+        f"usable_full_rows={totals['usable_full_rows']:,} "
+        f"usable_half_rows={totals['usable_half_rows']:,} "
+        f"usable_quarter_rows={totals['usable_quarter_rows']:,}"
     )
 
 
@@ -200,18 +224,21 @@ def _verify_one_remote(source_name: str, batches: int) -> dict[str, int | str]:
     volumes={REMOTE_DATA_PATH: data_volume},
     timeout=30 * 60,
 )
-def _inspect_one_remote(source_name: str) -> dict[str, Any]:
-    from chess_engine_4.data.native import inspect_native_lc0_tar
+def _audit_retention_one_remote(source_name: str, batch_size: int) -> dict[str, Any]:
+    from chess_engine_4.data.native import native_parquet_retention_counts
 
-    result = inspect_native_lc0_tar(Path(REMOTE_DATA_PATH) / source_name)
+    result = native_parquet_retention_counts(
+        Path(REMOTE_PARQUET_DATA_PATH) / source_name,
+        batch_size=batch_size,
+    )
     keys = (
-        "games",
-        "positions",
-        "retained_half",
-        "retained_quarter",
-        "min_game_positions",
-        "max_game_positions",
-        "example_names",
+        "raw_rows",
+        "full_rows",
+        "half_rows",
+        "quarter_rows",
+        "usable_full_rows",
+        "usable_half_rows",
+        "usable_quarter_rows",
     )
     return {"file": source_name, **dict(zip(keys, result, strict=True))}
 

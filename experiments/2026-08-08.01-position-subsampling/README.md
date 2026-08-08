@@ -2,142 +2,119 @@
 
 ## Status
 
-Blocked at the required source-capacity and storage gate before dataset materialization or
-training. No training run, W&B run, checkpoint export, tournament, canonical data change, or
-sampling-rule promotion was performed.
+Resumed with a corrected streaming design. The exact startup snapshot and sub-`$1.50` launch plan
+are recorded below. No training run, W&B run, checkpoint export, tournament, sampling-rule
+promotion, or canonical data mutation has yet been performed by this task.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
 Base commit: `316c327da2612f5b71e9776a9ae8d3fc773c216d`
 
-## Required design
+## Design correction
 
-The requested matched comparison fixes the model, optimizer and loss recipe, seed, batch size,
-steps, samples, and training FLOPs while varying deterministic within-game position retention at
-`1.0`, `0.5`, and `0.25`. Lower-retention arms must cover more source games and may not repeat rows.
-All data and artifacts must remain isolated from canonical `/parquet` and from the corpus-expansion
-task.
+The first capacity analysis incorrectly strengthened position retention into a within-game,
+raw-archive materialization requirement. The user rejected that interpretation. The experiment
+now reads the existing canonical Parquet shards directly and retains rows while streaming. It
+does not inspect game boundaries, read raw tar archives, create derived datasets, or modify
+canonical Parquet.
 
-The prospective deterministic rule used for capacity accounting retains
-`ceil(game_positions * numerator / denominator)` positions from every nonempty game. A production
-materializer would choose one position from each of that many equal-width ply strata using a
-stable keyed hash of source archive, game member, experiment seed, and stratum. This gives each
-game the requested weight to within one row, retains short games, spreads samples over the whole
-game, and avoids favoring long games beyond the requested rate. The final rule was not implemented
-or promoted because the capacity gate failed first.
+For each row, the sampler computes a stable 64-bit FNV-1a seed from the Parquet shard basename,
+mixes the absolute zero-based row index with SplitMix64 finalization, and takes the result modulo
+four. The treatments retain residues `< 4`, `< 2`, and `< 1`, respectively, for rates `1.0`,
+`0.5`, and `0.25`. The quarter subset is therefore nested inside the half subset, which is nested
+inside the full corpus. Decisions are independent of worker scheduling and global RNG state.
 
-## Cost-limited model selection
+The three experiment commands will override the Parquet loader to one thread. With sorted shard
+paths, this also makes the consumed row sequence and the final partial-shard cutoff reproducible,
+not merely each row's accept/reject decision. The same one-thread setting is used for every arm.
+Each shard still drops an incomplete final batch, matching the existing loader contract; the
+footer audit reports both accepted rows and exact batch-usable rows so all treatments can use the
+quarter arm's common step count without repetition.
 
-The current planner was run against an intentionally nonbinding ten-billion-row availability so
-the selection was constrained by the strict per-run dollar ceiling rather than by the current
-corpus:
+The retention rate is recorded in the launch summary, W&B config, returned run metadata, and
+checkpoint metadata. `train-modal --dry-run` prints the exact launch summary without starting
+Modal, allowing all three summaries and costs to be reviewed before the authorized paid runs.
+
+## Corpus stabilization gate
+
+The experiment was originally redirected to the then-canonical snapshot of 480 shards and
+3,949,735,220 rows. Before launch, a read-only footer audit observed 491 shards and 4,030,056,311
+rows because it ran during an authorized concurrent corpus conversion. The corpus task then
+reported 497 verified shards and 4,074,985,928 rows, with 17 unique new Parquet names and an exact
+row delta matching the source audit. There is no overwrite or collision evidence; their temporary
+source tars were deleted after exact verification.
+
+The user intends the separate corpus task to continue filling verified Parquet up to the 900 GiB
+operational ceiling, but clarified that training need not wait: the experiment freezes an explicit
+startup filename manifest, and the planned iterator will not reach later atomic appends. This task
+therefore uses the 497-shard snapshot recorded below and does not modify any corpus files.
+
+## Startup snapshot and launch plan
+
+The startup snapshot is retained in `parquet-files.txt`. It contains 497 sorted shard basenames and
+has SHA-256 `ef7aa839e1ec2c01780123c42de086243995ec4cf9a7a0af3a0c01ffb7b3b595`. Later atomic
+appends to `/parquet` cannot enter any treatment because every payload receives these exact 497
+paths.
+
+The footer and deterministic-hash audit produced:
+
+| Rate | Accepted rows | Batch-usable rows |
+| ---: | ---: | ---: |
+| 1.0 | 4,074,985,928 | 4,058,644,480 |
+| 0.5 | 2,037,509,235 | 2,021,195,776 |
+| 0.25 | 1,018,779,501 | 1,003,094,016 |
+
+The cost planner selected canonical `moe64a2 d512` in this sample range with 94% selection across
+100 bootstrap fits. To leave a conservative one-thread, quarter-rate loader margin below `$1.50`,
+all treatments use 15,000 steps rather than exhausting the 15,306 usable quarter-rate batches.
+
+| Quantity | Matched value |
+| --- | ---: |
+| Model | moe64a2 d512x8, TE MXFP8 |
+| Seed | 1 |
+| Batch size | 65,536 |
+| Steps | 15,000 |
+| Samples | 983,040,000 |
+| Training ratio | 0.0468065454273x |
+| Learning rate | 0.00037 |
+| FLOPs/sample | 181,555,318 |
+| Training FLOPs | 1.7847613980672e17 |
+| Loader threads | 1 |
+
+Measured eight-thread full-retention steady-state time is 40.895007764 ms/step, including
+0.398448734 ms/step of data fetch. For a deliberately conservative prelaunch bound, the fetch
+component is scaled linearly by `8 / retention_rate` while the remaining step time is held fixed.
+At the configured B200 plus eight-CPU rate of `$0.0018408/s`, the resulting bounds are:
+
+| Rate | Bounded ms/step | Runtime | GPU+CPU cost |
+| ---: | ---: | ---: | ---: |
+| 1.0 | 43.684149 | 655.262 s | $1.206207 |
+| 0.5 | 46.871739 | 703.076 s | $1.294222 |
+| 0.25 | 53.246919 | 798.704 s | $1.470254 |
+
+All three estimates are strictly below `$1.50`; the most conservative arm retains about three
+cents of margin. The inspected dry-run launch summaries agree on every field except retention:
 
 ```sh
-uv run plan-budget 1.499999 --assume-samples 10000000000 --bootstrap-samples 20
+uv run train-modal --dry-run --config configs/moe64a2.py --d-model 512 \
+  --training-ratio 0.04680654542731256 --steps 15000 --dataloader-threads 1 \
+  --data-retention-rate RATE \
+  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
+  --wandb-name position-subsampling-rRATE
 ```
 
-It selected the canonical `moe64a2` family at `d_model=512`, depth 8, MXFP8 Transformer Engine
-recipe, batch size 65,536, seed 1, and the existing policy/value/moves-left plus router-auxiliary
-loss recipe. The allocation is slightly beyond the observed `0.05x` anchor but
-within the planner's configured 2x extrapolation limit; all 20 bootstrap fits selected it.
+Remove `--dry-run` for exactly the three authorized `RATE` values `1.0`, `0.5`, and `0.25`.
 
-| Quantity | Planned value |
-| --- | ---: |
-| Training ratio | 0.0621746945093x |
-| Steps | 19,925 |
-| Samples per arm | 1,305,804,800 |
-| Training FLOPs per sample | 181,555,318 |
-| Training FLOPs per arm | 2.370758057099264e17 |
-| Measured steady-state step time | 40.895007764 ms |
-| Planned steady-state runtime | 814.833029698 s |
-| B200 rate | $0.001736/s |
-| Eight-CPU rate | $0.0001048/s |
-| Planned GPU+CPU cost per arm | $1.499944641 |
-| Planner loss prediction | 2.8398 (80% bootstrap interval 2.8322-2.8445) |
+## Evaluation protocol
 
-The independent arithmetic is
-`19,925 * 0.040895007764 * (0.001736 + 8 * 0.0000131) = $1.499944641`, which is
-strictly below `$1.50`. The three training runs would total `$4.499833923` in steady-state GPU+CPU
-charges before startup, memory, export, or evaluation.
+If all three runs complete validly, export all checkpoints and run a connected searched lc0
+tournament at approximately 800 nodes per move. Use mirrored openings and retain raw paired-game
+evidence. Paired Elo/confidence-interval analysis should reuse the implementation from task
+`01kzg0rdd6` if ready; this task will not independently rewrite that estimator. Report WDL, Elo and
+CI, runtime, inference throughput, and the tournament cost estimate before launch, stopping for
+approval if it exceeds `$1`.
 
-## Audited source capacity
+## Current recommendation
 
-The corpus task retained and manifested the eight clean source archives from
-`training-run1-test80-20240428-1417.tar` through `-2217.tar`, excluding the anomalous 1.45 MB
-`-1817.tar`. The immutable provenance records are under `/source-manifests` on the
-`chess-engine-4-training-data` Modal Volume. The eight archives contain 535,627 validated game
-members, 58,681,470 v6 positions, and 12,050,606,080 source bytes. No repeated canonical game IDs
-were detected in that set.
-
-The `0.25` arm alone requires at least 1,305,804,800 retained rows. On the initial eight sources,
-the proposed per-game ceiling rule can retain no more than
-`floor((58,681,470 + 3 * 535,627) / 4) = 15,072,087` rows, at most 1.15% of the requirement.
-The exact acquisition criterion sent to the corpus task was therefore:
-
-```text
-sum(ceil(game_positions / 4)) >= 1,305,804,800
-```
-
-Nominally this needs 5,223,219,200 raw source positions. The exact audited density used by the
-corpus task is `12,050,606,080 / 58,681,470 = 205.356241` compressed bytes per raw position, so the
-required sources project to 1,072,620,659,447 bytes (998.956 GiB) before any output reserve.
-
-## Exact blocker
-
-The operational ceiling is 900 GiB, or 966,367,641,600 bytes, across the training-data and
-artifacts Volumes. Pre-source combined usage was 690,294,698,209 bytes. The corpus task reserves
-one full source-sized output allocation for every unconverted archive, so acquisition may use at
-most `floor((966,367,641,600 - 690,294,698,209) / 2) = 138,036,471,695` source bytes
-(128.556 GiB).
-
-At the audited density, that policy supports about 672,180,554 raw positions or 168,045,139
-nominal quarter-rate rows. This is 7.7706x short of the required 1,305,804,800 rows. The required
-sources and conservative output reserve project to 1,997.912 GiB; fitting them under the policy
-would require at most 26.427 compressed bytes per raw position, an unsupported 7.77x compression
-improvement.
-
-Independently, three matched datasets at the audited canonical density of 86.770565 bytes per row
-would require approximately 339,916,260,827 bytes, without provenance columns, checkpoints, source
-conversion reserve, or tournament outputs. The nominal source archives plus those three datasets
-would require about 1.413 TB of additional storage. The source archives alone exceed the entire
-900 GiB combined ceiling.
-
-Consequently the requested strongest sub-$1.50 configuration cannot receive matched unique rows
-for the `0.25` treatment under the declared storage policy. Training on fewer rows, repeating rows,
-choosing a weaker sample-limited model after the fact, or overwriting canonical data would each
-violate the experiment design. The experiment stopped at this gate.
-
-Acquisition stopped after 17 complete source archives had been hashed and manifested. The final
-audit at corpus-task commit `c678bcb` records 25,723,576,320 source bytes, 1,143,453 games,
-125,250,708 v6 positions, and zero duplicate canonical game IDs. Live combined Modal Volume usage
-was 716,018,279,187 bytes, leaving 250,349,362,413 bytes below the 900 GiB operational ceiling.
-The corpus task removed only the incomplete successor `.tmp`; it preserved all completed sources
-and manifests. Its retained evidence is
-`experiments/2026-08-08.01-training-corpus-capacity/README.md` and `sources.toml` on branch
-`codex/expand-final-training-corpus`. No canonical conversion or `training-data.toml` change
-occurred.
-
-## Training and tournament results
-
-Not run. There are no W&B URLs, checkpoints, task-loss components, policy top-1 measurements,
-stability results, realized costs, exported models, 800-node searched games, WDL counts, Elo
-intervals, runtime, or inference-throughput measurements to report.
-
-If the capacity constraint is later changed, the tournament must use all three valid checkpoints
-in a connected comparison at approximately 800 nodes per move with mirrored openings. Raw opening
-pairs must be retained for the paired estimator being developed under task `01kzg0rdd6`; the
-existing unpaired estimator must not be independently rewritten here.
-
-## Recommendation
-
-Do not retain or reject any sampling rate on experimental grounds: no treatment was trained.
-Keep canonical configs and data unchanged. Resume only after the user chooses one of these scope
-changes:
-
-1. authorize deletion of verified temporary raw archives after each isolated treatment is
-   materialized, enabling a sequential streaming design whose exact peak-storage plan must be
-   rechecked before any deletion or launch; or
-2. explicitly authorize a smaller, storage-limited model and matched row target.
-
-Supplying enough external source/data storage for the original design would also clear the
-blocker. Until then, preserve all 17 completed sources and keep this task stopped.
+Do not promote or reject a retention rate yet. Keep canonical configs and data unchanged and
+preserve the sampler branch unmerged until the three matched runs and searched tournament finish.

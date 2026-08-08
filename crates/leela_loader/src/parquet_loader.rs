@@ -31,13 +31,23 @@ struct ParquetBatchIterator {
     frame: Option<DataFrame>,
     frame_offset: usize,
     metadata: FileMetadataRef,
+    retention_numerator: usize,
+    retention_denominator: usize,
+    retention_seed: u64,
 }
 
 impl ParquetBatchIterator {
-    fn open(path: PathBuf, batch_size: usize) -> PyResult<Self> {
+    fn open(
+        path: PathBuf,
+        batch_size: usize,
+        retention_numerator: usize,
+        retention_denominator: usize,
+    ) -> PyResult<Self> {
+        validate_retention(retention_numerator, retention_denominator)?;
         let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
         let rows = reader.num_rows().map_err(polars_error)?;
         let metadata = reader.get_metadata().map_err(polars_error)?.clone();
+        let retention_seed = shard_seed(&path);
         Ok(Self {
             path,
             batch_size,
@@ -46,6 +56,9 @@ impl ParquetBatchIterator {
             frame: None,
             frame_offset: 0,
             metadata,
+            retention_numerator,
+            retention_denominator,
+            retention_seed,
         })
     }
 
@@ -91,7 +104,23 @@ impl ParquetBatchIterator {
         let mut reader = ParquetReader::new(File::open(&self.path).map_err(io_error)?)
             .with_slice(Some((self.row_group_offset, row_count)));
         reader.set_metadata(self.metadata.clone());
-        self.frame = Some(reader.finish().map_err(polars_error)?);
+        let frame = reader.finish().map_err(polars_error)?;
+        self.frame = Some(if self.retention_numerator == self.retention_denominator {
+            frame
+        } else {
+            let retained = (0..row_count)
+                .map(|offset| {
+                    retain_row(
+                        self.row_group_offset + offset,
+                        self.retention_seed,
+                        self.retention_numerator,
+                        self.retention_denominator,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let mask = BooleanChunked::from_slice("retained".into(), &retained);
+            frame.filter(&mask).map_err(polars_error)?
+        });
         self.row_group_offset += row_count;
         Ok(true)
     }
@@ -102,6 +131,8 @@ pub(crate) fn iter_prefetched_parquet_batches(
     batch_size: usize,
     prefetch_per_thread: usize,
     threads: usize,
+    retention_numerator: usize,
+    retention_denominator: usize,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     if prefetch_per_thread == 0 {
         return Err(PyValueError::new_err(
@@ -111,6 +142,7 @@ pub(crate) fn iter_prefetched_parquet_batches(
     if threads == 0 {
         return Err(PyValueError::new_err("threads must be positive"));
     }
+    validate_retention(retention_numerator, retention_denominator)?;
 
     let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
     let stop = Arc::new(AtomicBool::new(false));
@@ -134,7 +166,12 @@ pub(crate) fn iter_prefetched_parquet_batches(
                     let _ = sender.send(PrefetchMessage::End);
                     break;
                 };
-                let mut iterator = match ParquetBatchIterator::open(path, batch_size) {
+                let mut iterator = match ParquetBatchIterator::open(
+                    path,
+                    batch_size,
+                    retention_numerator,
+                    retention_denominator,
+                ) {
                     Ok(iterator) => iterator,
                     Err(error) => {
                         let _ = sender.send(PrefetchMessage::Error(error.to_string()));
@@ -168,6 +205,59 @@ pub(crate) fn iter_prefetched_parquet_batches(
         stop,
         handles,
     })
+}
+
+pub(crate) fn parquet_retention_counts(
+    path: PathBuf,
+    batch_size: usize,
+) -> PyResult<(usize, usize, usize, usize, usize, usize, usize)> {
+    let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
+    let rows = reader.num_rows().map_err(polars_error)?;
+    let seed = shard_seed(&path);
+    let quarter = retained_row_count(rows, seed, 1, 4);
+    let half = retained_row_count(rows, seed, 2, 4);
+    Ok((
+        rows,
+        rows,
+        half,
+        quarter,
+        rows / batch_size * batch_size,
+        half / batch_size * batch_size,
+        quarter / batch_size * batch_size,
+    ))
+}
+
+fn validate_retention(numerator: usize, denominator: usize) -> PyResult<()> {
+    if denominator == 0 || numerator == 0 || numerator > denominator {
+        return Err(PyValueError::new_err(
+            "retention fraction must satisfy 0 < numerator <= denominator",
+        ));
+    }
+    Ok(())
+}
+
+fn retain_row(index: usize, seed: u64, numerator: usize, denominator: usize) -> bool {
+    let mut value = seed ^ (index as u64).wrapping_mul(0x9e3779b97f4a7c15);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d049bb133111eb);
+    ((value ^ (value >> 31)) % denominator as u64) < numerator as u64
+}
+
+fn retained_row_count(rows: usize, seed: u64, numerator: usize, denominator: usize) -> usize {
+    (0..rows)
+        .filter(|index| retain_row(*index, seed, numerator, denominator))
+        .count()
+}
+
+fn shard_seed(path: &std::path::Path) -> u64 {
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let hash = name.bytes().fold(0xcbf29ce484222325_u64, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+    });
+    hash
 }
 
 fn build_batch_data(frame: &DataFrame) -> PyResult<PackedBatchData> {

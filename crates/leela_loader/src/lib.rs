@@ -311,10 +311,6 @@ impl SimpleTarReader {
     }
 
     pub(crate) fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
-        Ok(self.next_regular_entry()?.map(|(_, payload)| payload))
-    }
-
-    pub(crate) fn next_regular_entry(&mut self) -> PyResult<Option<(String, Vec<u8>)>> {
         loop {
             let mut header = [0_u8; 512];
             if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
@@ -352,7 +348,7 @@ impl SimpleTarReader {
                 if name.rsplit('/').next() == Some("LICENSE") {
                     continue;
                 }
-                return Ok(decompress_if_gzip(payload)?.map(|payload| (name, payload)));
+                return decompress_if_gzip(payload);
             }
 
             self.file
@@ -365,61 +361,6 @@ impl SimpleTarReader {
                 })?;
         }
     }
-}
-
-#[pyfunction]
-fn inspect_lc0_tar(
-    path: PathBuf,
-) -> PyResult<(usize, usize, usize, usize, usize, usize, Vec<String>)> {
-    let mut reader = SimpleTarReader::open(path)?;
-    let mut games = 0;
-    let mut positions = 0;
-    let mut retained_half = 0;
-    let mut retained_quarter = 0;
-    let mut min_game_positions = usize::MAX;
-    let mut max_game_positions = 0;
-    let mut example_names = Vec::new();
-    while let Some((name, payload)) = reader.next_regular_entry()? {
-        if payload.len() % RECORD_SIZE != 0 {
-            return Err(PyValueError::new_err(format!(
-                "LCZero chunk has {} bytes, not a multiple of {RECORD_SIZE}",
-                payload.len()
-            )));
-        }
-        let game_positions = payload.len() / RECORD_SIZE;
-        if game_positions == 0 {
-            continue;
-        }
-        validate_versions(&payload)?;
-        games += 1;
-        positions += game_positions;
-        retained_half += retained_positions(game_positions, 1, 2);
-        retained_quarter += retained_positions(game_positions, 1, 4);
-        min_game_positions = min_game_positions.min(game_positions);
-        max_game_positions = max_game_positions.max(game_positions);
-        if example_names.len() < 3 {
-            example_names.push(name);
-        }
-    }
-    if games == 0 {
-        min_game_positions = 0;
-    }
-    Ok((
-        games,
-        positions,
-        retained_half,
-        retained_quarter,
-        min_game_positions,
-        max_game_positions,
-        example_names,
-    ))
-}
-
-fn retained_positions(game_positions: usize, numerator: usize, denominator: usize) -> usize {
-    if game_positions == 0 {
-        return 0;
-    }
-    (game_positions * numerator).div_ceil(denominator).max(1)
 }
 
 #[pyfunction]
@@ -493,9 +434,27 @@ fn iter_prefetched_parquet_batches(
     batch_size: usize,
     prefetch_per_thread: usize,
     threads: usize,
+    retention_numerator: usize,
+    retention_denominator: usize,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     validate_batch_size(batch_size)?;
-    parquet_loader::iter_prefetched_parquet_batches(paths, batch_size, prefetch_per_thread, threads)
+    parquet_loader::iter_prefetched_parquet_batches(
+        paths,
+        batch_size,
+        prefetch_per_thread,
+        threads,
+        retention_numerator,
+        retention_denominator,
+    )
+}
+
+#[pyfunction]
+fn parquet_retention_counts(
+    path: PathBuf,
+    batch_size: usize,
+) -> PyResult<(usize, usize, usize, usize, usize, usize, usize)> {
+    validate_batch_size(batch_size)?;
+    parquet_loader::parquet_retention_counts(path, batch_size)
 }
 
 #[pyfunction]
@@ -529,8 +488,8 @@ fn make_packed_batch_iterator(paths: Vec<PathBuf>, batch_size: usize) -> PackedB
 fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
+    module.add_function(wrap_pyfunction!(parquet_retention_counts, module)?)?;
     module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
-    module.add_function(wrap_pyfunction!(inspect_lc0_tar, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;
