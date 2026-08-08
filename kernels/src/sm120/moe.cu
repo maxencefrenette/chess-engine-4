@@ -6,21 +6,25 @@
 #include <cuda_bf16.h>
 #include <pybind11/pybind11.h>
 
+#define MOE_COMPUTE_CAPABILITY_MAJOR 12
+#define MOE_COMPUTE_CAPABILITY_MINOR 0
+#define MOE_ARCHITECTURE_NAME "SM120"
+
 #define MOE_D_MODEL 128
 #define MOE_NAMESPACE chess_engine_4::sm120::moe_d128
-#include "moe_impl.cuh"
+#include "../common/moe_impl.cuh"
 #undef MOE_NAMESPACE
 #undef MOE_D_MODEL
 
 #define MOE_D_MODEL 512
 #define MOE_NAMESPACE chess_engine_4::sm120::moe_d512
-#include "moe_impl.cuh"
+#include "../common/moe_impl.cuh"
 #undef MOE_NAMESPACE
 #undef MOE_D_MODEL
 
 #define MOE_D_MODEL 256
 #define MOE_NAMESPACE chess_engine_4::sm120::moe_d256
-#include "moe_impl.cuh"
+#include "../common/moe_impl.cuh"
 #undef MOE_NAMESPACE
 #undef MOE_D_MODEL
 
