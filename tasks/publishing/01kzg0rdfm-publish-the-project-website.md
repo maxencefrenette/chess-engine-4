@@ -2,7 +2,7 @@
 id: "01kzg0rdfm"
 title: "Publish the project website"
 status: pending
-priority: medium
+priority: high
 effort: medium
 dependencies: []
 tags: ["website", "notion-import"]
@@ -17,6 +17,9 @@ created_at: 2026-08-07
 Publish the existing Next.js experiment explorer as the public presentation of
 the project. Keep generated scaling data automatic and make the deployed site
 useful without exposing secrets or requiring a Python server.
+
+This is a high-priority project direction, but its implementation plan still
+needs collaborative iteration and decomposition before work begins.
 
 ## Tasks
 

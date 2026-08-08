@@ -2,7 +2,7 @@
 id: "01kzg0rdp1"
 title: "Validate NVFP4 training"
 status: pending
-priority: medium
+priority: low
 effort: large
 dependencies: []
 tags: ["precision", "kernels", "notion-import"]
