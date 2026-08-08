@@ -188,17 +188,17 @@ function ChartCard({
 }
 
 function metricPoints(family: ScalingFamily, metric: MetricKey) {
-  return family.observed.map((run) => ({
+  return family.runs.filter((run) => run.status === "current").map((run) => ({
     x: run.physicalFlops,
-    y: run[metric],
+    y: metricValue(run, metric),
     name: run.name,
   }));
 }
 
 function staleMetricPoints(family: ScalingFamily, metric: MetricKey) {
-  return family.staleObserved.map((run) => ({
+  return family.runs.filter((run) => run.status === "stale").map((run) => ({
     x: run.physicalFlops,
-    y: run[metric],
+    y: metricValue(run, metric),
     name: run.name,
   }));
 }
@@ -207,7 +207,20 @@ function extrapolatedPoints(
   runs: ExtrapolatedRun[],
   metric: MetricKey,
 ) {
-  return runs.map((run) => ({ x: run.physicalFlops, y: run[metric], name: run.name }));
+  return runs.map((run) => ({
+    x: run.physicalFlops,
+    y: metricValue(run, metric),
+    name: run.name,
+  }));
+}
+
+function metricValue(
+  run: ScalingFamily["runs"][number] | ExtrapolatedRun,
+  metric: MetricKey,
+): number {
+  if (metric === "steps") return run.samplesSeen / run.batchSize;
+  if (metric === "samplesPerParam") return run.samplesSeen / run.params;
+  return run[metric];
 }
 
 function curvePoints(points: CurvePoint[]) {

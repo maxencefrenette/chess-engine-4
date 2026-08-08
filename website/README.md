@@ -4,6 +4,12 @@ The Python package remains at the repository root. This top-level `website/`
 folder is a separate Next.js app. Python derives a gitignored JSON payload from
 the canonical experiment summaries and model-family recipes.
 
+Generate that disposable build artifact directly with:
+
+```bash
+uv run generate-website-data
+```
+
 ## Getting Started
 
 From the repository root, launch the development server and scaling-data watcher:

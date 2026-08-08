@@ -3,7 +3,7 @@ import {
   FamilyComparisonChart,
   type ComparisonSeries,
 } from "@/components/family-comparison-chart";
-import { modelFamilies, readScalingFamily } from "@/data/best-runs";
+import { currentRuns, modelFamilies } from "@/data/best-runs";
 import { trainingCost } from "@/data/format";
 
 const FAMILY_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c"];
@@ -13,12 +13,12 @@ export const metadata = {
 };
 
 export default function ComparePage() {
-  const families = modelFamilies.map(readScalingFamily);
+  const families = modelFamilies;
   const flopsSeries: ComparisonSeries[] = families.map((family, index) => ({
     id: family.id,
     label: family.name,
     color: FAMILY_COLORS[index % FAMILY_COLORS.length],
-    points: family.observed.map((run) => ({
+    points: currentRuns(family).map((run) => ({
       name: run.name,
       x: run.physicalFlops,
       y: run.loss,
@@ -32,7 +32,7 @@ export default function ComparePage() {
     id: family.id,
     label: family.name,
     color: FAMILY_COLORS[index % FAMILY_COLORS.length],
-    points: family.observed.map((run) => ({
+    points: currentRuns(family).map((run) => ({
       name: run.name,
       x: trainingCost(run),
       y: run.loss,

@@ -12,8 +12,7 @@ import {
   getFamily,
   latestRun,
   modelFamilies,
-  readBestRuns,
-  readScalingFamily,
+  currentRuns,
 } from "@/data/best-runs";
 
 type FamilyPageProps = {
@@ -39,8 +38,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
     notFound();
   }
 
-  const runs = readBestRuns(family);
-  const scalingFamily = readScalingFamily(family);
+  const runs = currentRuns(family);
   const latest = latestRun(runs);
 
   return (
@@ -61,7 +59,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
             </h1>
             <p className="mt-2 text-sm text-zinc-600">{family.description}</p>
             <p className="mt-1 text-sm text-zinc-500">
-              All runs use {scalingFamily.trainingRatio}x Chinchilla to reduce experiment cost.
+              All runs use {family.trainingRatio}x Chinchilla to reduce experiment cost.
             </p>
             {family.id === "dense" ? (
               <p className="mt-1 text-sm font-medium text-emerald-700">
@@ -94,7 +92,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
           </section>
         ) : null}
 
-        <FamilyDashboard family={scalingFamily} />
+        <FamilyDashboard family={family} />
 
         <section className="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-5 py-4">
@@ -103,7 +101,7 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
             </h2>
           </div>
           <RunsTable
-            runs={[...runs, ...scalingFamily.staleObserved].sort(
+            runs={[...family.runs].sort(
               (left, right) => left.physicalFlops - right.physicalFlops,
             )}
           />

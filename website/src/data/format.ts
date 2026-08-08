@@ -7,10 +7,6 @@ const MODAL_GPU_USD_PER_SECOND: Record<TrainingGpu, number> = {
 const MODAL_CPU_USD_PER_CORE_SECOND = 0.0000131;
 const TRAINING_CPU_CORES = 8;
 
-export function formatModel(run: BestRun): string {
-  return `d${run.dModel}`;
-}
-
 export function formatCompactNumber(value: number): string {
   return new Intl.NumberFormat("en-US", {
     notation: "compact",

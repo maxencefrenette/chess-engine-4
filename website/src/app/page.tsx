@@ -3,18 +3,17 @@ import { Sparkline } from "@/components/sparkline";
 import {
   formatCompactNumber,
   formatDecimal,
-  formatModel,
   formatPercent,
 } from "@/data/format";
 import {
   latestRun,
   modelFamilies,
-  readBestRuns,
+  currentRuns,
 } from "@/data/best-runs";
 
 export default function Home() {
   const families = modelFamilies.map((family) => {
-    const runs = readBestRuns(family);
+    const runs = currentRuns(family);
     return { family, runs, latest: latestRun(runs) };
   });
 
@@ -89,7 +88,7 @@ export default function Home() {
                 <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <dt className="text-zinc-500">Model</dt>
-                    <dd className="mt-1 font-semibold text-zinc-950">{formatModel(latest)}</dd>
+                    <dd className="mt-1 font-semibold text-zinc-950">{latest.name}</dd>
                   </div>
                   <div>
                     <dt className="text-zinc-500">Params</dt>

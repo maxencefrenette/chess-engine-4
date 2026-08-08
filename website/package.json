@@ -4,9 +4,9 @@
   "private": true,
   "packageManager": "pnpm@10.13.1",
   "scripts": {
-    "predev": "cd .. && uv run export-scaling-data",
+    "predev": "cd .. && uv run generate-website-data",
     "dev": "node scripts/dev.mjs",
-    "prebuild": "cd .. && uv run export-scaling-data",
+    "prebuild": "cd .. && uv run generate-website-data",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
