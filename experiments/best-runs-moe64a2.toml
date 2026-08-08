@@ -88,3 +88,94 @@ runtime_sec = 4113.887939966
 # 29,888 of 31,863 configured steps when the current dataset was exhausted.
 loss_spike_count = 3
 router_dead_experts = 0
+
+# Validated non-default-ratio observations used for model/data allocation.
+[allocation_runs.d256-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "moe64a2"
+run_name = "moe64a2-r001-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ibadj48w"
+flops = 2.81687089840128e15
+d_model = 256
+depth = 8
+batch_size = 32768
+lr = 1.4e-3
+params = 106213792
+samples_seen = 53116928
+loss = 3.3249099117076555
+policy_top1 = 0.37596204336386785
+loss_spike_count = 1
+router_dead_experts = 0
+
+[allocation_runs.d512-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "moe64a2"
+run_name = "moe64a2-r001-d512"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/bt4ew7b0"
+flops = 3.813440187203584e16
+d_model = 512
+depth = 8
+batch_size = 65536
+lr = 4.9e-4
+params = 420043680
+samples_seen = 210042880
+loss = 3.089326668898098
+policy_top1 = 0.4413842503195751
+loss_spike_count = 0
+router_dead_experts = 0
+
+[allocation_runs.d128-r0p02]
+training_ratio = 0.02
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "moe64a2"
+run_name = "moe64a2-r002-d128"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/arwnxz7u"
+flops = 4.63724196757504e14
+d_model = 128
+depth = 8
+batch_size = 16384
+lr = 3.3e-3
+params = 27155616
+samples_seen = 27148288
+loss = 3.4628191638202934
+policy_top1 = 0.340399017656555
+loss_spike_count = 0
+router_dead_experts = 0
+
+[allocation_runs.d256-r0p02]
+training_ratio = 0.02
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "moe64a2"
+run_name = "moe64a2-r002-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3a1yixue"
+flops = 5.63200406028288e15
+d_model = 256
+depth = 8
+batch_size = 32768
+lr = 1.2e-3
+params = 106213792
+samples_seen = 106201088
+loss = 3.178672114495252
+policy_top1 = 0.41449092369614526
+loss_spike_count = 1
+router_dead_experts = 0
+
+[allocation_runs.d512-r0p02]
+training_ratio = 0.02
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "moe64a2"
+run_name = "moe64a2-d512"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/64th71sp"
+flops = 7.6256905334751232e16
+d_model = 512
+depth = 8
+batch_size = 65536
+lr = 4.4e-4
+params = 420043680
+samples_seen = 420020224
+loss = 2.9752271687407754
+policy_top1 = 0.4749161466925229
+loss_spike_count = 0
+router_dead_experts = 0

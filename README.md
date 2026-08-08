@@ -50,6 +50,26 @@ volume.
 
 See [OPTIMIZATION.md](OPTIMIZATION.md) for the experiment-selection protocol.
 
+Plan the predicted lowest-validation-loss run across the measured dense and MoE
+configurations with:
+
+```sh
+uv run plan-budget 5 10 100
+```
+
+Plans default to the current corpus size recorded in `experiments/training-data.toml`.
+Use `--assume-samples N` to evaluate a hypothetical larger or smaller dataset.
+Predicted losses include deterministic 80% bootstrap intervals. Compare cheap preliminary
+runs against spending the same fixed total budget directly on final training with:
+
+```sh
+uv run plan-budget 10 --suggest-runs 3
+```
+
+Use `--focus-budget` and `--max-suggestion-cost` to change the targeted breakpoint and
+per-run cost ceiling. Preliminary-run cost is deducted from the fixed focus budget, and
+the preliminary checkpoint is treated as sunk rather than reusable final training.
+
 ## Data
 
 Build the local Rust loader and inspect the configured Parquet dataset:
@@ -84,6 +104,7 @@ automatically.
 | `uv run train-modal` | Train a model on Modal |
 | `uv run profile-training` | Profile the production training loop |
 | `uv run throughput-sweep` | Refresh cached throughput measurements |
+| `uv run plan-budget 10 100` | Select the lowest-loss trainable recipe for dollar budgets |
 | `uv run benchmark-training-modal` | Compare Transformer Engine and custom kernels |
 | `uv run export-model` | Export a BF16 dense checkpoint as Safetensors |
 | `uv run build-lc0` | Build the vendored lc0 fork and custom backend |

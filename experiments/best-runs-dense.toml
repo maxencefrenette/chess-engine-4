@@ -117,3 +117,106 @@ samples_seen = 1100152832
 loss = 2.8882412565462
 policy_top1 = 0.4973036514264204
 runtime_sec = 1404.911800012
+
+# Validated non-default-ratio observations used for model/data allocation.
+[allocation_runs.d128-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r01-d128"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fpzgndsx"
+flops = 2.31550452424704e14
+d_model = 128
+depth = 8
+batch_size = 4096
+lr = 2.3e-3
+params = 2743456
+samples_seen = 13717504
+loss = 3.5382154099419223
+policy_top1 = 0.32158924336133077
+loss_spike_count = 0
+
+[allocation_runs.d256-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r01-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4xvc1vvj"
+flops = 2.271253265055744e15
+d_model = 256
+depth = 8
+batch_size = 8192
+lr = 1.0e-3
+params = 8630688
+samples_seen = 43155456
+loss = 3.2842561350113906
+policy_top1 = 0.3855713820143354
+loss_spike_count = 0
+
+[allocation_runs.d512-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r01-d512"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/t1rm3bo0"
+flops = 2.6969837194739712e16
+d_model = 512
+depth = 8
+batch_size = 16384
+lr = 4.0e-4
+params = 29842336
+samples_seen = 149209088
+loss = 3.0833433992249746
+policy_top1 = 0.4379144916699976
+loss_spike_count = 0
+
+[allocation_runs.d128-r0p5]
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r05-d128"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/osms2d87"
+flops = 1.15775226212352e15
+d_model = 128
+depth = 8
+batch_size = 4096
+lr = 8.5e-4
+params = 2743456
+samples_seen = 68587520
+loss = 3.295114010955557
+policy_top1 = 0.3710514781041865
+loss_spike_count = 0
+
+[allocation_runs.d256-r0p5]
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r05-d256"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2zif1vfx"
+flops = 1.1355835183808512e16
+d_model = 256
+depth = 8
+batch_size = 8192
+lr = 3.6e-4
+params = 8630688
+samples_seen = 215769088
+loss = 3.0898337074461466
+policy_top1 = 0.4352601796876183
+loss_spike_count = 0
+
+[allocation_runs.d512-r0p5]
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-06.03-training-ratio-refresh"
+model_kind = "dense"
+run_name = "dense-r05-d512"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2hqtj0ya"
+flops = 1.3485214741404058e17
+d_model = 512
+depth = 8
+batch_size = 16384
+lr = 1.4e-4
+params = 29842336
+samples_seen = 746061824
+loss = 2.937496792893929
+policy_top1 = 0.48131627240617
+loss_spike_count = 0
