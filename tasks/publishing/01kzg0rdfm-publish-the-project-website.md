@@ -4,7 +4,7 @@ title: "Publish the project website"
 status: pending
 priority: high
 effort: medium
-dependencies: []
+dependencies: ["01kzhkmxad"]
 tags: ["website", "notion-import"]
 touches: ["website"]
 created_at: 2026-08-07

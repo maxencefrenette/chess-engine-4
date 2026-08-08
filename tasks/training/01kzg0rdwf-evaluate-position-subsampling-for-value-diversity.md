@@ -2,7 +2,7 @@
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
 status: pending
-priority: medium
+priority: high
 effort: medium
 dependencies: []
 tags: ["value", "data", "experiment", "notion-import"]
