@@ -1,4 +1,4 @@
-#include "bf16_gemm.h"
+#include "../inference/bf16_gemm.h"
 
 #include "kittens.cuh"
 
@@ -124,3 +124,5 @@ void LaunchCustomBf16Gemm(
 }
 
 }  // namespace chess_engine_4::inference
+
+#include "../inference/moe_bf16_impl.cuh"

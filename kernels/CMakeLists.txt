@@ -16,18 +16,17 @@ if(CE4_BUILD_INFERENCE)
   find_package(CUDAToolkit REQUIRED)
   find_package(nlohmann_json CONFIG REQUIRED)
   if(CE4_CUDA_ARCH STREQUAL "100a")
-    set(CE4_INFERENCE_GEMM_SOURCE src/inference/tk_bf16.cu)
+    set(CE4_INFERENCE_ARCH_SOURCE src/sm100/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM100)
   elseif(CE4_CUDA_ARCH STREQUAL "120a")
-    set(CE4_INFERENCE_GEMM_SOURCE src/inference/sm120_bf16.cu)
+    set(CE4_INFERENCE_ARCH_SOURCE src/sm120/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM120)
   else()
     message(FATAL_ERROR "CE4 inference supports only CUDA architectures 100a and 120a")
   endif()
   add_library(ce4_inference STATIC
-    src/inference/dense.cu
-    src/inference/moe_bf16.cu
-    ${CE4_INFERENCE_GEMM_SOURCE}
+    src/inference/runtime.cu
+    ${CE4_INFERENCE_ARCH_SOURCE}
   )
   target_include_directories(ce4_inference
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
