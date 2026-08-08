@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -289,7 +290,7 @@ def _volume_relative_path(mounted_path: Path) -> str:
     return mounted
 
 
-def _run_eval_remote(payload: dict[str, Any]) -> dict[str, str]:
+def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
     if not OPENING_BOOK_PATH.exists():
         raise FileNotFoundError(f"Missing evaluation opening book: {OPENING_BOOK_PATH}")
@@ -322,7 +323,16 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, str]:
             f"{completed.returncode}\ncommand={' '.join(command)}\n{completed.stdout}"
         )
     artifact_volume.commit()
-    return {"stdout": completed.stdout, "pgn_path": str(pgn_path), "log_path": str(log_path)}
+    pair_scores = _parse_fastchess_pair_scores(
+        pgn_path.read_text(), str(payload["candidate_name"])
+    )
+    return {
+        "stdout": completed.stdout,
+        "pgn_path": str(pgn_path),
+        "log_path": str(log_path),
+        "pentanomial": list(_pentanomial_from_pair_scores(pair_scores)),
+        "pair_scores": list(pair_scores),
+    }
 
 
 def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
@@ -408,6 +418,58 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
             ]
         )
     return command
+
+
+_PGN_GAME = re.compile(
+    r'^\[Round "(?P<round>[^"]+)"\]\s*'
+    r'^\[White "(?P<white>[^"]+)"\]\s*'
+    r'^\[Black "(?P<black>[^"]+)"\]\s*'
+    r'^\[Result "(?P<result>1-0|0-1|1/2-1/2)"\]',
+    re.MULTILINE,
+)
+
+
+def _parse_fastchess_pentanomial(
+    pgn: str, player: str
+) -> tuple[int, int, int, int, int]:
+    """Count player scores for fastchess's same-round reversed-color pairs."""
+    return _pentanomial_from_pair_scores(_parse_fastchess_pair_scores(pgn, player))
+
+
+def _pentanomial_from_pair_scores(
+    pair_scores: tuple[int, ...],
+) -> tuple[int, int, int, int, int]:
+    counts = [0, 0, 0, 0, 0]
+    for score in pair_scores:
+        counts[score] += 1
+    return tuple(counts)  # type: ignore[return-value]
+
+
+def _parse_fastchess_pair_scores(pgn: str, player: str) -> tuple[int, ...]:
+    """Retain ordered half-point scores for fastchess mirrored opening pairs."""
+    by_round: dict[str, list[tuple[str, str, str]]] = {}
+    for game in _PGN_GAME.finditer(pgn):
+        by_round.setdefault(game.group("round"), []).append(
+            (game.group("white"), game.group("black"), game.group("result"))
+        )
+    pair_scores = []
+    for round_name, games in by_round.items():
+        if len(games) != 2 or {games[0][0], games[0][1]} != {games[1][0], games[1][1]}:
+            raise ValueError(f"Fastchess round {round_name!r} is not one mirrored game pair.")
+        score = 0.0
+        for white, black, result in games:
+            if player not in {white, black}:
+                raise ValueError(
+                    f"Player {player!r} is absent from fastchess round {round_name!r}."
+                )
+            if result == "1/2-1/2":
+                score += 0.5
+            elif (result == "1-0") == (white == player):
+                score += 1.0
+        pair_scores.append(int(score * 2))
+    if not pair_scores:
+        raise ValueError("No complete fastchess game pairs found in PGN output.")
+    return tuple(pair_scores)
 
 
 def _require_lc0(payload: dict[str, Any]) -> None:
