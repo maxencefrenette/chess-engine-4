@@ -72,3 +72,12 @@ def iter_native_parquet_batches(
 def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tuple[int, int, int]:
     native = _load_native_module()
     return native.convert_lc0_tar_to_parquet(str(input_path), str(output_path))
+
+
+def inspect_native_lc0_tar(
+    input_path: Path,
+) -> tuple[int, int, int, int, int, int, list[str]]:
+    """Count game members and deterministic ceil-rate retained positions."""
+
+    native = _load_native_module()
+    return native.inspect_lc0_tar(str(input_path))

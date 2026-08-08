@@ -311,6 +311,10 @@ impl SimpleTarReader {
     }
 
     pub(crate) fn next_regular_payload(&mut self) -> PyResult<Option<Vec<u8>>> {
+        Ok(self.next_regular_entry()?.map(|(_, payload)| payload))
+    }
+
+    pub(crate) fn next_regular_entry(&mut self) -> PyResult<Option<(String, Vec<u8>)>> {
         loop {
             let mut header = [0_u8; 512];
             if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
@@ -348,7 +352,7 @@ impl SimpleTarReader {
                 if name.rsplit('/').next() == Some("LICENSE") {
                     continue;
                 }
-                return decompress_if_gzip(payload);
+                return Ok(decompress_if_gzip(payload)?.map(|payload| (name, payload)));
             }
 
             self.file
@@ -361,6 +365,61 @@ impl SimpleTarReader {
                 })?;
         }
     }
+}
+
+#[pyfunction]
+fn inspect_lc0_tar(
+    path: PathBuf,
+) -> PyResult<(usize, usize, usize, usize, usize, usize, Vec<String>)> {
+    let mut reader = SimpleTarReader::open(path)?;
+    let mut games = 0;
+    let mut positions = 0;
+    let mut retained_half = 0;
+    let mut retained_quarter = 0;
+    let mut min_game_positions = usize::MAX;
+    let mut max_game_positions = 0;
+    let mut example_names = Vec::new();
+    while let Some((name, payload)) = reader.next_regular_entry()? {
+        if payload.len() % RECORD_SIZE != 0 {
+            return Err(PyValueError::new_err(format!(
+                "LCZero chunk has {} bytes, not a multiple of {RECORD_SIZE}",
+                payload.len()
+            )));
+        }
+        let game_positions = payload.len() / RECORD_SIZE;
+        if game_positions == 0 {
+            continue;
+        }
+        validate_versions(&payload)?;
+        games += 1;
+        positions += game_positions;
+        retained_half += retained_positions(game_positions, 1, 2);
+        retained_quarter += retained_positions(game_positions, 1, 4);
+        min_game_positions = min_game_positions.min(game_positions);
+        max_game_positions = max_game_positions.max(game_positions);
+        if example_names.len() < 3 {
+            example_names.push(name);
+        }
+    }
+    if games == 0 {
+        min_game_positions = 0;
+    }
+    Ok((
+        games,
+        positions,
+        retained_half,
+        retained_quarter,
+        min_game_positions,
+        max_game_positions,
+        example_names,
+    ))
+}
+
+fn retained_positions(game_positions: usize, numerator: usize, denominator: usize) -> usize {
+    if game_positions == 0 {
+        return 0;
+    }
+    (game_positions * numerator).div_ceil(denominator).max(1)
 }
 
 #[pyfunction]
@@ -471,6 +530,7 @@ fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
     module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
+    module.add_function(wrap_pyfunction!(inspect_lc0_tar, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;
     module.add("HISTORY_PLANE_COUNT", HISTORY_PLANE_COUNT)?;

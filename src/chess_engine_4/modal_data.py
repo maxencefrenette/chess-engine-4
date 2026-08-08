@@ -20,6 +20,34 @@ from chess_engine_4.modal_train import (
 _CONVERSION_CONCURRENCY = 16
 
 
+def inspect_subsampling_sources_modal() -> None:
+    """Inspect source-game capacity for the position-subsampling experiment."""
+
+    sources = _source_names()
+    if not sources:
+        raise SystemExit("no LCZero tar source files found on the training-data Volume")
+    print(f"subsampling_source_plan files={len(sources)} concurrency={_CONVERSION_CONCURRENCY}")
+    results: list[dict[str, Any]] = []
+    with app.run():
+        for result in _inspect_one_remote.map(sources, order_outputs=False):
+            results.append(result)
+            print(
+                f"inspected file={result['file']} games={result['games']:,} "
+                f"positions={result['positions']:,} half={result['retained_half']:,} "
+                f"quarter={result['retained_quarter']:,}",
+                flush=True,
+            )
+    totals = {
+        key: sum(int(result[key]) for result in results)
+        for key in ("games", "positions", "retained_half", "retained_quarter")
+    }
+    print(
+        f"subsampling_source_complete files={len(results)} "
+        f"games={totals['games']:,} positions={totals['positions']:,} "
+        f"half={totals['retained_half']:,} quarter={totals['retained_quarter']:,}"
+    )
+
+
 def convert_data_modal() -> None:
     parser = argparse.ArgumentParser(description="Convert LCZero training tar files on Modal.")
     selection = parser.add_mutually_exclusive_group()
@@ -163,6 +191,29 @@ def _verify_one_remote(source_name: str, batches: int) -> dict[str, int | str]:
     except Exception as error:
         raise RuntimeError(f"failed to verify {source_name}: {error}") from error
     return {"file": source_name, "batches": verified}
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    max_containers=_CONVERSION_CONCURRENCY,
+    volumes={REMOTE_DATA_PATH: data_volume},
+    timeout=30 * 60,
+)
+def _inspect_one_remote(source_name: str) -> dict[str, Any]:
+    from chess_engine_4.data.native import inspect_native_lc0_tar
+
+    result = inspect_native_lc0_tar(Path(REMOTE_DATA_PATH) / source_name)
+    keys = (
+        "games",
+        "positions",
+        "retained_half",
+        "retained_quarter",
+        "min_game_positions",
+        "max_game_positions",
+        "example_names",
+    )
+    return {"file": source_name, **dict(zip(keys, result, strict=True))}
 
 
 def _source_names() -> list[str]:

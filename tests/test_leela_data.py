@@ -18,7 +18,7 @@ from chess_engine_4.data.leela import (
     LeelaTarDataset,
     resolve_data_paths,
 )
-from chess_engine_4.data.native import convert_native_lc0_tar_to_parquet
+from chess_engine_4.data.native import convert_native_lc0_tar_to_parquet, inspect_native_lc0_tar
 
 POLICY_OFFSET = 8
 PLANES_OFFSET = POLICY_OFFSET + POLICY_SIZE * 4
@@ -111,6 +111,16 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)
 
 
+def test_tar_inspection_counts_game_members_and_retention_capacity(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    _write_games(tar_path, [3, 4])
+
+    result = inspect_native_lc0_tar(tar_path)
+
+    assert result[:6] == (2, 7, 4, 2, 3, 4)
+    assert result[6] == ["training.0.gz", "training.1.gz"]
+
+
 def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "training.parquet"
@@ -141,6 +151,15 @@ def _write_tar(path: Path, payload: bytes) -> None:
     info.size = len(payload)
     with tarfile.open(path, "w") as tar:
         tar.addfile(info, io.BytesIO(payload))
+
+
+def _write_games(path: Path, game_lengths: list[int]) -> None:
+    with tarfile.open(path, "w") as tar:
+        for index, game_length in enumerate(game_lengths):
+            payload = gzip.compress(_records(game_length))
+            info = tarfile.TarInfo(f"training.{index}.gz")
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
 
 
 def _records(count: int) -> bytes:
