@@ -4,25 +4,18 @@ from __future__ import annotations
 
 import torch
 
+from chess_engine_4.kernels.capabilities import (
+    moe_op_prefix,
+    require_moe_kernel,
+)
 from chess_engine_4.kernels.extension import extension
 
 EXPERT_COUNT = 64
-SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
-_OP_PREFIX_BY_CAPABILITY = {
-    (8, 0): "sm80_",
-    (12, 0): "",
-}
 
 
 def _moe_op(tensor: torch.Tensor, d_model: int, suffix: str):
     capability = torch.cuda.get_device_capability(tensor.device)
-    try:
-        prefix = _OP_PREFIX_BY_CAPABILITY[capability]
-    except KeyError as error:
-        supported = ", ".join(f"SM{major}{minor}" for major, minor in _OP_PREFIX_BY_CAPABILITY)
-        raise ValueError(
-            f"custom MoE kernels support {supported}, got SM{capability[0]}{capability[1]}"
-        ) from error
+    prefix = moe_op_prefix(capability)
     return getattr(extension(), f"{prefix}moe_d{d_model}_{suffix}")
 
 
@@ -160,8 +153,11 @@ class _MoeFunction(torch.autograd.Function):
 
 def _supported_width(x: torch.Tensor) -> int:
     d_model = x.shape[1]
-    if d_model not in SUPPORTED_MOE_WIDTHS:
-        raise ValueError(
-            f"custom MoE kernels require d_model in {sorted(SUPPORTED_MOE_WIDTHS)}, got {d_model}"
-        )
+    require_moe_kernel(
+        capability=torch.cuda.get_device_capability(x.device),
+        precision="bf16",
+        d_model=d_model,
+        hidden_dim=2 * d_model,
+        rows=x.shape[0],
+    )
     return d_model

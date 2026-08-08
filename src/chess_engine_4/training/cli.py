@@ -17,7 +17,12 @@ from chess_engine_4.data.leela import (
 )
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
-from chess_engine_4.training.config import TrainingConfig, validate_training_hardware
+from chess_engine_4.training.config import (
+    TRAINING_GPU_CAPABILITIES,
+    TrainingConfig,
+    resolve_training_kernel,
+    validate_training_hardware,
+)
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
 from chess_engine_4.training.losses import lczero_loss
@@ -37,17 +42,14 @@ _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 _GPU_SPECS = {
     "A100": {
-        "capability": (8, 0),
         "name": "A100",
         "tflops": {"bf16": 312.0},
     },
     "B200": {
-        "capability": (10, 0),
         "name": "B200",
         "tflops": {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0},
     },
     "RTX-PRO-6000": {
-        "capability": (12, 0),
         "name": "RTX PRO 6000",
         "tflops": {"bf16": 503.8},
     },
@@ -83,6 +85,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
 
     device = torch.device("cuda")
     _require_training_gpu(device, configured_gpu=config.infra.gpu)
+    capability = torch.cuda.get_device_capability(device)
+    kernel_selection = resolve_training_kernel(config, capability=capability)
     dataset = LeelaParquetDataset(
         options.data,
         batch_size=config.run.batch_size,
@@ -91,7 +95,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
-    if config.model.kernel_backend == "custom":
+    if kernel_selection.backend == "custom":
         _enable_custom_kernels(model)
     optimizer = _build_optimizer(model, config=config)
     training_model = build_training_model(
@@ -113,6 +117,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
+            kernel_variant=kernel_selection.variant,
         )
         if options.wandb
         else None
@@ -381,6 +386,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "device": str(device),
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
+        "kernel_variant": kernel_selection.variant,
         "input_pipeline": config.model.input_pipeline,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
@@ -559,16 +565,16 @@ def _theoretical_tflops(
     *,
     configured_gpu: str,
     precision: str,
-) -> float:
+) -> float | None:
     _require_training_gpu(device, configured_gpu=configured_gpu)
-    return _GPU_SPECS[configured_gpu]["tflops"][precision]
+    return _GPU_SPECS[configured_gpu]["tflops"].get(precision)
 
 
 def _require_training_gpu(device: torch.device, *, configured_gpu: str) -> None:
     spec = _GPU_SPECS[configured_gpu]
     capability = torch.cuda.get_device_capability(device)
     name = torch.cuda.get_device_name(device)
-    if capability != spec["capability"] or spec["name"] not in name:
+    if capability != TRAINING_GPU_CAPABILITIES[configured_gpu] or spec["name"] not in name:
         raise RuntimeError(
             f"configured gpu={configured_gpu!r}, but Modal provided "
             f"{name} SM{capability[0]}{capability[1]}."
@@ -640,6 +646,7 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
+    kernel_variant: str,
 ) -> Any:
     import wandb
 
@@ -656,6 +663,7 @@ def _init_wandb(
         "gpu": config.infra.gpu,
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
+        "kernel_variant": kernel_variant,
         "input_pipeline": config.model.input_pipeline,
         "matmul_precision": _MATMUL_PRECISION,
         "theoretical_tflops": theoretical_tflops,

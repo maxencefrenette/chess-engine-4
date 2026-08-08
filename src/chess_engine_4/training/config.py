@@ -7,11 +7,17 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from chess_engine_4.kernels.capabilities import KernelSelection, resolve_kernel_backend
 from chess_engine_4.model import KernelBackend, ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
 
 TrainingGpu = Literal["A100", "B200", "RTX-PRO-6000"]
 TRAINING_GPUS: tuple[TrainingGpu, ...] = ("A100", "B200", "RTX-PRO-6000")
+TRAINING_GPU_CAPABILITIES: dict[TrainingGpu, tuple[int, int]] = {
+    "A100": (8, 0),
+    "B200": (10, 0),
+    "RTX-PRO-6000": (12, 0),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,24 +111,32 @@ def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
     )
 
 
-def validate_training_hardware(config: TrainingConfig) -> None:
-    if config.infra.gpu in {"A100", "RTX-PRO-6000"} and config.model.precision != "bf16":
-        raise ValueError(f"{config.infra.gpu} training requires precision='bf16'.")
-    if config.model.kernel_backend != "custom":
-        return
-    if config.model.kind == "dense" and config.infra.gpu in {"A100", "B200"}:
-        return
-    if (
-        config.model.kind == "moe64a2"
-        and config.model.d_model in {128, 256, 512}
-        and config.model.precision == "bf16"
-        and config.infra.gpu in {"A100", "RTX-PRO-6000"}
-    ):
-        return
-    raise ValueError(
-        "custom kernels require a supported dense model or supported BF16 moe64a2 model "
-        "on its configured GPU"
+def resolve_training_kernel(
+    config: TrainingConfig,
+    *,
+    capability: tuple[int, int] | None = None,
+) -> KernelSelection:
+    model = config.model
+    return resolve_kernel_backend(
+        backend=model.kernel_backend,
+        kind=model.kind,
+        capability=(
+            TRAINING_GPU_CAPABILITIES[config.infra.gpu]
+            if capability is None
+            else capability
+        ),
+        precision=model.precision,
+        d_model=model.d_model,
+        hidden_dim=int(model.d_model * model.expansion_ratio),
+        activation=model.activation,
+        batch_size=config.run.batch_size,
+        num_experts=getattr(model, "num_experts", None),
+        num_active_experts=getattr(model, "num_active_experts", None),
     )
+
+
+def validate_training_hardware(config: TrainingConfig) -> None:
+    resolve_training_kernel(config)
 
 
 def with_overrides(

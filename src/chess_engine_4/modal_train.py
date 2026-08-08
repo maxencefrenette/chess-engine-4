@@ -17,6 +17,7 @@ from chess_engine_4.training.config import (
     TrainingConfig,
     TrainingGpu,
     load_training_config,
+    resolve_training_kernel,
     training_config_from_dict,
     validate_training_hardware,
     with_overrides,
@@ -236,6 +237,7 @@ def print_launch_summary(
         batch_size=config.run.batch_size,
     )
     samples = config.run.batch_size * run_steps
+    kernel_selection = resolve_training_kernel(config)
     print(
         "launch_summary "
         f"run={config.run.name} "
@@ -254,6 +256,7 @@ def print_launch_summary(
         f"precision={config.model.precision} "
         f"gpu={config.infra.gpu} "
         f"kernel_backend={config.model.kernel_backend} "
+        f"kernel_variant={kernel_selection.variant} "
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"

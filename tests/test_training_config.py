@@ -8,6 +8,7 @@ import pytest
 from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import (
     load_training_config,
+    resolve_training_kernel,
     training_config_from_dict,
     validate_training_hardware,
     with_overrides,
@@ -72,7 +73,7 @@ def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
         gpu="RTX-PRO-6000",
     )
 
-    with pytest.raises(ValueError, match="requires precision='bf16'"):
+    with pytest.raises(ValueError, match="mxfp8.*not supported on SM120"):
         validate_training_hardware(config)
 
 
@@ -91,7 +92,7 @@ def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
 
     validate_training_hardware(config)
 
-    with pytest.raises(ValueError, match="supported BF16 moe64a2"):
+    with pytest.raises(ValueError, match="support SM80 and SM120, got SM100"):
         validate_training_hardware(with_overrides(config, gpu="B200"))
 
 
@@ -112,8 +113,128 @@ def test_a100_rejects_low_precision_recipe() -> None:
     config = load_training_config("configs/dense.py", d_model=128)
     config = with_overrides(config, gpu="A100", quantization_recipe="mxfp8")
 
-    with pytest.raises(ValueError, match="A100 training requires precision='bf16'"):
+    with pytest.raises(ValueError, match="mxfp8.*not supported on SM80"):
         validate_training_hardware(config)
+
+
+def test_rtx_pro_6000_accepts_te_nvfp4() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=128),
+        gpu="RTX-PRO-6000",
+        quantization_recipe="nvfp4",
+        kernel_backend="te",
+    )
+
+    assert resolve_training_kernel(config).variant == "te-nvfp4"
+
+
+def test_custom_dense_rejects_sm120_before_launch() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=128),
+        gpu="RTX-PRO-6000",
+        quantization_recipe="bf16",
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="support SM80 and SM100, got SM120"):
+        validate_training_hardware(config)
+
+
+def test_custom_dense_rejects_incompatible_expansion_ratio() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=256),
+        gpu="B200",
+        expansion_ratio=2.0,
+        quantization_recipe="mxfp8",
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="expansion_ratio=4"):
+        validate_training_hardware(config)
+
+
+def test_custom_dense_rejects_uncompiled_width_before_launch() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=1536),
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="require d_model in"):
+        validate_training_hardware(config)
+
+
+def test_custom_dense_rejects_nvfp4_before_launch() -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=256),
+        gpu="B200",
+        quantization_recipe="nvfp4",
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="require precision='bf16' or 'mxfp8'"):
+        validate_training_hardware(config)
+
+
+def test_custom_moe_rejects_incompatible_expansion_ratio() -> None:
+    config = with_overrides(
+        load_training_config("configs/moe64a2.py", d_model=128),
+        expansion_ratio=4.0,
+    )
+
+    with pytest.raises(ValueError, match="expansion_ratio=2"):
+        validate_training_hardware(config)
+
+
+@pytest.mark.parametrize(
+    ("d_model", "supported"),
+    [(128, False), (256, True), (512, True), (1024, True), (2048, True)],
+)
+def test_custom_mxfp8_dense_accepts_mechanically_compatible_widths(
+    d_model: int,
+    supported: bool,
+) -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=d_model),
+        gpu="B200",
+        quantization_recipe="mxfp8",
+        kernel_backend="custom",
+    )
+
+    if supported:
+        assert resolve_training_kernel(config).variant == "dense-sm100-mxfp8"
+    else:
+        with pytest.raises(ValueError, match="d_model divisible by 256"):
+            validate_training_hardware(config)
+
+
+@pytest.mark.parametrize(
+    ("gpu", "batch_size", "supported", "alignment"),
+    [
+        ("A100", 16, True, 16),
+        ("A100", 17, False, 16),
+        ("B200", 128, True, 128),
+        ("B200", 127, False, 128),
+    ],
+)
+def test_custom_dense_validates_architecture_row_alignment(
+    gpu: str,
+    batch_size: int,
+    supported: bool,
+    alignment: int,
+) -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=256),
+        gpu=gpu,
+        batch_size=batch_size,
+        quantization_recipe="bf16",
+        kernel_backend="custom",
+    )
+
+    if supported:
+        validate_training_hardware(config)
+    else:
+        with pytest.raises(ValueError, match=f"rows divisible by {alignment}"):
+            validate_training_hardware(config)
 
 
 def test_moe64a2_family_recipe_round_trips() -> None:

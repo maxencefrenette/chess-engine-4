@@ -3,26 +3,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import cache
 from typing import Any
 
 import torch
 
+from chess_engine_4.kernels.capabilities import (
+    dense_op_prefix,
+    require_dense_kernel,
+    require_dense_precision,
+)
 from chess_engine_4.kernels.extension import extension
 from chess_engine_4.model.config import Precision
 
-SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
 
 
-@cache
-def _is_sm80(device_index: int) -> bool:
-    return torch.cuda.get_device_capability(device_index) == (8, 0)
-
-
 def _dense_op(tensor: torch.Tensor, name: str) -> Any:
-    prefix = "sm80_" if _is_sm80(tensor.device.index or 0) else ""
+    prefix = dense_op_prefix(torch.cuda.get_device_capability(tensor.device))
     return getattr(extension(), f"{prefix}dense_{name}")
 
 
@@ -47,6 +45,7 @@ def _check_matrix(name: str, tensor: torch.Tensor) -> None:
 
 def quantize_mxfp8(tensor: torch.Tensor) -> Mxfp8Tensor:
     _check_matrix("tensor", tensor)
+    require_dense_precision(torch.cuda.get_device_capability(tensor.device), "mxfp8")
     rows, columns = tensor.shape
     values = torch.empty_like(tensor, dtype=torch.float8_e4m3fn)
     scales = torch.empty(
@@ -65,6 +64,7 @@ def quantize_mxfp8_transpose(tensor: torch.Tensor) -> Mxfp8Tensor:
     """Transpose and quantize BF16 without materializing the BF16 transpose."""
 
     _check_matrix("tensor", tensor)
+    require_dense_precision(torch.cuda.get_device_capability(tensor.device), "mxfp8")
     rows, columns = tensor.shape
     values = torch.empty(
         columns,
@@ -85,6 +85,10 @@ def quantize_mxfp8_transpose(tensor: torch.Tensor) -> Mxfp8Tensor:
 
 
 def mxfp8_gemm(left: Mxfp8Tensor, right: Mxfp8Tensor) -> torch.Tensor:
+    require_dense_precision(
+        torch.cuda.get_device_capability(left.values.device),
+        "mxfp8",
+    )
     rows, reduction = left.values.shape
     output_columns, right_reduction = right.values.shape
     if reduction != right_reduction:
@@ -114,6 +118,7 @@ def _bf16_gemm(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
     _check_bf16_matrix("right", right)
     if left.shape[1] != right.shape[1]:
         raise ValueError("BF16 GEMM reduction dimensions do not match")
+    require_dense_precision(torch.cuda.get_device_capability(left.device), "bf16")
     output = torch.empty(
         left.shape[0],
         right.shape[0],
@@ -357,14 +362,16 @@ def _dense_forward_components(
     eps: float,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     _check_bf16_matrix("x", x)
-    if x.shape[0] % MXFP8_TILE_SIZE:
-        raise ValueError(f"x rows must be a multiple of {MXFP8_TILE_SIZE}")
     d_model = x.shape[1]
     hidden_dim = 4 * d_model
     gate_up_dim = 2 * hidden_dim
-    if d_model not in SUPPORTED_DENSE_WIDTHS:
-        choices = ", ".join(str(width) for width in sorted(SUPPORTED_DENSE_WIDTHS))
-        raise ValueError(f"unsupported d_model={d_model}; choose from {choices}")
+    require_dense_kernel(
+        capability=torch.cuda.get_device_capability(x.device),
+        precision=precision,
+        d_model=d_model,
+        hidden_dim=hidden_dim,
+        rows=x.shape[0],
+    )
     if norm_weight.shape != (d_model,) or norm_weight.dtype != torch.bfloat16:
         raise ValueError(f"norm_weight must be BF16 with shape [{d_model}]")
     if gate_up_weight.shape != (gate_up_dim, d_model):

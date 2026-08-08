@@ -121,15 +121,13 @@ class DenseBlock(nn.Module):
         return x + self.layer(x)
 
     def enable_custom_kernels(self) -> None:
-        from chess_engine_4.kernels.dense import SUPPORTED_DENSE_WIDTHS
+        from chess_engine_4.kernels.capabilities import require_dense_model_shape
 
-        if self.d_model not in SUPPORTED_DENSE_WIDTHS or self.hidden_dim != 4 * self.d_model:
-            raise ValueError(
-                "the custom dense kernel requires d_model in "
-                f"{sorted(SUPPORTED_DENSE_WIDTHS)} and expansion_ratio=4"
-            )
-        if self.activation != "swiglu":
-            raise ValueError("the custom dense kernel requires activation='swiglu'")
+        require_dense_model_shape(
+            d_model=self.d_model,
+            hidden_dim=self.hidden_dim,
+            activation=self.activation,
+        )
         self._custom_kernels_enabled = True
 
 

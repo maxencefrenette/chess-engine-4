@@ -262,15 +262,17 @@ class MoeBlock(nn.Module):
         return routed.sum(dim=1), tokens_per_expert
 
     def enable_custom_kernels(self) -> None:
-        from chess_engine_4.kernels.moe import SUPPORTED_MOE_WIDTHS
+        from chess_engine_4.kernels.capabilities import require_moe_model_shape
 
         if self._custom_kernels_enabled:
             return
-        if self.d_model not in SUPPORTED_MOE_WIDTHS or self.hidden_dim != 2 * self.d_model:
-            raise ValueError(
-                "the custom MoE kernel requires d_model in "
-                f"{sorted(SUPPORTED_MOE_WIDTHS)} and expansion_ratio=2"
-            )
+        require_moe_model_shape(
+            d_model=self.d_model,
+            hidden_dim=self.hidden_dim,
+            activation="swiglu",
+            num_experts=EXPERT_COUNT,
+            num_active_experts=ACTIVE_EXPERT_COUNT,
+        )
         gate_up = self.experts[0]
         down = self.experts[2]
         self.experts = _CustomExperts(
