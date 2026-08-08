@@ -15,7 +15,6 @@ constexpr int WARPS_PER_BLOCK = 8;
 constexpr int THREADS = WARPS_PER_BLOCK * 32;
 constexpr int ACTIVATION_OUTPUT_TILE =
     MOE_COMPUTE_CAPABILITY_MAJOR >= 12 && D_MODEL >= 256 ? 64 : TILE;
-constexpr int BACKWARD_OUTPUT_TILE = TILE;
 
 using ActivationGlobal = gl<bf16, 1, 1, -1, D_MODEL>;
 using GateUpWeightGlobal = gl<bf16, 1, NUM_EXPERTS, GATE_UP_DIM, D_MODEL>;
@@ -256,7 +255,7 @@ __global__ void scale_gradient_kernel(
 __global__ void grad_hidden_kernel(const GradHiddenGlobals globals) {
     const int warp = threadIdx.x / 32;
     const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
-    const int output_tiles = HIDDEN_DIM / BACKWARD_OUTPUT_TILE;
+    const int output_tiles = HIDDEN_DIM / TILE;
     const int total_tasks = total_row_tiles * output_tiles;
 
     for (
@@ -268,8 +267,8 @@ __global__ void grad_hidden_kernel(const GradHiddenGlobals globals) {
         const int hidden_tile = task % output_tiles;
         const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
         rt_bf<TILE, TILE> grad_tile;
-        rt_bf<TILE, BACKWARD_OUTPUT_TILE, col_l> weight_tile;
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> result;
+        rt_bf<TILE, TILE, col_l> weight_tile;
+        rt_fl<TILE, TILE> result;
         warp::zero(result);
         #pragma unroll
         for (int reduction_tile = 0; reduction_tile < D_MODEL / TILE; ++reduction_tile) {
@@ -292,7 +291,7 @@ __global__ void grad_hidden_kernel(const GradHiddenGlobals globals) {
 __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
     const int warp = threadIdx.x / 32;
     const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
-    const int hidden_tiles = HIDDEN_DIM / BACKWARD_OUTPUT_TILE;
+    const int hidden_tiles = HIDDEN_DIM / TILE;
     const int total_tasks = total_row_tiles * hidden_tiles;
 
     for (
@@ -304,10 +303,10 @@ __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
         const int hidden_tile = task % hidden_tiles;
         const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
         rt_bf<TILE, TILE> input_tile;
-        rt_bf<BACKWARD_OUTPUT_TILE, TILE> weight_tile;
-        rt_bf<TILE, BACKWARD_OUTPUT_TILE> grad_hidden;
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> gate;
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> up;
+        rt_bf<TILE, TILE> weight_tile;
+        rt_bf<TILE, TILE> grad_hidden;
+        rt_fl<TILE, TILE> gate;
+        rt_fl<TILE, TILE> up;
         warp::zero(gate);
         warp::zero(up);
         #pragma unroll
@@ -325,40 +324,37 @@ __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
                 {
                     0,
                     expert,
-                    HIDDEN_DIM / BACKWARD_OUTPUT_TILE + hidden_tile,
+                    HIDDEN_DIM / TILE + hidden_tile,
                     reduction_tile
                 }
             );
             warp::mma_ABt(up, input_tile, weight_tile, up);
         }
         warp::load(grad_hidden, globals.grad_hidden, {0, 0, row_tile, hidden_tile});
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> grad_gate;
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> grad_up;
+        rt_fl<TILE, TILE> grad_gate;
+        rt_fl<TILE, TILE> grad_up;
         #pragma unroll
-        for (int column_tile = 0; column_tile < BACKWARD_OUTPUT_TILE / TILE; ++column_tile) {
-            #pragma unroll
-            for (int slot = 0; slot < rt_fl<TILE, TILE>::packed_per_tile; ++slot) {
-                const float gate_x = gate.tiles[0][column_tile].data[slot].x;
-                const float gate_y = gate.tiles[0][column_tile].data[slot].y;
-                const float up_x = up.tiles[0][column_tile].data[slot].x;
-                const float up_y = up.tiles[0][column_tile].data[slot].y;
-                const float grad_x = __bfloat162float(
-                    grad_hidden.tiles[0][column_tile].data[slot].x
-                );
-                const float grad_y = __bfloat162float(
-                    grad_hidden.tiles[0][column_tile].data[slot].y
-                );
-                const float sigmoid_x = 1.0f / (1.0f + __expf(-gate_x));
-                const float sigmoid_y = 1.0f / (1.0f + __expf(-gate_y));
-                grad_gate.tiles[0][column_tile].data[slot] = make_float2(
-                    grad_x * up_x * sigmoid_x * (1.0f + gate_x * (1.0f - sigmoid_x)),
-                    grad_y * up_y * sigmoid_y * (1.0f + gate_y * (1.0f - sigmoid_y))
-                );
-                grad_up.tiles[0][column_tile].data[slot] = make_float2(
-                    grad_x * gate_x * sigmoid_x,
-                    grad_y * gate_y * sigmoid_y
-                );
-            }
+        for (int slot = 0; slot < rt_fl<TILE, TILE>::packed_per_tile; ++slot) {
+            const float gate_x = gate.tiles[0][0].data[slot].x;
+            const float gate_y = gate.tiles[0][0].data[slot].y;
+            const float up_x = up.tiles[0][0].data[slot].x;
+            const float up_y = up.tiles[0][0].data[slot].y;
+            const float grad_x = __bfloat162float(
+                grad_hidden.tiles[0][0].data[slot].x
+            );
+            const float grad_y = __bfloat162float(
+                grad_hidden.tiles[0][0].data[slot].y
+            );
+            const float sigmoid_x = 1.0f / (1.0f + __expf(-gate_x));
+            const float sigmoid_y = 1.0f / (1.0f + __expf(-gate_y));
+            grad_gate.tiles[0][0].data[slot] = make_float2(
+                grad_x * up_x * sigmoid_x * (1.0f + gate_x * (1.0f - sigmoid_x)),
+                grad_y * up_y * sigmoid_y * (1.0f + gate_y * (1.0f - sigmoid_y))
+            );
+            grad_up.tiles[0][0].data[slot] = make_float2(
+                grad_x * gate_x * sigmoid_x,
+                grad_y * gate_y * sigmoid_y
+            );
         }
         warp::store(
             globals.grad_gate_up,
@@ -368,7 +364,7 @@ __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
         warp::store(
             globals.grad_gate_up,
             grad_up,
-            {0, 0, row_tile, HIDDEN_DIM / BACKWARD_OUTPUT_TILE + hidden_tile}
+            {0, 0, row_tile, HIDDEN_DIM / TILE + hidden_tile}
         );
     }
 }
@@ -376,7 +372,7 @@ __global__ void grad_gate_up_kernel(const GradGateUpGlobals globals) {
 __global__ void grad_input_kernel(const GradInputGlobals globals) {
     const int warp = threadIdx.x / 32;
     const int total_row_tiles = globals.expert_offsets[{NUM_EXPERTS}] / TILE;
-    const int output_tiles = D_MODEL / BACKWARD_OUTPUT_TILE;
+    const int output_tiles = D_MODEL / TILE;
     const int total_tasks = total_row_tiles * output_tiles;
 
     for (
@@ -388,8 +384,8 @@ __global__ void grad_input_kernel(const GradInputGlobals globals) {
         const int output_tile = task % output_tiles;
         const int expert = expert_for_row(globals.expert_offsets, row_tile * TILE);
         rt_bf<TILE, TILE> grad_tile;
-        rt_bf<TILE, BACKWARD_OUTPUT_TILE, col_l> weight_tile;
-        rt_fl<TILE, BACKWARD_OUTPUT_TILE> result;
+        rt_bf<TILE, TILE, col_l> weight_tile;
+        rt_fl<TILE, TILE> result;
         warp::zero(result);
         #pragma unroll
         for (int reduction_tile = 0; reduction_tile < GATE_UP_DIM / TILE; ++reduction_tile) {

@@ -8,11 +8,21 @@ from chess_engine_4.kernels.extension import extension
 
 EXPERT_COUNT = 64
 SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
-TOKEN_ALIGNMENT = 16
+_OP_PREFIX_BY_CAPABILITY = {
+    (8, 0): "sm80_",
+    (12, 0): "",
+}
 
 
 def _moe_op(tensor: torch.Tensor, d_model: int, suffix: str):
-    prefix = "sm80_" if torch.cuda.get_device_capability(tensor.device) == (8, 0) else ""
+    capability = torch.cuda.get_device_capability(tensor.device)
+    try:
+        prefix = _OP_PREFIX_BY_CAPABILITY[capability]
+    except KeyError as error:
+        supported = ", ".join(f"SM{major}{minor}" for major, minor in _OP_PREFIX_BY_CAPABILITY)
+        raise ValueError(
+            f"custom MoE kernels support {supported}, got SM{capability[0]}{capability[1]}"
+        ) from error
     return getattr(extension(), f"{prefix}moe_d{d_model}_{suffix}")
 
 
@@ -23,7 +33,7 @@ def moe_forward(
     route_probs: torch.Tensor,
     expert_offsets: torch.Tensor,
 ) -> torch.Tensor:
-    """Evaluate a supported sorted, padded 64-expert BF16 MLP on SM120."""
+    """Evaluate a supported sorted, padded 64-expert BF16 MLP."""
 
     rows = x.shape[0]
     d_model = _supported_width(x)
