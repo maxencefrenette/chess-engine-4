@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from typing import Any
 
 import torch
@@ -13,6 +14,16 @@ from chess_engine_4.model.config import Precision
 SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
 TK_GEMM_OUTPUT_ALIGNMENT = 256
 MXFP8_TILE_SIZE = 128
+
+
+@cache
+def _is_sm80(device_index: int) -> bool:
+    return torch.cuda.get_device_capability(device_index) == (8, 0)
+
+
+def _dense_op(tensor: torch.Tensor, name: str) -> Any:
+    prefix = "sm80_" if _is_sm80(tensor.device.index or 0) else ""
+    return getattr(extension(), f"{prefix}dense_{name}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +120,7 @@ def _bf16_gemm(left: torch.Tensor, right: torch.Tensor) -> torch.Tensor:
         dtype=torch.bfloat16,
         device=left.device,
     )
-    extension().dense_bf16_gemm(left, right, output)
+    _dense_op(left, "bf16_gemm")(left, right, output)
     return output
 
 
@@ -261,7 +272,7 @@ def _dense_backward(
         quantize_mxfp8_transpose(down_weight),
     )
     grad_gate_up = torch.empty_like(gate_up)
-    extension().dense_swiglu_backward(
+    _dense_op(grad_hidden, "swiglu_backward")(
         grad_hidden,
         gate_up,
         grad_gate_up,
@@ -287,7 +298,7 @@ def _dense_backward(
         device=x.device,
     )
     grad_norm_weight = torch.empty_like(norm_weight)
-    extension().dense_rmsnorm_backward(
+    _dense_op(x, "rmsnorm_backward")(
         x,
         norm_weight,
         grad_normalized,
@@ -315,7 +326,7 @@ def _dense_bf16_backward(
     d_model = x.shape[1]
     grad_hidden = _bf16_gemm(grad_output, down_weight.T.contiguous())
     grad_gate_up = torch.empty_like(gate_up)
-    extension().dense_swiglu_backward(grad_hidden, gate_up, grad_gate_up)
+    _dense_op(grad_hidden, "swiglu_backward")(grad_hidden, gate_up, grad_gate_up)
     grad_down_weight = torch.mm(grad_output.T, hidden)
     grad_gate_up_weight = torch.mm(grad_gate_up.T, normalized)
     grad_normalized = torch.mm(grad_gate_up, gate_up_weight)
@@ -323,7 +334,7 @@ def _dense_bf16_backward(
     grad_x = torch.empty_like(x)
     grad_norm_weight_workspace = torch.zeros(d_model, dtype=torch.float32, device=x.device)
     grad_norm_weight = torch.empty_like(norm_weight)
-    extension().dense_rmsnorm_backward(
+    _dense_op(x, "rmsnorm_backward")(
         x,
         norm_weight,
         grad_normalized,
@@ -362,13 +373,13 @@ def _dense_forward_components(
         raise ValueError(f"down_weight must have shape [{d_model}, {hidden_dim}]")
 
     normalized = torch.empty_like(x)
-    extension().dense_rmsnorm_forward(x, norm_weight, normalized, eps)
+    _dense_op(x, "rmsnorm_forward")(x, norm_weight, normalized, eps)
     if precision == "bf16":
         gate_up = _bf16_gemm(normalized, gate_up_weight)
         hidden = torch.empty(x.shape[0], hidden_dim, dtype=x.dtype, device=x.device)
-        extension().dense_swiglu_forward(gate_up, hidden)
+        _dense_op(gate_up, "swiglu_forward")(gate_up, hidden)
         projected = _bf16_gemm(hidden, down_weight)
-        extension().dense_residual_add(x, projected)
+        _dense_op(x, "residual_add")(x, projected)
         return projected, (normalized, gate_up, hidden)
     if precision != "mxfp8":
         raise ValueError(f"custom dense kernel does not support precision={precision!r}")
@@ -379,10 +390,10 @@ def _dense_forward_components(
         dtype=x.dtype,
         device=x.device,
     )
-    extension().dense_swiglu_forward(gate_up, hidden)
+    _dense_op(gate_up, "swiglu_forward")(gate_up, hidden)
     projected = mxfp8_gemm(
         quantize_mxfp8(hidden),
         quantize_mxfp8(down_weight),
     )
-    extension().dense_residual_add(x, projected)
+    _dense_op(x, "residual_add")(x, projected)
     return projected, (normalized, gate_up, hidden)

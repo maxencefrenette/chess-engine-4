@@ -95,6 +95,27 @@ def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
         validate_training_hardware(with_overrides(config, gpu="B200"))
 
 
+@pytest.mark.parametrize("config_path", ["configs/dense.py", "configs/moe64a2.py"])
+def test_a100_accepts_custom_bf16_kernels(config_path: str) -> None:
+    config = load_training_config(config_path, d_model=128)
+    config = with_overrides(
+        config,
+        gpu="A100",
+        quantization_recipe="bf16",
+        kernel_backend="custom",
+    )
+
+    validate_training_hardware(config)
+
+
+def test_a100_rejects_low_precision_recipe() -> None:
+    config = load_training_config("configs/dense.py", d_model=128)
+    config = with_overrides(config, gpu="A100", quantization_recipe="mxfp8")
+
+    with pytest.raises(ValueError, match="A100 training requires precision='bf16'"):
+        validate_training_hardware(config)
+
+
 def test_moe64a2_family_recipe_round_trips() -> None:
     config = load_training_config("configs/moe64a2.py", d_model=128)
 

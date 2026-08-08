@@ -16,6 +16,7 @@ EXPERT_COUNT = 64
 TOKEN_ALIGNMENT = 128
 CPU_CORES = 8
 GPU_DOLLARS_PER_SECOND = {
+    "A100": 0.000583,
     "B200": 0.001736,
     "RTX-PRO-6000": 0.000842,
 }
@@ -28,6 +29,11 @@ def benchmark_moe_kernels_modal() -> None:
         description="Compare an SM120 MoE kernel with TE MXFP8 on B200."
     )
     parser.add_argument("--d-model", type=int, choices=(128, 256, 512), default=128)
+    parser.add_argument(
+        "--custom-gpu",
+        choices=("A100", "RTX-PRO-6000"),
+        default="RTX-PRO-6000",
+    )
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iterations", type=int, default=100)
     parser.add_argument("--json", action="store_true")
@@ -37,8 +43,11 @@ def benchmark_moe_kernels_modal() -> None:
     if args.iterations <= 0:
         parser.error("iterations must be positive")
 
+    custom_function = custom_benchmark_function(args.custom_gpu)
     with modal.enable_output(), app.run():
-        custom_call = _benchmark_custom.spawn(args.d_model, args.warmup, args.iterations)
+        custom_call = custom_function.spawn(
+            args.custom_gpu, args.d_model, args.warmup, args.iterations
+        )
         baseline_call = _benchmark_te.spawn(args.d_model, args.warmup, args.iterations)
         custom = custom_call.get()
         baseline = baseline_call.get()
@@ -49,8 +58,12 @@ def benchmark_moe_kernels_modal() -> None:
         _print_result(result)
 
 
-@app.function(image=benchmark_image, gpu="RTX-PRO-6000", cpu=CPU_CORES, timeout=60 * 60)
-def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, Any]:
+def _benchmark_custom(
+    gpu: str,
+    d_model: int,
+    warmup: int,
+    iterations: int,
+) -> dict[str, Any]:
     import torch
     from torch.nn import functional as F
 
@@ -59,16 +72,14 @@ def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, A
     torch.manual_seed(2026)
     correctness = _make_inputs(torch, d_model, [16] * EXPERT_COUNT)
     correctness_tensors = tuple(
-        tensor.detach().clone().requires_grad_(True)
-        for tensor in correctness[:4]
+        tensor.detach().clone().requires_grad_(True) for tensor in correctness[:4]
     )
     custom_output = moe_trainable(
         *correctness_tensors,
         correctness[4],
     )
     reference_tensors = tuple(
-        tensor.detach().clone().requires_grad_(True)
-        for tensor in correctness[:4]
+        tensor.detach().clone().requires_grad_(True) for tensor in correctness[:4]
     )
     reference_output = _reference_moe(
         *reference_tensors,
@@ -88,12 +99,12 @@ def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, A
     )
     output_metrics = _output_metrics(custom_output, reference_output, F)
     gradient_metrics = _gradient_metrics(custom_gradients, reference_gradients, F)
+    if not all(tensor.isfinite().all() for tensor in (*custom_gradients, *reference_gradients)):
+        raise RuntimeError(f"custom MoE produced non-finite gradients: {gradient_metrics}")
     if output_metrics["cosine_similarity"] < 0.999:
         raise RuntimeError(f"custom MoE output cosine similarity is too low: {output_metrics}")
     if min(metric["cosine_similarity"] for metric in gradient_metrics.values()) < 0.99:
-        raise RuntimeError(
-            f"custom MoE gradient cosine similarity is too low: {gradient_metrics}"
-        )
+        raise RuntimeError(f"custom MoE gradient cosine similarity is too low: {gradient_metrics}")
 
     class CustomExperts(torch.nn.Module):
         def __init__(self, gate_up_weight: Any, down_weight: Any) -> None:
@@ -131,7 +142,7 @@ def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, A
 
     return {
         "implementation": "custom-bf16",
-        "gpu": "RTX-PRO-6000",
+        "gpu": gpu,
         "device_name": torch.cuda.get_device_name(),
         "d_model": d_model,
         "batch_size": batch_size,
@@ -147,6 +158,16 @@ def _benchmark_custom(d_model: int, warmup: int, iterations: int) -> dict[str, A
         "output_metrics": output_metrics,
         "gradient_metrics": gradient_metrics,
     }
+
+
+def custom_benchmark_function(gpu: str) -> modal.Function:
+    return app.function(
+        image=benchmark_image,
+        gpu=gpu,
+        cpu=CPU_CORES,
+        timeout=60 * 60,
+        name=f"moe_custom_benchmark_{gpu.lower().replace('-', '_')}",
+    )(_benchmark_custom)
 
 
 @app.function(image=benchmark_image, gpu="B200", cpu=CPU_CORES, timeout=60 * 60)
@@ -273,8 +294,7 @@ def _reference_moe(
         projected = functional.linear(x[start:end], gate_up[expert])
         gate, up = projected.chunk(2, dim=-1)
         outputs.append(
-            functional.linear(functional.silu(gate) * up, down[expert])
-            * probs[start:end, None]
+            functional.linear(functional.silu(gate) * up, down[expert]) * probs[start:end, None]
         )
         start = end
     return torch.cat(outputs)
@@ -366,9 +386,7 @@ def _comparison(custom: dict[str, Any], baseline: dict[str, Any]) -> dict[str, A
     for measurement in (custom, baseline):
         gpu = measurement["gpu"]
         measurement["training_ms"] = measurement["forward_ms"] + measurement["backward_ms"]
-        dollars_per_second = (
-            GPU_DOLLARS_PER_SECOND[gpu] + CPU_CORES * CPU_DOLLARS_PER_CORE_SECOND
-        )
+        dollars_per_second = GPU_DOLLARS_PER_SECOND[gpu] + CPU_CORES * CPU_DOLLARS_PER_CORE_SECOND
         measurement["dollars_per_million_batches"] = (
             measurement["training_ms"] / 1_000 * dollars_per_second * 1_000_000
         )
@@ -379,8 +397,7 @@ def _comparison(custom: dict[str, Any], baseline: dict[str, Any]) -> dict[str, A
         "backward_speedup": baseline["backward_ms"] / custom["backward_ms"],
         "training_speedup": baseline["training_ms"] / custom["training_ms"],
         "cost_efficiency_gain": (
-            baseline["dollars_per_million_batches"]
-            / custom["dollars_per_million_batches"]
+            baseline["dollars_per_million_batches"] / custom["dollars_per_million_batches"]
         ),
     }
 

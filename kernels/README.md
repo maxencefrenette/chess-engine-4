@@ -1,8 +1,8 @@
 # Native Kernels
 
-This directory contains Blackwell-only CUDA kernels used by the Python training
-package and, eventually, the lc0 inference backend. ThunderKittens is pinned as a
-git submodule under `third_party/ThunderKittens`.
+This directory contains architecture-specific CUDA kernels used by the Python
+training package and lc0 inference backend. ThunderKittens is pinned as a git
+submodule under `third_party/ThunderKittens`.
 
 Build the PyTorch adapter on a CUDA host with:
 
@@ -19,6 +19,11 @@ The custom dense operator supports d32 through d2048. d32 through d512 use TK's
 Blackwell BF16 GEMM because MXFP8 quantization overhead dominates at those
 shapes. d1024 and d2048 use TK's MXFP8 GEMM. RMSNorm and SwiGLU launches are
 specialized for every supported width.
+
+The `sm80` implementation provides portable TK warp-tiled BF16 dense and MoE
+kernels for A100 training and inference. The Python extension dispatches by CUDA
+capability, while standalone lc0 builds select architecture 80, 100a, or 120a at
+build time.
 
 The forward and backward remain a short sequence of specialized launches;
 fusing the two GEMMs into single persistent full-layer kernels is the next

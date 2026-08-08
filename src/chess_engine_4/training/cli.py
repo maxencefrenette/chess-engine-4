@@ -36,6 +36,11 @@ _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 _GPU_SPECS = {
+    "A100": {
+        "capability": (8, 0),
+        "name": "A100",
+        "tflops": {"bf16": 312.0},
+    },
     "B200": {
         "capability": (10, 0),
         "name": "B200",

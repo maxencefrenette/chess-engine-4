@@ -11,6 +11,11 @@ SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
 TOKEN_ALIGNMENT = 16
 
 
+def _moe_op(tensor: torch.Tensor, d_model: int, suffix: str):
+    prefix = "sm80_" if torch.cuda.get_device_capability(tensor.device) == (8, 0) else ""
+    return getattr(extension(), f"{prefix}moe_d{d_model}_{suffix}")
+
+
 def moe_forward(
     x: torch.Tensor,
     gate_up_weight: torch.Tensor,
@@ -24,7 +29,7 @@ def moe_forward(
     d_model = _supported_width(x)
     hidden = torch.empty(rows, 2 * d_model, dtype=torch.bfloat16, device=x.device)
     output = torch.empty(rows, d_model, dtype=torch.bfloat16, device=x.device)
-    getattr(extension(), f"moe_d{d_model}_forward")(
+    _moe_op(x, d_model, "forward")(
         x,
         gate_up_weight,
         down_weight,
@@ -69,7 +74,7 @@ class _MoeFunction(torch.autograd.Function):
         hidden = torch.empty(rows, 2 * d_model, dtype=torch.bfloat16, device=x.device)
         raw_output = torch.empty(rows, d_model, dtype=torch.bfloat16, device=x.device)
         output = torch.empty_like(raw_output)
-        getattr(extension(), f"moe_d{d_model}_training_forward")(
+        _moe_op(x, d_model, "training_forward")(
             x,
             gate_up_weight,
             down_weight,
@@ -117,7 +122,7 @@ class _MoeFunction(torch.autograd.Function):
             dtype=torch.bfloat16,
             device=x.device,
         )
-        getattr(extension(), f"moe_d{ctx.d_model}_backward")(
+        _moe_op(x, ctx.d_model, "backward")(
             x,
             gate_up_weight,
             down_weight,
@@ -147,7 +152,6 @@ def _supported_width(x: torch.Tensor) -> int:
     d_model = x.shape[1]
     if d_model not in SUPPORTED_MOE_WIDTHS:
         raise ValueError(
-            f"custom MoE kernels require d_model in {sorted(SUPPORTED_MOE_WIDTHS)}, "
-            f"got {d_model}"
+            f"custom MoE kernels require d_model in {sorted(SUPPORTED_MOE_WIDTHS)}, got {d_model}"
         )
     return d_model

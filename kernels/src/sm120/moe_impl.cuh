@@ -1,5 +1,11 @@
 namespace MOE_NAMESPACE {
 
+#ifndef MOE_COMPUTE_CAPABILITY_MAJOR
+#define MOE_COMPUTE_CAPABILITY_MAJOR 12
+#define MOE_COMPUTE_CAPABILITY_MINOR 0
+#define MOE_ARCHITECTURE_NAME "SM120"
+#endif
+
 using namespace kittens;
 
 constexpr int NUM_EXPERTS = 64;
@@ -709,8 +715,13 @@ void launch_forward(
     cudaDeviceProp properties;
     CUDACHECK(cudaGetDeviceProperties(&properties, input.get_device()));
     TORCH_CHECK(
-        properties.major == 12 && properties.minor == 0,
-        "SM120 MoE forward requires compute capability 12.0, got ",
+        properties.major == MOE_COMPUTE_CAPABILITY_MAJOR
+            && properties.minor == MOE_COMPUTE_CAPABILITY_MINOR,
+        MOE_ARCHITECTURE_NAME " MoE forward requires compute capability ",
+        MOE_COMPUTE_CAPABILITY_MAJOR,
+        ".",
+        MOE_COMPUTE_CAPABILITY_MINOR,
+        ", got ",
         properties.major,
         ".",
         properties.minor
@@ -843,8 +854,12 @@ void backward(
     cudaDeviceProp properties;
     CUDACHECK(cudaGetDeviceProperties(&properties, input.get_device()));
     TORCH_CHECK(
-        properties.major == 12 && properties.minor == 0,
-        "SM120 MoE backward requires compute capability 12.0"
+        properties.major == MOE_COMPUTE_CAPABILITY_MAJOR
+            && properties.minor == MOE_COMPUTE_CAPABILITY_MINOR,
+        MOE_ARCHITECTURE_NAME " MoE backward requires compute capability ",
+        MOE_COMPUTE_CAPABILITY_MAJOR,
+        ".",
+        MOE_COMPUTE_CAPABILITY_MINOR
     );
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const int blocks = properties.multiProcessorCount * 2;

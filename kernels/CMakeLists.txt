@@ -15,14 +15,17 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 if(CE4_BUILD_INFERENCE)
   find_package(CUDAToolkit REQUIRED)
   find_package(nlohmann_json CONFIG REQUIRED)
-  if(CE4_CUDA_ARCH STREQUAL "100a")
+  if(CE4_CUDA_ARCH STREQUAL "80")
+    set(CE4_INFERENCE_ARCH_SOURCE src/sm80/inference.cu)
+    set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM80)
+  elseif(CE4_CUDA_ARCH STREQUAL "100a")
     set(CE4_INFERENCE_ARCH_SOURCE src/sm100/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM100)
   elseif(CE4_CUDA_ARCH STREQUAL "120a")
     set(CE4_INFERENCE_ARCH_SOURCE src/sm120/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM120)
   else()
-    message(FATAL_ERROR "CE4 inference supports only CUDA architectures 100a and 120a")
+    message(FATAL_ERROR "CE4 inference supports only CUDA architectures 80, 100a, and 120a")
   endif()
   add_library(ce4_inference STATIC
     src/inference/runtime.cu
@@ -67,6 +70,10 @@ find_package(Torch REQUIRED)
 # architecture-specific ThunderKittens APIs, so each translation unit must only
 # be assembled for its own architecture.
 string(
+  REPLACE "-gencode arch=compute_80,code=sm_80" ""
+  CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
+)
+string(
   REPLACE "-gencode arch=compute_100a,code=sm_100a" ""
   CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
 )
@@ -82,6 +89,8 @@ endif()
 
 pybind11_add_module(_chess_engine_4_kernels MODULE
   src/bindings.cpp
+  src/sm80/dense.cu
+  src/sm80/moe.cu
   src/sm100/dense.cu
   src/sm120/moe.cu
 )
@@ -113,6 +122,10 @@ target_compile_options(_chess_engine_4_kernels PRIVATE
 set_source_files_properties(src/sm100/dense.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM100
   COMPILE_OPTIONS "-gencode=arch=compute_100a,code=sm_100a"
+)
+set_source_files_properties(src/sm80/dense.cu src/sm80/moe.cu PROPERTIES
+  COMPILE_DEFINITIONS KITTENS_SM80
+  COMPILE_OPTIONS "-gencode=arch=compute_80,code=sm_80"
 )
 set_source_files_properties(src/sm120/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM120

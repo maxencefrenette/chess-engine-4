@@ -95,6 +95,13 @@ def benchmark_dense_layer(
         gradient,
     )
     gradient_metrics = _gradient_metrics(custom_gradients, te_gradients, F)
+    non_finite_gradients = [
+        name
+        for name, metrics in gradient_metrics.items()
+        if not metrics["custom_finite"] or not metrics["reference_finite"]
+    ]
+    if non_finite_gradients:
+        raise RuntimeError(f"non-finite gradients for {non_finite_gradients}: {gradient_metrics}")
     gradient_cosine_similarity = min(
         metrics["cosine_similarity"] for metrics in gradient_metrics.values()
     )
@@ -126,16 +133,26 @@ def benchmark_dense_layer(
     graph_blocks["custom"].enable_custom_kernels()
     recipe = quantization_recipe(precision)
     with autocast_context(precision):
-        graphs = {
-            name: te().make_graphed_callables(
-                graph_block,
-                (graph_inputs[name],),
-                allow_unused_input=True,
-                enabled=True,
-                recipe=recipe,
-            )
-            for name, graph_block in graph_blocks.items()
-        }
+        if recipe is None:
+            graphs = {
+                name: torch.cuda.make_graphed_callables(
+                    graph_block,
+                    (graph_inputs[name],),
+                    allow_unused_input=True,
+                )
+                for name, graph_block in graph_blocks.items()
+            }
+        else:
+            graphs = {
+                name: te().make_graphed_callables(
+                    graph_block,
+                    (graph_inputs[name],),
+                    allow_unused_input=True,
+                    enabled=True,
+                    recipe=recipe,
+                )
+                for name, graph_block in graph_blocks.items()
+            }
 
     def run_custom() -> None:
         graphs["custom"](graph_inputs["custom"])
@@ -224,6 +241,10 @@ def _gradient_metrics(
                 reference.float().flatten(),
                 dim=0,
             ).item(),
+            "custom_finite": bool(custom.isfinite().all().item()),
+            "reference_finite": bool(reference.isfinite().all().item()),
+            "custom_abs_max": custom.float().abs().max().item(),
+            "reference_abs_max": reference.float().abs().max().item(),
         }
         for name, custom, reference in zip(
             ("input", "norm_weight", "gate_up_weight", "down_weight"),

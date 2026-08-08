@@ -11,7 +11,7 @@ from typing import Any
 import modal
 
 from chess_engine_4.evaluation.tournament import load_tournament_config
-from chess_engine_4.modal_eval import LC0_REMOTE_PATH, app, backendbench_function
+from chess_engine_4.modal_eval import app, backendbench_function, lc0_path_for_gpu
 
 _RESULT_ROW = re.compile(
     r"^\s*(?P<batch_size>\d+),\s*"
@@ -40,7 +40,7 @@ def benchmark_tournament_modal() -> None:
             "backend": engine.backend,
             "batch_size": tournament.policy_mode_size,
             "batches": args.batches,
-            "lc0_path": str(LC0_REMOTE_PATH),
+            "lc0_path": str(lc0_path_for_gpu(tournament.gpu)),
         }
         for engine in engines
     ]

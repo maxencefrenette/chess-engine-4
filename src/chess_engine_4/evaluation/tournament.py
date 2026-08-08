@@ -14,9 +14,9 @@ from typing import Any
 import numpy as np
 
 from chess_engine_4.modal_eval import (
-    LC0_REMOTE_PATH,
     POLICY_OPENING_BOOK_PATH,
     app,
+    lc0_path_for_gpu,
     selfplay_eval_function,
 )
 
@@ -165,7 +165,7 @@ def build_match_payloads(
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
-            "lc0_path": str(LC0_REMOTE_PATH),
+            "lc0_path": str(lc0_path_for_gpu(tournament.gpu)),
         }
         for player1, player2 in pairings
     ]

@@ -12,6 +12,8 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+import modal
+
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_kernels import SUPPORTED_WIDTHS, benchmark_dense_layer
 from chess_engine_4.modal_train import (
@@ -21,7 +23,7 @@ from chess_engine_4.modal_train import (
     base_image,
     data_volume,
 )
-from chess_engine_4.training.config import load_training_config, with_overrides
+from chess_engine_4.training.config import TRAINING_GPUS, load_training_config, with_overrides
 
 LEVELS = ("layer", "step", "production")
 benchmark_image = with_cuda_kernels(base_image)
@@ -36,6 +38,7 @@ def benchmark_training_modal() -> None:
     widths.add_argument("--d-model", type=int, choices=SUPPORTED_WIDTHS)
     widths.add_argument("--widths", type=int, nargs="+", choices=SUPPORTED_WIDTHS)
     parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--gpu", choices=TRAINING_GPUS, default="B200")
     parser.add_argument("--level", choices=("all", *LEVELS), default="all")
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--iterations", type=int, default=50)
@@ -54,14 +57,16 @@ def benchmark_training_modal() -> None:
     configs = []
     for width in selected_widths:
         config = load_training_config(args.config, d_model=width)
+        config = with_overrides(config, gpu=args.gpu, quantization_recipe="bf16")
         if args.batch_size is not None:
             config = with_overrides(config, batch_size=args.batch_size)
         configs.append(asdict(config))
 
     levels = list(LEVELS) if args.level == "all" else [args.level]
-    with app.run():
+    benchmark_function = training_benchmark_function(args.gpu)
+    with modal.enable_output(), app.run():
         results = list(
-            _benchmark_training.starmap(
+            benchmark_function.starmap(
                 (config, levels, args.warmup, args.iterations) for config in configs
             )
         )
@@ -71,13 +76,6 @@ def benchmark_training_modal() -> None:
     _print_results(results)
 
 
-@app.function(
-    image=benchmark_image,
-    gpu="B200",
-    cpu=8,
-    volumes={REMOTE_DATA_PATH: data_volume},
-    timeout=2 * 60 * 60,
-)
 def _benchmark_training(
     config_values: dict[str, Any],
     levels: list[str],
@@ -128,6 +126,17 @@ def _benchmark_training(
                 iterations=iterations,
             )
     return result
+
+
+def training_benchmark_function(gpu: str):
+    return app.function(
+        image=benchmark_image,
+        gpu=gpu,
+        cpu=8,
+        volumes={REMOTE_DATA_PATH: data_volume},
+        timeout=2 * 60 * 60,
+        name=f"training_benchmark_{gpu.lower().replace('-', '_')}",
+    )(_benchmark_training)
 
 
 class _TrainingRunner:

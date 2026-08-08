@@ -10,8 +10,8 @@ from typing import Any, Literal
 from chess_engine_4.model import KernelBackend, ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
 
-TrainingGpu = Literal["B200", "RTX-PRO-6000"]
-TRAINING_GPUS: tuple[TrainingGpu, ...] = ("B200", "RTX-PRO-6000")
+TrainingGpu = Literal["A100", "B200", "RTX-PRO-6000"]
+TRAINING_GPUS: tuple[TrainingGpu, ...] = ("A100", "B200", "RTX-PRO-6000")
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,25 +106,22 @@ def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
 
 
 def validate_training_hardware(config: TrainingConfig) -> None:
-    if config.infra.gpu == "RTX-PRO-6000" and config.model.precision != "bf16":
-        raise ValueError(
-            "RTX-PRO-6000 training requires precision='bf16'; "
-            "Transformer Engine 2.17 does not support MXFP8 or NVFP4 on SM120."
-        )
+    if config.infra.gpu in {"A100", "RTX-PRO-6000"} and config.model.precision != "bf16":
+        raise ValueError(f"{config.infra.gpu} training requires precision='bf16'.")
     if config.model.kernel_backend != "custom":
         return
-    if config.model.kind == "dense" and config.infra.gpu == "B200":
+    if config.model.kind == "dense" and config.infra.gpu in {"A100", "B200"}:
         return
     if (
         config.model.kind == "moe64a2"
         and config.model.d_model in {128, 256, 512}
         and config.model.precision == "bf16"
-        and config.infra.gpu == "RTX-PRO-6000"
+        and config.infra.gpu in {"A100", "RTX-PRO-6000"}
     ):
         return
     raise ValueError(
-        "custom kernels require either a dense model on B200 or "
-        "a supported BF16 moe64a2 model on RTX-PRO-6000"
+        "custom kernels require a supported dense model or supported BF16 moe64a2 model "
+        "on its configured GPU"
     )
 
 

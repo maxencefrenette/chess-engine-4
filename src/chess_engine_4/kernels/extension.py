@@ -16,5 +16,5 @@ def extension() -> Any:
     except (ImportError, OSError) as exc:
         raise RuntimeError(
             "The CUDA kernel extension is not built. Run `uv run build-kernels` on a "
-            f"Blackwell CUDA host. Import error: {exc}"
+            f"supported CUDA host. Import error: {exc}"
         ) from exc

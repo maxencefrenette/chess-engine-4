@@ -14,8 +14,8 @@ live together.
 - `moe64a2`: alternating dense and 64-expert layers with two active experts.
 
 Both families predict LCZero policy logits, WDL value logits, and moves left.
-Training is Blackwell-only and uses NVIDIA Transformer Engine. Training data is
-supervised LCZero t80 data stored as Parquet.
+Training is CUDA-only, with Blackwell canonical recipes and BF16 Ampere support.
+Training data is supervised LCZero t80 data stored as Parquet.
 
 ## Setup
 
@@ -87,7 +87,7 @@ automatically.
 | `uv run benchmark-training-modal` | Compare Transformer Engine and custom kernels |
 | `uv run export-model` | Export a BF16 dense checkpoint as Safetensors |
 | `uv run build-lc0` | Build the vendored lc0 fork and custom backend |
-| `uv run benchmark-lc0-modal` | Benchmark the custom lc0 backend on RTX PRO 6000 |
+| `uv run benchmark-lc0-modal` | Benchmark the custom lc0 backend on a supported GPU |
 | `uv run benchmark-tournament-modal` | Benchmark every engine in a tournament config |
 | `uv run eval-modal` | Evaluate an exported net with lc0 and fastchess |
 | `uv run eval-tournament-modal` | Run an adaptive, resumable Elo tournament |

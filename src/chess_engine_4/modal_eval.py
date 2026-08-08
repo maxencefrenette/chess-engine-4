@@ -30,7 +30,8 @@ FASTCHESS_URL = (
     f"https://github.com/Disservin/fastchess/releases/download/v{FASTCHESS_VERSION}/"
     "fastchess-linux-x86-64.tar"
 )
-LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0"
+LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm120"
+LC0_SM80_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm80"
 RUNTIME_LIBRARY_PATH = "/usr/local/cuda/lib64"
 
 app = modal.App(APP_NAME)
@@ -57,55 +58,64 @@ image = (
     .env({"LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH})
 )
 
-lc0_builder_image = (
-    modal.Image.from_registry(
-        "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04",
-        add_python="3.12",
+
+def _lc0_builder_image(cuda_arch: str) -> modal.Image:
+    return (
+        modal.Image.from_registry(
+            "nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04",
+            add_python="3.12",
+        )
+        .apt_install(
+            "ca-certificates",
+            "cmake",
+            "curl",
+            "g++",
+            "git",
+            "libopenblas-dev",
+            "libprotobuf-dev",
+            "nlohmann-json3-dev",
+            "meson",
+            "ninja-build",
+            "pkg-config",
+            "protobuf-compiler",
+            "zlib1g-dev",
+        )
+        .add_local_dir("kernels", remote_path="/root/kernels", copy=True)
+        .add_local_dir(
+            "third_party/ThunderKittens",
+            remote_path="/root/third_party/ThunderKittens",
+            copy=True,
+        )
+        .add_local_dir("third_party/lc0", remote_path="/root/third_party/lc0", copy=True)
+        .add_local_file("pyproject.toml", remote_path="/root/pyproject.toml", copy=True)
+        .add_local_file(
+            "src/chess_engine_4/build_lc0.py",
+            remote_path="/root/src/chess_engine_4/build_lc0.py",
+            copy=True,
+        )
+        .run_commands(
+            f"cd /root && python3 /root/src/chess_engine_4/build_lc0.py --cuda-arch {cuda_arch}",
+            "install -m 755 /root/third_party/lc0/build/release/lc0 /usr/local/bin/lc0",
+        )
+        .env({"LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH})
     )
-    .apt_install(
-        "ca-certificates",
-        "cmake",
-        "curl",
-        "g++",
-        "git",
-        "libopenblas-dev",
-        "libprotobuf-dev",
-        "nlohmann-json3-dev",
-        "meson",
-        "ninja-build",
-        "pkg-config",
-        "protobuf-compiler",
-        "zlib1g-dev",
-    )
-    .add_local_dir("kernels", remote_path="/root/kernels", copy=True)
-    .add_local_dir(
-        "third_party/ThunderKittens",
-        remote_path="/root/third_party/ThunderKittens",
-        copy=True,
-    )
-    .add_local_dir("third_party/lc0", remote_path="/root/third_party/lc0", copy=True)
-    .add_local_file("pyproject.toml", remote_path="/root/pyproject.toml", copy=True)
-    .add_local_file(
-        "src/chess_engine_4/build_lc0.py",
-        remote_path="/root/src/chess_engine_4/build_lc0.py",
-        copy=True,
-    )
-    .run_commands(
-        "cd /root && python3 /root/src/chess_engine_4/build_lc0.py",
-        "install -m 755 /root/third_party/lc0/build/release/lc0 /usr/local/bin/lc0",
-    )
-    .env({"LD_LIBRARY_PATH": RUNTIME_LIBRARY_PATH})
-)
+
+
+lc0_builder_image = _lc0_builder_image("120a")
+lc0_sm80_builder_image = _lc0_builder_image("80")
 
 
 def prepare_lc0_modal() -> None:
     parser = argparse.ArgumentParser(
         description="Build lc0 once on Modal and cache the Linux binary in the artifacts Volume."
     )
-    parser.parse_args()
+    parser.add_argument("--gpu", choices=("A100", "RTX-PRO-6000"), default="RTX-PRO-6000")
+    args = parser.parse_args()
+    prepare_function = _prepare_lc0_sm80_remote if args.gpu == "A100" else _prepare_lc0_remote
+    output = LC0_SM80_REMOTE_PATH if args.gpu == "A100" else LC0_REMOTE_PATH
 
     with modal.enable_output(), app.run():
-        result = _prepare_lc0_remote.remote(str(LC0_REMOTE_PATH))
+        result = prepare_function.remote(str(output))
     print(f"lc0_path={result['lc0_path']}")
 
 
@@ -116,6 +126,7 @@ def benchmark_lc0_modal() -> None:
     parser.add_argument("model", type=Path)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--batches", type=int, default=100)
+    parser.add_argument("--gpu", choices=("A100", "RTX-PRO-6000"), default="RTX-PRO-6000")
     args = parser.parse_args()
     if not args.model.exists():
         raise FileNotFoundError(args.model)
@@ -128,10 +139,11 @@ def benchmark_lc0_modal() -> None:
         "model": str(remote_model),
         "batch_size": args.batch_size,
         "batches": args.batches,
-        "lc0_path": str(LC0_REMOTE_PATH),
+        "lc0_path": str(lc0_path_for_gpu(args.gpu)),
     }
+    benchmark_function = backendbench_function(args.gpu, max_containers=1)
     with modal.enable_output(), app.run():
-        result = _benchmark_lc0.remote(payload)
+        result = benchmark_function.remote(payload)
     print(result)
 
 
@@ -148,6 +160,11 @@ def eval_modal() -> None:
     parser.add_argument("--baseline-nodes", type=int, default=None)
     parser.add_argument("--startup-ms", type=int, default=120_000)
     parser.add_argument("--ping-ms", type=int, default=120_000)
+    parser.add_argument(
+        "--gpu",
+        choices=("A100", "RTX-PRO-6000"),
+        default="RTX-PRO-6000",
+    )
     parser.add_argument("--candidate-name", default="candidate")
     parser.add_argument("--baseline-name", default="BT4-1740")
     parser.add_argument(
@@ -191,11 +208,12 @@ def eval_modal() -> None:
         "baseline_name": args.baseline_name,
         "baseline_weights": args.baseline_weights,
         "baseline_url": args.baseline_url,
-        "lc0_path": str(LC0_REMOTE_PATH),
+        "lc0_path": str(lc0_path_for_gpu(args.gpu)),
     }
 
+    eval_function = fastchess_eval_function(args.gpu)
     with app.run():
-        result = _eval.remote(payload)
+        result = eval_function.remote(payload)
     print(result["stdout"])
     print(f"pgn_path={result['pgn_path']}")
     print(f"log_path={result['log_path']}")
@@ -210,13 +228,13 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
-    parser.add_argument("--gpu", choices=("RTX-PRO-6000",), default="RTX-PRO-6000")
     parser.add_argument(
-        "--player1-backend", choices=("ce4", "cudnn-fp16"), default="ce4"
+        "--gpu",
+        choices=("A100", "RTX-PRO-6000"),
+        default="RTX-PRO-6000",
     )
-    parser.add_argument(
-        "--player2-backend", choices=("ce4", "cudnn-fp16"), default="cudnn-fp16"
-    )
+    parser.add_argument("--player1-backend", choices=("ce4", "cudnn-fp16"), default="ce4")
+    parser.add_argument("--player2-backend", choices=("ce4", "cudnn-fp16"), default="cudnn-fp16")
     args = parser.parse_args()
     if args.games <= 0 or args.games % 2:
         parser.error("--games must be a positive even number.")
@@ -235,7 +253,7 @@ def eval_selfplay_modal() -> None:
             "weights": args.player2_weights,
             "backend": args.player2_backend,
         },
-        "lc0_path": str(LC0_REMOTE_PATH),
+        "lc0_path": str(lc0_path_for_gpu(args.gpu)),
     }
     eval_function = selfplay_eval_function(args.gpu)
     with app.run():
@@ -424,6 +442,20 @@ def _prepare_lc0_remote(output: str) -> dict[str, str]:
 
 
 @app.function(
+    image=lc0_sm80_builder_image,
+    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+    timeout=3 * 60 * 60,
+)
+def _prepare_lc0_sm80_remote(output: str) -> dict[str, str]:
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2("/usr/local/bin/lc0", output_path)
+    output_path.chmod(0o755)
+    artifact_volume.commit()
+    return {"lc0_path": str(output_path)}
+
+
+@app.function(
     image=image,
     gpu="RTX-PRO-6000",
     volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
@@ -482,6 +514,10 @@ def backendbench_function(gpu: str, *, max_containers: int) -> modal.Function:
         max_containers=max_containers,
         name=f"backendbench_{gpu.lower()}",
     )(_run_backendbench_remote)
+
+
+def lc0_path_for_gpu(gpu: str) -> Path:
+    return LC0_SM80_REMOTE_PATH if gpu == "A100" else LC0_REMOTE_PATH
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
@@ -543,14 +579,14 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
     return f"tc={payload['tc']}"
 
 
-@app.function(
-    image=image,
-    gpu="RTX-PRO-6000",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=24 * 60 * 60,
-)
-def _eval(payload: dict[str, Any]) -> dict[str, str]:
-    return _run_eval_remote(payload)
+def fastchess_eval_function(gpu: str) -> modal.Function:
+    return app.function(
+        image=image,
+        gpu=gpu,
+        volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+        timeout=24 * 60 * 60,
+        name=f"fastchess_eval_{gpu.lower().replace('-', '_')}",
+    )(_run_eval_remote)
 
 
 def selfplay_eval_function(gpu: str, *, max_containers: int | None = None) -> modal.Function:
