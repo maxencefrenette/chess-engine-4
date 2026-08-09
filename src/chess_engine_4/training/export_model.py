@@ -86,47 +86,17 @@ def exported_dense_model(
     if model.get("activation", "swiglu") != "swiglu":
         raise ValueError("Safetensors export currently supports only SwiGLU dense checkpoints.")
     depth = int(model["depth"])
-    d_model = int(model["d_model"])
-    policy_size = POLICY_SIZE
-    tensors = {
-        "input.weight": _bf16_tensor(state, "input.weight"),
-        "input.bias": _bf16_tensor(state, "input.bias"),
-        "final_norm.weight": _bf16_tensor(state, "norm.weight"),
-        "policy.weight": _bf16_tensor(state, "policy_head.weight"),
-        "policy.bias": _bf16_tensor(state, "policy_head.bias"),
-        "wdl.weight": _bf16_tensor(state, "wdl_head.weight"),
-        "wdl.bias": _bf16_tensor(state, "wdl_head.bias"),
-        "moves_left.weight": _bf16_tensor(state, "moves_left_head.weight"),
-        "moves_left.bias": _bf16_tensor(state, "moves_left_head.bias"),
-    }
+    tensors = _common_tensors(state)
     for layer in range(depth):
-        source = f"blocks.{layer}.layer"
-        target = f"blocks.{layer}"
-        tensors[f"{target}.norm.weight"] = _bf16_tensor(state, f"{source}.layer_norm_weight")
-        tensors[f"{target}.gate_up.weight"] = _bf16_tensor(state, f"{source}.fc1_weight")
-        tensors[f"{target}.down.weight"] = _bf16_tensor(state, f"{source}.fc2_weight")
+        tensors.update(_dense_block_tensors(state, layer))
 
-    metadata = {
-        "format": FORMAT_NAME,
-        "format_version": FORMAT_VERSION,
-        "architecture": "dense",
-        "d_model": str(d_model),
-        "depth": str(depth),
-        "expansion_ratio": str(float(model.get("expansion_ratio", 4.0))),
-        "activation": "swiglu",
-        "history_length": str(int(model.get("history_length", 8))),
-        "input_planes": str(INPUT_PLANE_COUNT),
-        "board_size": str(BOARD_SIZE),
-        "policy_size": str(policy_size),
-        "policy_storage_size": str(tensors["policy.weight"].shape[0]),
-        "wdl_size": "3",
-        "moves_left_size": "1",
-        "rms_norm_eps": str(float(model.get("rms_norm_eps", 1e-6))),
-        "input_format": "lc0-classical-112",
-        "input_normalization": "history-select-rule50-div99-v1",
-        "source_run": str(checkpoint.get("run_name", "")),
-        "source_step": str(checkpoint.get("step", "")),
-    }
+    metadata = _common_metadata(
+        checkpoint,
+        model,
+        tensors,
+        architecture="dense",
+        default_expansion_ratio=4.0,
+    )
     return tensors, metadata
 
 
@@ -140,31 +110,11 @@ def exported_moe_model(
     depth = int(model["depth"])
     d_model = int(model["d_model"])
     hidden_dim = int(d_model * float(model.get("expansion_ratio", 2.0)))
-    policy_size = POLICY_SIZE
-    tensors = {
-        "input.weight": _bf16_tensor(state, "input.weight"),
-        "input.bias": _bf16_tensor(state, "input.bias"),
-        "final_norm.weight": _bf16_tensor(state, "norm.weight"),
-        "policy.weight": _bf16_tensor(state, "policy_head.weight"),
-        "policy.bias": _bf16_tensor(state, "policy_head.bias"),
-        "wdl.weight": _bf16_tensor(state, "wdl_head.weight"),
-        "wdl.bias": _bf16_tensor(state, "wdl_head.bias"),
-        "moves_left.weight": _bf16_tensor(state, "moves_left_head.weight"),
-        "moves_left.bias": _bf16_tensor(state, "moves_left_head.bias"),
-    }
+    tensors = _common_tensors(state)
     for layer in range(depth):
         target = f"blocks.{layer}"
         if layer % 2:
-            source = f"blocks.{layer}.layer"
-            tensors[f"{target}.norm.weight"] = _bf16_tensor(
-                state, f"{source}.layer_norm_weight"
-            )
-            tensors[f"{target}.gate_up.weight"] = _bf16_tensor(
-                state, f"{source}.fc1_weight"
-            )
-            tensors[f"{target}.down.weight"] = _bf16_tensor(
-                state, f"{source}.fc2_weight"
-            )
+            tensors.update(_dense_block_tensors(state, layer))
             continue
 
         tensors[f"{target}.norm.weight"] = _bf16_tensor(
@@ -204,21 +154,70 @@ def exported_moe_model(
         if tensors[f"{target}.experts.down.weight"].shape != (64, d_model, hidden_dim):
             raise ValueError(f"MoE layer {layer} has an unexpected down shape.")
 
-    metadata = {
+    metadata = _common_metadata(
+        checkpoint,
+        model,
+        tensors,
+        architecture="moe64a2",
+        default_expansion_ratio=2.0,
+    )
+    metadata.update(
+        {
+            "num_experts": "64",
+            "num_active_experts": "2",
+            "layer_pattern": "alternating-moe-dense",
+        }
+    )
+    return tensors, metadata
+
+
+def _common_tensors(state: dict[str, Any]) -> dict[str, torch.Tensor]:
+    return {
+        "input.weight": _bf16_tensor(state, "input.weight"),
+        "input.bias": _bf16_tensor(state, "input.bias"),
+        "final_norm.weight": _bf16_tensor(state, "norm.weight"),
+        "policy.weight": _bf16_tensor(state, "policy_head.weight"),
+        "policy.bias": _bf16_tensor(state, "policy_head.bias"),
+        "wdl.weight": _bf16_tensor(state, "wdl_head.weight"),
+        "wdl.bias": _bf16_tensor(state, "wdl_head.bias"),
+        "moves_left.weight": _bf16_tensor(state, "moves_left_head.weight"),
+        "moves_left.bias": _bf16_tensor(state, "moves_left_head.bias"),
+    }
+
+
+def _dense_block_tensors(
+    state: dict[str, Any],
+    layer: int,
+) -> dict[str, torch.Tensor]:
+    source = f"blocks.{layer}.layer"
+    target = f"blocks.{layer}"
+    return {
+        f"{target}.norm.weight": _bf16_tensor(state, f"{source}.layer_norm_weight"),
+        f"{target}.gate_up.weight": _bf16_tensor(state, f"{source}.fc1_weight"),
+        f"{target}.down.weight": _bf16_tensor(state, f"{source}.fc2_weight"),
+    }
+
+
+def _common_metadata(
+    checkpoint: dict[str, Any],
+    model: dict[str, Any],
+    tensors: dict[str, torch.Tensor],
+    *,
+    architecture: str,
+    default_expansion_ratio: float,
+) -> dict[str, str]:
+    return {
         "format": FORMAT_NAME,
         "format_version": FORMAT_VERSION,
-        "architecture": "moe64a2",
-        "d_model": str(d_model),
-        "depth": str(depth),
-        "expansion_ratio": str(float(model.get("expansion_ratio", 2.0))),
-        "num_experts": "64",
-        "num_active_experts": "2",
-        "layer_pattern": "alternating-moe-dense",
+        "architecture": architecture,
+        "d_model": str(int(model["d_model"])),
+        "depth": str(int(model["depth"])),
+        "expansion_ratio": str(float(model.get("expansion_ratio", default_expansion_ratio))),
         "activation": "swiglu",
         "history_length": str(int(model.get("history_length", 8))),
         "input_planes": str(INPUT_PLANE_COUNT),
         "board_size": str(BOARD_SIZE),
-        "policy_size": str(policy_size),
+        "policy_size": str(POLICY_SIZE),
         "policy_storage_size": str(tensors["policy.weight"].shape[0]),
         "wdl_size": "3",
         "moves_left_size": "1",
@@ -228,7 +227,6 @@ def exported_moe_model(
         "source_run": str(checkpoint.get("run_name", "")),
         "source_step": str(checkpoint.get("step", "")),
     }
-    return tensors, metadata
 
 
 def _model_and_state(
