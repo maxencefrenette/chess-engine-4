@@ -11,9 +11,6 @@
 #ifndef CE4_DENSE_NAMESPACE
 #define CE4_DENSE_NAMESPACE chess_engine_4::sm80::dense
 #endif
-#ifndef CE4_DENSE_GEMM_NAMESPACE
-#define CE4_DENSE_GEMM_NAMESPACE chess_engine_4::sm80
-#endif
 #ifndef CE4_DENSE_COMPUTE_CAPABILITY_MAJOR
 #define CE4_DENSE_COMPUTE_CAPABILITY_MAJOR 8
 #endif

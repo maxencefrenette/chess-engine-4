@@ -37,11 +37,6 @@ def benchmark_moe_kernels_modal() -> None:
     )
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iterations", type=int, default=100)
-    parser.add_argument(
-        "--custom-only",
-        action="store_true",
-        help="Run the custom correctness/latency job without a separate baseline GPU.",
-    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     if args.warmup < 0:
@@ -51,22 +46,14 @@ def benchmark_moe_kernels_modal() -> None:
 
     custom_function = custom_benchmark_function(args.custom_gpu)
     with modal.enable_output(), app.run():
-        if args.custom_only:
-            result = custom_function.remote(
-                args.custom_gpu,
-                args.d_model,
-                args.warmup,
-                args.iterations,
-            )
-        else:
-            custom_call = custom_function.spawn(
-                args.custom_gpu, args.d_model, args.warmup, args.iterations
-            )
-            baseline_call = _benchmark_te.spawn(args.d_model, args.warmup, args.iterations)
-            custom = custom_call.get()
-            baseline = baseline_call.get()
-            result = _comparison(custom, baseline)
-    if args.json or args.custom_only:
+        custom_call = custom_function.spawn(
+            args.custom_gpu, args.d_model, args.warmup, args.iterations
+        )
+        baseline_call = _benchmark_te.spawn(args.d_model, args.warmup, args.iterations)
+        custom = custom_call.get()
+        baseline = baseline_call.get()
+    result = _comparison(custom, baseline)
+    if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
         _print_result(result)

@@ -150,7 +150,6 @@ def benchmark_lc0_modal() -> None:
         "model": str(remote_model),
         "batch_size": args.batch_size,
         "batches": args.batches,
-        "gpu": args.gpu,
         "lc0_path": str(lc0_path_for_gpu(args.gpu)),
     }
     benchmark_function = backendbench_function(args.gpu, max_containers=1)
@@ -553,8 +552,6 @@ def _benchmark_lc0(payload: dict[str, Any]) -> str:
 
 
 def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
-    from chess_engine_4.hardware import gpu_spec
-
     _require_lc0(payload)
     batch_size = int(payload["batch_size"])
     weights = payload.get("weights", payload.get("model"))
@@ -586,24 +583,10 @@ def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
             "lc0 backendbench failed with exit code "
             f"{completed.returncode}\ncommand={' '.join(command)}\n{completed.stdout}"
         )
-    device_name = subprocess.run(
-        ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.strip().splitlines()[0]
-    configured_gpu = payload.get("gpu")
-    if configured_gpu is not None:
-        expected_name = gpu_spec(configured_gpu).device_name
-        if expected_name not in device_name:
-            raise RuntimeError(
-                f"configured gpu={configured_gpu!r}, but Modal provided {device_name!r}"
-            )
     return {
         "name": payload.get("name", Path(weights).stem),
         "weights": weights,
         "backend": payload.get("backend", "ce4"),
-        "device_name": device_name,
         "output": completed.stdout,
     }
 
