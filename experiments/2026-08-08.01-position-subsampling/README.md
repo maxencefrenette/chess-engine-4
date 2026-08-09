@@ -2,10 +2,10 @@
 
 ## Status
 
-Blocked pending authorization to replace three aborted runs. The exact startup snapshot and
-prelaunch plan are recorded below, followed by the live-throughput evidence that invalidated its
-cost bound. No run completed, no checkpoint was exported, and no tournament, sampling-rule
-promotion, or canonical data mutation has been performed by this task.
+Ready for authorization of three replacement runs. The exact startup snapshot, initial aborted-run
+evidence, and successful eight-thread throughput probe are recorded below. No treatment run has
+completed, no candidate checkpoint was exported, and no tournament, sampling-rule promotion, or
+canonical data mutation has been performed by this task.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
@@ -68,8 +68,11 @@ The footer and deterministic-hash audit produced:
 | 0.25 | 1,018,779,501 | 1,003,094,016 |
 
 The cost planner selected canonical `moe64a2 d512` in this sample range with 94% selection across
-100 bootstrap fits. To leave a conservative one-thread, quarter-rate loader margin below `$1.50`,
-all treatments use 15,000 steps rather than exhausting the 15,306 usable quarter-rate batches.
+100 bootstrap fits. All treatments use the same 15,000 optimizer steps and therefore exactly the
+same 983,040,000 accepted training samples. Retention only changes the number of underlying rows
+that the loader scans to assemble each accepted batch: approximately 983,040,000 / 1,966,080,000 /
+3,932,160,000 source rows for full / half / quarter retention. It never changes the batch size,
+optimizer steps, or accepted sample allocation.
 
 | Quantity | Matched value |
 | --- | ---: |
@@ -128,15 +131,40 @@ approximately `$0.94` per arm (`$2.82` total); exact Modal billing is not availa
 result because termination prevented normal return. These are invalid partial runs and must not be
 used for the retention comparison.
 
-The faithful replacement plan uses the configured eight loader threads and reduces every arm to
-8,500 steps / 557,056,000 samples. The bound separates the measured ~40.5 ms fixed model step from
-each observed single-thread step, divides only the inferred loader overhead by eight, then restores
-the fixed model time. This projects about 45.3 / 71.1 / 91.7 ms per step for full / half / quarter,
-or `$0.71` / `$1.11` / `$1.44`. This corrected estimate still requires inspection of all three
-revised launch summaries and active monitoring; any live projection above `$1.50` must stop.
+### Eight-thread quarter-rate throughput probe
 
-The original authorization allowed exactly three bounded training runs. Because these three were
-started and then aborted, no replacement run will be launched without explicit user approval.
+The user authorized a small bounded probe before reducing experimental power. The inspected launch
+summary specified eight CPU/loader threads, prefetch depth two per worker, retention 0.25, batch
+65,536, and 500 steps / 32,768,000 accepted samples. Even at the prior one-thread throughput, its
+training cost was bounded near `$0.42`; the actual Modal app lifetime was 76 seconds, or about
+`$0.140` at the configured combined rate.
+
+```sh
+uv run train-modal --config configs/moe64a2.py --d-model 512 \
+  --training-ratio 0.04680654542731256 --steps 500 \
+  --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
+  --data-retention-rate 0.25 \
+  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
+  --no-wandb --wandb-name position-subsampling-throughput-probe-r0.25
+```
+
+Modal app `ap-z7K9StZLBrgQXtNwiMy5JU` completed all 500 steps. After warmup, most logged intervals
+sustained 1.59-1.60M accepted samples/s, matching the known eight-thread full-retention GPU-limited
+rate. A few row-group/shard transitions dipped to 1.07-1.48M, but the complete 500-step training
+window was about 21 seconds (~42 ms/step). Thus eight workers and the existing two-batch-per-worker
+prefetch keep deterministic quarter-rate filtering off the GPU critical path as far as practical;
+no loader code change or larger CPU allocation is needed.
+
+Scaling the measured ~42 ms/step window to 15,000 steps gives about 630 seconds of training. Adding
+the probe's conservative ~55 seconds of container startup and final-checkpoint overhead gives 685
+seconds and `$1.261` per treatment. Because quarter retention is the worst scanning treatment and
+it is GPU-fed, the full and half treatments should be approximately equal rather than materially
+cheaper. The revised matched-sample plan therefore restores the original 15,000 steps / 983,040,000
+accepted samples for all three arms, with an estimated cost of about `$1.26` each and roughly
+`$0.24` margin below the cap.
+
+The original authorization allowed exactly three bounded treatment runs. Because the first three
+were started and aborted, no replacement treatment will be launched without explicit user approval.
 
 ## Evaluation protocol
 
@@ -150,5 +178,5 @@ approval if it exceeds `$1`.
 ## Current recommendation
 
 Do not promote or reject a retention rate. Keep canonical configs and data unchanged and preserve
-the sampler branch unmerged. The experiment cannot continue until the user authorizes three
-replacement runs under the corrected eight-thread, 8,500-step plan.
+the sampler branch unmerged. The experiment can continue at full planned power once the user
+authorizes three eight-thread replacement runs at matched 15,000 steps / 983,040,000 samples.
