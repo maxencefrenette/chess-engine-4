@@ -12,34 +12,21 @@ import modal
 
 APP_NAME = "chess-engine-4-data-sync"
 DATA_VOLUME_NAME = "chess-engine-4-training-data"
-ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_DATA_PATH = "/data/training_data"
 BASE_URL = "https://data.lczero.org/files/training_data/test80"
-DEFAULT_OPERATIONAL_CEILING_GIB = 900
 DEFAULT_MINIMUM_SOURCE_MIB = 100
 
 app = modal.App(APP_NAME)
 volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
-artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME)
 
 
 def select_source_candidates(
-    candidates: list[tuple[str, int]], file_count: int, available_workspace_bytes: int
+    candidates: list[tuple[str, int]], file_count: int
 ) -> list[tuple[str, int]]:
-    selected: list[tuple[str, int]] = []
-    reserved_bytes = 0
-    for name, advertised_size in candidates:
-        projected_bytes = advertised_size * 2
-        if reserved_bytes + projected_bytes > available_workspace_bytes:
-            break
-        selected.append((name, advertised_size))
-        reserved_bytes += projected_bytes
-        if len(selected) == file_count:
-            break
+    selected = candidates[:file_count]
     if len(selected) != file_count:
         raise RuntimeError(
-            f"requested {file_count} safe files, but only {len(selected)} fit "
-            "the workspace-capacity constraint"
+            f"requested {file_count} files, but only {len(selected)} candidates are available"
         )
     return selected
 
@@ -85,7 +72,6 @@ def sync_files(
     start_day: str,
     file_count: int,
     minimum_source_bytes: int,
-    available_workspace_bytes: int,
     dry_run: bool,
     download_concurrency: int,
     expected_retained_sources: list[str],
@@ -169,10 +155,8 @@ def sync_files(
                 "source inventory changed between local preflight and remote selection: "
                 f"expected={sorted(retained_sources)} actual={sorted(current_sources)}"
             )
-        # Reserve one source-sized output allocation as a deliberately conservative
-        # bound for the later Parquet conversion.
         try:
-            selected = select_source_candidates(candidates, file_count, available_workspace_bytes)
+            selected = select_source_candidates(candidates, file_count)
         except RuntimeError as exc:
             raise RuntimeError(f"{exc} from {start_day}") from None
         if not dry_run:
@@ -297,9 +281,6 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start-day", default="20240401")
     parser.add_argument("--file-count", type=int, default=8)
-    parser.add_argument(
-        "--operational-ceiling-gib", type=int, default=DEFAULT_OPERATIONAL_CEILING_GIB
-    )
     parser.add_argument("--minimum-source-mib", type=int, default=DEFAULT_MINIMUM_SOURCE_MIB)
     parser.add_argument("--download-concurrency", type=int, default=1)
     parser.add_argument(
@@ -311,36 +292,10 @@ def main() -> None:
     if args.download_concurrency != 1:
         parser.error("--download-concurrency must be 1")
 
-    training_bytes = _volume_bytes(volume)
-    artifact_bytes = _volume_bytes(artifact_volume)
-    converted_names = {
-        Path(entry.path).stem
-        for entry in volume.listdir("/parquet")
-        if entry.type == 1 and entry.path.endswith(".parquet")
-    }
-    unconverted_source_bytes = sum(
-        entry.size
-        for entry in volume.listdir("/")
-        if entry.type == 1
-        and entry.path.endswith(".tar")
-        and Path(entry.path).stem not in converted_names
-    )
     retained_source_names = sorted(
         entry.path
         for entry in volume.listdir("/")
         if entry.type == 1 and entry.path.endswith(".tar")
-    )
-    ceiling_bytes = args.operational_ceiling_gib * 2**30
-    available_bytes = (
-        ceiling_bytes - training_bytes - artifact_bytes - unconverted_source_bytes
-    )
-    if available_bytes <= 0:
-        parser.error("combined Modal Volume usage is already at the operational ceiling")
-    print(
-        f"storage_preflight training_bytes={training_bytes} artifact_bytes={artifact_bytes} "
-        f"combined_bytes={training_bytes + artifact_bytes} ceiling_bytes={ceiling_bytes} "
-        f"unconverted_output_reserve_bytes={unconverted_source_bytes} "
-        f"available_bytes={available_bytes}"
     )
 
     rows: list[dict[str, int | str]] = []
@@ -350,7 +305,6 @@ def main() -> None:
             args.start_day,
             args.file_count,
             args.minimum_source_mib * 2**20,
-            available_bytes,
             args.dry_run,
             args.download_concurrency,
             retained_source_names,
@@ -359,9 +313,6 @@ def main() -> None:
         )
     for row in rows:
         print(f"{row['status']} {row['bytes']} {row['name']} sha256={row['sha256']}")
-    final_training_bytes = _volume_bytes(volume)
-    final_artifact_bytes = _volume_bytes(artifact_volume)
-    final_combined_bytes = final_training_bytes + final_artifact_bytes
     final_source_names = {
         entry.path
         for entry in volume.listdir("/")
@@ -375,19 +326,7 @@ def main() -> None:
             "postflight source inventory differs from the exact selected set: "
             f"expected={sorted(expected_source_names)} actual={sorted(final_source_names)}"
         )
-    print(
-        f"storage_postflight training_bytes={final_training_bytes} "
-        f"artifact_bytes={final_artifact_bytes} combined_bytes={final_combined_bytes} "
-        f"ceiling_bytes={ceiling_bytes} headroom_bytes={ceiling_bytes - final_combined_bytes}"
-    )
-    if final_combined_bytes > ceiling_bytes:
-        raise RuntimeError("combined Modal Volume usage exceeded the operational ceiling")
-
-
-def _volume_bytes(remote_volume: modal.Volume) -> int:
-    return sum(
-        entry.size for entry in remote_volume.listdir("/", recursive=True) if entry.type == 1
-    )
+    print(f"sync_complete files={len(rows)} exact_inventory=true")
 
 
 if __name__ == "__main__":

@@ -15,14 +15,14 @@ SPEC.loader.exec_module(sync)
 def test_select_source_candidates_returns_exact_requested_prefix() -> None:
     candidates = [(f"source-{index}.tar", 100) for index in range(5)]
 
-    assert sync.select_source_candidates(candidates, 3, 600) == candidates[:3]
+    assert sync.select_source_candidates(candidates, 3) == candidates[:3]
 
 
-def test_select_source_candidates_refuses_partial_capacity_fit() -> None:
-    candidates = [(f"source-{index}.tar", 100) for index in range(5)]
+def test_select_source_candidates_refuses_short_candidate_list() -> None:
+    candidates = [(f"source-{index}.tar", 100) for index in range(2)]
 
-    with pytest.raises(RuntimeError, match="requested 3 safe files, but only 2 fit"):
-        sync.select_source_candidates(candidates, 3, 599)
+    with pytest.raises(RuntimeError, match="requested 3 files, but only 2 candidates"):
+        sync.select_source_candidates(candidates, 3)
 
 
 def test_unexpected_complete_sources_allows_only_initial_and_selected() -> None:
