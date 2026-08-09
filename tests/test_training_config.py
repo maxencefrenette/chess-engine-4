@@ -151,7 +151,7 @@ def test_rtx_pro_6000_accepts_te_nvfp4() -> None:
     assert resolve_training_kernel(config).variant == "te-nvfp4"
 
 
-def test_custom_dense_rejects_sm120_before_launch() -> None:
+def test_custom_dense_accepts_sm120_bf16() -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=128),
         gpu="RTX-PRO-6000",
@@ -159,7 +159,20 @@ def test_custom_dense_rejects_sm120_before_launch() -> None:
         kernel_backend="custom",
     )
 
-    with pytest.raises(ValueError, match="support SM80 and SM100, got SM120"):
+    validate_training_hardware(config)
+    assert resolve_training_kernel(config).variant == "dense-sm120-bf16"
+
+
+@pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
+def test_custom_dense_rejects_sm120_low_precision(precision: str) -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=128),
+        gpu="RTX-PRO-6000",
+        quantization_recipe=precision,
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="SM120 require precision='bf16'"):
         validate_training_hardware(config)
 
 
