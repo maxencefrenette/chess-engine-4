@@ -1,0 +1,2 @@
+# Preserve vendored ThunderKittens byte-for-byte; upstream whitespace is not ours to normalize.
+third_party/ThunderKittens/** -whitespace
