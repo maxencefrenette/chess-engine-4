@@ -1,4 +1,3 @@
-from chess_engine_4.modal_train import _explicit_gpu_default_backend
 from chess_engine_4.modal_training_benchmark import (
     _next_loader_batch,
     _summarize,
@@ -43,9 +42,3 @@ def test_loader_retry_only_handles_prefetch_timeout() -> None:
             return value
 
     assert _next_loader_batch(FlakyIterator()) == "batch"
-
-
-def test_explicit_hopper_gpu_uses_only_measured_custom_default() -> None:
-    assert _explicit_gpu_default_backend(gpu="H100", model_kind="moe64a2") == "custom"
-    assert _explicit_gpu_default_backend(gpu="H100", model_kind="dense") == "te"
-    assert _explicit_gpu_default_backend(gpu="H200", model_kind="moe64a2") == "te"

@@ -143,12 +143,12 @@ canonical cost decision. H100 and H200 remain separate measurements.
 - Keep Transformer Engine as the ordinary H100/H200 dense training backend.
   H100 custom dense was `0.9956x` as cost-efficient end to end despite a faster
   layer backward.
-- Use custom BF16 for moe64a2 d128 only when H100 is explicitly selected. It
-  passed numerical acceptance and was `1.3386x` as cost-efficient as TE on the
-  canonical end-to-end path.
-- Keep Transformer Engine as the default for H200 training pending a separate
-  end-to-end cost benchmark. H200 custom kernels remain available only through
-  an explicit supported custom configuration.
+- The moe64a2 d128 recipe's existing custom BF16 backend passed numerical
+  acceptance on H100 and was `1.3386x` as cost-efficient as TE there.
+- Keep GPU and kernel-backend overrides independent: `--gpu` changes only the
+  requested hardware, while the model recipe or an explicit `--kernel-backend`
+  flag owns backend selection. H200 still needs a separate end-to-end cost
+  benchmark before any recipe selection changes.
 - Do not change the canonical dense or MoE recipe GPU maps. The separate
   H100/H200 cross-GPU cost task owns any future hardware promotion.
 - Standalone lc0 SM90 inference is supported for both dense and moe64a2 exports
