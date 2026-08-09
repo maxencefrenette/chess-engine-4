@@ -84,7 +84,7 @@ string(
 
 set(THUNDERKITTENS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ThunderKittens")
 if(NOT EXISTS "${THUNDERKITTENS_ROOT}/include/kittens.cuh")
-  message(FATAL_ERROR "ThunderKittens submodule is missing; run git submodule update --init")
+  message(FATAL_ERROR "Vendored ThunderKittens source is missing from third_party/ThunderKittens")
 endif()
 
 pybind11_add_module(_chess_engine_4_kernels MODULE

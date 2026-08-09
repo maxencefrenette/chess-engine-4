@@ -1,14 +1,21 @@
 # Native Kernels
 
 This directory contains architecture-specific CUDA kernels used by the Python
-training package and lc0 inference backend. ThunderKittens is pinned as a git
-submodule under `third_party/ThunderKittens`.
+training package and lc0 inference backend. ThunderKittens is vendored as a git
+subtree under `third_party/ThunderKittens`, pinned to upstream commit
+`1c3920d993404dd49a6d4c7267ea11d583bd5c68`.
 
 Build the PyTorch adapter on a CUDA host with:
 
 ```sh
-git submodule update --init
 uv run build-kernels
+```
+
+Update the vendored source with:
+
+```sh
+git subtree pull --prefix third_party/ThunderKittens \
+  https://github.com/HazyResearch/ThunderKittens.git main --squash
 ```
 
 The CUDA implementation is kept separate from model selection. New kernels must
