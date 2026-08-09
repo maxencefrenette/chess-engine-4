@@ -204,6 +204,9 @@ void Bf16Gemm(const at::Tensor& left, const at::Tensor& right, at::Tensor& outpu
     TORCH_CHECK(left.size(0) % kGemmTile == 0 && right.size(0) % kGemmTile == 0 && left.size(1) % kGemmTile == 0, DENSE_ARCHITECTURE_NAME " TK GEMM dimensions must be divisible by 16");
     const c10::cuda::CUDAGuard guard(left.device());
     CheckDeviceCapability(left);
+#ifdef DENSE_USE_ATEN_GEMM
+    at::mm_out(output, left, right.transpose(0, 1));
+#else
     cudaDeviceProp properties;
     CUDACHECK(cudaGetDeviceProperties(&properties, left.get_device()));
     LaunchBf16Gemm(
@@ -217,6 +220,7 @@ void Bf16Gemm(const at::Tensor& left, const at::Tensor& right, at::Tensor& outpu
         Stream(left)
     );
     CUDACHECK(cudaPeekAtLastError());
+#endif
 }
 
 void RmsNormForward(const at::Tensor& input, const at::Tensor& weight, at::Tensor& output, double eps) {

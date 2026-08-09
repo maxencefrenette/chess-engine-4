@@ -128,7 +128,11 @@ set_source_files_properties(src/sm80/dense.cu src/sm80/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM80
   COMPILE_OPTIONS "-gencode=arch=compute_80,code=sm_80"
 )
-set_source_files_properties(src/sm120/dense.cu src/sm120/moe.cu PROPERTIES
+set_source_files_properties(src/sm120/dense.cu PROPERTIES
+  COMPILE_DEFINITIONS "KITTENS_SM120;DENSE_USE_ATEN_GEMM"
+  COMPILE_OPTIONS "-gencode=arch=compute_120a,code=sm_120a"
+)
+set_source_files_properties(src/sm120/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM120
   COMPILE_OPTIONS "-gencode=arch=compute_120a,code=sm_120a"
 )
