@@ -2,8 +2,8 @@ format_version = 1
 base_url = "https://data.lczero.org/files/training_data/test80"
 volume = "chess-engine-4-training-data"
 remote_manifest_prefix = "/source-manifests"
-total_sources = 17
-total_bytes = 25723576320
+total_sources = 723
+total_bytes = 836396574720
 
 [[source]]
 name = "training-run1-test80-20240428-1417.tar"
@@ -89,3 +89,3533 @@ sha256 = "1d27764cd6a6e12049fe39ecc125cd79880685b34fe0063b7b3441964c23fd06"
 name = "training-run1-test80-20240429-0717.tar"
 bytes = 1529507840
 sha256 = "8e37c2d66637f0e82a948e429657769db96ed26c8e5aa02af6ddbbc17dca7011"
+
+[[source]]
+name = "training-run1-test80-20240429-0817.tar"
+bytes = 1201336320
+sha256 = "b2a8bc65a45ea5dda24a2c20499114a847376d6bffded37cf8f4c2ba8255bb1e"
+
+[[source]]
+name = "training-run1-test80-20240429-0917.tar"
+bytes = 1190512640
+sha256 = "634d2633b61bc0a160c543f70847c72ce7283219d715bf5f3f740c1b29d3c49f"
+
+[[source]]
+name = "training-run1-test80-20240429-1017.tar"
+bytes = 1084805120
+sha256 = "2ed128b4250e7d3d8c5aee9bcbf65e1dd71e0e922dbedd20b493e022b0913312"
+
+[[source]]
+name = "training-run1-test80-20240429-1117.tar"
+bytes = 1219727360
+sha256 = "a62e21f9b247893e559d1970c76eef59ca68907ded5a6655f65e55bd88e8bac2"
+
+[[source]]
+name = "training-run1-test80-20240429-1217.tar"
+bytes = 1243473920
+sha256 = "9604484574debdb7a83c1a54b27620958d96c7e90d57b289ddf9c50149e1c916"
+
+[[source]]
+name = "training-run1-test80-20240429-1317.tar"
+bytes = 1365811200
+sha256 = "41fb7a28d93cb9ad3ad8ab56b24f96a81cf0af470379993ba598cd5fef7043e5"
+
+[[source]]
+name = "training-run1-test80-20240429-1417.tar"
+bytes = 1195089920
+sha256 = "3dd8d44f054c09a9e9d94bb4e3b8c2e18da8efdd79b1060bda37cc1b31e11aaa"
+
+[[source]]
+name = "training-run1-test80-20240429-1517.tar"
+bytes = 1208012800
+sha256 = "c48be7ce155b7c649889958ffd8c84c9d8bfe3bd17e72b277b7131f7d96f8c79"
+
+[[source]]
+name = "training-run1-test80-20240429-1617.tar"
+bytes = 1241907200
+sha256 = "af60cd3f2fd4ec295d8aad6ba1a13f9ec24cf61fee8fa9eb55f44787d27b2bd5"
+
+[[source]]
+name = "training-run1-test80-20240429-1717.tar"
+bytes = 1271715840
+sha256 = "0e747a08301b389000f6f5885f99d8696f65db37a91f428c8b235ebfeba15881"
+
+[[source]]
+name = "training-run1-test80-20240429-1817.tar"
+bytes = 1530552320
+sha256 = "7c0009623e2304c0b52dd5db49ae04a182fa16927fe1a718e3ae5c4002584887"
+
+[[source]]
+name = "training-run1-test80-20240429-1917.tar"
+bytes = 1449717760
+sha256 = "c7252ba47d5f49545f1dc77a46a1f738bd8e4ea5beae8c590a78ef29f9da4f2f"
+
+[[source]]
+name = "training-run1-test80-20240429-2017.tar"
+bytes = 1537556480
+sha256 = "399ac568e38188ed657c21de6b24c9636b171d7e3a8ca893ca77b19fc95fff59"
+
+[[source]]
+name = "training-run1-test80-20240429-2117.tar"
+bytes = 1278033920
+sha256 = "ee0a907efd386c3bf4ecc370e2312f9dfb3ef8643828c70cdf4bba740ea7f18b"
+
+[[source]]
+name = "training-run1-test80-20240429-2217.tar"
+bytes = 1530490880
+sha256 = "ccc5b197f8ec8607229f3a51b4ce418fab220ab8bba71a102599f21a24d499a1"
+
+[[source]]
+name = "training-run1-test80-20240429-2317.tar"
+bytes = 1485322240
+sha256 = "e6ff68369b6ad9840c1d4875495f96ba57cd28e99b9782fa199d7cfc44da04f9"
+
+[[source]]
+name = "training-run1-test80-20240430-0017.tar"
+bytes = 1465098240
+sha256 = "1e23b0b74fa405394a6332825266c0327a84396f52001c4d3a962f4c0349c4c7"
+
+[[source]]
+name = "training-run1-test80-20240430-0117.tar"
+bytes = 1507399680
+sha256 = "1ac3bca8508023a9b07bb0121e72cdcf9525aaa51bb730c67d6d6d532fbc0bf7"
+
+[[source]]
+name = "training-run1-test80-20240430-0217.tar"
+bytes = 1342945280
+sha256 = "6036f6b08b13e645c9ab19e00d1eaa36e43c0449fdc9d1f4f55fb605172a3d91"
+
+[[source]]
+name = "training-run1-test80-20240430-0317.tar"
+bytes = 1504327680
+sha256 = "9c4d82727e931b6fe83fb107a6a1763185bb4cea7042db6708f6e0a819904e1a"
+
+[[source]]
+name = "training-run1-test80-20240430-0417.tar"
+bytes = 1531074560
+sha256 = "731b6a27c3cf0c23f21e726b723f8cf9ee7a00fc43bdf894adfd893873db9dba"
+
+[[source]]
+name = "training-run1-test80-20240430-0517.tar"
+bytes = 1465876480
+sha256 = "2d21c7d93a36bab9e2085936e529dee7734411af486de1f42457bf77f1a55574"
+
+[[source]]
+name = "training-run1-test80-20240430-0617.tar"
+bytes = 1597009920
+sha256 = "737e8638a31d1d6e573dfe3fea909a466e3f2d0819fc6c11518196ac66af3fdd"
+
+[[source]]
+name = "training-run1-test80-20240430-0717.tar"
+bytes = 1491906560
+sha256 = "cf8d447b37c66f52a4b56adc3a92222fd6c596a720096f645e68f737e5d163b0"
+
+[[source]]
+name = "training-run1-test80-20240430-0817.tar"
+bytes = 1484544000
+sha256 = "5da72373471f0cea83a027da7beaade9d7e7eb2a2bd0785d1dfd9c37b0f6702b"
+
+[[source]]
+name = "training-run1-test80-20240430-0917.tar"
+bytes = 1518479360
+sha256 = "7d154acfef4670658305e70f7cd09f9868275692b200b3f34c9eb8ea865e3be2"
+
+[[source]]
+name = "training-run1-test80-20240430-1017.tar"
+bytes = 1502300160
+sha256 = "f431f2f48c0624b6c9c6d089f6d532f8f876e659ed8ccaf100334509307138d1"
+
+[[source]]
+name = "training-run1-test80-20240430-1117.tar"
+bytes = 1475409920
+sha256 = "093a3084d92d2d1df98e289fd4bad31271da8c544617b5d25f2223081635d5c2"
+
+[[source]]
+name = "training-run1-test80-20240430-1217.tar"
+bytes = 1497425920
+sha256 = "b3b367e9f925f369b600e8ac9d1184deac1f22017dc66212737cc326f475da93"
+
+[[source]]
+name = "training-run1-test80-20240430-1317.tar"
+bytes = 1530347520
+sha256 = "dee09a176baf53eaf22c5a9ba6dacadf5b3ddb323050a02211e832aeaaeddec7"
+
+[[source]]
+name = "training-run1-test80-20240430-1417.tar"
+bytes = 1472174080
+sha256 = "2b66d05898f88196df90bdfa4bafdcefcf6ad21e3a038ed30dc99418df23276d"
+
+[[source]]
+name = "training-run1-test80-20240430-1517.tar"
+bytes = 1512867840
+sha256 = "51c229a67420dc5bed96ef4e1f17156567657649f64437f2a0b563826295dd91"
+
+[[source]]
+name = "training-run1-test80-20240430-1617.tar"
+bytes = 1412689920
+sha256 = "b9692001c8f8d4d4d8bfa18fdecf902e42095725bf0e6a8db4b315ab807aab33"
+
+[[source]]
+name = "training-run1-test80-20240430-1717.tar"
+bytes = 1367132160
+sha256 = "ec44761bb1a6d80db0aa39d7f90132b47f8650046d0633205dc8b196933cf35c"
+
+[[source]]
+name = "training-run1-test80-20240430-1817.tar"
+bytes = 1515151360
+sha256 = "3ddb553ac76e8c986607e5b1c86171815053b7631aa70060718715e5596219ad"
+
+[[source]]
+name = "training-run1-test80-20240430-1917.tar"
+bytes = 1572935680
+sha256 = "79d6f2dcd003316aef6ba8ca38a6dea5bcbb95ba423865882a2b6abc9bf673b2"
+
+[[source]]
+name = "training-run1-test80-20240430-2017.tar"
+bytes = 1550090240
+sha256 = "7a30b11889c88a556ce593729e6458060d8f8c6e3213a583562571a5b7f6b3b3"
+
+[[source]]
+name = "training-run1-test80-20240430-2117.tar"
+bytes = 1518817280
+sha256 = "03e6630bf6ad179c74a71e5a4113426e516a7a7c0d836b47f7081b0daaf06653"
+
+[[source]]
+name = "training-run1-test80-20240430-2217.tar"
+bytes = 1307054080
+sha256 = "443983d54e675c9bb411bba28527faaaac0d88a380ff9ce87c2fbf7ff73d452c"
+
+[[source]]
+name = "training-run1-test80-20240430-2317.tar"
+bytes = 1465845760
+sha256 = "27bb1fe614399d526c021a69c804a2ff250c669ed6c60bffb18c9dc4705efeb2"
+
+[[source]]
+name = "training-run1-test80-20240501-0017.tar"
+bytes = 1518622720
+sha256 = "e13e203033d8257297e3b2a6b1ea8d795ab761b1ce6587d2f05ba61794678122"
+
+[[source]]
+name = "training-run1-test80-20240501-0117.tar"
+bytes = 1541765120
+sha256 = "7660681b2737ffe65b900ff71568677c4bc976fd8e946766b92f0fa269081a85"
+
+[[source]]
+name = "training-run1-test80-20240501-0217.tar"
+bytes = 1517660160
+sha256 = "ce335dbfce40325036e22fb72c1c5b8edbb64bd2e64cea24c64bd3072893fc04"
+
+[[source]]
+name = "training-run1-test80-20240501-0317.tar"
+bytes = 1522565120
+sha256 = "d97d7bbc07157dea9a6d865746ad27b9e208270245cba30b39ab309a621d4669"
+
+[[source]]
+name = "training-run1-test80-20240501-0417.tar"
+bytes = 1517096960
+sha256 = "6d5cfe33d9318c83ea9b73daa7308b12ac9e17bd4ac73ee1e0e66aa4790c3e98"
+
+[[source]]
+name = "training-run1-test80-20240501-0517.tar"
+bytes = 1491384320
+sha256 = "d0cd6c4c8d6113b65336da7fc8297fc732431c803ea3da5cf86523ea85467691"
+
+[[source]]
+name = "training-run1-test80-20240501-0617.tar"
+bytes = 1540485120
+sha256 = "161197d387fa43addf4165232e945160dcd1543edc9bbe486ade55fb090feb97"
+
+[[source]]
+name = "training-run1-test80-20240501-0717.tar"
+bytes = 1587159040
+sha256 = "600974cbf29a234dc01e250523fed17e85f02677114b7b042e6ba329489189b5"
+
+[[source]]
+name = "training-run1-test80-20240501-0817.tar"
+bytes = 1326489600
+sha256 = "f21dc0b1b55a92ea199d6a4c6b5c984c5c297ae68998bcdd96200ee39ef660ec"
+
+[[source]]
+name = "training-run1-test80-20240501-0917.tar"
+bytes = 1494845440
+sha256 = "773067f4a88d48ff5028c711920f79ec90ad5600e08688c7c7ff0b7b0c4ef94c"
+
+[[source]]
+name = "training-run1-test80-20240501-1017.tar"
+bytes = 1487800320
+sha256 = "320907c9088ef63f6548e37d776415e208e018ac9e75ab983002e3253d810bd6"
+
+[[source]]
+name = "training-run1-test80-20240501-1117.tar"
+bytes = 1590446080
+sha256 = "84ed25306fabe093234c6ed367235627c0729693d4789b8cde3d111b83228bc3"
+
+[[source]]
+name = "training-run1-test80-20240501-1217.tar"
+bytes = 1415864320
+sha256 = "337554e33642363c9d14d96c803454b75ef6d73364a27f80c8f22076f623d665"
+
+[[source]]
+name = "training-run1-test80-20240501-1317.tar"
+bytes = 1262366720
+sha256 = "2b59596cf6aea7865ff935379494e7dbebfb39b6ea12da661e157dac3bffa0e1"
+
+[[source]]
+name = "training-run1-test80-20240501-1417.tar"
+bytes = 1226956800
+sha256 = "3acaa04f6dd5efadedcf5ed81ec7b61b86f1754db1ee10a91df0c955a80f932f"
+
+[[source]]
+name = "training-run1-test80-20240501-1517.tar"
+bytes = 1206845440
+sha256 = "df5c663e35a3c97a396a2f890ac5c5fd395349a666f665ad62264a74bb0a1542"
+
+[[source]]
+name = "training-run1-test80-20240501-1617.tar"
+bytes = 1214760960
+sha256 = "a114abe7f10ac3ea421f89361e25753d4c49bbf81c7737979b67103e6bce4d0e"
+
+[[source]]
+name = "training-run1-test80-20240501-1717.tar"
+bytes = 1264281600
+sha256 = "e08add5d4b74c3529ca8148fe5eae43103c7118afe274ff5394e9c0ac61456b2"
+
+[[source]]
+name = "training-run1-test80-20240501-1817.tar"
+bytes = 1326673920
+sha256 = "fa22099f9abfbe700401fd22c18b993384d76109cf7009a559b61b1c8bbc61dc"
+
+[[source]]
+name = "training-run1-test80-20240501-1917.tar"
+bytes = 1023088640
+sha256 = "6be6c0fe060bf18e72232e71beca04407ec8c0c749505f4e7706fe5cba3642bb"
+
+[[source]]
+name = "training-run1-test80-20240501-2017.tar"
+bytes = 1394862080
+sha256 = "822e2771fc25825d0f872976df501273a9858d67e0921909bdd90a3d82415bab"
+
+[[source]]
+name = "training-run1-test80-20240501-2117.tar"
+bytes = 1260154880
+sha256 = "e75ddefa17fd19e7e953310abfb00528a11c870863c886756538e34dba79c850"
+
+[[source]]
+name = "training-run1-test80-20240501-2217.tar"
+bytes = 1332899840
+sha256 = "00d85e80d5fe452a61bd5806f26d996d3dbd5d19bc69b98d1b844fbd413e8834"
+
+[[source]]
+name = "training-run1-test80-20240501-2317.tar"
+bytes = 1257492480
+sha256 = "de574a4e0b5bdf93d6b507762eba6948072de82665792d01887660aafeb38d61"
+
+[[source]]
+name = "training-run1-test80-20240502-0017.tar"
+bytes = 1161789440
+sha256 = "87e8a618d431b70d8d1268277513769931a60f9387f80db248b10e4576d9d740"
+
+[[source]]
+name = "training-run1-test80-20240502-0117.tar"
+bytes = 718069760
+sha256 = "a83958a5ae5bf2e8c136859154b2e91bfebf71482366dee718e7a8aa0446bd43"
+
+[[source]]
+name = "training-run1-test80-20240502-0217.tar"
+bytes = 1294602240
+sha256 = "061ffe49876a1852aad4ba499f1eac83811b30fa675f89817373a9a2a8b011c5"
+
+[[source]]
+name = "training-run1-test80-20240502-0317.tar"
+bytes = 1110712320
+sha256 = "71126f943a03ea0dfa6a1e54dd11a4a13b48a46e4fb62b35e8ca067338afc2f3"
+
+[[source]]
+name = "training-run1-test80-20240502-0417.tar"
+bytes = 1409638400
+sha256 = "ba66997d6f0101f9870a54440dba1f106fe71bb20f5d7ca55ff5f71c884a6f89"
+
+[[source]]
+name = "training-run1-test80-20240502-0517.tar"
+bytes = 1297356800
+sha256 = "6c0d15829267b9e256e90a6a1dc61b6ebe049d56ec2f1aa6d78ee4cac55834b2"
+
+[[source]]
+name = "training-run1-test80-20240502-0617.tar"
+bytes = 1385359360
+sha256 = "21913023d090476f860915259cc906596281fc4e93c4fe5d33e4848566af50da"
+
+[[source]]
+name = "training-run1-test80-20240502-0717.tar"
+bytes = 1094952960
+sha256 = "13690be4c0fdf8d1c84aee56b1e1bab44611827ba1c673286ffa0af88411c447"
+
+[[source]]
+name = "training-run1-test80-20240502-0817.tar"
+bytes = 1428398080
+sha256 = "95e1a0c9dd3ae6527b89bf81e8f0e126c309d8f260b4565c6cf3c7b90772c680"
+
+[[source]]
+name = "training-run1-test80-20240502-0917.tar"
+bytes = 1092864000
+sha256 = "9057034479d3a21409a85db0bea071e81a99c18d78283c25016441e8d848d4bb"
+
+[[source]]
+name = "training-run1-test80-20240502-1017.tar"
+bytes = 1577646080
+sha256 = "8829228a93f87d6d9b8a0ea5132a9bef2b641c2609ae51bad04da54542b43c70"
+
+[[source]]
+name = "training-run1-test80-20240502-1117.tar"
+bytes = 1283584000
+sha256 = "d9af03eff8495aabe0dc0e808954f4895c9a877921cd27f2f22dcd0480e15e5b"
+
+[[source]]
+name = "training-run1-test80-20240502-1217.tar"
+bytes = 1271971840
+sha256 = "92a9c4c0b1c5a83942d75865f865a6ad077a190866c74b528a2865d3ae1400f2"
+
+[[source]]
+name = "training-run1-test80-20240502-1317.tar"
+bytes = 1274613760
+sha256 = "4f0ae909e4315f9a799d0260054eb0cfd60cd55edfbe977ff212ce241843972f"
+
+[[source]]
+name = "training-run1-test80-20240502-1417.tar"
+bytes = 1393387520
+sha256 = "928cabd45c10559153f8c854d2171f4f66ce44a213d6015ea54327ad428bb31d"
+
+[[source]]
+name = "training-run1-test80-20240502-1517.tar"
+bytes = 1276538880
+sha256 = "3c2d14f86dda0c6496f650257de71e0d9357f9df8f060cb3da56d0c1b54d418b"
+
+[[source]]
+name = "training-run1-test80-20240502-1617.tar"
+bytes = 1212610560
+sha256 = "25a4076b3ce375444d687c4e72dc5366948472c6f7a713d8cfd497204a448f8a"
+
+[[source]]
+name = "training-run1-test80-20240502-1717.tar"
+bytes = 1147176960
+sha256 = "9d30a47bad8e23af346223dbaeb8f3aa935a1b6c673501394f6911f119a31a16"
+
+[[source]]
+name = "training-run1-test80-20240502-1817.tar"
+bytes = 1191198720
+sha256 = "bb29f1120e28778bece152fb62dc9767b89a0133a125293edcea4a76bbbc26c1"
+
+[[source]]
+name = "training-run1-test80-20240502-1917.tar"
+bytes = 1085112320
+sha256 = "1a21c8e3a401713691d6215ac18d1acedb124b6ec315c21bad11c5d3055d18a7"
+
+[[source]]
+name = "training-run1-test80-20240502-2017.tar"
+bytes = 1204142080
+sha256 = "e5e1a64509b4c7b061f89fb39ec37937bd31beafb5071a59c035e262bad69f19"
+
+[[source]]
+name = "training-run1-test80-20240502-2117.tar"
+bytes = 1156833280
+sha256 = "3b47ef5bb95f4a3c367bbcd79684b96a0462fc4c55090a235a00ce8e0e8cea06"
+
+[[source]]
+name = "training-run1-test80-20240502-2217.tar"
+bytes = 1120716800
+sha256 = "8b08469e2cb83e1bbbf448d04a7fd69e32412a330339b936390b59507bce933d"
+
+[[source]]
+name = "training-run1-test80-20240502-2317.tar"
+bytes = 1122365440
+sha256 = "bb47f12336f613c529e2c28c4c91e81706a46ac477104ee48d5626f6a6e67a5f"
+
+[[source]]
+name = "training-run1-test80-20240503-0017.tar"
+bytes = 1264302080
+sha256 = "e5de658ea80cafa9e8bb8106307eca03d3e511f7ffe6ce6062e1679d088cf2ce"
+
+[[source]]
+name = "training-run1-test80-20240503-0117.tar"
+bytes = 1117419520
+sha256 = "06c9df270d5d33107f9ced7e61370b93818449282c4441689a33c956c4d4816c"
+
+[[source]]
+name = "training-run1-test80-20240503-0217.tar"
+bytes = 1104957440
+sha256 = "7ea01e6f776e6dea2d09af8b3eae4be234060b53ae2ad32138c4cf05acc5184d"
+
+[[source]]
+name = "training-run1-test80-20240503-0317.tar"
+bytes = 1098291200
+sha256 = "d284a1e2f3587f06089ad91b3d3f2416d681aa21f374af72a06f74c31093bf4e"
+
+[[source]]
+name = "training-run1-test80-20240503-0417.tar"
+bytes = 1109585920
+sha256 = "0a3748ee1155b0c273aa909fb7514299fcaaa53f8cc8cb01ddedfb93816948a4"
+
+[[source]]
+name = "training-run1-test80-20240503-0517.tar"
+bytes = 1296465920
+sha256 = "b34a32bf36a4dd7d9f0daab4ba8441a3e8f09cebdc8aaa8cbc400cd2c65935a4"
+
+[[source]]
+name = "training-run1-test80-20240503-0617.tar"
+bytes = 1095383040
+sha256 = "8eeaceddb0b24e6e36425c925728a935affc58b0b0e5b8fa2ce8b910093d5f6c"
+
+[[source]]
+name = "training-run1-test80-20240503-0717.tar"
+bytes = 1168066560
+sha256 = "12187fb60bcaec493e364d8ced8879ab4b25e194ee2165f2f6d003e78678f8a3"
+
+[[source]]
+name = "training-run1-test80-20240503-0817.tar"
+bytes = 907468800
+sha256 = "6588b7b774ca7217ca269dfa0f94e0a8af073305ff02edfffe7c08a84efc3627"
+
+[[source]]
+name = "training-run1-test80-20240503-0917.tar"
+bytes = 1292441600
+sha256 = "13d46a92d2dcb4c3e485a27319f10007b6c75f7b5df04611e9eba18588f12389"
+
+[[source]]
+name = "training-run1-test80-20240503-1017.tar"
+bytes = 1073735680
+sha256 = "de8ffd6b6058829b67ecbd4670d0e5732f8d7e7027bc7bc56894978d0b1acf68"
+
+[[source]]
+name = "training-run1-test80-20240503-1117.tar"
+bytes = 1131059200
+sha256 = "0b0ce36e4e2ed14335339b3a70c93265c05c437149eed0e8e14032047b7f0bd5"
+
+[[source]]
+name = "training-run1-test80-20240503-1217.tar"
+bytes = 1098055680
+sha256 = "4dbd08dbda945dc9c7ded175ab04c5e713cccf18c061503c8af87636b644ad03"
+
+[[source]]
+name = "training-run1-test80-20240503-1317.tar"
+bytes = 1093703680
+sha256 = "72a54dae9640a0b048649e40cdf05ec1f603c786f25af8358a2f1310675525e1"
+
+[[source]]
+name = "training-run1-test80-20240503-1417.tar"
+bytes = 1263042560
+sha256 = "45fbd5e45b643251eb665d9b756786f0d4469d0c50b5192cb557f0f34a29d003"
+
+[[source]]
+name = "training-run1-test80-20240503-1517.tar"
+bytes = 908093440
+sha256 = "6876f142378b93bec9735c9b857c715473e3dcdce3e1838c07c57928a4ea33c6"
+
+[[source]]
+name = "training-run1-test80-20240503-1617.tar"
+bytes = 1242603520
+sha256 = "ba634e0e93f10c5b6338a4522e81b9990656fd7565c675e0a33c0e30b3f5e3d5"
+
+[[source]]
+name = "training-run1-test80-20240503-1717.tar"
+bytes = 1142814720
+sha256 = "84e5d70afd94583dbfc8f8e857bc39e348c7106e8ba7baedf2a99060e11fccaf"
+
+[[source]]
+name = "training-run1-test80-20240503-1817.tar"
+bytes = 1297930240
+sha256 = "a0579d8e40001b4e58e3290c28757a705f3c1663bfe4e0b7bc2ad1facf65dd55"
+
+[[source]]
+name = "training-run1-test80-20240503-1917.tar"
+bytes = 1089710080
+sha256 = "5f2ac4b26eb241e2c844f3e95faacf0a7354d95d53bbadf5c542d1ff305e9222"
+
+[[source]]
+name = "training-run1-test80-20240503-2017.tar"
+bytes = 1145548800
+sha256 = "e87f9a8c02ae056125e63c94b1da3e903fc71fe8c53214c234e29d950b9afe00"
+
+[[source]]
+name = "training-run1-test80-20240503-2117.tar"
+bytes = 1088788480
+sha256 = "f9b5e138475d40d5a7187d7beb919b72265e6883e1d8e4a6acde87350987bbad"
+
+[[source]]
+name = "training-run1-test80-20240503-2217.tar"
+bytes = 1170728960
+sha256 = "6a72140cb607140dd5b00311264004ba7d16a6055d83d29a6efb743abee13034"
+
+[[source]]
+name = "training-run1-test80-20240503-2317.tar"
+bytes = 1229199360
+sha256 = "a90ae76d066d50b05793dc87a25157f516ddd0215159c33b46c70566312642e2"
+
+[[source]]
+name = "training-run1-test80-20240504-0017.tar"
+bytes = 1093908480
+sha256 = "3e6d20eaf4fa34cadf8809a3f1e411221533730427d1026a4c04d567c778a01a"
+
+[[source]]
+name = "training-run1-test80-20240504-0117.tar"
+bytes = 1147248640
+sha256 = "08f5a8eb04c037ea3b10852ec7f4e83f2ace9cbbfaa92991630c395fc8fe806e"
+
+[[source]]
+name = "training-run1-test80-20240504-0217.tar"
+bytes = 1162362880
+sha256 = "b278f36c5390f4b692d4fd089b1c7cbbab38d4156a710b10559490bc6c849064"
+
+[[source]]
+name = "training-run1-test80-20240504-0317.tar"
+bytes = 1199974400
+sha256 = "dccad32ce935fe395402ce132a3ccca2411ec7c40bf1133c1538432a8c2f7cfd"
+
+[[source]]
+name = "training-run1-test80-20240504-0417.tar"
+bytes = 1220485120
+sha256 = "5a580dafe8ffb7470344243e83fc7f2de8c1cf83bba0398da02edc5084f86607"
+
+[[source]]
+name = "training-run1-test80-20240504-0517.tar"
+bytes = 1187983360
+sha256 = "9c9602b06d7078a78235ebaaeca88939f51e6b35896086338819291e54678d7f"
+
+[[source]]
+name = "training-run1-test80-20240504-0617.tar"
+bytes = 1128765440
+sha256 = "6f2ada92edcb835cda4418d5876d0e48180289a9266410a00321ae2c9e3fe80b"
+
+[[source]]
+name = "training-run1-test80-20240504-0717.tar"
+bytes = 1127905280
+sha256 = "458db713da171a4c96dc0e6c38fa35bc86e97966bfa40aa35742cd74488128ae"
+
+[[source]]
+name = "training-run1-test80-20240504-0817.tar"
+bytes = 1142517760
+sha256 = "ea9c2ec8ba3a95e702d833d74c65068b232d4259fabc8a52891c5458b1d5c458"
+
+[[source]]
+name = "training-run1-test80-20240504-0917.tar"
+bytes = 1250754560
+sha256 = "b94b4015b7627b6b7501d53d859539317b9c220522e4dfd3424360ef04b96c96"
+
+[[source]]
+name = "training-run1-test80-20240504-1017.tar"
+bytes = 955269120
+sha256 = "c39413f5c409a639c42465da5bc136753d4906b44d1d7a34d55520325c0c3578"
+
+[[source]]
+name = "training-run1-test80-20240504-1117.tar"
+bytes = 1070213120
+sha256 = "e80a79bf4ada77da8dfcad805256183d2c7a0571e8999636dcb6397983052ec8"
+
+[[source]]
+name = "training-run1-test80-20240504-1217.tar"
+bytes = 1149696000
+sha256 = "beeb30a637e0eefc2f7ad087c9d74d3f9402834762ccbc507e8d7e61880a4267"
+
+[[source]]
+name = "training-run1-test80-20240504-1317.tar"
+bytes = 1265510400
+sha256 = "5d18af1fe1ad53339a91a48d5a97622da90364d3e59e0428a2c2536e49b8ca3e"
+
+[[source]]
+name = "training-run1-test80-20240504-1417.tar"
+bytes = 1091840000
+sha256 = "cd0f69d474782fe5dd4f4741a4fa453bbb5108789c349c9b5fb4677af860e5a5"
+
+[[source]]
+name = "training-run1-test80-20240504-1517.tar"
+bytes = 1106155520
+sha256 = "0f42f3f26293464d065582d6dd8ff14db1e60a0573a824fd150cc76b91684970"
+
+[[source]]
+name = "training-run1-test80-20240504-1617.tar"
+bytes = 941158400
+sha256 = "b8a77b510a89960ac389379f0c525ffa27e38f205d55c2ff8e19cfa77ee29e48"
+
+[[source]]
+name = "training-run1-test80-20240504-1717.tar"
+bytes = 1192919040
+sha256 = "b21697c1658353bb22a94dc6be46bab145fdb00a821d153578e55f154ee074a8"
+
+[[source]]
+name = "training-run1-test80-20240504-1817.tar"
+bytes = 1173073920
+sha256 = "59f93752280b1d4fcb678786bfb042940e702a8720470e320e3ebbdf766b6b43"
+
+[[source]]
+name = "training-run1-test80-20240504-1917.tar"
+bytes = 1128878080
+sha256 = "ba4d911c6110bc7dad4aaf1099bd3d5e7ae59c7c44bdd8a20d2f481f0448837a"
+
+[[source]]
+name = "training-run1-test80-20240504-2017.tar"
+bytes = 1125365760
+sha256 = "e75d571b78f069d67f47a53c381797c2e1213ea51971b6756f0169f6bddd8910"
+
+[[source]]
+name = "training-run1-test80-20240504-2117.tar"
+bytes = 1168168960
+sha256 = "ba3f59ffaf3723725fa0c7cd1b3baf44ba56810227293c20874252c1bc73d3d9"
+
+[[source]]
+name = "training-run1-test80-20240504-2217.tar"
+bytes = 1309020160
+sha256 = "8be70aab149e2aefd21367814fafdd48ff1745bbddaa029e035dd2988249eda1"
+
+[[source]]
+name = "training-run1-test80-20240504-2317.tar"
+bytes = 1123706880
+sha256 = "c228addcb56b2028bd470c35d75197b4c5e877604c29a50c03d9aa70446dd3a5"
+
+[[source]]
+name = "training-run1-test80-20240505-0017.tar"
+bytes = 1174927360
+sha256 = "5d0bc001ed6cd252528da7eeea59fc57e89e6c9afa51c29ee2bd2ca59cd4cc37"
+
+[[source]]
+name = "training-run1-test80-20240505-0117.tar"
+bytes = 1141534720
+sha256 = "ed61c1bef221b72ff9b41841bf481ff3f48f180082bba9bc734f8b19dfc7461b"
+
+[[source]]
+name = "training-run1-test80-20240505-0217.tar"
+bytes = 1147883520
+sha256 = "7610e0fcab66d3cd780347d2a4058f9777fdcb83d0abd78c8419940f9ad3bc08"
+
+[[source]]
+name = "training-run1-test80-20240505-0317.tar"
+bytes = 1283184640
+sha256 = "26ce4ad2e739fca372cb3a338cfd526b7e5c1967df33849f589f7ce2916075f6"
+
+[[source]]
+name = "training-run1-test80-20240505-0417.tar"
+bytes = 1183057920
+sha256 = "ea19e72f7b36f7f6d4298f80d5ebcc67f37ed8d680d4f32ed7cd123df12c30d6"
+
+[[source]]
+name = "training-run1-test80-20240505-0517.tar"
+bytes = 1004769280
+sha256 = "17d472f685e87a1bbf35b3cd00183eff568f438f5b6be781c695f82352174d43"
+
+[[source]]
+name = "training-run1-test80-20240505-0617.tar"
+bytes = 1134684160
+sha256 = "2a378f9ea4b7fdb0105e08932dc3bc36863197072e99c9f8ae3a64d30bf3069a"
+
+[[source]]
+name = "training-run1-test80-20240505-0717.tar"
+bytes = 1199042560
+sha256 = "e5bedc267dd0de25eddcecc9c10c306f536c87e20da5f8a5ff55fdb08c009b9a"
+
+[[source]]
+name = "training-run1-test80-20240505-0817.tar"
+bytes = 1282754560
+sha256 = "d91f0122f7ff21765c2d3726250dc467cc625622640f27940258a8012a6b5e3d"
+
+[[source]]
+name = "training-run1-test80-20240505-0917.tar"
+bytes = 1229230080
+sha256 = "ea368d448c11b00c6c71b3d433e6b6f6df058ec01de9fd46a298fa79ec214ff1"
+
+[[source]]
+name = "training-run1-test80-20240505-1017.tar"
+bytes = 1117122560
+sha256 = "e84a0d3068c8e904f5285751346b4effafa299b6fbc5fe0a2905c0851e8cc852"
+
+[[source]]
+name = "training-run1-test80-20240505-1117.tar"
+bytes = 1220720640
+sha256 = "dc8a7e34ab7fc5af032da67e2e79fe0532cdfd0056633e053bd71eb29c9d4f2e"
+
+[[source]]
+name = "training-run1-test80-20240505-1217.tar"
+bytes = 1183631360
+sha256 = "6e5600dcbed8db6cac61346cc22ea09400a1308e3d9a655cfc597b84cdd049b3"
+
+[[source]]
+name = "training-run1-test80-20240505-1317.tar"
+bytes = 1195141120
+sha256 = "b82e0d5cc47f491e7650ee53f19387b0092d313126d1522ebee71662f600a698"
+
+[[source]]
+name = "training-run1-test80-20240505-1417.tar"
+bytes = 1245163520
+sha256 = "b9a8b420becbb0ebf2033e0f92809381f01727e8ee279b98609f5d46915beb29"
+
+[[source]]
+name = "training-run1-test80-20240505-1517.tar"
+bytes = 1184378880
+sha256 = "12023ea5c0f8c75850fed3732b42474517852bd38062442c437db4380a7930f5"
+
+[[source]]
+name = "training-run1-test80-20240505-1617.tar"
+bytes = 1142282240
+sha256 = "5a7f2b3f11354243b473dd65f06efb7e46c8466d2c8d8e524d6cff60ae08cee9"
+
+[[source]]
+name = "training-run1-test80-20240505-1717.tar"
+bytes = 1144729600
+sha256 = "ed391b412386747a3fdaebad0e08cc10e500e57ce9177f1d41ae8cfa35caedf3"
+
+[[source]]
+name = "training-run1-test80-20240505-1817.tar"
+bytes = 1219297280
+sha256 = "f21b1b04568e236e0e675f3db60a11b7392ce5b558c97e368626359aa2ac9321"
+
+[[source]]
+name = "training-run1-test80-20240505-1917.tar"
+bytes = 1241958400
+sha256 = "92612a033d2fd9f9d9c6927677dbec9395ecc590e179976aa48083f71ba67000"
+
+[[source]]
+name = "training-run1-test80-20240505-2017.tar"
+bytes = 1216440320
+sha256 = "3efcd9ac67c44ee81120f4abce6d395141d81ef0e64c02945e346e8c9c998440"
+
+[[source]]
+name = "training-run1-test80-20240505-2117.tar"
+bytes = 1107845120
+sha256 = "209ae19e729ca82fd2aea012e632e33d7dd3a9f29d38788386ee0b84577c2da6"
+
+[[source]]
+name = "training-run1-test80-20240505-2217.tar"
+bytes = 1085429760
+sha256 = "bed949fff99061576cc9677aa5e681fbd7b777d924665fb319dcd21c1220ad88"
+
+[[source]]
+name = "training-run1-test80-20240505-2317.tar"
+bytes = 1122764800
+sha256 = "73b5b6b0ef1002107b67ece0b4d4dcd474f0a62ad22baa52bb27d97635ee3e19"
+
+[[source]]
+name = "training-run1-test80-20240506-0017.tar"
+bytes = 727777280
+sha256 = "c9f34e3d016093b8b6dbe09dea5b26f1cd69d1d343fb1ac45e18cea14590a4e9"
+
+[[source]]
+name = "training-run1-test80-20240506-0117.tar"
+bytes = 1081221120
+sha256 = "10dab590c9c1bbf72b82248db5a71d15e278cd7b7041fac1e4435ed5cf9285b8"
+
+[[source]]
+name = "training-run1-test80-20240506-0217.tar"
+bytes = 1084282880
+sha256 = "245fa09df389a64d21d79967d1c72ecdf739d5601bb03bc05b25828869f7afd9"
+
+[[source]]
+name = "training-run1-test80-20240506-0317.tar"
+bytes = 1173053440
+sha256 = "c6e193b22db0a2b21c351f8c87070322da526c1669b199177aa3ac49ba72e3a9"
+
+[[source]]
+name = "training-run1-test80-20240506-0417.tar"
+bytes = 1088624640
+sha256 = "339cca9632abe31bfe1a6252fdb4e80da42f4480b2071bdb754cd142c1fe563b"
+
+[[source]]
+name = "training-run1-test80-20240506-0517.tar"
+bytes = 1083402240
+sha256 = "1f8a9994ea9195e1adfd61b139fd64253322aa298de7eb4df813bfa8fd4df56c"
+
+[[source]]
+name = "training-run1-test80-20240506-0617.tar"
+bytes = 1198510080
+sha256 = "b72bd10d2524b21fff08f71051782a84dc14a26dbd88a38ab4b2f2fb870715c6"
+
+[[source]]
+name = "training-run1-test80-20240506-0717.tar"
+bytes = 1221765120
+sha256 = "c7245939b59468b6286fac648e0d78693ad1a1292f4a950b850e808f7fda0b5b"
+
+[[source]]
+name = "training-run1-test80-20240506-0817.tar"
+bytes = 1246955520
+sha256 = "1ce24333c4d6f255286e2b04da2535c4dc6d18bb2664b8ece2f81b90546eee11"
+
+[[source]]
+name = "training-run1-test80-20240506-0917.tar"
+bytes = 1131223040
+sha256 = "6758b1596769b06e9d78b8e72e8e905803dd62732fcb049dfe03301d9d55d3e1"
+
+[[source]]
+name = "training-run1-test80-20240506-1017.tar"
+bytes = 1132881920
+sha256 = "f5b2d8ef1e506d6fe936142f089e74fd057021055ca9f939cc6b55eb840d1721"
+
+[[source]]
+name = "training-run1-test80-20240506-1117.tar"
+bytes = 1189570560
+sha256 = "9ba6f61ce604c26bf402b3bfc7ff675d97326262c2906f0d5bd15002c8d8a189"
+
+[[source]]
+name = "training-run1-test80-20240506-1217.tar"
+bytes = 1185116160
+sha256 = "792c44a25d8d584699066f69b1bb7e0d501e0bc0885b52a535f7edd012a3a613"
+
+[[source]]
+name = "training-run1-test80-20240506-1317.tar"
+bytes = 1321656320
+sha256 = "72ec1f476ffcef902cbd8cf84e1a73dce3a2cae9fd5b25a2da7f03eb241d5d22"
+
+[[source]]
+name = "training-run1-test80-20240506-1417.tar"
+bytes = 1153986560
+sha256 = "5b76b3bdcba659ef4ce3ccf041993a0efafc821b4a583097a069f79d5f5ec612"
+
+[[source]]
+name = "training-run1-test80-20240506-1517.tar"
+bytes = 1150269440
+sha256 = "86575e6c4cbebdbede0528cf6660b8edbc165422bf3399ea595b4bdb425b3ba7"
+
+[[source]]
+name = "training-run1-test80-20240506-1617.tar"
+bytes = 1113047040
+sha256 = "3ba34fc424de7530784219672655961363d6e64c0cdb2b6b9da71532571107a2"
+
+[[source]]
+name = "training-run1-test80-20240506-1717.tar"
+bytes = 1122611200
+sha256 = "25e4a6b7dfd672de5b3a8c20d58ed114540cea8f7fafa0c06f9a62aca943d72b"
+
+[[source]]
+name = "training-run1-test80-20240506-1817.tar"
+bytes = 1301053440
+sha256 = "1ad3847d7d084236140c2130a87910ef408a92cbef832c00205ee09c1eb3e80a"
+
+[[source]]
+name = "training-run1-test80-20240506-1917.tar"
+bytes = 943390720
+sha256 = "d3c15959f1b0ae50439af8c885ed04670fade4fde6a60d73b7746f0c80366e23"
+
+[[source]]
+name = "training-run1-test80-20240506-2017.tar"
+bytes = 1116753920
+sha256 = "863b3c9a27a51aea8812f51cb377a5338014e0ff5a0c70910a915cc7b9b30374"
+
+[[source]]
+name = "training-run1-test80-20240506-2117.tar"
+bytes = 1102202880
+sha256 = "adc6e30f934ef35ce648736018d1f44cedcd196301a8ce499a55e819666a49a4"
+
+[[source]]
+name = "training-run1-test80-20240506-2217.tar"
+bytes = 1262878720
+sha256 = "2d480a326ee1ddabbebc4491f33e886bf018e622ee55a04b417ee7d735267cb5"
+
+[[source]]
+name = "training-run1-test80-20240506-2317.tar"
+bytes = 1183406080
+sha256 = "dc9903a03cc3b222d6e70abeb7076dd45a42a305639e9348e16e47159e3c1729"
+
+[[source]]
+name = "training-run1-test80-20240507-0017.tar"
+bytes = 1117501440
+sha256 = "d30878eb419d586ac1bd2548cf71709312e208f1a103cf2e2b8b130231b0bb0e"
+
+[[source]]
+name = "training-run1-test80-20240507-0117.tar"
+bytes = 1069813760
+sha256 = "a9e89a17dae9e3f49dac847718edc79771cd7b6187e78761ac0db87abd913819"
+
+[[source]]
+name = "training-run1-test80-20240507-0217.tar"
+bytes = 1146050560
+sha256 = "d80511d475e7313a3f6bc409832b6e0620f8baf1521be05a191d3a6a889646cd"
+
+[[source]]
+name = "training-run1-test80-20240507-0317.tar"
+bytes = 1285365760
+sha256 = "5ac4d06e5bc247e2d1d5c76e44720f28c117923a6f3ff8f2e351aa8dbd84d8ab"
+
+[[source]]
+name = "training-run1-test80-20240507-0417.tar"
+bytes = 1161502720
+sha256 = "dc1fee8cc224a449c92ed8260da7915177593af6133595307f3f7a6c473bd5fe"
+
+[[source]]
+name = "training-run1-test80-20240507-0517.tar"
+bytes = 1137326080
+sha256 = "3ab5a744ef0496dcfba1acb8091bff2375590f981c814938411414020a98c58e"
+
+[[source]]
+name = "training-run1-test80-20240507-0617.tar"
+bytes = 1184153600
+sha256 = "9f9eec9a2251153cbb50655e4b638dfc0a12b897ba80eca0b525fb4c3b3e4a87"
+
+[[source]]
+name = "training-run1-test80-20240507-0717.tar"
+bytes = 943994880
+sha256 = "24d8ee60610d9367e32973a33748cab1ffc24ed917c3dab9620e21ed802e5d6e"
+
+[[source]]
+name = "training-run1-test80-20240507-0817.tar"
+bytes = 1308200960
+sha256 = "f91edc339b4f109176bd87ce3edc1a8758dd7a53401b5e2442310237cbf6d477"
+
+[[source]]
+name = "training-run1-test80-20240507-0917.tar"
+bytes = 1099857920
+sha256 = "932a59600b88ed65d5fa0405037cf4c39ee564f28ff8c82b05b615560cef2ce8"
+
+[[source]]
+name = "training-run1-test80-20240507-1017.tar"
+bytes = 1124362240
+sha256 = "a50b6fc1a293ceead81cd108f2a31be73ff6cd8e1611eaca61ec69f30f7f4648"
+
+[[source]]
+name = "training-run1-test80-20240507-1117.tar"
+bytes = 1085501440
+sha256 = "fff25826aeeb65eae915a6a07be0bfd24c2eff466735129fe310d6e21c9f0418"
+
+[[source]]
+name = "training-run1-test80-20240507-1217.tar"
+bytes = 1200046080
+sha256 = "f91fda3f7ccc4896c501fadefa4ad5ebb52484bb1239aa415a328d60b56c8c52"
+
+[[source]]
+name = "training-run1-test80-20240507-1317.tar"
+bytes = 1271971840
+sha256 = "b46da27597b2a725d6017d0b98790b3e35d22299d4d9dd248fe0b6ba7b11410e"
+
+[[source]]
+name = "training-run1-test80-20240507-1417.tar"
+bytes = 986798080
+sha256 = "31745f7818d91fd403bb4411ef127844084cd844098939bc0a6484586b52afd7"
+
+[[source]]
+name = "training-run1-test80-20240507-1517.tar"
+bytes = 1158072320
+sha256 = "c4b0c5c6a58d0f09dabde01938a23478847e23280f402507b84a5df459201d85"
+
+[[source]]
+name = "training-run1-test80-20240507-1617.tar"
+bytes = 1149921280
+sha256 = "ca14433f2d802cb0e135c6d39ccb457b0e484be2de8ec92fe9908fd1ac7e4fac"
+
+[[source]]
+name = "training-run1-test80-20240507-1717.tar"
+bytes = 1185587200
+sha256 = "e233cf9933e54324a319504d91d260ec3a4971c49530bf48d69e5528eb38d1a1"
+
+[[source]]
+name = "training-run1-test80-20240507-1817.tar"
+bytes = 1168752640
+sha256 = "5f0514353e9e1b7c0b061497fa0f4c949c3d36cccad6b4d8e0748775c61803c1"
+
+[[source]]
+name = "training-run1-test80-20240507-1917.tar"
+bytes = 1057617920
+sha256 = "10ca7aff7c74e90e3a6a418cadf9c09b6a1b8ae7559ca7591c9de3afd86c7192"
+
+[[source]]
+name = "training-run1-test80-20240507-2017.tar"
+bytes = 1133291520
+sha256 = "f5d2abfad1ae5cd1932d7646084cb3e3cb4e79944e7478dc175fa6541acaeef0"
+
+[[source]]
+name = "training-run1-test80-20240507-2117.tar"
+bytes = 1110507520
+sha256 = "98593499014b87313c542433fd2ac5aa7de6b1298553b0e26fbf0ad8bbbdceba"
+
+[[source]]
+name = "training-run1-test80-20240507-2217.tar"
+bytes = 1281822720
+sha256 = "18f4baf5ecea84473288b5cf1229bef0ad1fefef6458c37492b82889c954e010"
+
+[[source]]
+name = "training-run1-test80-20240507-2317.tar"
+bytes = 1127567360
+sha256 = "53ca2bce986e5f20e8cc14d56f0df13b16fc3089a92ed06106faf97638c97646"
+
+[[source]]
+name = "training-run1-test80-20240508-0017.tar"
+bytes = 1139558400
+sha256 = "47b5b6b0be3928473ff72cd64ccf25cfac736198d683fc20a4bc959f3ca7abc7"
+
+[[source]]
+name = "training-run1-test80-20240508-0117.tar"
+bytes = 1140520960
+sha256 = "909be4007c2dfb1525923a59af10a3cf0b16119b3d28d73d1fca6f5323f8324d"
+
+[[source]]
+name = "training-run1-test80-20240508-0217.tar"
+bytes = 1124945920
+sha256 = "729542b2c127c2eb675b0b2107ade5c73063c4e5866cd1d13243e8831d859d70"
+
+[[source]]
+name = "training-run1-test80-20240508-0317.tar"
+bytes = 1262786560
+sha256 = "b938608712400b8fd1cab3c9c0edf7d98d7d151c616eee808c4327c8064931c7"
+
+[[source]]
+name = "training-run1-test80-20240508-0417.tar"
+bytes = 1094225920
+sha256 = "9ac36193b795e8a985e7afd8d4b751f3e6a0d36b995a1652ce9bd49ebf469d98"
+
+[[source]]
+name = "training-run1-test80-20240508-0517.tar"
+bytes = 1088501760
+sha256 = "22285f6c7f0051a989172c747103545e6cd0399cb253a2a99a3f7c1fccd786b7"
+
+[[source]]
+name = "training-run1-test80-20240508-0617.tar"
+bytes = 1140920320
+sha256 = "42f7f5406f13e02d42fe85605fc580ade6a15ad37af0cc5fc5c9c306de57bcf1"
+
+[[source]]
+name = "training-run1-test80-20240508-0717.tar"
+bytes = 1161390080
+sha256 = "51ebbe7072415c8ed3026463258387976aa8aa348dacf67cf881463421fbc56c"
+
+[[source]]
+name = "training-run1-test80-20240508-0817.tar"
+bytes = 1252556800
+sha256 = "f66932d3d73bd54e1fa446f83c3ff62e4c2ea18cdcee7a188f1434ba8a4c897c"
+
+[[source]]
+name = "training-run1-test80-20240508-0917.tar"
+bytes = 959016960
+sha256 = "72d884be61595c9f6eb4053c7a018c28b9d4c56f360693937393da4a6e1044a3"
+
+[[source]]
+name = "training-run1-test80-20240508-1017.tar"
+bytes = 1133824000
+sha256 = "c26f2892316d07984085760490ee112d726f977f3285134543cbf6629965b693"
+
+[[source]]
+name = "training-run1-test80-20240508-1117.tar"
+bytes = 1158799360
+sha256 = "80e511b631fbce268ca568e2a3401c290c97cf7fb2e49ea0d53515a63b9fa798"
+
+[[source]]
+name = "training-run1-test80-20240508-1217.tar"
+bytes = 1311631360
+sha256 = "5c976ab5cfc7d331c4113b4bbd2a6f935023dc415cc550b71d63c055606d51e9"
+
+[[source]]
+name = "training-run1-test80-20240508-1317.tar"
+bytes = 1083504640
+sha256 = "f76c205aa0e618f45c1d28c7427c90147c4a7fc718d5f8bb8b93235a4bd6b951"
+
+[[source]]
+name = "training-run1-test80-20240508-1417.tar"
+bytes = 1206190080
+sha256 = "e9be9acf2eec66a877733728531fd5392dba9cf402030bf62999a679d9b102f3"
+
+[[source]]
+name = "training-run1-test80-20240508-1517.tar"
+bytes = 956590080
+sha256 = "3dca40c8b47c5bd517744a3a69551f75e4d0032491833ec7c145c98d7856a721"
+
+[[source]]
+name = "training-run1-test80-20240508-1617.tar"
+bytes = 1248890880
+sha256 = "7ce2856ca8b28222193fa3e63a927af15dcd3d40abfe3955ec9d6a21778b1ffb"
+
+[[source]]
+name = "training-run1-test80-20240508-1717.tar"
+bytes = 1166909440
+sha256 = "28bef3531019468f82e55ca9519bd49f3f6d587836fbf7517f94a0659995609b"
+
+[[source]]
+name = "training-run1-test80-20240508-1817.tar"
+bytes = 1132011520
+sha256 = "f1f68207177def277b9f83af59f0e5604d7fb702096b140c501528ef3fc50019"
+
+[[source]]
+name = "training-run1-test80-20240508-1917.tar"
+bytes = 1127516160
+sha256 = "1b1cc13d7a06565c2743664f5904eb12ffe0e6be3d533db90563f8d0836c7343"
+
+[[source]]
+name = "training-run1-test80-20240508-2017.tar"
+bytes = 1138227200
+sha256 = "4829deffe535c299d845a6dadb165507b1d0161d1a2924f797ca5c027cc0999e"
+
+[[source]]
+name = "training-run1-test80-20240508-2117.tar"
+bytes = 1224192000
+sha256 = "9a4e98c6628074d14c2826334f0f26697cecd8a2c3a6cbb9f30ad74d53192107"
+
+[[source]]
+name = "training-run1-test80-20240508-2217.tar"
+bytes = 1165168640
+sha256 = "5b076a32104a6c7718cac8fd6c091e17c0f3867a1ac971ecbe976d5c2ce80770"
+
+[[source]]
+name = "training-run1-test80-20240508-2317.tar"
+bytes = 1114890240
+sha256 = "e5d4d0040b5ba348358033442420157b0bb7c1dd38321bc666229f7ee07894f2"
+
+[[source]]
+name = "training-run1-test80-20240509-0017.tar"
+bytes = 1137367040
+sha256 = "5b32c51ddc31d94d9ab078d1f6799fba826d273674fc658b8c2a361df1610cc6"
+
+[[source]]
+name = "training-run1-test80-20240509-0117.tar"
+bytes = 1110282240
+sha256 = "73a4d26856f1501e226d87e556bcab02555ee3f3ec12837599cde330ce344852"
+
+[[source]]
+name = "training-run1-test80-20240509-0217.tar"
+bytes = 1222338560
+sha256 = "e1e0506af505aae15144ce0e18baf1ebaa3a0c3a698e4e581564e7c0daaadc71"
+
+[[source]]
+name = "training-run1-test80-20240509-0317.tar"
+bytes = 1109288960
+sha256 = "58ad4aba483be5079cee56af6f709091d0ccc42ed40ee497d36bf253c3112ee0"
+
+[[source]]
+name = "training-run1-test80-20240509-0417.tar"
+bytes = 913868800
+sha256 = "5263d9a8ece949cb1a7a64f9c83d2f46f9ceb240c40c229c0b583c315cc3eaa4"
+
+[[source]]
+name = "training-run1-test80-20240509-0517.tar"
+bytes = 1114388480
+sha256 = "2fdd130d6a0ee82db8b8cb0ea91f3baec76a3a6269f3eb3e6996c637ee94d507"
+
+[[source]]
+name = "training-run1-test80-20240509-0617.tar"
+bytes = 1265694720
+sha256 = "1f17fb4e2d97d385d6e264ad3ad603fb827de291faf93b85f2a03dbac5e9560a"
+
+[[source]]
+name = "training-run1-test80-20240509-0717.tar"
+bytes = 1095229440
+sha256 = "65b658e224fcaaaddac4c943a42f3873e38dbdaff76ade93ae5ddaff64add872"
+
+[[source]]
+name = "training-run1-test80-20240509-0817.tar"
+bytes = 1103861760
+sha256 = "bb957ad759b4aa9ccd6fc9ba2383b91c957b80aad483791333b2002ad0dfaca1"
+
+[[source]]
+name = "training-run1-test80-20240509-0917.tar"
+bytes = 1097144320
+sha256 = "4fc47a4d9caba5045311bd9aede2392ed45ee2cba39406f12b68d2dbbba40c9f"
+
+[[source]]
+name = "training-run1-test80-20240509-1017.tar"
+bytes = 1135196160
+sha256 = "6a7d3b6ac85f3e8ad765c97dbc794622101c92b64f12cdfbb22da1d39413d8be"
+
+[[source]]
+name = "training-run1-test80-20240509-1117.tar"
+bytes = 1255116800
+sha256 = "9c34c574b79691b7a6812a4b722691c28a92d0c78b06e09a903ef8115e55d5eb"
+
+[[source]]
+name = "training-run1-test80-20240509-1217.tar"
+bytes = 1108480000
+sha256 = "ae961444704110120f5db24880e42c18b8fa8c615e11894f2a7cf171e93fa73f"
+
+[[source]]
+name = "training-run1-test80-20240509-1317.tar"
+bytes = 1108183040
+sha256 = "ac5b15ea068c9d2259d9fb5168b3b0a71ffa537531ae55cde283a08e0de1268f"
+
+[[source]]
+name = "training-run1-test80-20240509-1417.tar"
+bytes = 1087733760
+sha256 = "5a4dde535c155514ab682554dee7ba9bfee7296541d36a74a583d89e62c889e6"
+
+[[source]]
+name = "training-run1-test80-20240509-1517.tar"
+bytes = 1195683840
+sha256 = "7e7b8b7e2984d99d601d531c27346de5a2dc8be9dc4733ab0dd98e12fa0c4b8c"
+
+[[source]]
+name = "training-run1-test80-20240509-1617.tar"
+bytes = 1207715840
+sha256 = "7a9d0696a96a4c121eab93c5e94261e0f5836d70fc10043dd5378fed300cf3b1"
+
+[[source]]
+name = "training-run1-test80-20240509-1717.tar"
+bytes = 1112576000
+sha256 = "9bb772a9298597ed96d8c191a6b2ce3895f2e227e7a9e244505a1c894a83968f"
+
+[[source]]
+name = "training-run1-test80-20240509-1817.tar"
+bytes = 1107066880
+sha256 = "d89694c97de844d16c5d1c3a4cbde314027e97d517ec6a1c66827186b685659c"
+
+[[source]]
+name = "training-run1-test80-20240509-1917.tar"
+bytes = 1100206080
+sha256 = "961fbc47c48f341089d78f7660b4f2f1a0c3b34bbabd9895da95021d5c4393fb"
+
+[[source]]
+name = "training-run1-test80-20240509-2017.tar"
+bytes = 1218529280
+sha256 = "7ff3ec6665a6a6904b2b63aa108016e209ad7c5066d366edce3b55932ec3f9da"
+
+[[source]]
+name = "training-run1-test80-20240509-2117.tar"
+bytes = 1092464640
+sha256 = "264a69771391a2d03a35c7153bff6e0554be2f9858a6110f7dd8c8e3def70f35"
+
+[[source]]
+name = "training-run1-test80-20240509-2217.tar"
+bytes = 1061079040
+sha256 = "b7d88d230e403cbe435900d5ffab5b85f6bb1feed54c62f08bc9b3410b10393f"
+
+[[source]]
+name = "training-run1-test80-20240509-2317.tar"
+bytes = 700508160
+sha256 = "0eecf47a5554bab88bfacbd57c05cc03cba3f8f793f29248849690ce99af95c9"
+
+[[source]]
+name = "training-run1-test80-20240510-0017.tar"
+bytes = 932147200
+sha256 = "86c6e24a98ef2431150c4031491fa715bf175f56b958ff873f78927eae20e3fd"
+
+[[source]]
+name = "training-run1-test80-20240510-0117.tar"
+bytes = 1060208640
+sha256 = "76e2ae5a60ad887fcd2023260133e49dccae639cbe50dcd9bee6d2164fb4579a"
+
+[[source]]
+name = "training-run1-test80-20240510-0217.tar"
+bytes = 1119078400
+sha256 = "bc1b9ae98a3f0a9bae4b4ebd9e571c000b380ef163b48764d8b4d8bf53ec621f"
+
+[[source]]
+name = "training-run1-test80-20240510-0317.tar"
+bytes = 1239316480
+sha256 = "ac05d0a584a1389961b38652d27da158ccc1913c743a073ce3b91ad8d68df24c"
+
+[[source]]
+name = "training-run1-test80-20240510-0417.tar"
+bytes = 1146275840
+sha256 = "e259a1ae8873a02e128b0dcd33f421e5b95b90b4db510000264829a8f539f93e"
+
+[[source]]
+name = "training-run1-test80-20240510-0517.tar"
+bytes = 1100441600
+sha256 = "90bcd7a85f53261b6b2e27137345b340d5c1aa70fd93ab4e12b29ddbabffac32"
+
+[[source]]
+name = "training-run1-test80-20240510-0617.tar"
+bytes = 1112678400
+sha256 = "7e81f1952d2723be5af145739600b8afcbc6d052e75b302b2bc0a827408248c2"
+
+[[source]]
+name = "training-run1-test80-20240510-0717.tar"
+bytes = 1115074560
+sha256 = "547826ebb4740578b80e70a98fcd8cedb5a99d20b7617f82294c4d29bf061efc"
+
+[[source]]
+name = "training-run1-test80-20240510-0817.tar"
+bytes = 1271552000
+sha256 = "a6516f3f6ffb1536220eeffb0ecfc3b97bca1382c2a9ec2fbc5cafbbd24ef452"
+
+[[source]]
+name = "training-run1-test80-20240510-0917.tar"
+bytes = 1057597440
+sha256 = "7c4f5079a73d91d42b7d35a3be32e0f72027366997a41031a366ca3276900a4b"
+
+[[source]]
+name = "training-run1-test80-20240510-1017.tar"
+bytes = 1149091840
+sha256 = "21c9126fb44d619090f3eb19a0a6aa44e863cabae8ab81f7686cdde2b26c8be9"
+
+[[source]]
+name = "training-run1-test80-20240510-1117.tar"
+bytes = 1117132800
+sha256 = "977cb9a1ad12b5b893ea775f39f50792fd981988b0d535daefacf3611fce56cb"
+
+[[source]]
+name = "training-run1-test80-20240510-1217.tar"
+bytes = 1191813120
+sha256 = "35b521a92c78b3c0bfb592a9b95e023a05ce92e47b9e5bf2f4378f723aaef18d"
+
+[[source]]
+name = "training-run1-test80-20240510-1317.tar"
+bytes = 1210705920
+sha256 = "ad9fccfa2845fa9cf766a83d58b36dd1db5e5c5f0eeba517a33b2dd2b1f800d7"
+
+[[source]]
+name = "training-run1-test80-20240510-1417.tar"
+bytes = 1073315840
+sha256 = "3e9c055037c4b25942c9500a922fba81e0298c3721825e480ce7431833245444"
+
+[[source]]
+name = "training-run1-test80-20240510-1517.tar"
+bytes = 1157662720
+sha256 = "43b0732f4831b6b7cd91c7ef651a30aa8e2d0268057cc7860f35e86c920a4a96"
+
+[[source]]
+name = "training-run1-test80-20240510-1617.tar"
+bytes = 1116907520
+sha256 = "03995b4d79f26af7f986e39b7c2c4769d3b64c834a3897c1ace5028051165d5e"
+
+[[source]]
+name = "training-run1-test80-20240510-1717.tar"
+bytes = 1174712320
+sha256 = "d15c3874aa433e5c415444dfb4a956e6774bee33d2fe87011d5fbec97145a393"
+
+[[source]]
+name = "training-run1-test80-20240510-1817.tar"
+bytes = 1235681280
+sha256 = "a916d46e6ecf03d6b102846f1e37d7a9ff55ae4f08e76d6c8991807a5ca66a2d"
+
+[[source]]
+name = "training-run1-test80-20240510-1917.tar"
+bytes = 941998080
+sha256 = "f52b9bbf067e99fb9379cdb978c6556b969dc2931ee49f5fbbd75498ca237e49"
+
+[[source]]
+name = "training-run1-test80-20240510-2017.tar"
+bytes = 1117450240
+sha256 = "f4dacbac44b74e3b3d77aaf591e704b1e199fbfb1356e00a92341020621f3ff1"
+
+[[source]]
+name = "training-run1-test80-20240510-2117.tar"
+bytes = 1154928640
+sha256 = "2dd001f18d667948ec205da9d021ac995862d37775ec8819dc18429c7a0eab70"
+
+[[source]]
+name = "training-run1-test80-20240510-2217.tar"
+bytes = 1209190400
+sha256 = "5a78bb203ee6b19bcf49d2ec707bb5f16b6051f055a38be35c774128d7e8879d"
+
+[[source]]
+name = "training-run1-test80-20240510-2317.tar"
+bytes = 1134295040
+sha256 = "c8ee299d0c8dd19d4c73fc74402c92dbb22bbd30a7f74197fe9a01a8e4d6d3f2"
+
+[[source]]
+name = "training-run1-test80-20240511-0017.tar"
+bytes = 1107722240
+sha256 = "57171834efa4680ad640e78515252e1c1dfae167ec34c805f19a8a1601f05649"
+
+[[source]]
+name = "training-run1-test80-20240511-0117.tar"
+bytes = 1101670400
+sha256 = "6ec1a0d1e930212dd7d7f709a3560e01c1a6deba33a2801e7bd0329acff8fec2"
+
+[[source]]
+name = "training-run1-test80-20240511-0217.tar"
+bytes = 1200107520
+sha256 = "03c19ed3b15135cf89f14149951eb060676486d6f9cc63cae0adbbcdd326a261"
+
+[[source]]
+name = "training-run1-test80-20240511-0317.tar"
+bytes = 1099898880
+sha256 = "c703b05d87372e924faf8af4f8ae76941007b8f8f52815d087e0878b8dfda55a"
+
+[[source]]
+name = "training-run1-test80-20240511-0417.tar"
+bytes = 1054873600
+sha256 = "f7ecbe03e49f7cfd5297dbce0e6481a6269e310c7bb2f47cd2ad54fdddfcb4b4"
+
+[[source]]
+name = "training-run1-test80-20240511-0517.tar"
+bytes = 1041879040
+sha256 = "363e66ad2b315bfe8fd0df95dd0020f66d65d96072eb906ba2c13be8c3f2875a"
+
+[[source]]
+name = "training-run1-test80-20240511-0617.tar"
+bytes = 1199011840
+sha256 = "b4f5f8d3f7b401fdd23be962fcaf21b518e9e4bf1d11029e6f7c361f42fce389"
+
+[[source]]
+name = "training-run1-test80-20240511-0717.tar"
+bytes = 1088307200
+sha256 = "4a16c114ac961b395bbccd25e78951683260d936b8f43a4c11acb4a70eebc9ba"
+
+[[source]]
+name = "training-run1-test80-20240511-0817.tar"
+bytes = 883261440
+sha256 = "61cc6c483b9d959d774777a321f3bb18eb3db1110c52e99761332644be064435"
+
+[[source]]
+name = "training-run1-test80-20240511-0917.tar"
+bytes = 1095843840
+sha256 = "dcebd0832acf542d836ed54a746247acf888937f3cf0cf94bf8467d00b595182"
+
+[[source]]
+name = "training-run1-test80-20240511-1017.tar"
+bytes = 1237268480
+sha256 = "741519beeb4114a27c2384cdfa1b741fa4fde7eb4c0dd338d3cdb30415b21d1d"
+
+[[source]]
+name = "training-run1-test80-20240511-1117.tar"
+bytes = 1070182400
+sha256 = "5214a1ecc3f09bcc3e69612add88c8b57b26827d24c34b1227b5213af17f13d1"
+
+[[source]]
+name = "training-run1-test80-20240511-1217.tar"
+bytes = 1072803840
+sha256 = "a3332fb8417d5a76ee36d9ed825b7bceeb6e490aa7669094930058b96b35f180"
+
+[[source]]
+name = "training-run1-test80-20240511-1317.tar"
+bytes = 1087784960
+sha256 = "09b4d7fdcab4490de7b95d725615369a42bcb265529604e0c6067ff9d24feadf"
+
+[[source]]
+name = "training-run1-test80-20240511-1417.tar"
+bytes = 1178583040
+sha256 = "6fd517cfcbd85af7afa66f6822f1e07c449e46374e181d2840a791f6b5c3da4a"
+
+[[source]]
+name = "training-run1-test80-20240511-1517.tar"
+bytes = 1059338240
+sha256 = "aa4f8c69f8d4cc782d823315a78279aac81303f7fe1eb69243debf15dda69273"
+
+[[source]]
+name = "training-run1-test80-20240511-1617.tar"
+bytes = 1109319680
+sha256 = "fbab0c3d05bb722eb014d810f232500a9117bf62199d38ccc15c8013bae6cfb7"
+
+[[source]]
+name = "training-run1-test80-20240511-1717.tar"
+bytes = 1124935680
+sha256 = "6db40cfa3dc1b205583fc58102d716a003460ee012fe799ef1cc0e377c91bb44"
+
+[[source]]
+name = "training-run1-test80-20240511-1817.tar"
+bytes = 1110538240
+sha256 = "dd58111559478447360852ca42799e6c1004cc65e45d367534a864f82fb896ab"
+
+[[source]]
+name = "training-run1-test80-20240511-1917.tar"
+bytes = 1247201280
+sha256 = "825c5e4a43e5e0a805a11201d220809b5d979fde82dfe79bdc0022cb80914c4b"
+
+[[source]]
+name = "training-run1-test80-20240511-2017.tar"
+bytes = 1127669760
+sha256 = "f3c6e1cf80bded28ebc7fecdf55f7a7c3fd63d5fcc32959cacd21762e8a109fb"
+
+[[source]]
+name = "training-run1-test80-20240511-2117.tar"
+bytes = 1083443200
+sha256 = "7c8736eb2bbb1c127de8b7eeb7437259e138804636a81fcef652fc9caeefb3c6"
+
+[[source]]
+name = "training-run1-test80-20240511-2217.tar"
+bytes = 1045053440
+sha256 = "649dda0e9603642dfe6be86c7a5c9284b4701cf4080519efbebe9114ef393f19"
+
+[[source]]
+name = "training-run1-test80-20240511-2317.tar"
+bytes = 1195714560
+sha256 = "7bd69334caa8aa762a0b26f92391e7b83a5f196fe14cd680fcce97d300edb6eb"
+
+[[source]]
+name = "training-run1-test80-20240512-0017.tar"
+bytes = 1021890560
+sha256 = "6e281f23623e281bb4213375b6e5af0a0479ad3346217149858e2837dfef2fe6"
+
+[[source]]
+name = "training-run1-test80-20240512-0117.tar"
+bytes = 1023559680
+sha256 = "85395bfbfeb578590e4269e204a137f28f9d44fb8af72e2ef7208ee5b4184a0e"
+
+[[source]]
+name = "training-run1-test80-20240512-0217.tar"
+bytes = 1024276480
+sha256 = "68bcf59b62a156038c0bd2f0ea855d09095e4f4d784f66adf45df57728c75e8c"
+
+[[source]]
+name = "training-run1-test80-20240512-0317.tar"
+bytes = 1152122880
+sha256 = "73157db2938a9fba8936a88d9c3db0991b7f4b129f79c8fd9b82e84a8e6dd9fb"
+
+[[source]]
+name = "training-run1-test80-20240512-0417.tar"
+bytes = 1015572480
+sha256 = "be88424e79df5a11214b1986e9b740daf0adf7046c5c09d50fbabaf2ff02796b"
+
+[[source]]
+name = "training-run1-test80-20240512-0517.tar"
+bytes = 1007544320
+sha256 = "b27f11864e51e2dfbbf4ee47a5a6581cdfeaee5b4b47cc7bd293f0a6299bcb83"
+
+[[source]]
+name = "training-run1-test80-20240512-0617.tar"
+bytes = 1052579840
+sha256 = "9ab392d7b3034ed1c7c3574855dcea79b5c3b63f71be86962493b9de905f1606"
+
+[[source]]
+name = "training-run1-test80-20240512-0717.tar"
+bytes = 1130915840
+sha256 = "172cacd01f7c7d5cf6cfced1ecd276fcf53bf5a62a0a694ae1fe6422423406d5"
+
+[[source]]
+name = "training-run1-test80-20240512-0817.tar"
+bytes = 1043978240
+sha256 = "1db911d7c1b29622b0420896492669643a0d9f83729e9d519c56d9c061cffee8"
+
+[[source]]
+name = "training-run1-test80-20240512-0917.tar"
+bytes = 1037895680
+sha256 = "5129cfa70631bdb812caf7748fcb25ced61fe19dacc3166b2ddf96edd6901f15"
+
+[[source]]
+name = "training-run1-test80-20240512-1017.tar"
+bytes = 1110200320
+sha256 = "9c316963815b13150785cd9a0478dc244f7649dff1ed4d00e4600d4d22b71754"
+
+[[source]]
+name = "training-run1-test80-20240512-1117.tar"
+bytes = 970178560
+sha256 = "591e23c4b0e2f0cf0b46835c6c5414ea0c580bb479d73ad95ca49d9258a913de"
+
+[[source]]
+name = "training-run1-test80-20240512-1217.tar"
+bytes = 1019381760
+sha256 = "0ca9a41b6c68090f6fbbf8aa2845e8741e7e2e3122241e0f20fb89551281044b"
+
+[[source]]
+name = "training-run1-test80-20240512-1317.tar"
+bytes = 1033871360
+sha256 = "27ebb1f641f9fff815f8fd9219c09c263a3633c7f317915b67257635e4878585"
+
+[[source]]
+name = "training-run1-test80-20240512-1417.tar"
+bytes = 1184051200
+sha256 = "651378a7def39a829f37d637c84220cde062a803c2ca6b68345f3c3dd4441176"
+
+[[source]]
+name = "training-run1-test80-20240512-1517.tar"
+bytes = 992440320
+sha256 = "fdd1624e5fa0979174c82e8e6d2edadadc70729551153623bcdd24e3eb35da3f"
+
+[[source]]
+name = "training-run1-test80-20240512-1617.tar"
+bytes = 1012439040
+sha256 = "ba8c0dd553f347ddb8aaa8ab522bafd6dbb9447050b1fc36cdc1c959648ac23e"
+
+[[source]]
+name = "training-run1-test80-20240512-1717.tar"
+bytes = 1004021760
+sha256 = "059babcbec142f937ff387d6fce79bc49411bafc4d19b791fe291e8a17096d29"
+
+[[source]]
+name = "training-run1-test80-20240512-1817.tar"
+bytes = 934533120
+sha256 = "b03606c074203dd64dbc6ba9f4beeb32663b132141fb39123127475153a1b583"
+
+[[source]]
+name = "training-run1-test80-20240512-1917.tar"
+bytes = 1027348480
+sha256 = "be0556f0d3255ac0524ecac21605631fa9e02fa023a85605f96fb65f3d0df0c6"
+
+[[source]]
+name = "training-run1-test80-20240512-2017.tar"
+bytes = 1056481280
+sha256 = "68d058dbef7b501f12140f87f6699aeb5858a9fca139583ee0b6e7dbde73d551"
+
+[[source]]
+name = "training-run1-test80-20240512-2117.tar"
+bytes = 1158400000
+sha256 = "9be0433f976653ed18d470057066178af4c37ef63a06420b2da4f0570f2e3a44"
+
+[[source]]
+name = "training-run1-test80-20240512-2217.tar"
+bytes = 1022965760
+sha256 = "31225ff568effb37ebb3a35f3d0a7e50094c81cc6e20d6c807bc54584f29d22a"
+
+[[source]]
+name = "training-run1-test80-20240512-2317.tar"
+bytes = 1032837120
+sha256 = "25f3fbbeb66f82c31c7d7fbb0d29f5a56e9a0580df964f409f955e180bfc257b"
+
+[[source]]
+name = "training-run1-test80-20240513-0017.tar"
+bytes = 1083228160
+sha256 = "93ea90972ab8a84d0272573bcc0a64df2d94d7becb848b840d5a9a0c32c14d26"
+
+[[source]]
+name = "training-run1-test80-20240513-0117.tar"
+bytes = 1160622080
+sha256 = "78f0948773351ae1b9282d103477ccf156779a64e40b85a197bf8cb18ca8de30"
+
+[[source]]
+name = "training-run1-test80-20240513-0217.tar"
+bytes = 1050961920
+sha256 = "8a9de15ceba057ff0622d9fb67b4c92f80d52aeda08241e29b3ce39c1987c5e1"
+
+[[source]]
+name = "training-run1-test80-20240513-0317.tar"
+bytes = 1049384960
+sha256 = "fee49fb65ddf8daeedc8d0be7014c9d3dd64539b1c83e3bfde5db186ccf31531"
+
+[[source]]
+name = "training-run1-test80-20240513-0417.tar"
+bytes = 1098362880
+sha256 = "7b6d2b74ba0798725671b2644e0e3117f19fc08c4b968dcbb0915f6be279334a"
+
+[[source]]
+name = "training-run1-test80-20240513-0517.tar"
+bytes = 1206087680
+sha256 = "c017b57c376d84140b57e7303496bffd76c0a732bcca29f968910c529a479f83"
+
+[[source]]
+name = "training-run1-test80-20240513-0617.tar"
+bytes = 1093181440
+sha256 = "9db3d788351bc6096e2bbd4f9780b0da46b88fdffb574111eeeb718f4b5345b4"
+
+[[source]]
+name = "training-run1-test80-20240513-0717.tar"
+bytes = 929771520
+sha256 = "f91e8d508b382a837129a0d8b4de6e8f29b397bdfa5194d63e1c18401f5c98c2"
+
+[[source]]
+name = "training-run1-test80-20240513-0817.tar"
+bytes = 1116712960
+sha256 = "73b84ac1642c91453ba4ac602412b647a1ca7beba1257a24e44b87853125a8b8"
+
+[[source]]
+name = "training-run1-test80-20240513-0917.tar"
+bytes = 1174241280
+sha256 = "530ba87e08e353d3ef8d5349e788cf51dedb68ac90263fe6a1b8e28d7dd72125"
+
+[[source]]
+name = "training-run1-test80-20240513-1017.tar"
+bytes = 1021890560
+sha256 = "c2d978460d0ecfc5df48712c003f813c81f991043e1106a7c4b0277d38856606"
+
+[[source]]
+name = "training-run1-test80-20240513-1117.tar"
+bytes = 1041930240
+sha256 = "20af6953e701faf37e16aded0b71c7c59d5e872ebceb3450610141f427c1cf4e"
+
+[[source]]
+name = "training-run1-test80-20240513-1217.tar"
+bytes = 1128837120
+sha256 = "10b8e780abb22f6ba5aeba2ce34ac119cb505fc42dce9d541d37496948b5c9b8"
+
+[[source]]
+name = "training-run1-test80-20240513-1317.tar"
+bytes = 1125437440
+sha256 = "65d1a2018b702f62ab98be0fd17d026e1e0f4c0032b32ba1798cc1afba2cd482"
+
+[[source]]
+name = "training-run1-test80-20240513-1417.tar"
+bytes = 1074206720
+sha256 = "999b72a9edf1a01f8316fa235c2c219d2acddef3582c3a24a8f636df6afcd6ea"
+
+[[source]]
+name = "training-run1-test80-20240513-1517.tar"
+bytes = 1024778240
+sha256 = "9472adbee8cbf81bdb969f84cdfd5da64445eb7efc0bf51a9f083c2fdd611659"
+
+[[source]]
+name = "training-run1-test80-20240513-1617.tar"
+bytes = 1089259520
+sha256 = "48852ec4925af462281273db31d378b2ad88868a461ffd8d9ecd7eb5c058bd65"
+
+[[source]]
+name = "training-run1-test80-20240513-1717.tar"
+bytes = 1088532480
+sha256 = "7d603e46af5086cfdb7cbd1f17b5e4ff986f497fa9021504d72e7eb5309b1144"
+
+[[source]]
+name = "training-run1-test80-20240513-1817.tar"
+bytes = 1122109440
+sha256 = "d3351e15c8a60155cad6f749977dec96f3941da93724c90cbe05c0862c8ab2fd"
+
+[[source]]
+name = "training-run1-test80-20240513-1917.tar"
+bytes = 1086341120
+sha256 = "5ab9d5b0e5f70ef2f1e9da119018ea41c51a386359eb9655ede34ea1f91eecf9"
+
+[[source]]
+name = "training-run1-test80-20240513-2017.tar"
+bytes = 1099038720
+sha256 = "767bd2ccfc1145c1d8cbd600329561be0dace9a72c0e90e3f7d88bac6ac2c8bf"
+
+[[source]]
+name = "training-run1-test80-20240513-2117.tar"
+bytes = 1142026240
+sha256 = "4ef85e50aa5ca98adeba098832d8617c5aa615b49ef41186f651dfd497967ee1"
+
+[[source]]
+name = "training-run1-test80-20240513-2217.tar"
+bytes = 1042810880
+sha256 = "14743c1559bb9d0848224f5499d411680967f44a1f83ad7f3313c5c769b59cb4"
+
+[[source]]
+name = "training-run1-test80-20240513-2317.tar"
+bytes = 1030871040
+sha256 = "e213a6f7199badde2095de5348b28baf9ce557e77299e778fd441f5e4f52ca72"
+
+[[source]]
+name = "training-run1-test80-20240514-0017.tar"
+bytes = 1129441280
+sha256 = "2da8832343b53b562e7970b0e43b1a86248c720236e319569a6d5054139f258f"
+
+[[source]]
+name = "training-run1-test80-20240514-0117.tar"
+bytes = 1067704320
+sha256 = "016fe5e1d34c458e6155512c507f54645e1c1c3d85d8d648669e63d1e1e4ed85"
+
+[[source]]
+name = "training-run1-test80-20240514-0217.tar"
+bytes = 1010616320
+sha256 = "bf4b3ea5013226f005b632ed3af630e228aeaf5c6f524ded8b097e76b712948e"
+
+[[source]]
+name = "training-run1-test80-20240514-0317.tar"
+bytes = 847073280
+sha256 = "96863fc93f95143d754d0fc823739bb6b400dffb52741a6e580f61f8ca2b7a88"
+
+[[source]]
+name = "training-run1-test80-20240514-0417.tar"
+bytes = 759623680
+sha256 = "c7f774c97518be45b975b1a04873f51614deae60ceb01c8205d87e5c493f2f0e"
+
+[[source]]
+name = "training-run1-test80-20240514-0517.tar"
+bytes = 1043404800
+sha256 = "61744fecbeeb3cf2fba477bcfcd10218fff7813017200af63134308780c770b9"
+
+[[source]]
+name = "training-run1-test80-20240514-0617.tar"
+bytes = 1206476800
+sha256 = "09495626239a3e459472735da192c3a495577e741f01c5bfcb12890b858fe3ab"
+
+[[source]]
+name = "training-run1-test80-20240514-0717.tar"
+bytes = 1239162880
+sha256 = "a449045576fb2d4e25d5cf4eafca15d87dcf71a0607bbd2c6e246a17b7665502"
+
+[[source]]
+name = "training-run1-test80-20240514-0817.tar"
+bytes = 894095360
+sha256 = "d4f4d9789872d22e68eb70be58611cf585bb02953df543c95d1002cff1faccdd"
+
+[[source]]
+name = "training-run1-test80-20240514-0917.tar"
+bytes = 1191424000
+sha256 = "b2145470b72864db529e17833f5ba6233e7903ab47a230a291e25b7d9da1942d"
+
+[[source]]
+name = "training-run1-test80-20240514-1017.tar"
+bytes = 1053122560
+sha256 = "56869db49380ca09d48942b2fba1fcfd11554a57818be5e879ab3ab5a739d171"
+
+[[source]]
+name = "training-run1-test80-20240514-1117.tar"
+bytes = 1103718400
+sha256 = "6db7dd882c5c49505ffd23e035f15b45a36f38168a294dbbcdac63e7c3456f88"
+
+[[source]]
+name = "training-run1-test80-20240514-1217.tar"
+bytes = 1103472640
+sha256 = "b74d26f8136cc2975d4c7c67db7b44fe58a131ff13393d76e2cbb2171df31b0e"
+
+[[source]]
+name = "training-run1-test80-20240514-1317.tar"
+bytes = 1194342400
+sha256 = "371ea62815bcee690c93cc5c73d700a3cf0cae33d80285d803b099f53621902c"
+
+[[source]]
+name = "training-run1-test80-20240514-1417.tar"
+bytes = 1201100800
+sha256 = "79587371857d153f69703e3242aa9618060ae5f056b0762f112179b2cc3b7432"
+
+[[source]]
+name = "training-run1-test80-20240514-1517.tar"
+bytes = 1049507840
+sha256 = "87b8e06bd91b57b07e004a66db213729b04bb64d25fa1b26bdd90b4cd9b91ef2"
+
+[[source]]
+name = "training-run1-test80-20240514-1617.tar"
+bytes = 1025208320
+sha256 = "22ea337e1a7a5a7b860a722795ab0714b1d38e0e43964baf462a6de904e65151"
+
+[[source]]
+name = "training-run1-test80-20240514-1717.tar"
+bytes = 1098434560
+sha256 = "025edbddf89e099088a56bf8a37c50c2d7283929ac88a3d338ad42973f1fc59e"
+
+[[source]]
+name = "training-run1-test80-20240514-1817.tar"
+bytes = 1229486080
+sha256 = "f9adc9b9da4e61a3f9ac5f0eb73cbb83084e8bbf2e19f3441cafbae102590c05"
+
+[[source]]
+name = "training-run1-test80-20240514-1917.tar"
+bytes = 1037506560
+sha256 = "fd7f7b323238abe16792b25a80172e6d69271844c03607e12e2b746d06ab5396"
+
+[[source]]
+name = "training-run1-test80-20240514-2017.tar"
+bytes = 1036318720
+sha256 = "4cc83edc49714b32a1f96dc1a013f4a8f19ab8cec2cf72151a3313f3da789191"
+
+[[source]]
+name = "training-run1-test80-20240514-2117.tar"
+bytes = 1076469760
+sha256 = "dcfb06fce93a0fb39cb398d71f8e122d95dce427f5b5b669666d842dce16b1bf"
+
+[[source]]
+name = "training-run1-test80-20240514-2217.tar"
+bytes = 1154478080
+sha256 = "a95f71565ac24ef89ef64874126712022f4465cc462fb030aa279cb7b0564f53"
+
+[[source]]
+name = "training-run1-test80-20240514-2317.tar"
+bytes = 1043681280
+sha256 = "9d06c1af411d320f044a26cde025fb2b69472f3485d833ac2e818131295f671c"
+
+[[source]]
+name = "training-run1-test80-20240515-0017.tar"
+bytes = 835717120
+sha256 = "5bed4baaab69029a254e139a453680244316f8c44ec8f3f2dccf1cb4449e9d89"
+
+[[source]]
+name = "training-run1-test80-20240515-0117.tar"
+bytes = 1223393280
+sha256 = "7e100522b712df3d5a678743f382e14aed44203a2844e1998096a55251da21b6"
+
+[[source]]
+name = "training-run1-test80-20240515-0217.tar"
+bytes = 1008998400
+sha256 = "72b54e1b55b01f251938db4da164ae617e52a98e9359306d2fad35b6739ede6e"
+
+[[source]]
+name = "training-run1-test80-20240515-0317.tar"
+bytes = 994590720
+sha256 = "0e06f3ab733803ab4bce2d805af1bf6f4079050d9e0fa054bed12aaca2bcc977"
+
+[[source]]
+name = "training-run1-test80-20240515-0417.tar"
+bytes = 1021675520
+sha256 = "b99c4b3cbf3da8d4c90b4e619996529f6861871a8b36ff65188fcd4c4acee4ab"
+
+[[source]]
+name = "training-run1-test80-20240515-0517.tar"
+bytes = 1165066240
+sha256 = "2214c019eb0e1721eb52bc0cccd4f2a04b7dd714648c43216c0356d1a924a810"
+
+[[source]]
+name = "training-run1-test80-20240515-0617.tar"
+bytes = 1009172480
+sha256 = "9a6102ebe3e7754b6a7fb667f5067af3c5e4de2798638bda81170f45226d5873"
+
+[[source]]
+name = "training-run1-test80-20240515-0717.tar"
+bytes = 1010606080
+sha256 = "efdfc2d562238f0007cf4f4a15cf0e2075ba032ee49de25f342ff54c2241464c"
+
+[[source]]
+name = "training-run1-test80-20240515-0817.tar"
+bytes = 1151754240
+sha256 = "594dfe4b13758e8ac4a727379ac1575c2ef2f9ea1937aa43e1ccc615597f707e"
+
+[[source]]
+name = "training-run1-test80-20240515-0917.tar"
+bytes = 1051494400
+sha256 = "1f7df7ec6ed3c3f637e4cbec6f866c7ad47618da4e97748d53227b4b1528405f"
+
+[[source]]
+name = "training-run1-test80-20240515-1017.tar"
+bytes = 985384960
+sha256 = "03367e98286100103a17f442c6ce8f800bf4af25a96d9011b03982c11c860b2e"
+
+[[source]]
+name = "training-run1-test80-20240515-1117.tar"
+bytes = 1015173120
+sha256 = "5df8e0d2e21b0d54ced8a978a7327f332c4da023d5d697e74933a5725191a06a"
+
+[[source]]
+name = "training-run1-test80-20240515-1217.tar"
+bytes = 1230161920
+sha256 = "32b06da129af7d4a80b04c6a79104ec0d999e18fede49d675d1382bce0764597"
+
+[[source]]
+name = "training-run1-test80-20240515-1317.tar"
+bytes = 974172160
+sha256 = "e0de4746239500a72358ee128908f7258b68d1b92cd2e0f2a988a43c2fcbab6e"
+
+[[source]]
+name = "training-run1-test80-20240515-1417.tar"
+bytes = 854190080
+sha256 = "b95a010d5e5a615168653be976bd74806500c660d255e48984183c1ecf5284b4"
+
+[[source]]
+name = "training-run1-test80-20240515-1517.tar"
+bytes = 1132482560
+sha256 = "09221cba790256e6737b09629b452e38fcdc8ff378f513c2e19de3e3cbd0708a"
+
+[[source]]
+name = "training-run1-test80-20240515-1617.tar"
+bytes = 1086648320
+sha256 = "fe239617149208c0b5ad721fbee545122fe189593d718e5404591cb94dda1e0e"
+
+[[source]]
+name = "training-run1-test80-20240515-1717.tar"
+bytes = 1012787200
+sha256 = "fcc4842fe679abefa14032e20ce3f52cd4f6f0c8c757601ad01ea0c119b92b94"
+
+[[source]]
+name = "training-run1-test80-20240515-1817.tar"
+bytes = 957972480
+sha256 = "d2f78cbe9b464b7225019adc68d589dd1f1ad07a01fee717cf90da93d4e3dca1"
+
+[[source]]
+name = "training-run1-test80-20240515-1917.tar"
+bytes = 1142640640
+sha256 = "7b560ffa74e2f8b584efab613d970d0465aa12cedea327b386c5b2a8c8e9bce7"
+
+[[source]]
+name = "training-run1-test80-20240515-2017.tar"
+bytes = 994713600
+sha256 = "424ca466e3bac2de4755fe10f1376ab52842fee2cb862ac7117f6d71baa65a76"
+
+[[source]]
+name = "training-run1-test80-20240515-2117.tar"
+bytes = 821248000
+sha256 = "ef857dffaa5d0ef14e6c55559be12337ef4a99cc5f55b0824f461c5b54d0bd46"
+
+[[source]]
+name = "training-run1-test80-20240515-2217.tar"
+bytes = 1161758720
+sha256 = "c537f7e6f2263c78a8dad895843432d7bab020070fe1ac05633c4b1dea3d9889"
+
+[[source]]
+name = "training-run1-test80-20240515-2317.tar"
+bytes = 1037864960
+sha256 = "32497db3b24b6149e8fd2a53acafd3ac9c76aadf3d62f22925f4810a7e025372"
+
+[[source]]
+name = "training-run1-test80-20240516-0017.tar"
+bytes = 1007237120
+sha256 = "13be15d1b69f76236d9752ec97f84f9a207ea52076b9e3bd10aec6b3d1f2db20"
+
+[[source]]
+name = "training-run1-test80-20240516-0117.tar"
+bytes = 1019095040
+sha256 = "e60c26f80cd3c78294ed467b7a367ba30f7c89e5e42a752fe28b0ad5852819eb"
+
+[[source]]
+name = "training-run1-test80-20240516-0217.tar"
+bytes = 1164666880
+sha256 = "3776c24eed83df8a010ab42b325ed1ac8513c64952063922712a613a903bdb2d"
+
+[[source]]
+name = "training-run1-test80-20240516-0317.tar"
+bytes = 1017978880
+sha256 = "66dbc30eb0c6a9e334c92eec8c7a25bbcb04f116f26f917bcf36f17978518433"
+
+[[source]]
+name = "training-run1-test80-20240516-0417.tar"
+bytes = 1012008960
+sha256 = "c7196e05103922ddbd52965df1e1d09a932714b19f3f6728a485a718611e1d0c"
+
+[[source]]
+name = "training-run1-test80-20240516-0517.tar"
+bytes = 1059614720
+sha256 = "3d51eb07f26608dcfe4c2a76902fdfa876dd2395fab7843c304636837daddb4c"
+
+[[source]]
+name = "training-run1-test80-20240516-0617.tar"
+bytes = 1162065920
+sha256 = "0c53079076ab921e61165399ad8775b9355a534706c062d79840ee3bc597633c"
+
+[[source]]
+name = "training-run1-test80-20240516-0717.tar"
+bytes = 1056409600
+sha256 = "77ec5fd75ff7e2c6e3750a4b48c6da882478e3d0aada2662b2c3a40bccea8690"
+
+[[source]]
+name = "training-run1-test80-20240516-0817.tar"
+bytes = 1056798720
+sha256 = "6af53f705188d6dfc742f5a805579bb1967d5196497d81b5f82d1290c36f5c22"
+
+[[source]]
+name = "training-run1-test80-20240516-0917.tar"
+bytes = 1070991360
+sha256 = "aeddd428ce67d73bc1fbe9c673618e55da7efafb036c743eb5528c15a0fa3dda"
+
+[[source]]
+name = "training-run1-test80-20240516-1017.tar"
+bytes = 1108152320
+sha256 = "ab29445975ab7947cf273f96ea81382b71e161b6c7156597a173cbdac6fe67c2"
+
+[[source]]
+name = "training-run1-test80-20240516-1117.tar"
+bytes = 1006028800
+sha256 = "2a55d6a70385cc674887fba44d923658e25d1664b705040d9d8eff3eccc4078e"
+
+[[source]]
+name = "training-run1-test80-20240516-1217.tar"
+bytes = 1176995840
+sha256 = "7ccdaf8de397f8c47a84770cb73e57c817f38ce9c0d948d8e79c0a5af65a2cb2"
+
+[[source]]
+name = "training-run1-test80-20240516-1317.tar"
+bytes = 1192335360
+sha256 = "f12010da1fbfec4243c1588b3ea94c3919b31d63d193015a4e46ba9361b525f3"
+
+[[source]]
+name = "training-run1-test80-20240516-1417.tar"
+bytes = 1198622720
+sha256 = "41a85641616bc8c9d09751630a6976aa7b043c3f4aa59bcd2da14dc3359b0133"
+
+[[source]]
+name = "training-run1-test80-20240516-1517.tar"
+bytes = 996454400
+sha256 = "713cc855b6189371ce7b0a7f106cc20237a1e8f2d5018a06405839917a6f5113"
+
+[[source]]
+name = "training-run1-test80-20240516-1617.tar"
+bytes = 1020129280
+sha256 = "459c1c667a6b79037697177a95a42f5bae0e1e189e71ef41d4178e61e882cb50"
+
+[[source]]
+name = "training-run1-test80-20240516-1717.tar"
+bytes = 963102720
+sha256 = "af7547a9a15b4335a04dd67a062821376aa47d01aa36114b749acf1a6662998c"
+
+[[source]]
+name = "training-run1-test80-20240516-1817.tar"
+bytes = 1075916800
+sha256 = "5e19d5df40e6eac65246ebe7b95a38c02b6cc3feab823614f32e3b6b3119fed2"
+
+[[source]]
+name = "training-run1-test80-20240516-1917.tar"
+bytes = 1022556160
+sha256 = "bd0cc7b07b90389edd1a83de6703968df215dc5308f2c8a117eaa0f4dc3508b7"
+
+[[source]]
+name = "training-run1-test80-20240516-2017.tar"
+bytes = 1019484160
+sha256 = "4bce60d5472bafe1fe11a83d1a4b152595ca26e61f8af4d473fbbc012a055154"
+
+[[source]]
+name = "training-run1-test80-20240516-2117.tar"
+bytes = 1181450240
+sha256 = "4f749a93fdd16437b9a86f8fd0265f9a766c2ca364d37cbcb43e4615da33ce43"
+
+[[source]]
+name = "training-run1-test80-20240516-2217.tar"
+bytes = 1015326720
+sha256 = "864d44b7d18cdebc90696e3cb36e43b9d0157e4793f1d0ae2152a09f3260923e"
+
+[[source]]
+name = "training-run1-test80-20240516-2317.tar"
+bytes = 1014937600
+sha256 = "f94086b34071b742f560334721d893d16e86915edeff3d5f54e5c87f2462b42f"
+
+[[source]]
+name = "training-run1-test80-20240517-0017.tar"
+bytes = 971048960
+sha256 = "392d1aa2f350c09e586d3fb69f68f62f3bc5168a46949e7ba74692a23603694f"
+
+[[source]]
+name = "training-run1-test80-20240517-0117.tar"
+bytes = 1027891200
+sha256 = "601da47b132e77d8c983e3ade28a700f73909fda488bb29ea206cd13effc8ce8"
+
+[[source]]
+name = "training-run1-test80-20240517-0217.tar"
+bytes = 1001615360
+sha256 = "18711aa361f1f45ad5a0e0846ae8c6676dd229043f684db1bc292aa3af529886"
+
+[[source]]
+name = "training-run1-test80-20240517-0317.tar"
+bytes = 1003632640
+sha256 = "1e7142eb55ab4da38f17bf80cef08cc620263cfd52c713b09ce8be1703439e0e"
+
+[[source]]
+name = "training-run1-test80-20240517-0417.tar"
+bytes = 1179381760
+sha256 = "e28bca8becfbc06b75f97b3e49b802bebaf98e65277ac60aa9fe8fa40d4a0446"
+
+[[source]]
+name = "training-run1-test80-20240517-0517.tar"
+bytes = 1019985920
+sha256 = "12d07971ead7ae658ecadcb2e631fcdb654a7185edb85adeef90a73f02e6262e"
+
+[[source]]
+name = "training-run1-test80-20240517-0617.tar"
+bytes = 1022136320
+sha256 = "432d7cbaeb89c9585973e31df9371192ae357774497e8f0609feb89b677faf46"
+
+[[source]]
+name = "training-run1-test80-20240517-0717.tar"
+bytes = 1068103680
+sha256 = "a5fedfad0bd36fc5d43e479dd3647cdfbfda8dcbf00ddbccd7951ca17b5bc57e"
+
+[[source]]
+name = "training-run1-test80-20240517-0817.tar"
+bytes = 1170442240
+sha256 = "efc982c83f74335b1ed3a88d9b667565c208f43b8d1c0819e9909cd469c193b9"
+
+[[source]]
+name = "training-run1-test80-20240517-0917.tar"
+bytes = 1032826880
+sha256 = "a432826fd4c55da1a022b3ab006278100407075713a2cafd266673c20dcb7048"
+
+[[source]]
+name = "training-run1-test80-20240517-1017.tar"
+bytes = 1037342720
+sha256 = "172fe9f9587189d79d13d2b2351541960c0ef4eb7afa4710bfab690a5687a0c5"
+
+[[source]]
+name = "training-run1-test80-20240517-1117.tar"
+bytes = 1091840000
+sha256 = "606e9a3d064fc08d008ade3c6962ec3c7cea2303d4d8f25d1ccb42737035dfe6"
+
+[[source]]
+name = "training-run1-test80-20240517-1217.tar"
+bytes = 1226434560
+sha256 = "9221173269c8fad704250c4291c4142aa9104af160eeca5c89290bc983ab5865"
+
+[[source]]
+name = "training-run1-test80-20240517-1317.tar"
+bytes = 1032642560
+sha256 = "abaf3aa8b7ed544993cdd7da095bca8f1dadcb76caea3db608e3d883611430ef"
+
+[[source]]
+name = "training-run1-test80-20240517-1417.tar"
+bytes = 1026037760
+sha256 = "dbce5f634a6ba494d743e1f0c6f4641fc9ac2105f4767cfc4c5e97b31d550597"
+
+[[source]]
+name = "training-run1-test80-20240517-1517.tar"
+bytes = 1189529600
+sha256 = "dbddfc260b36ed89fec2b90153fa9566ce66bf0c219bd5b17a8ffa1f9af906b2"
+
+[[source]]
+name = "training-run1-test80-20240517-1617.tar"
+bytes = 1287127040
+sha256 = "9bf1c54273a7257b0c86dede776758bb33a0add3684be343cf1f10310ed3af3b"
+
+[[source]]
+name = "training-run1-test80-20240517-1717.tar"
+bytes = 1196380160
+sha256 = "6223ee7a834614a805cce4d31f331acbb3ef1dd914af9915fab4d988a110f5e7"
+
+[[source]]
+name = "training-run1-test80-20240517-1817.tar"
+bytes = 1173831680
+sha256 = "791afd49299b341a3163c059e5222d06eabc2028f2287d5d3a480f5ddf5c62df"
+
+[[source]]
+name = "training-run1-test80-20240517-1917.tar"
+bytes = 1164953600
+sha256 = "55cdd40ccdb5d98783c598a74124e89c43080971a006fd8895247230008438b2"
+
+[[source]]
+name = "training-run1-test80-20240517-2017.tar"
+bytes = 1157550080
+sha256 = "645dc1a8b31aabe790005e13568104dcb50072fb60704733e9c53acdf31cfc65"
+
+[[source]]
+name = "training-run1-test80-20240517-2117.tar"
+bytes = 1206118400
+sha256 = "0717eab41cb2843dd9b99d95ce27fbeb3251790d7076a29dd6a98448a4f5856d"
+
+[[source]]
+name = "training-run1-test80-20240517-2217.tar"
+bytes = 1276088320
+sha256 = "9ae40f1add964f3fe8072c3d83f5f3f35150be8508e95f96ae30fe8dc8b251ec"
+
+[[source]]
+name = "training-run1-test80-20240517-2317.tar"
+bytes = 1168783360
+sha256 = "db33aa1464cb16546cd3d2f4089640dc238b7bf29f37219effe0e1ac528cae51"
+
+[[source]]
+name = "training-run1-test80-20240518-0017.tar"
+bytes = 1165711360
+sha256 = "f8738d2a3594842db314c50783cf51c2a36ff9db19cca3bede3cba35f1e5a239"
+
+[[source]]
+name = "training-run1-test80-20240518-0117.tar"
+bytes = 1149859840
+sha256 = "8618244512fc935c018d23d350157ef58041ec64a95eb1db9a9c079e7b69433b"
+
+[[source]]
+name = "training-run1-test80-20240518-0217.tar"
+bytes = 1139865600
+sha256 = "922bf97ce83fc730cebbe80fecba4e4df209a0a686ed1aee2c71d2f3e75ba1a5"
+
+[[source]]
+name = "training-run1-test80-20240518-0317.tar"
+bytes = 1275863040
+sha256 = "e46edae06834a787daf7599fd9493352751e9b4641e5fc9ba7a9c84d4e50fe31"
+
+[[source]]
+name = "training-run1-test80-20240518-0417.tar"
+bytes = 1095813120
+sha256 = "e13a3b76949f33896d1ec2900c8ccedf40097d29d688b4f4b3c73f93b29470bf"
+
+[[source]]
+name = "training-run1-test80-20240518-0517.tar"
+bytes = 1170401280
+sha256 = "1de091e04b3642c277c1289ae475cf3793ab990ba1991df8aa86805f6dad8195"
+
+[[source]]
+name = "training-run1-test80-20240518-0617.tar"
+bytes = 1159004160
+sha256 = "9d1795f7eb7b716108c2496d64e77222a146c20ab75d93623fdebadaf5002afa"
+
+[[source]]
+name = "training-run1-test80-20240518-0717.tar"
+bytes = 1146152960
+sha256 = "30290d2bec716680fcdd0d7de51fcdc21f1ccf80823af1e52151948236981997"
+
+[[source]]
+name = "training-run1-test80-20240518-0817.tar"
+bytes = 1270312960
+sha256 = "7cf590fd07edac303fe295ecd67331c4f15380294b8a1597ab7d3bd2f2133f8e"
+
+[[source]]
+name = "training-run1-test80-20240518-0917.tar"
+bytes = 613314560
+sha256 = "4f2041e34f649e149e8df5e2f3a133c284fbcedea66fa2968485ef4c9fe0b8f4"
+
+[[source]]
+name = "training-run1-test80-20240518-1017.tar"
+bytes = 1149235200
+sha256 = "e774d7c934c61eb9425a7ad807da9c028da841864c316735acf870bd02015df8"
+
+[[source]]
+name = "training-run1-test80-20240518-1117.tar"
+bytes = 1207941120
+sha256 = "97644f8270550ce8b5735173dd356fc27c2df4c3d59feb3661c3d16f27043851"
+
+[[source]]
+name = "training-run1-test80-20240518-1217.tar"
+bytes = 1357209600
+sha256 = "49932679bcf09cae9ef5d3b491eab0fd2bd4a2d0443c2456719fed0bf9a31a5b"
+
+[[source]]
+name = "training-run1-test80-20240518-1317.tar"
+bytes = 1195468800
+sha256 = "d82df2cf25626093c7d42cf2effb7f85143ec8f34ffe56c68ed79c0799dfe30a"
+
+[[source]]
+name = "training-run1-test80-20240518-1417.tar"
+bytes = 1149952000
+sha256 = "3ec71b42f74d5b3c593ced54a6038a2312cbe5020c6f4c73db18582f1ac28bea"
+
+[[source]]
+name = "training-run1-test80-20240518-1517.tar"
+bytes = 1225830400
+sha256 = "d7ed34d7e3d06b117ff0ec906a522a944887b40be916b5d5b0fac2e673f5fcad"
+
+[[source]]
+name = "training-run1-test80-20240518-1617.tar"
+bytes = 1175449600
+sha256 = "0d7f127ac4487142193b45e001408a7d372dca2e06fd87afdd3b7296ad39b669"
+
+[[source]]
+name = "training-run1-test80-20240518-1717.tar"
+bytes = 1224632320
+sha256 = "9331c72b095dc87e29859c9c68f8ce6b17eb0227c02c001b5e03ff1fa5dd9132"
+
+[[source]]
+name = "training-run1-test80-20240518-1817.tar"
+bytes = 1316311040
+sha256 = "40f8b433d9fe70702f8ad286be232cd60726ef3afb03eae7b2e6fca57e2d10cd"
+
+[[source]]
+name = "training-run1-test80-20240518-1917.tar"
+bytes = 1206937600
+sha256 = "48c2b322053e6840d4a098e704e079afa3d6835aeb6e523bf58feb732c43fab0"
+
+[[source]]
+name = "training-run1-test80-20240518-2017.tar"
+bytes = 1195550720
+sha256 = "c2e80dbb8a6065f4d7a753a9b56469d19caf3a778db158acc16a6adf4ccf33cd"
+
+[[source]]
+name = "training-run1-test80-20240518-2117.tar"
+bytes = 1180620800
+sha256 = "0a864e5c5c7a96c0f35cf25e323c0e588d00c0c7551686ad1a84b9d5cdb4a237"
+
+[[source]]
+name = "training-run1-test80-20240518-2217.tar"
+bytes = 1185280000
+sha256 = "f2aeedb6d6f7868a875738bac2e97df03c7d7bf6bbc2d5dfe447ac4e088cd4ea"
+
+[[source]]
+name = "training-run1-test80-20240518-2317.tar"
+bytes = 1195397120
+sha256 = "4a2bcebd6cd387138778e9a18fc05be7a6c9692611e74f59ad40a788af77c435"
+
+[[source]]
+name = "training-run1-test80-20240519-0017.tar"
+bytes = 1327390720
+sha256 = "edcc1a6f5e35801468e0f435bb4ced8b1c1ee06e450b3783f5dbaf105f6b1763"
+
+[[source]]
+name = "training-run1-test80-20240519-0117.tar"
+bytes = 1165772800
+sha256 = "cf52c36cad31efd557b6e4baa31bb55fc8fc0188455d0dc255e33539412f330c"
+
+[[source]]
+name = "training-run1-test80-20240519-0217.tar"
+bytes = 1132021760
+sha256 = "08c9aa03a5d52a14f9b4c99756401916d7e84029857e78ee6370f39700319d96"
+
+[[source]]
+name = "training-run1-test80-20240519-0317.tar"
+bytes = 947681280
+sha256 = "62ff9ca57a01e78079aab94c97f3a4c4b8eb4d1c5da567eebd446975c86aa2eb"
+
+[[source]]
+name = "training-run1-test80-20240519-0417.tar"
+bytes = 1147658240
+sha256 = "950742768181971831af7f4bd9be4cc96f3aac0c964b23a00f3d445b3d84d968"
+
+[[source]]
+name = "training-run1-test80-20240519-0517.tar"
+bytes = 1267281920
+sha256 = "d9ccc1860bca09068d9ca4401bdfd8f806a358f9fe132ef09a5703af008a4717"
+
+[[source]]
+name = "training-run1-test80-20240519-0617.tar"
+bytes = 1138667520
+sha256 = "b73ea9012a0e220e28c838e99bde95a7e9c4ac104242404191baca27fddf875b"
+
+[[source]]
+name = "training-run1-test80-20240519-0717.tar"
+bytes = 1177026560
+sha256 = "b9c0a98eb1a7f8282f6c315600b6cd04d6f85ede2e399a026cd10c72cf25ef1f"
+
+[[source]]
+name = "training-run1-test80-20240519-0817.tar"
+bytes = 1189294080
+sha256 = "8aad44b80c88ee92bfa29d04175290b0327235f409d4cc682cde907d869d0ff1"
+
+[[source]]
+name = "training-run1-test80-20240519-0917.tar"
+bytes = 1158502400
+sha256 = "f3ef75bea60e782220d31682a2f4c082067a34dace440f6eff0948d8274f1d4d"
+
+[[source]]
+name = "training-run1-test80-20240519-1017.tar"
+bytes = 1261404160
+sha256 = "77c275f7c675d438f4cfc6134eaedbb06e99960ed9064a31b316d689dae63712"
+
+[[source]]
+name = "training-run1-test80-20240519-1117.tar"
+bytes = 1156239360
+sha256 = "6f61f4d76d5138544b3a988e3f2c56f32b0087106e084f6fcee6f320a447dafb"
+
+[[source]]
+name = "training-run1-test80-20240519-1217.tar"
+bytes = 1197701120
+sha256 = "0a9f2cffb7be9684e14b87aec0f4dc652a5f3c9c26493061e70a13f85008f19d"
+
+[[source]]
+name = "training-run1-test80-20240519-1317.tar"
+bytes = 1199534080
+sha256 = "a46d89317da93d881b7c3a7fbb14a0a59ae0e96502590fde637bfcff7a3cb42a"
+
+[[source]]
+name = "training-run1-test80-20240519-1417.tar"
+bytes = 1214935040
+sha256 = "7df352d4466d2c7b0bdbfb43b19f3654eb76a704e17d28243b963665b277bdfb"
+
+[[source]]
+name = "training-run1-test80-20240519-1517.tar"
+bytes = 1303070720
+sha256 = "ef7b0a0087b7a962c0478f2a2fbaae4f8fcb0fe7fca083998e4038ba64cfa844"
+
+[[source]]
+name = "training-run1-test80-20240519-1617.tar"
+bytes = 835491840
+sha256 = "373de0648693307b9289b9f6fed06cea4381296b2a492f934e9df436265edadb"
+
+[[source]]
+name = "training-run1-test80-20240519-1717.tar"
+bytes = 1244549120
+sha256 = "bd6b004f3a776c81a2c4639db97c919c0ca16c5d5bb7ec922b0241ce44f6dfd3"
+
+[[source]]
+name = "training-run1-test80-20240519-1817.tar"
+bytes = 1204746240
+sha256 = "32eac0f4103b090cff80ebcdd2abcfa77262c4eff9ebb12ce13fe0049cab72bb"
+
+[[source]]
+name = "training-run1-test80-20240519-1917.tar"
+bytes = 1160130560
+sha256 = "70b3c1c1273f308e1295d8c4c9e0b97485b46433b09cdc185cb4da4d59d55194"
+
+[[source]]
+name = "training-run1-test80-20240519-2017.tar"
+bytes = 1327841280
+sha256 = "09a932741136db7f1a785e5aa5175102d370578b8c59dca2eca20f7aad89135e"
+
+[[source]]
+name = "training-run1-test80-20240519-2117.tar"
+bytes = 1232465920
+sha256 = "5c14a791df3a3c1f19d9442a24e7e66681d49d00ea1ff36630bc9366b809bfeb"
+
+[[source]]
+name = "training-run1-test80-20240519-2217.tar"
+bytes = 819025920
+sha256 = "669e8018a9e6de599e70bc7edae927f7443e1b62555e6111dcb43561c53dc55c"
+
+[[source]]
+name = "training-run1-test80-20240519-2317.tar"
+bytes = 1327257600
+sha256 = "2056454e5efd4db465304597e4b181201b8e6e56c888fdcc44419fdfcccfd005"
+
+[[source]]
+name = "training-run1-test80-20240520-0017.tar"
+bytes = 1190481920
+sha256 = "1cb70c27528b7ab8eb819c046575e8315342f050d6c0f5c4b583dcf635bebc89"
+
+[[source]]
+name = "training-run1-test80-20240520-0117.tar"
+bytes = 1302528000
+sha256 = "e70e9f22d9d37bf6905f139a14c9033879da0846e32b8b6842da303b9aa15d91"
+
+[[source]]
+name = "training-run1-test80-20240520-0217.tar"
+bytes = 1024604160
+sha256 = "c469f2230c27885a0ca54097a64e59ec13391194c8a312ce2b0fdce46d42826f"
+
+[[source]]
+name = "training-run1-test80-20240520-0317.tar"
+bytes = 1296640000
+sha256 = "2d6a8d6d17e92cfe699e55203c5fa225601b8345488025fb738877b1185a93fd"
+
+[[source]]
+name = "training-run1-test80-20240520-0417.tar"
+bytes = 1199349760
+sha256 = "3e914f5fab7a8ae7f8737bab349ec63f51f13bfecb74d95720b00d497a608b77"
+
+[[source]]
+name = "training-run1-test80-20240520-0517.tar"
+bytes = 1269811200
+sha256 = "856562de3be265bb217df33ff3d20ba98a493e977499c1aa70c3436594a23f68"
+
+[[source]]
+name = "training-run1-test80-20240520-0617.tar"
+bytes = 1300295680
+sha256 = "23186104e9184c0e58b986a4a19257e3cde83d06d2ebd67135f150db71dc0925"
+
+[[source]]
+name = "training-run1-test80-20240520-0717.tar"
+bytes = 1198100480
+sha256 = "2059dd0a0fa732045021997d5e35af4904177ea0775a32a7494c3f0bc678457a"
+
+[[source]]
+name = "training-run1-test80-20240520-0817.tar"
+bytes = 1180610560
+sha256 = "2dd0b6125ec92ebae7ced9faf3be3e5f3547baa12e0cb19ead17264320fbea85"
+
+[[source]]
+name = "training-run1-test80-20240520-0917.tar"
+bytes = 1178255360
+sha256 = "0352b0becb5aca704abfbd55e9e4eaaa0d1e80008b74c434ea45a272fe43324b"
+
+[[source]]
+name = "training-run1-test80-20240520-1017.tar"
+bytes = 1153331200
+sha256 = "b99136e683e4902e70e626a57bc098eb9d930fc2adaff5321be5c68be1776220"
+
+[[source]]
+name = "training-run1-test80-20240520-1117.tar"
+bytes = 1190041600
+sha256 = "332134fa62f0250aade6071d0826be8b011c3a3d3e00cb251fde0898b493027a"
+
+[[source]]
+name = "training-run1-test80-20240520-1217.tar"
+bytes = 1284761600
+sha256 = "a654974c3166c7247037f53af2acf9ee737c760ad3908d067e3b715b5f610859"
+
+[[source]]
+name = "training-run1-test80-20240520-1317.tar"
+bytes = 1192529920
+sha256 = "eec8a7403375dacd3d485e4bd34a4256a5854ab825df09f17f6d5ba8b5c6cbb0"
+
+[[source]]
+name = "training-run1-test80-20240520-1417.tar"
+bytes = 1149829120
+sha256 = "8c981dd51a31d22a976a0eb67d05cb8d096aefa549b7a91bacf554936379a5d1"
+
+[[source]]
+name = "training-run1-test80-20240520-1517.tar"
+bytes = 1158389760
+sha256 = "6b0f551ffabd12f560f6411218b232609e778ad47f7e69980ee5a155ce4b799d"
+
+[[source]]
+name = "training-run1-test80-20240520-1617.tar"
+bytes = 1007155200
+sha256 = "9ed344eda99512b171e6af1f6aa2a820c0e86a11d9b74db79840f7b7c4ffe1d7"
+
+[[source]]
+name = "training-run1-test80-20240520-1717.tar"
+bytes = 1302282240
+sha256 = "606d3721af8a0e3d0afd80534f06c036ca6ce5e5c547d7f48e9b6a414ed8315c"
+
+[[source]]
+name = "training-run1-test80-20240520-1817.tar"
+bytes = 1156833280
+sha256 = "20d83bf0165fb6dd8e4dc8976177353c402d8c9cdb1407a8074d68e7e7999a7b"
+
+[[source]]
+name = "training-run1-test80-20240520-1917.tar"
+bytes = 1173616640
+sha256 = "8ca1639080fe0a4e02c3c5109e3c32ada9f7d79a6abe0ccd1608b67da015e7f3"
+
+[[source]]
+name = "training-run1-test80-20240520-2017.tar"
+bytes = 1156526080
+sha256 = "58687f2a6f8a085c1566e3fe2857722ca07f6c90caabdde62bc360e8af2fdea9"
+
+[[source]]
+name = "training-run1-test80-20240520-2117.tar"
+bytes = 1147136000
+sha256 = "d437766850ac0d9552046dabd0aec2c04935c4c2531b27b75c9cc96bebce480e"
+
+[[source]]
+name = "training-run1-test80-20240520-2217.tar"
+bytes = 1263872000
+sha256 = "d7ffd567aca50dd8dbc52a1dcd71f72859ff808af113533eb7ec10ce66dce9e7"
+
+[[source]]
+name = "training-run1-test80-20240520-2317.tar"
+bytes = 994099200
+sha256 = "d6d85196d2caf3dc6e430a5990839010bbf55bece3902ef26799bd6ad7b8909d"
+
+[[source]]
+name = "training-run1-test80-20240521-0017.tar"
+bytes = 1134090240
+sha256 = "8bb7833cd55f94863e89b8cedb6eaf8f64389dabc107f386d7de17b64d5dc109"
+
+[[source]]
+name = "training-run1-test80-20240521-0117.tar"
+bytes = 1124270080
+sha256 = "4b3f6d12b834e55d29eefcaae51422195ccb22b0931729baf49d70a3f1e5ae3d"
+
+[[source]]
+name = "training-run1-test80-20240521-0217.tar"
+bytes = 1169408000
+sha256 = "3f13e82b36e840a1f69bc6436397a4c45d4f2ea6aac98b13d4d8f24fbc9e7f5d"
+
+[[source]]
+name = "training-run1-test80-20240521-0317.tar"
+bytes = 1248655360
+sha256 = "a2574678e1ad32e3e0b64d1e0ad9b323dba610d8b52819517fadef715b5d7316"
+
+[[source]]
+name = "training-run1-test80-20240521-0417.tar"
+bytes = 1140541440
+sha256 = "e3a5e3a4141b87dc72bbd6a7dca57a8155cc45430128a8f4d45909295df8a35e"
+
+[[source]]
+name = "training-run1-test80-20240521-0517.tar"
+bytes = 1143326720
+sha256 = "44e88063e02877c81e1cf52bb35df7454df6be651ecd29c785431943a04f5d3c"
+
+[[source]]
+name = "training-run1-test80-20240521-0617.tar"
+bytes = 1151457280
+sha256 = "9efd44332dccaead40cf9eba5d61930a1a9beae7010d923baea87d83c17f822e"
+
+[[source]]
+name = "training-run1-test80-20240521-0717.tar"
+bytes = 1135114240
+sha256 = "63ab1b0cfbe0e5e395e8529502c4cfdef2fa223fe8322d0abab3a6ec66d38740"
+
+[[source]]
+name = "training-run1-test80-20240521-0817.tar"
+bytes = 1281996800
+sha256 = "47a77f305f385b38813eda20b7fb74c9a3c7477b3214084578442952b8d0aba1"
+
+[[source]]
+name = "training-run1-test80-20240521-0917.tar"
+bytes = 1104701440
+sha256 = "315a2740e18601de6523c419e23dbd4cba0c57c4f4652dae5a24cb79529fe407"
+
+[[source]]
+name = "training-run1-test80-20240521-1017.tar"
+bytes = 1128755200
+sha256 = "83cc12b3dc156dfed10890250cb3e0c0323656da191d9a3d182e2f09f12e1766"
+
+[[source]]
+name = "training-run1-test80-20240521-1117.tar"
+bytes = 981544960
+sha256 = "03ddf18b044bd97a0b755920a1860ac43d1dd34f8590ffbeaba25d4737176c37"
+
+[[source]]
+name = "training-run1-test80-20240521-1217.tar"
+bytes = 1266073600
+sha256 = "1a55ddd33621e7ff514c5c0f68f332fad07475014712797f7567f2af22fa38ec"
+
+[[source]]
+name = "training-run1-test80-20240521-1317.tar"
+bytes = 967598080
+sha256 = "3122873da341282a2897506915b9bfa9754fd7ffadc98872e73d71dc793dce3a"
+
+[[source]]
+name = "training-run1-test80-20240521-1417.tar"
+bytes = 1134161920
+sha256 = "0426aa8eec1af675adeb449c061aa072896b46b59276f3fcbe880c51d41922d8"
+
+[[source]]
+name = "training-run1-test80-20240521-1517.tar"
+bytes = 1132544000
+sha256 = "36251a8117f789c799810fc193673368ae39510dc4203cd5311a9cff0b5f0fa9"
+
+[[source]]
+name = "training-run1-test80-20240521-1617.tar"
+bytes = 1141698560
+sha256 = "2db1adee141486f327bf7001a3e9729c29466651fb06ead81c1b9a1ebbcfa21f"
+
+[[source]]
+name = "training-run1-test80-20240521-1717.tar"
+bytes = 1224816640
+sha256 = "2a03d2752ec05f72f77e799ca9ab5e69313a803cf02a22d0c41c4666b815284a"
+
+[[source]]
+name = "training-run1-test80-20240521-1817.tar"
+bytes = 1100410880
+sha256 = "3febf278a2d9bf0abf3945f63f5c13a4783a6eb05fab47329d00f88aab49298a"
+
+[[source]]
+name = "training-run1-test80-20240521-1917.tar"
+bytes = 1119457280
+sha256 = "30aefded2b8bb34b125448906d76113c672487d2ca14da99b0360d3741e5a233"
+
+[[source]]
+name = "training-run1-test80-20240521-2017.tar"
+bytes = 1081118720
+sha256 = "ee4ffb3c8965767d1b9d893a230c3f56627c8d4a3845a5a103912b365b60c7ec"
+
+[[source]]
+name = "training-run1-test80-20240521-2117.tar"
+bytes = 1233192960
+sha256 = "3cd82932de5042b0ebdf7335c6ab07a87b8902eb804fac71a0d45f89bc5adef0"
+
+[[source]]
+name = "training-run1-test80-20240521-2217.tar"
+bytes = 1063567360
+sha256 = "e84accbe375a376c226a5eb6a40a2681f817409bb5a0508b074c5a58886286f4"
+
+[[source]]
+name = "training-run1-test80-20240521-2317.tar"
+bytes = 1077002240
+sha256 = "a7498d87b3798e6ed70d4d5c6f7397be9d2cc1893d8fe160f6becead9c27d11c"
+
+[[source]]
+name = "training-run1-test80-20240522-0017.tar"
+bytes = 1068769280
+sha256 = "c8c6f8284b0bcded6143c806e8d4008ea9f7b26ac075ed2688d0dd3994ed89bb"
+
+[[source]]
+name = "training-run1-test80-20240522-0117.tar"
+bytes = 1159639040
+sha256 = "0ad30499ade8b7e6f7b5df32bb4cadd7239589fe03d00fe9da64634acc509817"
+
+[[source]]
+name = "training-run1-test80-20240522-0217.tar"
+bytes = 1102008320
+sha256 = "66ae5f4f5044510374b0973cf76f64c569ee117279b8c8323ce99c393329e4d2"
+
+[[source]]
+name = "training-run1-test80-20240522-0317.tar"
+bytes = 1054156800
+sha256 = "063586891d20b92634cf4ffcaa8630d090cac14abfa677e037ec90c3472fc365"
+
+[[source]]
+name = "training-run1-test80-20240522-0417.tar"
+bytes = 1058990080
+sha256 = "ecbee311e6d2e589948112056b549e9a20148aef4982f3e73059aa3e59fe04ca"
+
+[[source]]
+name = "training-run1-test80-20240522-0517.tar"
+bytes = 1123553280
+sha256 = "27e5f6897cdf82c5dec507d4dffd317f5fb2144357e487e8f2e67f8bc15936bc"
+
+[[source]]
+name = "training-run1-test80-20240522-0617.tar"
+bytes = 1179873280
+sha256 = "83d65484734cfe0fe4e5fff8c7f61c919c74db6838ea40a122215adff3e916a4"
+
+[[source]]
+name = "training-run1-test80-20240522-0717.tar"
+bytes = 462407680
+sha256 = "d322d5e9dab3980d27d7017d1cd71bb43e2f891a083e7a54264799ed7fcae3bc"
+
+[[source]]
+name = "training-run1-test80-20240522-0817.tar"
+bytes = 1228113920
+sha256 = "34315d0ddedefcfa3511c803a935206ae592715fccfd5ef47e1a62d7603afed6"
+
+[[source]]
+name = "training-run1-test80-20240522-0917.tar"
+bytes = 1071493120
+sha256 = "8e148f7d13b0be7d6e4f8da79d94ccfd5d675b941246ecb12fdf509caeefceba"
+
+[[source]]
+name = "training-run1-test80-20240522-1017.tar"
+bytes = 1079613440
+sha256 = "214d7c36b4d453f8ef9d9219772aa44bd448bfd88ec2646f634985a3cbf2eb6d"
+
+[[source]]
+name = "training-run1-test80-20240522-1117.tar"
+bytes = 1089996800
+sha256 = "084209722ddf8e28c985cabe439c65616b4fdc0f60e6e621a246612123e75b41"
+
+[[source]]
+name = "training-run1-test80-20240522-1217.tar"
+bytes = 1177344000
+sha256 = "64e53ad17fa4187b06de7466a7aa47f0a719fa96d7b56db2a4aa9b1618fd53be"
+
+[[source]]
+name = "training-run1-test80-20240522-1317.tar"
+bytes = 1155399680
+sha256 = "6dde7a8df7f8065d2902c4f85ba833e495dcd84bcabcb76271f093106c65e27a"
+
+[[source]]
+name = "training-run1-test80-20240522-1417.tar"
+bytes = 1099284480
+sha256 = "21cf993b2c55789e0e70a249cd1d86747723de7b7195543644cc4fe1c96e32ed"
+
+[[source]]
+name = "training-run1-test80-20240522-1517.tar"
+bytes = 1060771840
+sha256 = "9e3fc6ab6d8a25b2836e4779abf892e53e4d6052823e8d24153fc35d49fb9d51"
+
+[[source]]
+name = "training-run1-test80-20240522-1617.tar"
+bytes = 1156648960
+sha256 = "1f4208bd727066ec69a69aae5502bc8eeb941525661dd709f56a370eecb5a775"
+
+[[source]]
+name = "training-run1-test80-20240522-1717.tar"
+bytes = 1218621440
+sha256 = "a9ecac3262275823433580f630dae33cd95bcb7e3f1d67f8c1355abd5cb7cb9f"
+
+[[source]]
+name = "training-run1-test80-20240522-1817.tar"
+bytes = 1075773440
+sha256 = "abc059c345cf3f1440e969c30c6ba4c5b1828a4dbad6704ab81351b74ceb3194"
+
+[[source]]
+name = "training-run1-test80-20240522-1917.tar"
+bytes = 1116835840
+sha256 = "6fd7701d89b2db33a47dae0d1d436116307127a14b25a5fa16e9514d8c4e5e48"
+
+[[source]]
+name = "training-run1-test80-20240522-2017.tar"
+bytes = 1119078400
+sha256 = "aba66df4403fa37d92e35de843d17ec9a9e05466e0f91b921d93a3afc307b4a9"
+
+[[source]]
+name = "training-run1-test80-20240522-2117.tar"
+bytes = 1171927040
+sha256 = "fa427dc423c6772634c308dac52d84922971656f70d964da72c92f6b97040949"
+
+[[source]]
+name = "training-run1-test80-20240522-2217.tar"
+bytes = 1228257280
+sha256 = "12a32be06e4e3b8520fcee07651a617f74e9697da569d488f009c8a05021311c"
+
+[[source]]
+name = "training-run1-test80-20240522-2317.tar"
+bytes = 1114306560
+sha256 = "cd6c446b18dc8dfc70c35a49042dcbcf6c0cf81fab04beeebaee29446db48053"
+
+[[source]]
+name = "training-run1-test80-20240523-0017.tar"
+bytes = 1098240000
+sha256 = "a4e39c8cabd93c147fedb22a6d0267a8d2f8b20bc3a590ec17fe5575c6e529bf"
+
+[[source]]
+name = "training-run1-test80-20240523-0117.tar"
+bytes = 1109145600
+sha256 = "c3d6dba2df35a8351af93d4340506ca99f750dbe163c817f61f04de19725a11a"
+
+[[source]]
+name = "training-run1-test80-20240523-0217.tar"
+bytes = 1243535360
+sha256 = "add3b07516066481c0ec8df098c5aa616bff149b725e167e3738e335de02a496"
+
+[[source]]
+name = "training-run1-test80-20240523-0317.tar"
+bytes = 950353920
+sha256 = "416b823c431856549e5ecdf81572892c23085294d72537a88cebbbd36c7ac13c"
+
+[[source]]
+name = "training-run1-test80-20240523-0417.tar"
+bytes = 1098485760
+sha256 = "389e431cbf16fef0eedb5f5748c20d80e71dd91de170873cef397b734a502174"
+
+[[source]]
+name = "training-run1-test80-20240523-0517.tar"
+bytes = 1104384000
+sha256 = "da716bbe8412a14c09dd18c4e20f4f506b0357f746aa6a6533b374c26d8988e6"
+
+[[source]]
+name = "training-run1-test80-20240523-0617.tar"
+bytes = 1194547200
+sha256 = "e9f7d453384bf9ac6357a65839ccb99a2b6ac53859b48355dd72f38f5f50334f"
+
+[[source]]
+name = "training-run1-test80-20240523-0717.tar"
+bytes = 1177026560
+sha256 = "faa5e78892415c262759f1dcf183aa6e5e01fea91b08b3101d4a393c497e512c"
+
+[[source]]
+name = "training-run1-test80-20240523-0817.tar"
+bytes = 1098424320
+sha256 = "da24e5e365588dd9f420395831873d1c1067d050718511efc01f8ac41ffc8444"
+
+[[source]]
+name = "training-run1-test80-20240523-0917.tar"
+bytes = 1091072000
+sha256 = "d5124f6edaf9d2999609bbb090ce203ea79e5a50a7178f9ecced18762a57ebc7"
+
+[[source]]
+name = "training-run1-test80-20240523-1017.tar"
+bytes = 1088501760
+sha256 = "94ba2fa16a2ff2f17f5031d30a39bbefe2a9a75fc0dc960e7c72e964adc81184"
+
+[[source]]
+name = "training-run1-test80-20240523-1117.tar"
+bytes = 1243279360
+sha256 = "e182510df3c5b82eb4f187871a133b082b62f9e099434f846d91d562d51457d9"
+
+[[source]]
+name = "training-run1-test80-20240523-1217.tar"
+bytes = 1067560960
+sha256 = "0d36483900a878b903211a6923622ae66e2ee62c4e344cab63f0a8c8931265de"
+
+[[source]]
+name = "training-run1-test80-20240523-1317.tar"
+bytes = 1109381120
+sha256 = "1eca08e379ebcc12917b48585fbd85450814c83d7658ddd2676473a118201c4f"
+
+[[source]]
+name = "training-run1-test80-20240523-1417.tar"
+bytes = 1063014400
+sha256 = "1aa16055882336e3e9bd491b934af27c8ccaa228adaeb4a2e16882f36d152627"
+
+[[source]]
+name = "training-run1-test80-20240523-1517.tar"
+bytes = 1222563840
+sha256 = "881fb6f192d4169891b6b4159443615422bfaee061b885781a85c1978822d1ce"
+
+[[source]]
+name = "training-run1-test80-20240523-1617.tar"
+bytes = 868669440
+sha256 = "c932d1ba5a3708b31f3038c09df050192404fda2b47dabebaba00784166da990"
+
+[[source]]
+name = "training-run1-test80-20240523-1717.tar"
+bytes = 1019852800
+sha256 = "ca80a8fb9321bdf570afb07c25c99504290d1f3ea7ca98e46f1c917eb9357c19"
+
+[[source]]
+name = "training-run1-test80-20240523-1817.tar"
+bytes = 1062758400
+sha256 = "8e3fec09e7cd9357c8b424101f4e42bebb79e4f4b1202c1342cee16e86ea7025"
+
+[[source]]
+name = "training-run1-test80-20240523-1917.tar"
+bytes = 1196390400
+sha256 = "ff4a9bee5046d35c819a53b490d047143b9ee37277a375315a3e7768d702f276"
+
+[[source]]
+name = "training-run1-test80-20240523-2017.tar"
+bytes = 1049231360
+sha256 = "f7568a126b5766c071a324f5883c8357c73ed50e5206124c2872fbbcc08e1152"
+
+[[source]]
+name = "training-run1-test80-20240523-2117.tar"
+bytes = 1052774400
+sha256 = "b39018660e19033a209127c4408fc2e06842617e29f840edb4cbf7e9380ee0b2"
+
+[[source]]
+name = "training-run1-test80-20240523-2217.tar"
+bytes = 944343040
+sha256 = "6502b410fb4972e5e686be82caa06291c65f8e33ec1c063d1d0f1ce09ad1648a"
+
+[[source]]
+name = "training-run1-test80-20240523-2317.tar"
+bytes = 1169858560
+sha256 = "7925e11c2087b1a44de782e681b242276dff541c0bfaee757739cfbd3aa4d5ff"
+
+[[source]]
+name = "training-run1-test80-20240524-0017.tar"
+bytes = 1055242240
+sha256 = "5de8ea9c73648cca84b19ea3e82a9a1381f35c58793f25c6b19e8e67a8499825"
+
+[[source]]
+name = "training-run1-test80-20240524-0117.tar"
+bytes = 1073950720
+sha256 = "92bb00e3e9419df3df75823a6dd1ac109bbc96ab062387353cf30614b8c946f3"
+
+[[source]]
+name = "training-run1-test80-20240524-0217.tar"
+bytes = 1113446400
+sha256 = "346c2a11d324e418a2275379188746b8481355767c602e1e4bae13dd06b54870"
+
+[[source]]
+name = "training-run1-test80-20240524-0317.tar"
+bytes = 1180569600
+sha256 = "d31ec6aeb39ab145caa5c35e21b85f6c071cc3d71ca6579407d1b0cabf91095f"
+
+[[source]]
+name = "training-run1-test80-20240524-0417.tar"
+bytes = 1111244800
+sha256 = "a3bcccb249a9c80221fc3b1ba082a5065f34e8932e659e4a0205251c5f7f5a30"
+
+[[source]]
+name = "training-run1-test80-20240524-0517.tar"
+bytes = 1116753920
+sha256 = "e19725bdd2991d6b4aeae63ce400adf40d2bbe4e726fa709043528987acf2103"
+
+[[source]]
+name = "training-run1-test80-20240524-0617.tar"
+bytes = 1133096960
+sha256 = "d70c02da53e93cb885007bf549efe10e2da6b4d27bd87aa65dfd662e892c514c"
+
+[[source]]
+name = "training-run1-test80-20240524-0717.tar"
+bytes = 1277358080
+sha256 = "bc7269b29c9efd3bcc0eecffc50ccc9b4487b27fd68e0393203eeb5cc48e9156"
+
+[[source]]
+name = "training-run1-test80-20240524-0817.tar"
+bytes = 1095301120
+sha256 = "27b8a24f4659834c3cb53820e7f0b8f5907ccd6ef910cff2ad448627798eb736"
+
+[[source]]
+name = "training-run1-test80-20240524-0917.tar"
+bytes = 1116282880
+sha256 = "bd570712e4bbd0e9169380645b84d9a84a5aa6d40ac4a73011fffdb71ff904aa"
+
+[[source]]
+name = "training-run1-test80-20240524-1017.tar"
+bytes = 1083371520
+sha256 = "35fc6eb62183680b2f1ad3fbb87c99256e09a52625dcea92bb9f2ca01572775c"
+
+[[source]]
+name = "training-run1-test80-20240524-1117.tar"
+bytes = 1142691840
+sha256 = "e02d0a121f4c5bbdb964d079f0861c31df8452d229ca04effc34d9e51aa76232"
+
+[[source]]
+name = "training-run1-test80-20240524-1217.tar"
+bytes = 1222184960
+sha256 = "ccc12b02f136b44419e6d52e0b0d91bb99afc57d3cbcb2f8cbe83664891bd088"
+
+[[source]]
+name = "training-run1-test80-20240524-1317.tar"
+bytes = 1102284800
+sha256 = "4422f792282f001cdc5508f6e0dca737904f195453915e629b4b765dd474a531"
+
+[[source]]
+name = "training-run1-test80-20240524-1417.tar"
+bytes = 1106524160
+sha256 = "1fc0a3150d273372d7830deba8a03dc10a5148c9f0fdfe1d4e8c1234962bc839"
+
+[[source]]
+name = "training-run1-test80-20240524-1517.tar"
+bytes = 1105356800
+sha256 = "32a6cb3954778f4079c7b2e1113a878d9037bbe2545fd99c7a0626d5e5ddebbe"
+
+[[source]]
+name = "training-run1-test80-20240524-1617.tar"
+bytes = 1269196800
+sha256 = "1f18e3262425856f033faad63eaccc86f161518cbdda7fabda4e53f312760c1c"
+
+[[source]]
+name = "training-run1-test80-20240524-1717.tar"
+bytes = 1235957760
+sha256 = "436f021dd05763cee619f21e0d2c6098b5feb89de6a40c4f813d38468ffd441b"
+
+[[source]]
+name = "training-run1-test80-20240524-1817.tar"
+bytes = 861777920
+sha256 = "c55ed96a89d190f4cdf40b5d00aed4db4c939609694218b859117d3814c3b36c"
+
+[[source]]
+name = "training-run1-test80-20240524-1917.tar"
+bytes = 1067622400
+sha256 = "bc2e66123622f3c869600e216e51229382df55e070ce896210dfef91128e7761"
+
+[[source]]
+name = "training-run1-test80-20240524-2017.tar"
+bytes = 1170616320
+sha256 = "492c6adb08a6a15b792062369eaba8d8d3d7b97a235961ea159f001fb068bb99"
+
+[[source]]
+name = "training-run1-test80-20240524-2117.tar"
+bytes = 1091205120
+sha256 = "fc947ec49795009cdd9b9d9401f60f086901405ba11cc24868c1b914dc30ab20"
+
+[[source]]
+name = "training-run1-test80-20240524-2217.tar"
+bytes = 1079234560
+sha256 = "f8aa0d7e11a9343cf89cebc5440d6a6197e4c8e0b6f50cd5452b37c984dde760"
+
+[[source]]
+name = "training-run1-test80-20240524-2317.tar"
+bytes = 1078845440
+sha256 = "ae52a2a15ee63734c05d3a7618b71b461f956d94dc576a3119adba49c12ddf4b"
+
+[[source]]
+name = "training-run1-test80-20240525-0017.tar"
+bytes = 1098752000
+sha256 = "486e94fefb036f8f6d3ffd24cc375b6479c89c39d2c62981a87fbb87f766e53d"
+
+[[source]]
+name = "training-run1-test80-20240525-0117.tar"
+bytes = 1012480000
+sha256 = "b0926d2577ea780d80d2b276200c31fea85976b2c2cb34a668522ea5ddd7dd8f"
+
+[[source]]
+name = "training-run1-test80-20240525-0217.tar"
+bytes = 1054801920
+sha256 = "6a83076781e240d2a161833cb27b2013651d99dab95bc7b3620a57dfcef36a51"
+
+[[source]]
+name = "training-run1-test80-20240525-0317.tar"
+bytes = 1075865600
+sha256 = "9c795d4a1905ad92b20f80a9ade84819424e2b2c352d0f4b4503f2f8946a16ff"
+
+[[source]]
+name = "training-run1-test80-20240525-0417.tar"
+bytes = 1162823680
+sha256 = "881b986eea38b019394a04f13866108570c98c039e9a27f4a60b58401a1b889f"
+
+[[source]]
+name = "training-run1-test80-20240525-0517.tar"
+bytes = 1157857280
+sha256 = "0b386419f567f158a7e96da91e004009024578ba38c2d1a742a4fa3cd70b6594"
+
+[[source]]
+name = "training-run1-test80-20240525-0617.tar"
+bytes = 1094184960
+sha256 = "cc0d54665afd59af9070954d0a6d52fdde69f4eb222b680650195477ce832ece"
+
+[[source]]
+name = "training-run1-test80-20240525-0717.tar"
+bytes = 1096785920
+sha256 = "efdccca3f359e926df821bb37431b086dd604f7b1f83c577fc0ec6903ab2819f"
+
+[[source]]
+name = "training-run1-test80-20240525-0817.tar"
+bytes = 1128765440
+sha256 = "ba3c6668e755f497273713292a2e38d288048bf7e70efc566df3d06a45ac4dcc"
+
+[[source]]
+name = "training-run1-test80-20240525-0917.tar"
+bytes = 1249136640
+sha256 = "07651418e0d884fad4987a7614ea2f46e397e969133f570c21446ebf40c855af"
+
+[[source]]
+name = "training-run1-test80-20240525-1017.tar"
+bytes = 1106421760
+sha256 = "8705adbb458a894fb05daee33d3e75ddfdf682d2159ff1c323de1021b0f3e285"
+
+[[source]]
+name = "training-run1-test80-20240525-1117.tar"
+bytes = 1084948480
+sha256 = "6f7307b4c09215ef6f13ef9f785fa4493385552ec9c2a8051d7052b8f1cbe682"
+
+[[source]]
+name = "training-run1-test80-20240525-1217.tar"
+bytes = 1082695680
+sha256 = "855c28ed2e2ac76b6d24602a852c0a67a9e5390498ba5399218f559bc005af19"
+
+[[source]]
+name = "training-run1-test80-20240525-1317.tar"
+bytes = 1190451200
+sha256 = "8d6f9c1f8c22bdfb8d4e745138897b3c3e2308692cd6b2edc1c673975d2ecad0"
+
+[[source]]
+name = "training-run1-test80-20240525-1417.tar"
+bytes = 971724800
+sha256 = "27a26f4488540b7fa919a5aaf071295e4e792cd72cec54747e7ac85d84a0e0e0"
+
+[[source]]
+name = "training-run1-test80-20240525-1517.tar"
+bytes = 1051914240
+sha256 = "8cdcf04d1542255e566f3eb1d67ae89dd09f4998580d2df150f1580820b90958"
+
+[[source]]
+name = "training-run1-test80-20240525-1617.tar"
+bytes = 1035776000
+sha256 = "2e2131c381cd60381b492ce9608be79c94c3351bf9c5e9399e7984c85eafe818"
+
+[[source]]
+name = "training-run1-test80-20240525-1717.tar"
+bytes = 1227581440
+sha256 = "0f6294b172dd8fd93a2cafca3f07f59b3a8ec2e7b01db6d90ec1603f784a7d95"
+
+[[source]]
+name = "training-run1-test80-20240525-1817.tar"
+bytes = 1108101120
+sha256 = "849f9df465e3b9b2a939cff1adaea52947ea1d0d5d010304acd691bfa4225062"
+
+[[source]]
+name = "training-run1-test80-20240525-1917.tar"
+bytes = 1115013120
+sha256 = "76fd7c9673ba3012794dd6b68279f365170120bc45e75ca51968b1aa4f5dbd2c"
+
+[[source]]
+name = "training-run1-test80-20240525-2017.tar"
+bytes = 1081477120
+sha256 = "5170fe08686029f8c0b50a6c9d7551b47a180c8813da5f18600583a027b550a4"
+
+[[source]]
+name = "training-run1-test80-20240525-2117.tar"
+bytes = 1190369280
+sha256 = "30e97a73bb23f170adc0c550ce7eaf77576d1a04c2f147e7169f5cdd05f01b53"
+
+[[source]]
+name = "training-run1-test80-20240525-2217.tar"
+bytes = 1132656640
+sha256 = "53545f2a598cb0e8a01be95aa0bf3a8cad09e819c88e89d5dab694424f74cc6e"
+
+[[source]]
+name = "training-run1-test80-20240525-2317.tar"
+bytes = 1075087360
+sha256 = "f89028e9d254a3005d74d9a9a1fdbd7fd9499de728b0410b40e841fc7cedcf5e"
+
+[[source]]
+name = "training-run1-test80-20240526-0017.tar"
+bytes = 1065277440
+sha256 = "3f01f48fd2281ea8fc38cf82ea15c580ccd065af89ed2e13670519edc5ca451d"
+
+[[source]]
+name = "training-run1-test80-20240526-0117.tar"
+bytes = 1091747840
+sha256 = "66863280dcf3b684e636c81b6ee5baa666084df969c6db349f13192ba8ebd97e"
+
+[[source]]
+name = "training-run1-test80-20240526-0217.tar"
+bytes = 1189376000
+sha256 = "16a888739713e1b2de95a1d5d963679cf7f48b961c9f8ec90361c6cc7142c8d5"
+
+[[source]]
+name = "training-run1-test80-20240526-0317.tar"
+bytes = 1050880000
+sha256 = "857aaf3a6d12931326352561ea9e9aa80ee19213f752523805f67e58b81a730e"
+
+[[source]]
+name = "training-run1-test80-20240526-0417.tar"
+bytes = 1033748480
+sha256 = "74c7b757d3160d85176b74b8fdda73e09d1a0aa044e8df194878e6cedaec1bd5"
+
+[[source]]
+name = "training-run1-test80-20240526-0517.tar"
+bytes = 1129564160
+sha256 = "d5d0b3a1b6b948a7d94e39d41f10abbc943c1cfd3f84905d91e3c7d06241439b"
+
+[[source]]
+name = "training-run1-test80-20240526-0617.tar"
+bytes = 1192673280
+sha256 = "bcc2e529bba3998ba9e0190ef92cc0c3b34424042de24303b5e3be979c3ce0c8"
+
+[[source]]
+name = "training-run1-test80-20240526-0717.tar"
+bytes = 1084661760
+sha256 = "4fa582530ef1321741b5f458e90bfedb739aa06e741307ff78f48d62acd7268a"
+
+[[source]]
+name = "training-run1-test80-20240526-0817.tar"
+bytes = 1060730880
+sha256 = "e51ccfe23cede055d6b48f9a228bd1620d4e89cb3c8e7d5fbd22dfc99bd53c7a"
+
+[[source]]
+name = "training-run1-test80-20240526-0917.tar"
+bytes = 972861440
+sha256 = "40d37c354fff688a808284e4662cad72e529a287d8e902d824dced9944862c28"
+
+[[source]]
+name = "training-run1-test80-20240526-1017.tar"
+bytes = 735846400
+sha256 = "3c6fb227ae1dbce7bfe8111a1cc1c33cafb7bc46cc39a4f6de6ce088c764265a"
+
+[[source]]
+name = "training-run1-test80-20240526-1117.tar"
+bytes = 1090242560
+sha256 = "6a1f6afdc352fd32d52190ff6decf0b18866065995da9392e9488b13d7824cd3"
+
+[[source]]
+name = "training-run1-test80-20240526-1217.tar"
+bytes = 1127444480
+sha256 = "bdf7d56697a7d78d16f858b083444960385dbf3a0d4aa66c8b6bd69c8b43c187"
+
+[[source]]
+name = "training-run1-test80-20240526-1317.tar"
+bytes = 1208320000
+sha256 = "cbd82301d968156eec1eebc673a9f550b221b6c2a18c6af9c2ef182cb4e8557c"
+
+[[source]]
+name = "training-run1-test80-20240526-1417.tar"
+bytes = 1058846720
+sha256 = "aa3cc329ecd39567c28e0052665ad14b89fdf27f771e5de5dd2dc81381bd97b3"
+
+[[source]]
+name = "training-run1-test80-20240526-1517.tar"
+bytes = 1092823040
+sha256 = "a9b44ee1e61af306859bbf8379500acf28856760e4d995be51fd6d67a9d26cfe"
+
+[[source]]
+name = "training-run1-test80-20240526-1617.tar"
+bytes = 1061273600
+sha256 = "c822db7de6a9042c5d5a88f415d3be5dec694f2e794da7f9ed1f139deb4214c7"
+
+[[source]]
+name = "training-run1-test80-20240526-1717.tar"
+bytes = 1194311680
+sha256 = "c1888e1413fa105e1a80ee123848da5b39b29a72c9092990c7599ce0cc1f4b31"
+
+[[source]]
+name = "training-run1-test80-20240526-1817.tar"
+bytes = 1076008960
+sha256 = "76e01c5b6cbbc6b3e84244c384713a9393f9edd006401c84ad84684c53952819"
+
+[[source]]
+name = "training-run1-test80-20240526-1917.tar"
+bytes = 1026560000
+sha256 = "b0fa298dfa44163b0736a6a1a267b4d3722147fe5f517b65f78e0a29c1bd53ab"
+
+[[source]]
+name = "training-run1-test80-20240526-2017.tar"
+bytes = 1058211840
+sha256 = "c9fdc49fc589f85c33e32df2bfff439303f1d9188d7ad36f55e4c4767ef86373"
+
+[[source]]
+name = "training-run1-test80-20240526-2117.tar"
+bytes = 1221242880
+sha256 = "2b4fddd69829288ed4a73ff4e3871674f7b102199e6009fb23e6cfb53fa51d18"
+
+[[source]]
+name = "training-run1-test80-20240526-2217.tar"
+bytes = 1093580800
+sha256 = "68ea4a81459431f375b84840d5d4351bd3edbda1b56caba54238c6ecefbc8f0a"
+
+[[source]]
+name = "training-run1-test80-20240526-2317.tar"
+bytes = 1082961920
+sha256 = "4b9e8e4296da9e0ef2106b41da30730fe79b9c84157ee9bbf9ec30c0dbb889a7"
+
+[[source]]
+name = "training-run1-test80-20240527-0017.tar"
+bytes = 1097185280
+sha256 = "7d2fe8311fa8aaa5d58bbe360379d7acf571c8dd428d54d7ccae91e0dc5bcdb8"
+
+[[source]]
+name = "training-run1-test80-20240527-0117.tar"
+bytes = 1206671360
+sha256 = "c19e9bffe3bc2871de86bec3e29944b9e7ee4580036da4c0c6861960daa2aba8"
+
+[[source]]
+name = "training-run1-test80-20240527-0217.tar"
+bytes = 1110937600
+sha256 = "1da39750e4a0a3ddaa7259e44bd535abfce66950e9c0bf6ff5a9ee75c4e13705"
+
+[[source]]
+name = "training-run1-test80-20240527-0317.tar"
+bytes = 1076008960
+sha256 = "345d3a80e53d038ae2e31627923eda24b822162303f9ba7234189ee18ed5230c"
+
+[[source]]
+name = "training-run1-test80-20240527-0417.tar"
+bytes = 1096714240
+sha256 = "44aa074867d856b4058b435725e44eabc6ee9a5cb8c89002f412fadc1476bf1f"
+
+[[source]]
+name = "training-run1-test80-20240527-0517.tar"
+bytes = 1094932480
+sha256 = "17475d43fdc8a780aad7d409c7b8f072851734f7e9a64386f887b4e4e622794a"
+
+[[source]]
+name = "training-run1-test80-20240527-0617.tar"
+bytes = 1115811840
+sha256 = "1b1641d70e7ab277006764377d082a82bdc83f5bfbd798dea6150fee5cc1ccc6"
+
+[[source]]
+name = "training-run1-test80-20240527-0717.tar"
+bytes = 1103104000
+sha256 = "dd3d3e590eccd87c33da6aa2cde2e67b337cd1eb2e3f505824f4e628c365bdb1"
+
+[[source]]
+name = "training-run1-test80-20240527-0817.tar"
+bytes = 1098967040
+sha256 = "255791976c7db12c8248415fe600c44df574a02c19560d9daaa6f09be0f47bbe"
+
+[[source]]
+name = "training-run1-test80-20240527-0917.tar"
+bytes = 1070407680
+sha256 = "091fb25ed90ab9191732996b8d96b6ce5bd73a3c1039c439f362545bb01b1f73"
+
+[[source]]
+name = "training-run1-test80-20240527-1017.tar"
+bytes = 1165496320
+sha256 = "137b7796eaa1a5152234c8e2770f7319c750342cd8879a877b82cf95bf66d439"
+
+[[source]]
+name = "training-run1-test80-20240527-1117.tar"
+bytes = 1072824320
+sha256 = "b41e117e0dfb2929f910a6eeaa1e598671a0819d55e983d0efb0717f935776d6"
+
+[[source]]
+name = "training-run1-test80-20240527-1217.tar"
+bytes = 1075496960
+sha256 = "9c0ca60b1aa2560f92b3bd032a7d09954c944249bb02633e1b5f8c2b456ca2d7"
+
+[[source]]
+name = "training-run1-test80-20240527-1317.tar"
+bytes = 1107650560
+sha256 = "8ddf6f1d505b3abaf82deb0787bedb56bcf3def3daf2ad1f0b6f645b3a4663b5"
+
+[[source]]
+name = "training-run1-test80-20240527-1417.tar"
+bytes = 1261414400
+sha256 = "4f6f3c53c36152478d6e0222dea607c319cf027ce04ace58133ccb7bcbf5b28f"
+
+[[source]]
+name = "training-run1-test80-20240527-1517.tar"
+bytes = 1082552320
+sha256 = "7e1ef860a22ac39f4f5c4cc042452c0390544c91504b28feaa7c75a683c4fb5e"
+
+[[source]]
+name = "training-run1-test80-20240527-1617.tar"
+bytes = 1091921920
+sha256 = "3959c619894a8227ab192295487030e0d72a01a18aea5da5b30f4bbedcff4279"
+
+[[source]]
+name = "training-run1-test80-20240527-1717.tar"
+bytes = 1086177280
+sha256 = "5c452695c6eeec95dcc594d33e349caebd09984e680e27cc425c3b1fe597d4d7"
+
+[[source]]
+name = "training-run1-test80-20240527-1817.tar"
+bytes = 1080176640
+sha256 = "81fe6e15293787b89986e1f0d8014fc4232ac5817469dbcb4dc180a525c48536"
+
+[[source]]
+name = "training-run1-test80-20240527-1917.tar"
+bytes = 841492480
+sha256 = "2d263933b8d011f4c0f2fcdda8d4f531bc55a2dd26caf87a4dd642b3852c71bb"
+
+[[source]]
+name = "training-run1-test80-20240527-2017.tar"
+bytes = 1165312000
+sha256 = "e30cefeb92f40c7cf31a252adbab1b74c84f3a929dfd1b764164ccac44222241"
+
+[[source]]
+name = "training-run1-test80-20240527-2117.tar"
+bytes = 1108019200
+sha256 = "6856f6507eb5fe76f3f026efcc316b93ba249a79148290dededea5cc8d44bcb6"
+
+[[source]]
+name = "training-run1-test80-20240527-2217.tar"
+bytes = 1279559680
+sha256 = "ea46c766098ad6a65ea5b51d7c03e9bfd2721046ce7596181337a06755f8c322"
+
+[[source]]
+name = "training-run1-test80-20240527-2317.tar"
+bytes = 879493120
+sha256 = "a83208d410d92133f549f4426ef2fae92eb29e41c4631fbb26d9227d591c688e"
+
+[[source]]
+name = "training-run1-test80-20240528-0017.tar"
+bytes = 1268101120
+sha256 = "e1d0ba0ea93fd66080def761f30c7a331844d328d3d99a0920dcb10f0d1ed226"
+
+[[source]]
+name = "training-run1-test80-20240528-0117.tar"
+bytes = 1153228800
+sha256 = "928d9e55751f6875dc9fe0a8b54e0e358df8aefd8de1459752fa0cfef099e075"
+
+[[source]]
+name = "training-run1-test80-20240528-0217.tar"
+bytes = 1060249600
+sha256 = "4ce5f84ac88ef6099c52455235b943c98100d5f44a19acf777368d72dba9fdb9"
+
+[[source]]
+name = "training-run1-test80-20240528-0317.tar"
+bytes = 1095526400
+sha256 = "501b206ec3fc9b20e63cc374b8b1a4f92d9e66d7df2f15b7d26b030a9aabcf47"
+
+[[source]]
+name = "training-run1-test80-20240528-0417.tar"
+bytes = 1114941440
+sha256 = "43471e5d2bb6663535b1c144a861cf328403dc63938109dcf7b316239ab8c0e2"
+
+[[source]]
+name = "training-run1-test80-20240528-0517.tar"
+bytes = 1173217280
+sha256 = "dd3a8eb7d7483a596a170c52d436ad2da9b11d80357e316e528ca785e11e44be"
+
+[[source]]
+name = "training-run1-test80-20240528-0617.tar"
+bytes = 1231431680
+sha256 = "21a52430257c0a3707eaacb0f5aaa62b97091c3624197d73f4e773c967ac6997"
+
+[[source]]
+name = "training-run1-test80-20240528-0717.tar"
+bytes = 1110487040
+sha256 = "8ff787d8362994584583487d9719df0fd3c7cb8b40bdd437d3ac0fe496f2ec76"
+
+[[source]]
+name = "training-run1-test80-20240528-0817.tar"
+bytes = 1110743040
+sha256 = "3d5445aaf17ee9a87588bb9b41afc47cce186672de7a6bc33b8eaaf3d59e3150"
+
+[[source]]
+name = "training-run1-test80-20240528-0917.tar"
+bytes = 1117460480
+sha256 = "e354a1b2866214d9926b2b35a9b6e5bac257c753ac4f8637c9aaa56b4282eab2"
+
+[[source]]
+name = "training-run1-test80-20240528-1017.tar"
+bytes = 1233090560
+sha256 = "79ba9eb7b8c18885c23dabfb0c2e58608ed7839e0ad1291da7fd4bc5b211fd52"
+
+[[source]]
+name = "training-run1-test80-20240528-1117.tar"
+bytes = 1189765120
+sha256 = "12ebc82697d49e152f8aa3da65e43395dd9bccfdd211b3f0b235d9028a5bec9f"
+
+[[source]]
+name = "training-run1-test80-20240528-1217.tar"
+bytes = 1148856320
+sha256 = "bc26cc29be4224189aed7ab8ebf54813bca2ab01409c19baeca2659b982d5d38"
+
+[[source]]
+name = "training-run1-test80-20240528-1317.tar"
+bytes = 1092679680
+sha256 = "55860687c5f90c54b4109548c2343fa5e1319a9719e1100881b426bbb92d51fd"
+
+[[source]]
+name = "training-run1-test80-20240528-1417.tar"
+bytes = 1158830080
+sha256 = "d353b647becad16d3c0bc817ec6a51c604b3c952c137d26a61b03ae95557f7dc"
+
+[[source]]
+name = "training-run1-test80-20240528-1517.tar"
+bytes = 1212323840
+sha256 = "f608ff5eb1692211e92ad78b65c61f1cf56e2eedc400407c2589b6e08552387e"
+
+[[source]]
+name = "training-run1-test80-20240528-1617.tar"
+bytes = 1192826880
+sha256 = "6e70362773a1a7cd2d52f3bb932e39d2076923523a048ef5f4d618bcc7c18e73"
+
+[[source]]
+name = "training-run1-test80-20240528-1717.tar"
+bytes = 1106442240
+sha256 = "b3c9792817f446d8d60da6215e484418ea660e22cfde07a749e57b9ddf1b5f7d"

@@ -65,6 +65,7 @@ def verify_data_modal() -> None:
     parser = argparse.ArgumentParser(description="Verify Parquet files against LCZero tar files.")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--batches", type=int, default=1)
+    parser.add_argument("--delete-sources", action="store_true")
     args = parser.parse_args()
     if args.limit is not None and args.limit <= 0:
         parser.error("--limit must be positive")
@@ -94,6 +95,10 @@ def verify_data_modal() -> None:
     print(
         f"verification_complete files={verified_files} batches={verified_batches} exact_match=true"
     )
+    if args.delete_sources:
+        for source_name in selected:
+            data_volume.remove_file(f"/{source_name}")
+        print(f"source_cleanup_complete files={len(selected)}")
 
 
 def audit_data_modal() -> None:

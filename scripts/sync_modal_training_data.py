@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import uuid
 from pathlib import Path
 
 import modal
@@ -22,6 +23,59 @@ volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME)
 
 
+def select_source_candidates(
+    candidates: list[tuple[str, int]], file_count: int, available_workspace_bytes: int
+) -> list[tuple[str, int]]:
+    selected: list[tuple[str, int]] = []
+    reserved_bytes = 0
+    for name, advertised_size in candidates:
+        projected_bytes = advertised_size * 2
+        if reserved_bytes + projected_bytes > available_workspace_bytes:
+            break
+        selected.append((name, advertised_size))
+        reserved_bytes += projected_bytes
+        if len(selected) == file_count:
+            break
+    if len(selected) != file_count:
+        raise RuntimeError(
+            f"requested {file_count} safe files, but only {len(selected)} fit "
+            "the workspace-capacity constraint"
+        )
+    return selected
+
+
+def unexpected_complete_sources(
+    current_sources: set[str], retained_sources: set[str], selected_names: set[str]
+) -> set[str]:
+    return current_sources - retained_sources - selected_names
+
+
+def validate_sync_run_inventory(
+    current_sources: set[str], retained_sources: set[str], selected_names: set[str]
+) -> None:
+    unexpected_sources = unexpected_complete_sources(
+        current_sources, retained_sources, selected_names
+    )
+    if unexpected_sources:
+        raise RuntimeError(
+            "unexpected complete sources appeared during acquisition: "
+            f"{sorted(unexpected_sources)}"
+        )
+
+
+def resolve_retained_sources_for_run(
+    manifest_retained_sources: list[str],
+    invocation_retained_sources: list[str],
+    *,
+    resume_existing_run: bool,
+) -> set[str]:
+    if resume_existing_run:
+        return set(manifest_retained_sources)
+    if manifest_retained_sources != invocation_retained_sources:
+        raise RuntimeError("sync-run retained-source inventory does not match this invocation")
+    return set(invocation_retained_sources)
+
+
 @app.function(
     image=modal.Image.debian_slim(python_version="3.14"),
     volumes={REMOTE_DATA_PATH: volume},
@@ -33,6 +87,10 @@ def sync_files(
     minimum_source_bytes: int,
     available_workspace_bytes: int,
     dry_run: bool,
+    download_concurrency: int,
+    expected_retained_sources: list[str],
+    sync_run_id: str,
+    resume_existing_run: bool,
 ) -> list[dict[str, int | str]]:
     import os
     import re
@@ -76,11 +134,14 @@ def sync_files(
         for entry in volume.listdir("/parquet")
         if entry.type == 1 and entry.path.endswith(".parquet")
     }
-    retained_sources = {
+    current_sources = {
         entry.path
         for entry in volume.listdir("/")
         if entry.type == 1 and entry.path.endswith(".tar")
     }
+    retained_sources = set(expected_retained_sources)
+    sync_run_dir = Path(REMOTE_DATA_PATH) / "source-manifests" / "sync-runs"
+    sync_run_path = sync_run_dir / f"{sync_run_id}.json"
     candidates = sorted(
         (name, advertised_sizes[name])
         for href in parser.hrefs
@@ -90,23 +151,47 @@ def sync_files(
         and name not in retained_sources
         and advertised_sizes.get(name, 0) >= minimum_source_bytes
     )
-    selected: list[tuple[str, int]] = []
-    reserved_bytes = 0
-    for name, advertised_size in candidates:
+    if sync_run_path.exists():
+        sync_run = json.loads(sync_run_path.read_text())
+        retained_sources = resolve_retained_sources_for_run(
+            sync_run["expected_retained_sources"],
+            expected_retained_sources,
+            resume_existing_run=resume_existing_run,
+        )
+        selected = [(row["name"], row["bytes"]) for row in sync_run["selected"]]
+        if len(selected) != file_count:
+            raise RuntimeError("sync-run selected count does not match this invocation")
+    else:
+        if resume_existing_run:
+            raise RuntimeError(f"sync-run manifest does not exist: {sync_run_id}")
+        if current_sources != retained_sources:
+            raise RuntimeError(
+                "source inventory changed between local preflight and remote selection: "
+                f"expected={sorted(retained_sources)} actual={sorted(current_sources)}"
+            )
         # Reserve one source-sized output allocation as a deliberately conservative
         # bound for the later Parquet conversion.
-        projected_bytes = advertised_size * 2
-        if reserved_bytes + projected_bytes > available_workspace_bytes:
-            break
-        selected.append((name, advertised_size))
-        reserved_bytes += projected_bytes
-        if len(selected) == file_count:
-            break
-    if len(selected) < file_count:
-        raise RuntimeError(
-            f"requested {file_count} safe files from {start_day}, but only {len(selected)} fit "
-            "the source-size and workspace-capacity constraints"
-        )
+        try:
+            selected = select_source_candidates(candidates, file_count, available_workspace_bytes)
+        except RuntimeError as exc:
+            raise RuntimeError(f"{exc} from {start_day}") from None
+        if not dry_run:
+            sync_run_dir.mkdir(parents=True, exist_ok=True)
+            sync_run_path.write_text(
+                json.dumps(
+                    {
+                        "expected_retained_sources": expected_retained_sources,
+                        "selected": [
+                            {"name": name, "bytes": advertised_size}
+                            for name, advertised_size in selected
+                        ],
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+            volume.commit()
     if dry_run:
         return [
             {
@@ -186,18 +271,25 @@ def sync_files(
             "sha256": digest.hexdigest(),
         }
 
+    if download_concurrency != 1:
+        raise RuntimeError("only serial acquisition is supported")
+    selected_names = {name for name, _ in selected}
+    validate_sync_run_inventory(current_sources, retained_sources, selected_names)
     results = []
-    for index, (name, advertised_size) in enumerate(selected, start=1):
+    for name, advertised_size in selected:
+        current_sources = {
+            entry.path
+            for entry in volume.listdir("/")
+            if entry.type == 1 and entry.path.endswith(".tar")
+        }
+        validate_sync_run_inventory(current_sources, retained_sources, selected_names)
         result = sync_file(name, advertised_size)
         results.append(result)
         print(
             f"{result['status']} {result['bytes']} {result['name']} sha256={result['sha256']}",
             flush=True,
         )
-        if index % 24 == 0 or index == len(selected):
-            volume.commit()
-        if result["status"] == "downloaded" and index != len(selected):
-            time.sleep(5)
+        volume.commit()
     return results
 
 
@@ -209,8 +301,15 @@ def main() -> None:
         "--operational-ceiling-gib", type=int, default=DEFAULT_OPERATIONAL_CEILING_GIB
     )
     parser.add_argument("--minimum-source-mib", type=int, default=DEFAULT_MINIMUM_SOURCE_MIB)
+    parser.add_argument("--download-concurrency", type=int, default=1)
+    parser.add_argument(
+        "--sync-run-id",
+        help="resume the exact selection in an existing committed sync-run manifest",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+    if args.download_concurrency != 1:
+        parser.error("--download-concurrency must be 1")
 
     training_bytes = _volume_bytes(volume)
     artifact_bytes = _volume_bytes(artifact_volume)
@@ -226,6 +325,11 @@ def main() -> None:
         and entry.path.endswith(".tar")
         and Path(entry.path).stem not in converted_names
     )
+    retained_source_names = sorted(
+        entry.path
+        for entry in volume.listdir("/")
+        if entry.type == 1 and entry.path.endswith(".tar")
+    )
     ceiling_bytes = args.operational_ceiling_gib * 2**30
     available_bytes = (
         ceiling_bytes - training_bytes - artifact_bytes - unconverted_source_bytes
@@ -239,6 +343,8 @@ def main() -> None:
         f"available_bytes={available_bytes}"
     )
 
+    rows: list[dict[str, int | str]] = []
+    sync_run_id = args.sync_run_id or uuid.uuid4().hex
     with app.run():
         rows = sync_files.remote(
             args.start_day,
@@ -246,12 +352,29 @@ def main() -> None:
             args.minimum_source_mib * 2**20,
             available_bytes,
             args.dry_run,
+            args.download_concurrency,
+            retained_source_names,
+            sync_run_id,
+            args.sync_run_id is not None,
         )
     for row in rows:
         print(f"{row['status']} {row['bytes']} {row['name']} sha256={row['sha256']}")
     final_training_bytes = _volume_bytes(volume)
     final_artifact_bytes = _volume_bytes(artifact_volume)
     final_combined_bytes = final_training_bytes + final_artifact_bytes
+    final_source_names = {
+        entry.path
+        for entry in volume.listdir("/")
+        if entry.type == 1 and entry.path.endswith(".tar")
+    }
+    expected_source_names = set(retained_source_names) | {
+        str(row["name"]) for row in rows if row["status"] != "planned"
+    }
+    if not args.dry_run and final_source_names != expected_source_names:
+        raise RuntimeError(
+            "postflight source inventory differs from the exact selected set: "
+            f"expected={sorted(expected_source_names)} actual={sorted(final_source_names)}"
+        )
     print(
         f"storage_postflight training_bytes={final_training_bytes} "
         f"artifact_bytes={final_artifact_bytes} combined_bytes={final_combined_bytes} "
