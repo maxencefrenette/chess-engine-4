@@ -48,6 +48,9 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
         "policy_mode_size": 64,
         "visits": 16,
         "parallelism": 32,
+        "opening_book": "/uho.pgn",
+        "opening_seed": 17,
+        "opening_offset": 64,
         "player1": {"weights": "/dense.safetensors", "backend": "ce4"},
         "player2": {"weights": "/t74.pb.gz", "backend": "cudnn-fp16"},
     }
@@ -59,8 +62,12 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--no-share-trees" in command
     assert "--temperature=0.0" in command
     assert "--noise-epsilon=0.0" in command
+    assert "--openings-pgn=/uho.pgn" in command
+    assert "--openings-mode=shuffled" in command
+    assert "--openings-seed=17" in command
+    assert "--openings-offset=64" in command
     assert "--player1.backend=ce4" in command
-    assert "--player1.backend-opts=max_batch=256" in command
+    assert "--player1.backend-opts=max_batch=256,batch_wait_us=200" in command
     assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command
 
 

@@ -5,9 +5,10 @@
 Three matched `moe64a2 d512` treatments completed at retention rates 1.0, 0.5,
 and 0.25. Each consumed exactly 983,040,000 accepted rows in 15,000 optimizer
 steps. Half and quarter retention both improved training loss and searched-play
-strength relative to full retention. Half retention has the best tournament
-point estimate, but it is not distinguishable from quarter retention at this
-sample size. Retain 0.5 as the leading candidate; do not promote it to a
+strength relative to full retention. The primary randomized-UHO tournament
+resolves the ranking: quarter retention leads half by 25.35 Elo with 95% CI
+`[13.66, 37.05]`, and half leads full by 35.58 Elo with 95% CI
+`[23.89, 47.28]`. Retain 0.25 as the leading candidate; do not promote it to a
 canonical configuration until the user reviews this report.
 
 Task: `01kzg0rdwf`  
@@ -120,67 +121,86 @@ Earlier single-thread and prematurely stopped quarter attempts are invalid and
 were not used in any comparison. Their retained evidence remains in the git
 history and W&B rather than being overwritten.
 
-## Searched lc0 tournament
+## Primary searched lc0 tournament
 
-The retained [tournament.toml](tournament.toml) specifies 800 visits per move,
-three 128-game matchups on RTX PRO 6000, 64 parallel games, deterministic
-temperature/noise settings, and the repository's two-move opening book. Every
-opening was mirrored with colors swapped. This is 384 searched games / 192
-paired openings in a complete three-candidate round robin; it is not
-policy-only play.
+The initial 384-game result in [tournament-results.json](tournament-results.json)
+used the first 64 sequential entries of `noob_2moves`. A later audit found that
+all 64 were concentrated on white e-pawn openings. It remains historical
+evidence but is not combined with the primary result below.
 
-The ce4 exports use lc0's native backend directly. A small evaluator fix was
-required because the previous searched command wrapped the native ce4 backend
-in legacy protobuf `multiplexing`, which attempted to parse Safetensors as a
-protobuf network. A 16-game end-to-end probe then completed in 43.898 s. Its
-conservative extrapolation was 1,053.6 s and `$0.915`, below the `$1` launch
-gate. The actual tournament used 507.705 GPU-seconds. At RTX PRO 6000
-`$0.000842/s` plus a conservative two CPU cores, its rate-derived cost was
-`$0.440790`.
+All current Elo and tournament defaults now use a pinned sample of
+`UHO_Lichess_4852_v1`. [uho-book-manifest.json](uho-book-manifest.json) records
+official-stockfish/books commit `65815ccd`, all source/sample hashes, 2,632,036
+source positions, and the uniform reservoir sample of 65,536 positions. lc0
+reproducibly shuffles that sample with seed 1. Every selected opening is played
+as an adjacent mirrored color pair; explicit offsets prevent accidental reuse.
 
-Command:
+The main [tournament-uho-extended.toml](tournament-uho-extended.toml) runs a
+complete 4,416-game / 2,208-pair round robin at 800 visits. All three matchups
+share randomized opening offsets 32–767, allowing the paired estimator to
+cluster the same position across matchups. After the connected fit, the
+information-gain scheduler selected an additional 1.0-vs-0.25 match. The
+[extra configuration](tournament-uho-extra.toml) contributes 1,136 games / 568
+fresh pairs at offsets 768–1,335.
 
 ```sh
 uv run eval-tournament-modal \
-  --config experiments/2026-08-08.01-position-subsampling/tournament.toml \
-  --output experiments/2026-08-08.01-position-subsampling/tournament-results.json
+  --config experiments/2026-08-08.01-position-subsampling/tournament-uho-extended.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-uho-extended-results.json
+
+uv run eval-tournament-modal \
+  --config experiments/2026-08-08.01-position-subsampling/tournament-uho-extra.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-uho-extra-results.json
+
+uv run python experiments/2026-08-08.01-position-subsampling/analyze_uho.py
 ```
 
-Direct matchup WDL is from the first model's perspective:
+The native ce4 backend now queues concurrent lc0 search computations, waits up
+to 200 microseconds, and coalesces them into inference batches up to 256. A
+64-game UHO probe averaged batches 187.5 and 192.4. Across the paid matches,
+model/match averages ranged from 176.8 to 241.7 and every backend reached batch
+256. End-to-end searched-play throughput was 2.473 games/s, versus 0.756 for
+the unbatched historical tournament.
 
-| Matchup | W-D-L | Runtime | Throughput | Pentanomial |
+Direct WDL is from the first model's perspective:
+
+| Matchup | Opening pairs | W-D-L | Runtime | Pentanomial |
 | --- | ---: | ---: | ---: | --- |
-| 1.0 vs 0.5 | 31-46-51 | 166.624 s | 0.7682 games/s | [6, 30, 13, 8, 7] |
-| 0.5 vs 0.25 | 43-40-45 | 156.763 s | 0.8165 games/s | [6, 15, 23, 15, 5] |
-| 1.0 vs 0.25 | 39-40-49 | 184.318 s | 0.6945 games/s | [10, 14, 22, 12, 6] |
+| 1.0 vs 0.5 | 736 | 497-311-664 | 581.835 s | [129, 149, 284, 108, 66] |
+| 0.5 vs 0.25 | 736 | 515-318-639 | 647.725 s | [117, 142, 296, 110, 71] |
+| 1.0 vs 0.25 | 736 | 471-310-691 | 574.947 s | [142, 151, 292, 87, 64] |
+| 1.0 vs 0.25, fresh extension | 568 | 347-226-563 | 440.151 s | [124, 108, 237, 58, 41] |
 
-Aggregate searched-play throughput was 0.7563 games/s. This is the evaluator's
-end-to-end inference/search throughput; the experiment did not substitute a
-policy-only or synthetic backend benchmark.
-
-The connected Bradley-Terry score quasi-MLE treats draws as 0.5 and reports
-two-sided 95% Wald intervals with a CR1 sandwich covariance clustered by the
-64 reused indexed mirrored openings. All 192 ordered pair scores are retained
-in [tournament-results.json](tournament-results.json).
+All 2,776 ordered pair scores and stable opening identities are retained in
+the two raw result files. [tournament-uho-combined-results.json](tournament-uho-combined-results.json)
+contains the combined 1,304-cluster fit. The Bradley-Terry quasi-MLE treats
+draws as 0.5 and uses two-sided 95% Wald intervals with a CR1 sandwich
+covariance clustered by opening identity.
 
 | Rank | Retention | Centered Elo | 95% CI |
 | ---: | ---: | ---: | ---: |
-| 1 | 0.5 | +16.36 | [-6.07, +38.80] |
-| 2 | 0.25 | +10.91 | [-15.72, +37.54] |
-| 3 | 1.0 | -27.27 | [-49.93, -4.61] |
+| 1 | 0.25 | +28.76 | [+22.57, +34.95] |
+| 2 | 0.5 | +3.41 | [-3.61, +10.43] |
+| 3 | 1.0 | -32.17 | [-38.36, -25.98] |
 
-The 0.5 and 0.25 intervals overlap heavily, and their direct match was nearly
-even. Both reduced value and moves-left training losses and beat 1.0 in their
-direct searched matchups. This supports the value-diversity hypothesis, while
-not resolving whether 0.5 or 0.25 is optimal.
+The correlated pairwise contrasts, which are the correct significance tests,
+are 0.25 minus 0.5 = `+25.35 Elo [13.66, 37.05]`, 0.5 minus 1.0 =
+`+35.58 [23.89, 47.28]`, and 0.25 minus 1.0 =
+`+60.94 [50.73, 71.14]`. The randomized-UHO tournament therefore resolves all
+three treatments rather than merely narrowing their marginal intervals.
+
+Tournament runtime was 2,244.657 GPU-seconds. At RTX PRO 6000 `$0.000842/s`
+plus a conservative two CPU cores, its rate-derived cost was `$1.948812`.
+Including the 33.089-second batching probe gives `$1.977539`, approximately
+the requested `$2` allocation.
 
 ## Recommendation
 
-Retain the deterministic sampler and 0.5 retention as the leading candidate
-for review. It delivered almost all of quarter retention's training and search
-gain without the quarter arm's 52% runtime/cost increase, and its tournament
-point estimate was highest. Reject 1.0 as the preferred treatment for this
-matched allocation. Do not promote 0.5, edit canonical data/configs, or merge
-this branch until the user reviews the evidence. If a follow-up is desired,
-spend it on additional paired 0.5-vs-0.25 searched games rather than another
-training sweep.
+Retain the deterministic sampler and 0.25 retention as the leading candidate
+for review. It has the best task/value/moves-left losses and now beats 0.5 by a
+statistically resolved 25.35 Elo in the primary searched tournament. Its cost
+is the tradeoff: quarter-retention training took 52% longer and cost 52% more
+than half retention because of additional Parquet scanning. Reject 1.0 as the
+preferred treatment for this matched allocation. Do not promote 0.25, edit
+canonical training data/configs, or merge this branch until the user reviews
+the evidence.

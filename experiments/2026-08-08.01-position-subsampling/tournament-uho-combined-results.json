@@ -1,0 +1,80 @@
+{
+  "sources": [
+    "tournament-uho-extended-results.json",
+    "tournament-uho-extra-results.json"
+  ],
+  "opening_book": "/artifacts/books/UHO_Lichess_4852_v1-random-65536.pgn",
+  "opening_book_sha256": "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c",
+  "opening_seed": 1,
+  "opening_ranges": [
+    {
+      "offset": 32,
+      "pairs": 736,
+      "matchups": 3
+    },
+    {
+      "offset": 768,
+      "pairs": 568,
+      "matchups": 1
+    }
+  ],
+  "ratings": [
+    {
+      "name": "retention-0.25",
+      "elo": 28.762943240010355,
+      "elo_95ci": 6.189695143600408,
+      "elo_95ci_low": 22.573248096409948,
+      "elo_95ci_high": 34.95263838361076,
+      "ci_method": "paired-opening cluster-robust sandwich"
+    },
+    {
+      "name": "retention-0.5",
+      "elo": 3.4094136037638703,
+      "elo_95ci": 7.015865402671658,
+      "elo_95ci_low": -3.6064517989077873,
+      "elo_95ci_high": 10.425279006435527,
+      "ci_method": "paired-opening cluster-robust sandwich"
+    },
+    {
+      "name": "retention-1.0",
+      "elo": -32.172356843774224,
+      "elo_95ci": 6.1910391964081795,
+      "elo_95ci_low": -38.3633960401824,
+      "elo_95ci_high": -25.981317647366044,
+      "ci_method": "paired-opening cluster-robust sandwich"
+    }
+  ],
+  "pairwise_contrasts": [
+    {
+      "left": "retention-0.25",
+      "right": "retention-0.5",
+      "elo_difference": 25.353529636246485,
+      "elo_95ci": 11.693605958247813,
+      "elo_95ci_low": 13.659923677998671,
+      "elo_95ci_high": 37.0471355944943
+    },
+    {
+      "left": "retention-0.5",
+      "right": "retention-1.0",
+      "elo_difference": 35.5817704475381,
+      "elo_95ci": 11.695740309575307,
+      "elo_95ci_low": 23.88603013796279,
+      "elo_95ci_high": 47.277510757113404
+    },
+    {
+      "left": "retention-0.25",
+      "right": "retention-1.0",
+      "elo_difference": 60.93530008378458,
+      "elo_95ci": 10.200990993817252,
+      "elo_95ci_low": 50.73430908996733,
+      "elo_95ci_high": 71.13629107760184
+    }
+  ],
+  "clusters": 1304,
+  "total_games": 5552,
+  "tournament_runtime_sec": 2244.657411644,
+  "probe_runtime_sec": 33.08899232,
+  "gpu_cpu_rate_usd_per_sec": 0.0008682,
+  "tournament_cost_usd": 1.948811564789321,
+  "total_including_probe_cost_usd": 1.977539427921545
+}

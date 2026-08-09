@@ -34,6 +34,14 @@ and training FLOPs.
 
 ## Progress
 
+Reopened after the user requested migration of all Elo tournaments to randomly selected,
+mirrored `UHO_Lichess_4852_v1` openings and approximately $2 of additional 800-node games.
+The evaluator now uses a pinned, hashed 65,536-position UHO sample, seeded shuffle, explicit
+opening offsets/identities, and native ce4 cross-game batches averaging 176.8-241.7 positions.
+The completed 5,552-game / 2,776-pair extension plus probe cost $1.9775. Its 1,304-cluster fit
+ranks quarter retention +25.35 Elo over half (95% CI [13.66, 37.05]) and half +35.58 over full
+([23.89, 47.28]). Quarter retention is recommended for review without canonical promotion.
+
 The raw-archive capacity blocker was superseded by the user's corrected design. A deterministic
 row-identity sampler streams canonical Parquet without derived datasets or game-boundary assumptions,
 and a 497-shard manifest fixes provenance. Three standard eight-thread runs completed at exactly

@@ -20,8 +20,12 @@ ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
-OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.epd"
-POLICY_OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.pgn"
+OPENING_BOOK_PATH = (
+    Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.epd"
+)
+POLICY_OPENING_BOOK_PATH = (
+    Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.pgn"
+)
 OPENING_BOOK_SEED = 1
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
@@ -229,6 +233,9 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
+    parser.add_argument("--opening-book", default=str(POLICY_OPENING_BOOK_PATH))
+    parser.add_argument("--opening-seed", type=int, default=OPENING_BOOK_SEED)
+    parser.add_argument("--opening-offset", type=int, default=0)
     parser.add_argument(
         "--gpu",
         choices=("A100", "RTX-PRO-6000"),
@@ -239,12 +246,17 @@ def eval_selfplay_modal() -> None:
     args = parser.parse_args()
     if args.games <= 0 or args.games % 2:
         parser.error("--games must be a positive even number.")
+    if args.opening_seed < 0 or args.opening_offset < 0:
+        parser.error("--opening-seed and --opening-offset must be non-negative.")
     payload = {
         "run_name": args.name,
         "games": args.games,
         "policy_mode_size": args.policy_mode_size,
         "visits": args.visits,
         "parallelism": args.parallelism,
+        "opening_book": args.opening_book,
+        "opening_seed": args.opening_seed,
+        "opening_offset": args.opening_offset,
         "gpu": args.gpu,
         "player1": {
             "weights": args.player1_weights,
@@ -337,8 +349,9 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
-    if not POLICY_OPENING_BOOK_PATH.exists():
-        raise FileNotFoundError(f"Missing policy opening book: {POLICY_OPENING_BOOK_PATH}")
+    opening_book = Path(payload.get("opening_book", POLICY_OPENING_BOOK_PATH))
+    if not opening_book.exists():
+        raise FileNotFoundError(f"Missing tournament opening book: {opening_book}")
     for player in (payload["player1"], payload["player2"]):
         if not Path(player["weights"]).exists():
             raise FileNotFoundError(player["weights"])
@@ -374,6 +387,19 @@ def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "results_path": str(results_path),
         "results": results_path.read_text(),
         "lc0_output": completed.stdout,
+        "opening_book": str(opening_book),
+        "opening_seed": int(payload.get("opening_seed", OPENING_BOOK_SEED)),
+        "opening_offset": int(payload.get("opening_offset", 0)),
+        "ce4_batch_stats": [
+            {
+                "weights": match.group("weights"),
+                "calls": int(match.group("calls")),
+                "positions": int(match.group("positions")),
+                "average_batch": float(match.group("average_batch")),
+                "max_batch": int(match.group("max_batch")),
+            }
+            for match in _CE4_BATCH_STATS.finditer(completed.stdout)
+        ],
     }
     (run_dir / "results.json").write_text(json.dumps(result, indent=2) + "\n")
     artifact_volume.commit()
@@ -385,9 +411,11 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         payload["lc0_path"],
         "selfplay",
         f"--games={payload['games']}",
-        f"--openings-pgn={POLICY_OPENING_BOOK_PATH}",
+        f"--openings-pgn={payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}",
         "--mirror-openings",
-        "--openings-mode=sequential",
+        "--openings-mode=shuffled",
+        f"--openings-seed={payload.get('opening_seed', OPENING_BOOK_SEED)}",
+        f"--openings-offset={payload.get('opening_offset', 0)}",
         f"--tournament-results-file={results_path}",
         f"--player1.weights={payload['player1']['weights']}",
         f"--player2.weights={payload['player2']['weights']}",
@@ -417,7 +445,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
                 command.extend(
                     [
                         f"--{player_name}.backend=ce4",
-                        f"--{player_name}.backend-opts=max_batch=256",
+                        f"--{player_name}.backend-opts=max_batch=256,batch_wait_us=200",
                     ]
                 )
             else:
@@ -437,6 +465,11 @@ _PGN_GAME = re.compile(
     r'^\[Black "(?P<black>[^"]+)"\]\s*'
     r'^\[Result "(?P<result>1-0|0-1|1/2-1/2)"\]',
     re.MULTILINE,
+)
+_CE4_BATCH_STATS = re.compile(
+    r"ce4_batch_stats weights=(?P<weights>\S+) calls=(?P<calls>\d+) "
+    r"positions=(?P<positions>\d+) average_batch=(?P<average_batch>[0-9.eE+-]+) "
+    r"max_batch=(?P<max_batch>\d+)"
 )
 
 

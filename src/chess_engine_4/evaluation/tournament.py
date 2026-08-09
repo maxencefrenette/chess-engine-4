@@ -57,6 +57,10 @@ class Tournament:
     policy_mode_size: int
     parallelism: int = 1
     visits: int | None = None
+    opening_book: str = str(POLICY_OPENING_BOOK_PATH)
+    opening_book_sha256: str | None = None
+    opening_seed: int = 1
+    opening_offset: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +77,9 @@ class MatchResult:
     pentanomial: tuple[int, int, int, int, int] | None = None
     # Ordered half-point pair scores (0..4) by lc0 opening-pair game id.
     pair_scores: tuple[int, ...] | None = None
+    # Stable identities for pair scores, including book, shuffle seed, and offset.
+    opening_ids: tuple[str, ...] | None = None
+    ce4_batch_stats: tuple[dict[str, Any], ...] | None = None
 
 
 def eval_tournament_modal() -> None:
@@ -127,8 +134,10 @@ def load_tournament_config(path: Path) -> tuple[Tournament, list[Engine]]:
             raise ValueError(f"Engine {engine.name!r} must use Safetensors with the ce4 backend.")
     if tournament.games_per_matchup <= 0 or tournament.games_per_matchup % 2:
         raise ValueError("games_per_matchup must be a positive even number.")
-    if tournament.waves < 2:
-        raise ValueError("waves must be at least 2 so the comparison graph is connected.")
+    if tournament.opening_seed < 0 or tournament.opening_offset < 0:
+        raise ValueError("opening_seed and opening_offset must be non-negative.")
+    if tournament.waves < 1:
+        raise ValueError("waves must be positive.")
     return tournament, engines
 
 
@@ -176,6 +185,10 @@ def build_match_payloads(
             "policy_mode_size": tournament.policy_mode_size,
             "visits": tournament.visits,
             "parallelism": tournament.parallelism,
+            "opening_book": tournament.opening_book,
+            "opening_book_sha256": tournament.opening_book_sha256,
+            "opening_seed": tournament.opening_seed,
+            "opening_offset": tournament.opening_offset,
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
@@ -207,6 +220,16 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         raise ValueError(f"Expected {payload['games']} games, parsed {games}.")
     pair_scores = _parse_lc0_pair_scores(result.get("lc0_output", ""), games)
     pentanomial = _pentanomial(pair_scores) if pair_scores is not None else None
+    opening_ids = (
+        tuple(
+            f"{payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}|"
+            f"seed={payload.get('opening_seed', 1)}|"
+            f"index={payload.get('opening_offset', 0) + index}"
+            for index in range(len(pair_scores))
+        )
+        if pair_scores is not None
+        else None
+    )
     if pentanomial is not None:
         paired_score = sum(index * count / 2 for index, count in enumerate(pentanomial))
         aggregate_score = scores[payload["player1"]["name"]] + 0.5 * draws
@@ -225,6 +248,8 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         runtime_sec=float(result["runtime_sec"]),
         pentanomial=pentanomial,
         pair_scores=pair_scores,
+        opening_ids=opening_ids,
+        ce4_batch_stats=tuple(result.get("ce4_batch_stats", ())) or None,
     )
 
 
@@ -333,7 +358,7 @@ def _cluster_robust_covariance(
     bread = np.linalg.inv(transform.T @ hessian @ transform)
     meat = np.zeros_like(bread)
     clusters = 0
-    indexed_opening_gradients: dict[int, np.ndarray] = {}
+    indexed_opening_gradients: dict[str, np.ndarray] = {}
     for match in matches:
         left = indices[match.player1]
         right = indices[match.player2]
@@ -351,6 +376,13 @@ def _cluster_robust_covariance(
                 raise ValueError(
                     f"Pair scores outside 0..4 for {match.player1} vs {match.player2}."
                 )
+            if match.opening_ids is not None and len(match.opening_ids) != len(
+                match.pair_scores
+            ):
+                raise ValueError(
+                    f"Opening identities disagree with pair scores for "
+                    f"{match.player1} vs {match.player2}."
+                )
             if (
                 match.pentanomial is not None
                 and _pentanomial(match.pair_scores) != match.pentanomial
@@ -360,11 +392,16 @@ def _cluster_robust_covariance(
                     f"{match.player1} vs {match.player2}."
                 )
             for opening_index, score_index in enumerate(match.pair_scores):
+                opening_id = (
+                    match.opening_ids[opening_index]
+                    if match.opening_ids is not None
+                    else f"legacy-index={opening_index}"
+                )
                 residual = 2.0 * probability - 0.5 * score_index
                 gradient = residual * reduced_direction
-                indexed_opening_gradients[opening_index] = (
+                indexed_opening_gradients[opening_id] = (
                     indexed_opening_gradients.get(
-                        opening_index, np.zeros(parameter_count, dtype=np.float64)
+                        opening_id, np.zeros(parameter_count, dtype=np.float64)
                     )
                     + gradient
                 )
@@ -397,11 +434,16 @@ def _match_games(match: MatchResult) -> int:
 
 
 def _evidence_cluster_count(matches: list[MatchResult]) -> int:
-    indexed_openings: set[int] = set()
+    indexed_openings: set[str] = set()
     independent_clusters = 0
     for match in matches:
         if match.pair_scores is not None:
-            indexed_openings.update(range(len(match.pair_scores)))
+            if match.opening_ids is not None:
+                indexed_openings.update(match.opening_ids)
+            else:
+                indexed_openings.update(
+                    f"legacy-index={index}" for index in range(len(match.pair_scores))
+                )
         elif match.pentanomial is not None:
             independent_clusters += sum(match.pentanomial)
         else:
@@ -506,7 +548,7 @@ def fit_flops_scaling_law(
         for engine in engines
         if engine.training_flops is not None
     ]
-    if len(points) < 2:
+    if len(points) < 2 or len({flops for flops, _ in points}) < 2:
         return None
     flops, elo = (np.asarray(values, dtype=np.float64) for values in zip(*points, strict=True))
     slope, intercept = np.polyfit(np.log10(flops), elo, 1)
@@ -524,7 +566,10 @@ def build_report(
     )
     return {
         "tournament": asdict(tournament),
-        "opening_book": str(POLICY_OPENING_BOOK_PATH),
+        "opening_book": tournament.opening_book,
+        "opening_book_sha256": tournament.opening_book_sha256,
+        "opening_seed": tournament.opening_seed,
+        "opening_offset": tournament.opening_offset,
         "engines": [asdict(engine) for engine in engines],
         "completed_waves": max((match.wave for match in matches), default=-1) + 1,
         "matches": [asdict(match) for match in matches],
@@ -596,6 +641,16 @@ def _load_completed_matches(
                 "pair_scores": (
                     tuple(match["pair_scores"])
                     if match.get("pair_scores") is not None
+                    else None
+                ),
+                "opening_ids": (
+                    tuple(match["opening_ids"])
+                    if match.get("opening_ids") is not None
+                    else None
+                ),
+                "ce4_batch_stats": (
+                    tuple(match["ce4_batch_stats"])
+                    if match.get("ce4_batch_stats") is not None
                     else None
                 ),
             }

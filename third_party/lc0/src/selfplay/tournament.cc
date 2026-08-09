@@ -28,6 +28,7 @@
 #include "selfplay/tournament.h"
 
 #include <fstream>
+#include <random>
 
 #include "chess/pgn.h"
 #include "neural/memcache.h"
@@ -92,6 +93,12 @@ const OptionId kOpeningsMirroredId{
     "Not really compatible with openings mode random."};
 const OptionId kOpeningsModeId{"openings-mode", "OpeningsMode",
                                "A choice of sequential, shuffled, or random."};
+const OptionId kOpeningsSeedId{
+    "openings-seed", "OpeningsSeed",
+    "Seed used to reproducibly shuffle the opening book."};
+const OptionId kOpeningsOffsetId{
+    "openings-offset", "OpeningsOffset",
+    "Number of openings to skip after any reproducible shuffle."};
 const OptionId kSyzygyTablebaseId{
     "syzygy-paths", "SyzygyPath",
     "List of Syzygy tablebase directories, list entries separated by system "
@@ -134,6 +141,8 @@ void SelfPlayTournament::PopulateOptions(OptionsParser* options) {
   std::vector<std::string> openings_modes = {"sequential", "shuffled",
                                              "random"};
   options->Add<ChoiceOption>(kOpeningsModeId, openings_modes) = "sequential";
+  options->Add<IntOption>(kOpeningsSeedId, 0, 2147483647) = 1;
+  options->Add<IntOption>(kOpeningsOffsetId, 0, 999999999) = 0;
 
   options->Add<StringOption>(kSyzygyTablebaseId);
   SelfPlayGame::PopulateUciParams(options);
@@ -177,7 +186,9 @@ SelfPlayTournament::SelfPlayTournament(const OptionsDict& options,
       kValueGamesSize(options.Get<int>(kValueModeSizeId)),
       kTournamentResultsFile(
           options.Get<std::string>(kTournamentResultsFileId)),
-      kDiscardedStartChance(options.Get<float>(kDiscardedStartChanceId)) {
+      kDiscardedStartChance(options.Get<float>(kDiscardedStartChanceId)),
+      kOpeningOffset(options.Get<int>(kOpeningsOffsetId)),
+      kOpeningSeed(options.Get<int>(kOpeningsSeedId)) {
   multi_games_size_ = std::max(kPolicyGamesSize, kValueGamesSize);
   std::string book = options.Get<std::string>(kOpeningsFileId);
   if (!book.empty()) {
@@ -185,7 +196,22 @@ SelfPlayTournament::SelfPlayTournament(const OptionsDict& options,
     book_reader.AddPgnFile(book);
     openings_ = book_reader.ReleaseGames();
     if (options.Get<std::string>(kOpeningsModeId) == "shuffled") {
-      Random::Get().Shuffle(openings_.begin(), openings_.end());
+      std::mt19937 generator(kOpeningSeed);
+      std::shuffle(openings_.begin(), openings_.end(), generator);
+    }
+  }
+  const bool mirrored = options.Get<bool>(kOpeningsMirroredId);
+  const std::string openings_mode = options.Get<std::string>(kOpeningsModeId);
+  if (mirrored && openings_mode == "random") {
+    throw Exception("Mirrored openings require sequential or shuffled mode.");
+  }
+  if (!openings_.empty() && kTotalGames > 0 && openings_mode != "random") {
+    const size_t openings_needed =
+        mirrored ? (static_cast<size_t>(kTotalGames) + 1) / 2
+                 : static_cast<size_t>(kTotalGames);
+    if (static_cast<size_t>(kOpeningOffset) + openings_needed >
+        openings_.size()) {
+      throw Exception("Opening offset and game count exceed the opening book.");
     }
   }
   if (kPolicyGamesSize > 0 && kValueGamesSize > 0) {
@@ -207,7 +233,7 @@ SelfPlayTournament::SelfPlayTournament(const OptionsDict& options,
   }
   // If playing just one game, the player1 is white, otherwise randomize.
   if (kTotalGames != 1) {
-    first_game_black_ = Random::Get().GetBool();
+    first_game_black_ = (kOpeningSeed & 1) != 0;
   }
 
   static constexpr const char* kPlayerNames[2] = {"player1", "player2"};
@@ -280,12 +306,12 @@ void SelfPlayTournament::PlayOneGame(int game_number) {
     player1_black = ((game_number % 2) == 1) != first_game_black_;
     if (!openings_.empty()) {
       if (player_options_[0][0].Get<bool>(kOpeningsMirroredId)) {
-        opening = openings_[(game_number / 2) % openings_.size()];
+        opening = openings_[kOpeningOffset + game_number / 2];
       } else if (player_options_[0][0].Get<std::string>(kOpeningsModeId) ==
                  "random") {
         opening = openings_[Random::Get().GetInt(0, openings_.size() - 1)];
       } else {
-        opening = openings_[game_number % openings_.size()];
+        opening = openings_[kOpeningOffset + game_number];
       }
     }
     if (discard_pile_.size() > 0 &&
