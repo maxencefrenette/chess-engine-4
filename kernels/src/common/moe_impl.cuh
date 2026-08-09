@@ -493,7 +493,7 @@ __global__ void gate_up_weight_gradient_kernel(const GateUpWeightGradientGlobals
 
 #if MOE_COMPUTE_CAPABILITY_MAJOR == 8
 #include "../sm80/moe_schedule.cuh"
-#else
+#elif MOE_COMPUTE_CAPABILITY_MAJOR >= 12
 #include "../sm120/moe_schedule.cuh"
 #endif
 
@@ -785,7 +785,7 @@ void backward(
             stream
         );
     } else
-#else
+#elif MOE_COMPUTE_CAPABILITY_MAJOR >= 12
     if constexpr (D_MODEL >= 256) {
         launch_sm120_wide_backward(
             fused_grad_gate_up_globals,

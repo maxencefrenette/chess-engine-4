@@ -8,7 +8,29 @@
 
 #include <algorithm>
 
-namespace chess_engine_4::sm80::dense {
+#ifndef CE4_DENSE_NAMESPACE
+#define CE4_DENSE_NAMESPACE chess_engine_4::sm80::dense
+#endif
+#ifndef CE4_DENSE_GEMM_NAMESPACE
+#define CE4_DENSE_GEMM_NAMESPACE chess_engine_4::sm80
+#endif
+#ifndef CE4_DENSE_COMPUTE_CAPABILITY_MAJOR
+#define CE4_DENSE_COMPUTE_CAPABILITY_MAJOR 8
+#endif
+#ifndef CE4_DENSE_COMPUTE_CAPABILITY_MINOR
+#define CE4_DENSE_COMPUTE_CAPABILITY_MINOR 0
+#endif
+#ifndef CE4_DENSE_ARCHITECTURE_NAME
+#define CE4_DENSE_ARCHITECTURE_NAME "SM80"
+#endif
+#ifndef CE4_DENSE_BIND_FUNCTION
+#define CE4_DENSE_BIND_FUNCTION bind_sm80_dense_kernels
+#endif
+#ifndef CE4_DENSE_BIND_PREFIX
+#define CE4_DENSE_BIND_PREFIX "sm80_"
+#endif
+
+namespace CE4_DENSE_NAMESPACE {
 namespace {
 
 constexpr int kThreads = 256;
@@ -181,7 +203,14 @@ void Bf16Gemm(const at::Tensor& left, const at::Tensor& right, at::Tensor& outpu
     const c10::cuda::CUDAGuard guard(left.device());
     cudaDeviceProp properties;
     CUDACHECK(cudaGetDeviceProperties(&properties, left.get_device()));
-    TORCH_CHECK(properties.major == 8 && properties.minor == 0, "SM80 dense GEMM requires compute capability 8.0");
+    TORCH_CHECK(
+        properties.major == CE4_DENSE_COMPUTE_CAPABILITY_MAJOR
+            && properties.minor == CE4_DENSE_COMPUTE_CAPABILITY_MINOR,
+        CE4_DENSE_ARCHITECTURE_NAME " dense GEMM requires compute capability ",
+        CE4_DENSE_COMPUTE_CAPABILITY_MAJOR,
+        ".",
+        CE4_DENSE_COMPUTE_CAPABILITY_MINOR
+    );
     LaunchBf16Gemm(
         reinterpret_cast<const __nv_bfloat16*>(left.data_ptr()),
         reinterpret_cast<const __nv_bfloat16*>(right.data_ptr()),
@@ -261,13 +290,13 @@ void RmsNormBackward(
     CUDACHECK(cudaPeekAtLastError());
 }
 
-}  // namespace chess_engine_4::sm80::dense
+}  // namespace CE4_DENSE_NAMESPACE
 
-void bind_sm80_dense_kernels(pybind11::module_& module) {
-    module.def("sm80_dense_bf16_gemm", &chess_engine_4::sm80::dense::Bf16Gemm);
-    module.def("sm80_dense_rmsnorm_forward", &chess_engine_4::sm80::dense::RmsNormForward);
-    module.def("sm80_dense_swiglu_forward", &chess_engine_4::sm80::dense::SwiGluForward);
-    module.def("sm80_dense_residual_add", &chess_engine_4::sm80::dense::ResidualAdd);
-    module.def("sm80_dense_swiglu_backward", &chess_engine_4::sm80::dense::SwiGluBackward);
-    module.def("sm80_dense_rmsnorm_backward", &chess_engine_4::sm80::dense::RmsNormBackward);
+void CE4_DENSE_BIND_FUNCTION(pybind11::module_& module) {
+    module.def(CE4_DENSE_BIND_PREFIX "dense_bf16_gemm", &CE4_DENSE_NAMESPACE::Bf16Gemm);
+    module.def(CE4_DENSE_BIND_PREFIX "dense_rmsnorm_forward", &CE4_DENSE_NAMESPACE::RmsNormForward);
+    module.def(CE4_DENSE_BIND_PREFIX "dense_swiglu_forward", &CE4_DENSE_NAMESPACE::SwiGluForward);
+    module.def(CE4_DENSE_BIND_PREFIX "dense_residual_add", &CE4_DENSE_NAMESPACE::ResidualAdd);
+    module.def(CE4_DENSE_BIND_PREFIX "dense_swiglu_backward", &CE4_DENSE_NAMESPACE::SwiGluBackward);
+    module.def(CE4_DENSE_BIND_PREFIX "dense_rmsnorm_backward", &CE4_DENSE_NAMESPACE::RmsNormBackward);
 }

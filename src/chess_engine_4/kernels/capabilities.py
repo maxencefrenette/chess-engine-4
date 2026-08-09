@@ -13,10 +13,12 @@ SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
 
 _DENSE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
     (8, 0): "sm80_",
+    (9, 0): "sm90_",
     (10, 0): "",
 }
 _MOE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
     (8, 0): "sm80_",
+    (9, 0): "sm90_",
     (12, 0): "",
 }
 
@@ -87,7 +89,7 @@ def require_dense_kernel(
         activation=activation,
     )
 
-    if capability == (8, 0):
+    if capability in {(8, 0), (9, 0)}:
         row_alignment = 16
     else:
         if precision == "mxfp8" and d_model % 256:
@@ -126,7 +128,7 @@ def require_moe_kernel(
 ) -> str:
     if capability not in _MOE_OP_PREFIX_BY_CAPABILITY:
         raise ValueError(
-            f"custom MoE kernels support SM80 and SM120, got {_format_sm(capability)}"
+            f"custom MoE kernels support SM80, SM90, and SM120, got {_format_sm(capability)}"
         )
     if precision != "bf16":
         raise ValueError("custom MoE kernels require precision='bf16'")
@@ -168,7 +170,7 @@ def dense_op_prefix(capability: ComputeCapability) -> str:
         return _DENSE_OP_PREFIX_BY_CAPABILITY[capability]
     except KeyError as error:
         raise ValueError(
-            f"custom dense kernels support SM80 and SM100, got {_format_sm(capability)}"
+            f"custom dense kernels support SM80, SM90, and SM100, got {_format_sm(capability)}"
         ) from error
 
 
@@ -176,6 +178,8 @@ def require_dense_precision(capability: ComputeCapability, precision: Precision)
     prefix = dense_op_prefix(capability)
     if capability == (8, 0) and precision != "bf16":
         raise ValueError("custom dense kernels on SM80 require precision='bf16'")
+    if capability == (9, 0) and precision != "bf16":
+        raise ValueError("custom dense kernels on SM90 require precision='bf16'")
     if capability == (10, 0) and precision not in {"bf16", "mxfp8"}:
         raise ValueError(
             "custom dense kernels on SM100 require precision='bf16' or 'mxfp8'"
@@ -188,12 +192,12 @@ def moe_op_prefix(capability: ComputeCapability) -> str:
         return _MOE_OP_PREFIX_BY_CAPABILITY[capability]
     except KeyError as error:
         raise ValueError(
-            f"custom MoE kernels support SM80 and SM120, got {_format_sm(capability)}"
+            f"custom MoE kernels support SM80, SM90, and SM120, got {_format_sm(capability)}"
         ) from error
 
 
 def _require_te_precision(capability: ComputeCapability, precision: Precision) -> None:
-    if precision == "bf16" and capability in {(8, 0), (10, 0), (12, 0)}:
+    if precision == "bf16" and capability in {(8, 0), (9, 0), (10, 0), (12, 0)}:
         return
     if precision == "mxfp8" and capability == (10, 0):
         return

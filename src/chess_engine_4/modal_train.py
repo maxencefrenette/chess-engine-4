@@ -11,7 +11,7 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
-from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu
+from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu, modal_gpu_identifier
 from chess_engine_4.model import KernelBackend, model_parameter_count
 from chess_engine_4.training.config import (
     TrainingConfig,
@@ -221,8 +221,27 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
         dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
         kernel_backend=args.kernel_backend,
     )
+    if args.gpu in {"H100", "H200"} and args.kernel_backend is None:
+        config = with_overrides(
+            config,
+            kernel_backend=_explicit_gpu_default_backend(
+                gpu=args.gpu,
+                model_kind=config.model.kind,
+            ),
+        )
     validate_training_hardware(config)
     return config
+
+
+def _explicit_gpu_default_backend(*, gpu: TrainingGpu, model_kind: str) -> KernelBackend:
+    """Select only Hopper backends established by end-to-end measurements."""
+
+    if gpu == "H100" and model_kind == "moe64a2":
+        return "custom"
+    if gpu in {"H100", "H200"}:
+        return "te"
+    # Non-Hopper callers retain the backend from their canonical recipe.
+    raise ValueError(f"No explicit GPU backend override is defined for {gpu}.")
 
 
 def print_launch_summary(
@@ -277,7 +296,7 @@ def training_function(
         function_name += "_custom_kernels"
     return app.function(
         image=selected_image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         cpu=cpu_cores,
         volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
         secrets=[wandb_secret],

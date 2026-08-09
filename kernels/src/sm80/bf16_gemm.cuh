@@ -7,7 +7,11 @@
 
 #include <algorithm>
 
-namespace chess_engine_4::sm80 {
+#ifndef CE4_BF16_GEMM_NAMESPACE
+#define CE4_BF16_GEMM_NAMESPACE chess_engine_4::sm80
+#endif
+
+namespace CE4_BF16_GEMM_NAMESPACE {
 
 using namespace kittens;
 
@@ -106,4 +110,4 @@ inline void LaunchBf16Gemm(
     );
 }
 
-}  // namespace chess_engine_4::sm80
+}  // namespace CE4_BF16_GEMM_NAMESPACE

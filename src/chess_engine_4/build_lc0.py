@@ -12,7 +12,11 @@ def build_lc0() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--kernels-build-dir", type=Path, default=Path("kernels/build/inference"))
     parser.add_argument("--lc0-build-type", choices=("debug", "release"), default="release")
-    parser.add_argument("--cuda-arch", choices=("80", "100a", "120a"), default="120a")
+    parser.add_argument(
+        "--cuda-arch",
+        choices=("80", "90a", "100a", "120a"),
+        default="120a",
+    )
     args = parser.parse_args()
 
     root = _project_root()

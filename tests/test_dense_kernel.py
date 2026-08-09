@@ -24,8 +24,17 @@ def test_dense_kernel_rejects_cpu_input() -> None:
 def test_dense_kernel_rejects_unsupported_gpu_architecture(monkeypatch) -> None:
     monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (12, 0))
 
-    with pytest.raises(ValueError, match="support SM80 and SM100, got SM120"):
+    with pytest.raises(ValueError, match="support SM80, SM90, and SM100, got SM120"):
         _dense_op(torch.empty(0), "rmsnorm_forward")
+
+
+def test_dense_kernel_dispatches_sm90_prefix(monkeypatch) -> None:
+    sentinel = object()
+    module = type("Extension", (), {"sm90_dense_rmsnorm_forward": sentinel})()
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (9, 0))
+    monkeypatch.setattr("chess_engine_4.kernels.dense.extension", lambda: module)
+
+    assert _dense_op(torch.empty(0), "rmsnorm_forward") is sentinel
 
 
 def test_transpose_quantizer_rejects_cpu_input() -> None:

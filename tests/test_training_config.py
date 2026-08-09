@@ -115,7 +115,7 @@ def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
 
     validate_training_hardware(config)
 
-    with pytest.raises(ValueError, match="support SM80 and SM120, got SM100"):
+    with pytest.raises(ValueError, match="support SM80, SM90, and SM120, got SM100"):
         validate_training_hardware(with_overrides(config, gpu="B200"))
 
 
@@ -159,7 +159,7 @@ def test_custom_dense_rejects_sm120_before_launch() -> None:
         kernel_backend="custom",
     )
 
-    with pytest.raises(ValueError, match="support SM80 and SM100, got SM120"):
+    with pytest.raises(ValueError, match="support SM80, SM90, and SM100, got SM120"):
         validate_training_hardware(config)
 
 
@@ -258,6 +258,43 @@ def test_custom_dense_validates_architecture_row_alignment(
     else:
         with pytest.raises(ValueError, match=f"rows divisible by {alignment}"):
             validate_training_hardware(config)
+
+
+@pytest.mark.parametrize("gpu", ["H100", "H200"])
+@pytest.mark.parametrize("config_path", ["configs/dense.py", "configs/moe64a2.py"])
+def test_hopper_accepts_explicit_custom_bf16_training(
+    gpu: str,
+    config_path: str,
+) -> None:
+    config = with_overrides(
+        load_training_config(config_path, d_model=128),
+        gpu=gpu,
+        quantization_recipe="bf16",
+        kernel_backend="custom",
+    )
+
+    assert resolve_training_kernel(config).variant in {
+        "dense-sm90-bf16",
+        "moe-sm90-bf16",
+    }
+    assert training_config_from_dict(asdict(config)) == config
+
+
+@pytest.mark.parametrize("gpu", ["H100", "H200"])
+@pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
+def test_hopper_rejects_blackwell_only_precision_before_launch(
+    gpu: str,
+    precision: str,
+) -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=256),
+        gpu=gpu,
+        quantization_recipe=precision,
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="SM90 require precision='bf16'"):
+        validate_training_hardware(config)
 
 
 def test_moe64a2_family_recipe_round_trips() -> None:
