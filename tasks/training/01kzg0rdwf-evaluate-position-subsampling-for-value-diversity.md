@@ -38,10 +38,12 @@ row-identity sampler now streams canonical Parquet directly without derived data
 assumptions. A 497-shard startup manifest fixes the exact input snapshot despite concurrent atomic
 corpus appends. The three authorized 15,000-step runs were stopped after live single-thread loader
 throughput invalidated the sub-$1.50 cost estimate; none completed or produced a final checkpoint.
-An authorized 500-step quarter-rate probe then showed eight loader threads sustain the full
-GPU-limited 1.59-1.60M accepted samples/s for nearly all intervals. The retained report therefore
-restores the matched 15,000-step / 983,040,000-accepted-sample plan at about $1.26 per arm; the three
-replacement treatment runs still require explicit user authorization.
+An authorized 500-step quarter-rate probe initially showed 1.59-1.60M accepted samples/s, so the
+user authorized standard eight-thread replacement runs at matched 15,000 steps / 983,040,000
+accepted samples. Full and half completed validly for $1.2448 and $1.2214 and were exported. The
+quarter arm's longer standalone window sustained only ~1.0-1.17M samples/s, projecting $1.8-$1.9;
+it was stopped under the strict $1.50 cap without a final checkpoint. Completion and the required
+three-candidate 800-node tournament are blocked pending authorization of a hard $2.00 quarter cap.
 
 ## Source
 

@@ -2,10 +2,10 @@
 
 ## Status
 
-Ready for authorization of three replacement runs. The exact startup snapshot, initial aborted-run
-evidence, and successful eight-thread throughput probe are recorded below. No treatment run has
-completed, no candidate checkpoint was exported, and no tournament, sampling-rule promotion, or
-canonical data mutation has been performed by this task.
+Blocked on the quarter-retention cost cap. Full and half retention completed valid matched runs and
+were exported; the quarter arm was stopped when its sustained standard-loader throughput projected
+a material breach of `$1.50`. No tournament, sampling-rule promotion, or canonical data mutation
+has been performed by this task.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
@@ -151,9 +151,8 @@ uv run train-modal --config configs/moe64a2.py --d-model 512 \
 Modal app `ap-z7K9StZLBrgQXtNwiMy5JU` completed all 500 steps. After warmup, most logged intervals
 sustained 1.59-1.60M accepted samples/s, matching the known eight-thread full-retention GPU-limited
 rate. A few row-group/shard transitions dipped to 1.07-1.48M, but the complete 500-step training
-window was about 21 seconds (~42 ms/step). Thus eight workers and the existing two-batch-per-worker
-prefetch keep deterministic quarter-rate filtering off the GPU critical path as far as practical;
-no loader code change or larger CPU allocation is needed.
+window was about 21 seconds (~42 ms/step). This short initial-shard window was useful but, as the
+full treatment attempt below showed, was not representative of sustained quarter-rate loading.
 
 Scaling the measured ~42 ms/step window to 15,000 steps gives about 630 seconds of training. Adding
 the probe's conservative ~55 seconds of container startup and final-checkpoint overhead gives 685
@@ -163,20 +162,51 @@ cheaper. The revised matched-sample plan therefore restores the original 15,000 
 accepted samples for all three arms, with an estimated cost of about `$1.26` each and roughly
 `$0.24` margin below the cap.
 
-The original authorization allowed exactly three bounded treatment runs. Because the first three
-were started and aborted, no replacement treatment will be launched without explicit user approval.
+## Standard-loader matched treatment execution
+
+The user explicitly authorized the standard production loader: eight threads and configured
+prefetch depth two, with stable-hash membership independent of worker scheduling. All inspected
+launch summaries matched exactly on seed, model, optimizer/loss recipe, batch 65,536, 15,000 steps,
+983,040,000 accepted samples, and 1.7847613980672e17 FLOPs; only retention differed.
+
+Full and half retention completed without spikes:
+
+| Rate | W&B | Runtime | Realized cost | Task loss (EMA) | Policy | Value | Moves left | Policy top-1 (EMA) | Spikes |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.0 | [fyej1izp](https://wandb.ai/maxence-frenette/uncategorized/runs/fyej1izp) | 676.213 s | $1.2448 | 2.865781 | 2.026412 | 0.691026 | 0.147160 | 0.507204 | 0 |
+| 0.5 | [4fe9jk45](https://wandb.ai/maxence-frenette/uncategorized/runs/4fe9jk45) | 663.502 s | $1.2214 | 2.848112 | 2.036135 | 0.678729 | 0.145244 | 0.512639 | 0 |
+
+Their final checkpoints are `/artifacts/checkpoints/position-subsampling-r1-8t-final.pt` and
+`/artifacts/checkpoints/position-subsampling-r0.5-8t-final.pt`; isolated exports are
+`/artifacts/models/position-subsampling-r1-8t-final.safetensors` and
+`/artifacts/models/position-subsampling-r0.5-8t-final.safetensors`. At matched accepted samples,
+half retention improves EMA task loss by 0.017669, EMA policy top-1 by 0.005436, final value loss by
+0.012298, and final moves-left loss by 0.001916, while its final policy loss is 0.009723 worse.
+
+The concurrently launched quarter arm was first stopped because three-way Volume reads created
+obvious contention. It was then relaunched alone with unchanged standard settings as W&B run
+[r11jwe6g](https://wandb.ai/maxence-frenette/uncategorized/runs/r11jwe6g). The standalone full-window
+attempt sustained only about 1.0-1.17M accepted samples/s through step 1,110, averaging roughly
+64 ms/step rather than the short probe's 42 ms/step. Completing 15,000 steps plus fixed overhead
+projected about `$1.8-$1.9`, so it was stopped as a materially unexpected violation of the strict
+per-run cap. It produced no valid final checkpoint.
+
+Completing the matched quarter arm now requires either an explicit cap increase to `$2.00` or a
+change to the standard loader. Reducing quarter samples alone is invalid; reducing all arms would
+discard the two valid matched runs and require retraining them.
 
 ## Evaluation protocol
 
 If all three runs complete validly, export all checkpoints and run a connected searched lc0
 tournament at approximately 800 nodes per move. Use mirrored openings and retain raw paired-game
 evidence. Paired Elo/confidence-interval analysis should reuse the implementation from task
-`01kzg0rdd6` if ready; this task will not independently rewrite that estimator. Report WDL, Elo and
+`01kzg0rdd6`; commit `4369bca` has been integrated as `90f50cf`. Report WDL, Elo and
 CI, runtime, inference throughput, and the tournament cost estimate before launch, stopping for
 approval if it exceeds `$1`.
 
 ## Current recommendation
 
-Do not promote or reject a retention rate. Keep canonical configs and data unchanged and preserve
-the sampler branch unmerged. The experiment can continue at full planned power once the user
-authorizes three eight-thread replacement runs at matched 15,000 steps / 983,040,000 samples.
+Do not promote or reject a retention rate from two completed arms. Keep canonical configs and data
+unchanged and preserve the sampler branch unmerged. The three-candidate 800-node tournament cannot
+start until a valid matched quarter checkpoint exists; orchestration has requested authorization
+to complete quarter under a hard `$2.00` cap.
