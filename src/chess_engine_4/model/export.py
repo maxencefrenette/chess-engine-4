@@ -6,6 +6,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from chess_engine_4.data.leela import BOARD_SIZE, POLICY_SIZE
 from chess_engine_4.model.dense import (
     GATED_ACTIVATIONS,
     PLANES_PER_HISTORY_POSITION,
@@ -61,7 +62,7 @@ class PortableChessNet(nn.Module):
         if not isinstance(config, DenseChessNetConfig):
             raise TypeError("PortableChessNet only supports dense models.")
         self.config = config
-        input_dim = model_input_plane_count(config.history_length) * config.board_size**2
+        input_dim = model_input_plane_count(config.history_length) * BOARD_SIZE**2
         self.input = nn.Linear(input_dim, config.d_model)
 
         hidden_dim = int(config.d_model * config.expansion_ratio)
@@ -77,7 +78,7 @@ class PortableChessNet(nn.Module):
             ]
         )
         self.norm = nn.RMSNorm(config.d_model, eps=config.rms_norm_eps)
-        self.policy_head = nn.Linear(config.d_model, config.policy_size)
+        self.policy_head = nn.Linear(config.d_model, POLICY_SIZE)
         self.wdl_head = nn.Linear(config.d_model, 3)
         self.moves_left_head = nn.Linear(config.d_model, 1)
 
@@ -145,7 +146,7 @@ class PortableMoeFlopsNet(nn.Module):
     def __init__(self, config: Moe64A2ChessNetConfig) -> None:
         super().__init__()
         self.config = config
-        input_dim = model_input_plane_count(config.history_length) * config.board_size**2
+        input_dim = model_input_plane_count(config.history_length) * BOARD_SIZE**2
         self.input = nn.Linear(input_dim, config.d_model)
         self.blocks = nn.ModuleList(
             [
@@ -161,7 +162,7 @@ class PortableMoeFlopsNet(nn.Module):
             ]
         )
         self.norm = nn.RMSNorm(config.d_model, eps=config.rms_norm_eps)
-        self.policy_head = nn.Linear(config.d_model, config.policy_size)
+        self.policy_head = nn.Linear(config.d_model, POLICY_SIZE)
         self.wdl_head = nn.Linear(config.d_model, 3)
         self.moves_left_head = nn.Linear(config.d_model, 1)
 

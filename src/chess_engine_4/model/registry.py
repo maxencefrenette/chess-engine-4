@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import fields
 from typing import Any
 
+from chess_engine_4.data.leela import BOARD_SIZE, INPUT_PLANE_COUNT, POLICY_SIZE
 from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.model.moe import (
     Moe64A2ChessNet,
@@ -14,8 +15,19 @@ from chess_engine_4.model.moe import (
 
 type ModelConfig = DenseChessNetConfig | Moe64A2ChessNetConfig
 
+_FIXED_LC0_GEOMETRY = {
+    "input_planes": INPUT_PLANE_COUNT,
+    "board_size": BOARD_SIZE,
+    "policy_size": POLICY_SIZE,
+}
+
 
 def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
+    values = dict(values)
+    for name, expected in _FIXED_LC0_GEOMETRY.items():
+        actual = values.pop(name, expected)
+        if actual != expected:
+            raise ValueError(f"[model].{name} must be {expected}, got {actual!r}.")
     kind = values.get("kind", "dense")
     if kind == "dense":
         return _build_model_section(DenseChessNetConfig, values, section_name="[model]")
@@ -35,10 +47,7 @@ def build_model(config: ModelConfig) -> DenseChessNet | Moe64A2ChessNet:
 def model_parameter_count(config: ModelConfig) -> int:
     if isinstance(config, DenseChessNetConfig):
         return dense_parameter_count(
-            input_planes=config.input_planes,
             history_length=config.history_length,
-            board_size=config.board_size,
-            policy_size=config.policy_size,
             d_model=config.d_model,
             depth=config.depth,
             expansion_ratio=config.expansion_ratio,
@@ -46,10 +55,7 @@ def model_parameter_count(config: ModelConfig) -> int:
         )
     if isinstance(config, Moe64A2ChessNetConfig):
         return moe64a2_parameter_count(
-            input_planes=config.input_planes,
             history_length=config.history_length,
-            board_size=config.board_size,
-            policy_size=config.policy_size,
             d_model=config.d_model,
             depth=config.depth,
             expansion_ratio=config.expansion_ratio,

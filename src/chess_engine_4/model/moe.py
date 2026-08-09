@@ -9,7 +9,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from chess_engine_4.data.leela import INPUT_PLANE_COUNT, POLICY_SIZE
+from chess_engine_4.data.leela import BOARD_SIZE, POLICY_SIZE
 from chess_engine_4.model.config import InputPipeline, KernelBackend, Precision
 from chess_engine_4.model.dense import (
     HISTORY_LENGTH,
@@ -50,9 +50,6 @@ def _route_slots(
 @dataclass(frozen=True, slots=True)
 class Moe64A2ChessNetConfig:
     kind: str = "moe64a2"
-    input_planes: int = INPUT_PLANE_COUNT
-    board_size: int = 8
-    policy_size: int = POLICY_SIZE
     history_length: int = HISTORY_LENGTH
     d_model: int = 1024
     depth: int = 8
@@ -318,7 +315,7 @@ class Moe64A2ChessNet(nn.Module):
             config = Moe64A2ChessNetConfig()
         self.config = config
         self.cuda_graph_compatible = config.cuda_graph_compatible
-        input_dim = model_input_plane_count(config.history_length) * config.board_size**2
+        input_dim = model_input_plane_count(config.history_length) * BOARD_SIZE**2
         transformer_engine = te()
 
         self.input = transformer_engine.Linear(
@@ -347,7 +344,7 @@ class Moe64A2ChessNet(nn.Module):
         )
         self.policy_head = transformer_engine.Linear(
             config.d_model,
-            mxfp8_aligned_size(config.policy_size),
+            mxfp8_aligned_size(POLICY_SIZE),
             params_dtype=torch.bfloat16,
         )
         self.wdl_head = transformer_engine.Linear(
@@ -377,7 +374,7 @@ class Moe64A2ChessNet(nn.Module):
                 x = block(x)
         x = self.norm(x)
         return ChessNetOutput(
-            policy_logits=self.policy_head(x)[:, : self.config.policy_size],
+            policy_logits=self.policy_head(x)[:, :POLICY_SIZE],
             wdl_logits=self.wdl_head(x)[:, :3],
             moves_left=self.moves_left_head(x)[:, 0],
             router_aux_loss=torch.stack(router_aux_losses).mean(),
@@ -392,19 +389,14 @@ class Moe64A2ChessNet(nn.Module):
 
 def moe64a2_parameter_count(
     *,
-    input_planes: int = INPUT_PLANE_COUNT,
     history_length: int = HISTORY_LENGTH,
-    board_size: int = 8,
-    policy_size: int = POLICY_SIZE,
     d_model: int,
     depth: int,
     expansion_ratio: float = 2.0,
 ) -> int:
     if depth <= 0 or depth % 2 != 0:
         raise ValueError("moe64a2 depth must be a positive even number")
-    auxiliary_planes = input_planes - HISTORY_LENGTH * PLANES_PER_HISTORY_POSITION
-    selected_planes = history_length * PLANES_PER_HISTORY_POSITION + auxiliary_planes
-    input_dim = selected_planes * board_size * board_size
+    input_dim = model_input_plane_count(history_length) * BOARD_SIZE**2
     hidden_dim = int(d_model * expansion_ratio)
     input_params = input_dim * d_model + d_model
     moe_depth = depth // 2
@@ -413,7 +405,7 @@ def moe64a2_parameter_count(
     router_params = moe_depth * d_model * ROUTER_OUTPUT_SIZE
     dense_params = dense_depth * 3 * d_model * (DENSE_EXPANSION_RATIO * d_model)
     norm_params = (depth + 1) * d_model
-    aligned_policy_size = mxfp8_aligned_size(policy_size)
+    aligned_policy_size = mxfp8_aligned_size(POLICY_SIZE)
     policy_params = d_model * aligned_policy_size + aligned_policy_size
     wdl_params = d_model * 32 + 32
     moves_left_params = d_model * 32 + 32

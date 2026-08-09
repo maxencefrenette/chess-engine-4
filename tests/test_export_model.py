@@ -80,6 +80,14 @@ def test_export_rejects_non_bf16_weights() -> None:
         exported_dense_model(checkpoint)
 
 
+def test_export_rejects_legacy_non_lc0_geometry() -> None:
+    checkpoint = _checkpoint()
+    checkpoint["config"]["model"]["policy_size"] = 1860
+
+    with pytest.raises(ValueError, match="policy_size must be 1858"):
+        exported_dense_model(checkpoint)
+
+
 def test_exported_moe_model_flattens_experts() -> None:
     d_model = 32
     hidden_dim = 64

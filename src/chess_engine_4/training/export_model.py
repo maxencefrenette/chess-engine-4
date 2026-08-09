@@ -12,12 +12,14 @@ import modal
 import torch
 from safetensors.torch import save_file
 
+from chess_engine_4.data.leela import BOARD_SIZE, INPUT_PLANE_COUNT, POLICY_SIZE
 from chess_engine_4.modal_train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
     artifact_volume,
     image,
 )
+from chess_engine_4.model import model_config_from_dict
 
 FORMAT_NAME = "chess-engine-4"
 FORMAT_VERSION = "1"
@@ -85,7 +87,7 @@ def exported_dense_model(
         raise ValueError("Safetensors export currently supports only SwiGLU dense checkpoints.")
     depth = int(model["depth"])
     d_model = int(model["d_model"])
-    policy_size = int(model.get("policy_size", 1858))
+    policy_size = POLICY_SIZE
     tensors = {
         "input.weight": _bf16_tensor(state, "input.weight"),
         "input.bias": _bf16_tensor(state, "input.bias"),
@@ -113,8 +115,8 @@ def exported_dense_model(
         "expansion_ratio": str(float(model.get("expansion_ratio", 4.0))),
         "activation": "swiglu",
         "history_length": str(int(model.get("history_length", 8))),
-        "input_planes": str(int(model.get("input_planes", 112))),
-        "board_size": str(int(model.get("board_size", 8))),
+        "input_planes": str(INPUT_PLANE_COUNT),
+        "board_size": str(BOARD_SIZE),
         "policy_size": str(policy_size),
         "policy_storage_size": str(tensors["policy.weight"].shape[0]),
         "wdl_size": "3",
@@ -138,7 +140,7 @@ def exported_moe_model(
     depth = int(model["depth"])
     d_model = int(model["d_model"])
     hidden_dim = int(d_model * float(model.get("expansion_ratio", 2.0)))
-    policy_size = int(model.get("policy_size", 1858))
+    policy_size = POLICY_SIZE
     tensors = {
         "input.weight": _bf16_tensor(state, "input.weight"),
         "input.bias": _bf16_tensor(state, "input.bias"),
@@ -214,8 +216,8 @@ def exported_moe_model(
         "layer_pattern": "alternating-moe-dense",
         "activation": "swiglu",
         "history_length": str(int(model.get("history_length", 8))),
-        "input_planes": str(int(model.get("input_planes", 112))),
-        "board_size": str(int(model.get("board_size", 8))),
+        "input_planes": str(INPUT_PLANE_COUNT),
+        "board_size": str(BOARD_SIZE),
         "policy_size": str(policy_size),
         "policy_storage_size": str(tensors["policy.weight"].shape[0]),
         "wdl_size": "3",
@@ -236,6 +238,7 @@ def _model_and_state(
     if not isinstance(config, dict) or not isinstance(config.get("model"), dict):
         raise ValueError("Checkpoint does not contain a config.model mapping.")
     model = config["model"]
+    model_config_from_dict(model)
     if model.get("kind", "dense") != expected_kind:
         raise ValueError(f"Checkpoint is not a {expected_kind} model.")
     state = checkpoint.get("model_state_dict")

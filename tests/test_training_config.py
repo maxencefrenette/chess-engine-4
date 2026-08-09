@@ -67,6 +67,29 @@ def test_training_config_round_trips_through_dict() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
+def test_legacy_fixed_lc0_geometry_is_accepted_and_removed() -> None:
+    values = asdict(load_training_config("configs/dense.py", d_model=64))
+    values["model"].update(input_planes=112, board_size=8, policy_size=1858)
+
+    config = training_config_from_dict(values)
+
+    assert "input_planes" not in asdict(config.model)
+    assert "board_size" not in asdict(config.model)
+    assert "policy_size" not in asdict(config.model)
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("input_planes", 111), ("board_size", 10), ("policy_size", 1860)],
+)
+def test_legacy_non_lc0_geometry_is_rejected(name: str, value: int) -> None:
+    values = asdict(load_training_config("configs/dense.py", d_model=64))
+    values["model"][name] = value
+
+    with pytest.raises(ValueError, match=rf"{name} must be"):
+        training_config_from_dict(values)
+
+
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=1024),
