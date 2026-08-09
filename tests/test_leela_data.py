@@ -19,7 +19,9 @@ from chess_engine_4.data.leela import (
 )
 from chess_engine_4.data.native import (
     convert_native_lc0_tar_to_parquet,
+    inspect_native_lc0_tars,
     iter_native_packed_batches,
+    native_parquet_row_counts,
 )
 
 POLICY_OFFSET = 8
@@ -96,6 +98,18 @@ def test_native_tar_decoder_drops_incomplete_final_batch(tmp_path: Path) -> None
     assert tuple(batches[0][0].shape) == (2, 104, 8)
 
 
+def test_native_tar_inspection_counts_rows_and_duplicate_game_ids(tmp_path: Path) -> None:
+    first = tmp_path / "first.tar"
+    second = tmp_path / "second.tar"
+    _write_tar(first, gzip.compress(_records(3)))
+    _write_tar(second, gzip.compress(_records(4)))
+
+    results, duplicate_games = inspect_native_lc0_tars([first, second])
+
+    assert results == [(str(first), 1, 3), (str(second), 1, 4)]
+    assert duplicate_games == 1
+
+
 def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "training.parquet"
@@ -108,6 +122,7 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     assert records == 4
     assert input_bytes == tar_path.stat().st_size
     assert output_bytes == parquet_path.stat().st_size
+    assert native_parquet_row_counts([parquet_path]) == [(str(parquet_path), 4)]
     for tar_tensor, parquet_tensor in zip(tar_batch[:4], parquet_batch[:4], strict=True):
         torch.testing.assert_close(tar_tensor, parquet_tensor, rtol=0, atol=0)
     torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)

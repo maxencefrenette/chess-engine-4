@@ -20,7 +20,7 @@ def planner_inputs():
 
 
 def test_read_current_dataset_samples() -> None:
-    assert read_dataset_samples(Path("experiments/training-data.toml")) == 3_949_735_220
+    assert read_dataset_samples(Path("experiments/training-data.toml")) == 8_020_779_820
 
 
 def test_assumed_samples_hard_caps_plan() -> None:

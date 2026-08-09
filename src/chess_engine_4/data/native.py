@@ -72,3 +72,15 @@ def iter_native_parquet_batches(
 def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tuple[int, int, int]:
     native = _load_native_module()
     return native.convert_lc0_tar_to_parquet(str(input_path), str(output_path))
+
+
+def native_parquet_row_counts(paths: Sequence[Path]) -> list[tuple[str, int]]:
+    native = _load_native_module()
+    return native.parquet_row_counts([str(path) for path in paths])
+
+
+def inspect_native_lc0_tars(
+    paths: Sequence[Path],
+) -> tuple[list[tuple[str, int, int]], int]:
+    native = _load_native_module()
+    return native.inspect_lc0_tars([str(path) for path in paths])

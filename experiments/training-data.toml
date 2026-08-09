@@ -1,5 +1,5 @@
 [dataset]
 format = "parquet"
-samples = 3949735220
-shards = 480
-source_experiment = "experiments/2026-08-05.04-moe-d1024-baseline"
+samples = 8020779820
+shards = 1203
+source_task = "01kzhkmxbr"

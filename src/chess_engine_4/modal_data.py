@@ -65,6 +65,7 @@ def verify_data_modal() -> None:
     parser = argparse.ArgumentParser(description="Verify Parquet files against LCZero tar files.")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--batches", type=int, default=1)
+    parser.add_argument("--delete-sources", action="store_true")
     args = parser.parse_args()
     if args.limit is not None and args.limit <= 0:
         parser.error("--limit must be positive")
@@ -93,6 +94,55 @@ def verify_data_modal() -> None:
                 )
     print(
         f"verification_complete files={verified_files} batches={verified_batches} exact_match=true"
+    )
+    if args.delete_sources:
+        for source_name in selected:
+            data_volume.remove_file(f"/{source_name}")
+        print(f"source_cleanup_complete files={len(selected)}")
+
+
+def audit_data_modal() -> None:
+    parser = argparse.ArgumentParser(description="Audit live Parquet shard row counts on Modal.")
+    parser.parse_args()
+
+    parquet_names = sorted(_converted_names())
+    if not parquet_names:
+        parser.error("no Parquet files found on the training-data Volume")
+    chunk_size = 30
+    chunks = [
+        parquet_names[offset : offset + chunk_size]
+        for offset in range(0, len(parquet_names), chunk_size)
+    ]
+    results: list[dict[str, float | int]] = []
+    with app.run():
+        for result in _audit_parquet_metadata_remote.map(chunks, order_outputs=False):
+            results.append(result)
+            print(
+                f"audit_progress chunks={len(results)}/{len(chunks)} "
+                f"shards={sum(int(row['shards']) for row in results)}",
+                flush=True,
+            )
+    total_rows = sum(int(result["rows"]) for result in results)
+    total_bytes = sum(int(result["bytes"]) for result in results)
+    print(
+        f"audit_complete shards={sum(int(result['shards']) for result in results)} "
+        f"rows={total_rows} bytes={total_bytes} "
+        f"bytes_per_row={total_bytes / total_rows:.6f}"
+    )
+
+
+def audit_sources_modal() -> None:
+    parser = argparse.ArgumentParser(description="Audit retained LCZero source archives on Modal.")
+    parser.parse_args()
+
+    sources = _source_names()
+    if not sources:
+        parser.error("no LCZero tar source files found on the training-data Volume")
+    with app.run():
+        result = _audit_sources_remote.remote(sources)
+    print(
+        f"source_audit_complete archives={result['archives']} games={result['games']} "
+        f"rows={result['rows']} duplicate_game_ids={result['duplicate_game_ids']}"
     )
 
 
@@ -163,6 +213,49 @@ def _verify_one_remote(source_name: str, batches: int) -> dict[str, int | str]:
     except Exception as error:
         raise RuntimeError(f"failed to verify {source_name}: {error}") from error
     return {"file": source_name, "batches": verified}
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    max_containers=_CONVERSION_CONCURRENCY,
+    volumes={REMOTE_DATA_PATH: data_volume},
+    timeout=30 * 60,
+)
+def _audit_parquet_metadata_remote(parquet_names: list[str]) -> dict[str, float | int]:
+    from chess_engine_4.data.native import native_parquet_row_counts
+
+    paths = [Path(REMOTE_PARQUET_DATA_PATH) / name for name in parquet_names]
+    counts = native_parquet_row_counts(paths)
+    total_rows = sum(rows for _, rows in counts)
+    total_bytes = sum(path.stat().st_size for path in paths)
+    if total_rows <= 0:
+        raise ValueError("Parquet corpus contains no rows")
+    return {
+        "shards": len(paths),
+        "rows": total_rows,
+        "bytes": total_bytes,
+        "bytes_per_row": total_bytes / total_rows,
+    }
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    volumes={REMOTE_DATA_PATH: data_volume},
+    timeout=30 * 60,
+)
+def _audit_sources_remote(source_names: list[str]) -> dict[str, int]:
+    from chess_engine_4.data.native import inspect_native_lc0_tars
+
+    paths = [Path(REMOTE_DATA_PATH) / name for name in source_names]
+    results, duplicate_games = inspect_native_lc0_tars(paths)
+    return {
+        "archives": len(results),
+        "games": sum(games for _, games, _ in results),
+        "rows": sum(rows for _, _, rows in results),
+        "duplicate_game_ids": duplicate_games,
+    }
 
 
 def _source_names() -> list[str]:
