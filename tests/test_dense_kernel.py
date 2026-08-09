@@ -4,7 +4,11 @@ import pytest
 import torch
 
 from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS, dense_op_prefix
-from chess_engine_4.kernels.dense import dense_block_forward, quantize_mxfp8_transpose
+from chess_engine_4.kernels.dense import (
+    _dense_op,
+    dense_block_forward,
+    quantize_mxfp8_transpose,
+)
 
 
 def test_dense_kernel_supports_power_of_two_widths() -> None:
@@ -26,8 +30,20 @@ def test_dense_kernel_dispatches_sm120_bindings() -> None:
 
 
 def test_dense_kernel_rejects_unsupported_gpu_architecture() -> None:
-    with pytest.raises(ValueError, match="support SM80, SM100, and SM120, got SM90"):
-        dense_op_prefix((9, 0))
+    with pytest.raises(
+        ValueError,
+        match="support SM80, SM90, SM100, and SM120, got SM110",
+    ):
+        dense_op_prefix((11, 0))
+
+
+def test_dense_kernel_dispatches_sm90_prefix(monkeypatch) -> None:
+    sentinel = object()
+    module = type("Extension", (), {"sm90_dense_rmsnorm_forward": sentinel})()
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (9, 0))
+    monkeypatch.setattr("chess_engine_4.kernels.dense.extension", lambda: module)
+
+    assert _dense_op(torch.empty(0), "rmsnorm_forward") is sentinel
 
 
 def test_transpose_quantizer_rejects_cpu_input() -> None:

@@ -14,7 +14,7 @@ from typing import Any
 
 import modal
 
-from chess_engine_4.hardware import TRAINING_GPUS
+from chess_engine_4.hardware import TRAINING_GPUS, modal_gpu_identifier
 from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_kernels import benchmark_dense_layer
@@ -89,10 +89,12 @@ def _benchmark_training(
 
     import torch
 
+    from chess_engine_4.training.cli import _require_training_gpu
     from chess_engine_4.training.config import training_config_from_dict
 
     torch.set_float32_matmul_precision("high")
     config = training_config_from_dict(config_values)
+    _require_training_gpu(torch.device("cuda"), configured_gpu=config.infra.gpu)
     result: dict[str, Any] = {
         "d_model": config.model.d_model,
         "batch_size": config.run.batch_size,
@@ -134,7 +136,7 @@ def _benchmark_training(
 def training_benchmark_function(gpu: str):
     return app.function(
         image=benchmark_image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         cpu=8,
         volumes={REMOTE_DATA_PATH: data_volume},
         timeout=2 * 60 * 60,
@@ -165,6 +167,8 @@ class _TrainingRunner:
         torch.cuda.synchronize()
 
     def step(self, batch: tuple[Any, Any, Any]) -> None:
+        import torch
+
         from chess_engine_4.model.transformer_engine import autocast_context
         from chess_engine_4.training.cli import _clip_gradient_norm
         from chess_engine_4.training.losses import lczero_loss
@@ -174,6 +178,8 @@ class _TrainingRunner:
         with autocast_context(self.config.model.precision):
             output = self.training_model(planes)
             loss = lczero_loss(output, policy, value, weights=self.config.loss)
+        if not torch.isfinite(loss.total):
+            raise RuntimeError("training benchmark produced a non-finite loss")
         loss.total.backward()
         _clip_gradient_norm(
             self.model,

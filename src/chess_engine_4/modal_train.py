@@ -11,7 +11,7 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
-from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu
+from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu, modal_gpu_identifier
 from chess_engine_4.model import KernelBackend, model_parameter_count
 from chess_engine_4.training.config import (
     TrainingConfig,
@@ -277,7 +277,7 @@ def training_function(
         function_name += "_custom_kernels"
     return app.function(
         image=selected_image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         cpu=cpu_cores,
         volumes={REMOTE_DATA_PATH: data_volume, REMOTE_ARTIFACT_PATH: artifact_volume},
         secrets=[wandb_secret],

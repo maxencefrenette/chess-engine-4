@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 
+from chess_engine_4.modal_train import add_training_config_arguments, resolve_training_config
 from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import (
     load_training_config,
@@ -272,6 +274,69 @@ def test_custom_dense_validates_architecture_row_alignment(
     else:
         with pytest.raises(ValueError, match=f"rows divisible by {alignment}"):
             validate_training_hardware(config)
+
+
+@pytest.mark.parametrize("gpu", ["H100", "H200"])
+@pytest.mark.parametrize("config_path", ["configs/dense.py", "configs/moe64a2.py"])
+def test_hopper_accepts_explicit_custom_bf16_training(
+    gpu: str,
+    config_path: str,
+) -> None:
+    config = with_overrides(
+        load_training_config(config_path, d_model=128),
+        gpu=gpu,
+        quantization_recipe="bf16",
+        kernel_backend="custom",
+    )
+
+    assert resolve_training_kernel(config).variant in {
+        "dense-sm90-bf16",
+        "moe-sm90-bf16",
+    }
+    assert training_config_from_dict(asdict(config)) == config
+
+
+@pytest.mark.parametrize("gpu", ["H100", "H200"])
+@pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
+def test_hopper_rejects_blackwell_only_precision_before_launch(
+    gpu: str,
+    precision: str,
+) -> None:
+    config = with_overrides(
+        load_training_config("configs/dense.py", d_model=256),
+        gpu=gpu,
+        quantization_recipe=precision,
+        kernel_backend="custom",
+    )
+
+    with pytest.raises(ValueError, match="SM90 require precision='bf16'"):
+        validate_training_hardware(config)
+
+
+@pytest.mark.parametrize(
+    ("config_path", "gpu", "extra_args", "expected_backend"),
+    [
+        ("configs/dense.py", "H100", [], "te"),
+        ("configs/moe64a2.py", "H200", [], "custom"),
+        ("configs/moe64a2.py", "H100", ["--kernel-backend", "te"], "te"),
+    ],
+)
+def test_gpu_cli_override_does_not_change_kernel_backend(
+    config_path: str,
+    gpu: str,
+    extra_args: list[str],
+    expected_backend: str,
+) -> None:
+    parser = argparse.ArgumentParser()
+    add_training_config_arguments(parser, include_steps=True)
+    args = parser.parse_args(
+        ["--config", config_path, "--d-model", "128", "--gpu", gpu, *extra_args]
+    )
+
+    config = resolve_training_config(args)
+
+    assert config.infra.gpu == gpu
+    assert config.model.kernel_backend == expected_backend
 
 
 def test_moe64a2_family_recipe_round_trips() -> None:

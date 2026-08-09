@@ -8,7 +8,11 @@ from typing import Any
 
 import modal
 
-from chess_engine_4.hardware import gpu_spec, hardware_dollars_per_second
+from chess_engine_4.hardware import (
+    gpu_spec,
+    hardware_dollars_per_second,
+    modal_gpu_identifier,
+)
 from chess_engine_4.kernels.benchmarking import (
     cuda_time,
     cuda_time_backward,
@@ -27,12 +31,12 @@ benchmark_image = with_cuda_kernels(base_image)
 
 def benchmark_moe_kernels_modal() -> None:
     parser = argparse.ArgumentParser(
-        description="Compare a custom MoE kernel with TE MXFP8 on B200."
+        description="Compare a custom BF16 MoE kernel with its retained baseline."
     )
     parser.add_argument("--d-model", type=int, choices=(128, 256, 512), default=128)
     parser.add_argument(
         "--custom-gpu",
-        choices=("A100", "B200", "RTX-PRO-6000"),
+        choices=("A100", "H100", "H200", "B200", "RTX-PRO-6000"),
         default="B200",
     )
     parser.add_argument("--warmup", type=int, default=20)
@@ -183,7 +187,7 @@ def _benchmark_custom(
 def custom_benchmark_function(gpu: str) -> modal.Function:
     return app.function(
         image=benchmark_image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         cpu=CPU_CORES,
         timeout=60 * 60,
         name=f"moe_custom_benchmark_{gpu.lower().replace('-', '_')}",

@@ -11,6 +11,7 @@ from chess_engine_4.kernels.moe import _moe_op
     ("capability", "prefix", "variant"),
     [
         ((8, 0), "sm80_", "moe-sm80-bf16"),
+        ((9, 0), "sm90_", "moe-sm90-bf16"),
         ((10, 0), "sm100_", "moe-sm100-bf16"),
         ((12, 0), "", "moe-sm120-bf16"),
     ],
@@ -34,9 +35,12 @@ def test_moe_kernel_dispatches_supported_architectures(
 
 
 def test_moe_kernel_rejects_unsupported_gpu_architecture(monkeypatch) -> None:
-    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (9, 0))
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (11, 0))
 
-    with pytest.raises(ValueError, match="support SM80, SM100, and SM120, got SM90"):
+    with pytest.raises(
+        ValueError,
+        match="support SM80, SM90, SM100, and SM120, got SM110",
+    ):
         _moe_op(torch.empty(0), 128, "forward")
 
 
@@ -70,3 +74,12 @@ def test_sm100_moe_kernel_rejects_unsupported_configuration(
 
     with pytest.raises(ValueError, match=message):
         require_moe_kernel(**arguments)  # type: ignore[arg-type]
+
+
+def test_moe_kernel_dispatches_sm90_prefix(monkeypatch) -> None:
+    sentinel = object()
+    module = type("Extension", (), {"sm90_moe_d128_forward": sentinel})()
+    monkeypatch.setattr(torch.cuda, "get_device_capability", lambda _device: (9, 0))
+    monkeypatch.setattr("chess_engine_4.kernels.moe.extension", lambda: module)
+
+    assert _moe_op(torch.empty(0), 128, "forward") is sentinel

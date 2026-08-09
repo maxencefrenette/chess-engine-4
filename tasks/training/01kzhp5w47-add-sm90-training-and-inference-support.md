@@ -1,12 +1,13 @@
 ---
 id: "01kzhp5w47"
 title: "Add SM90 training and inference support"
-status: pending
+status: completed
 priority: high
 effort: large
 dependencies: []
 tags: ["cuda", "sm90", "modal", "training", "inference"]
 created_at: 2026-08-08
+completed_at: 2026-08-08
 ---
 
 # Add SM90 training and inference support
@@ -19,12 +20,12 @@ benchmarks exist.
 
 ## Tasks
 
-- [ ] Add H100 and H200 to training hardware validation and Modal launch paths.
-- [ ] Add an SM90 inference build and runtime path using the simplest correct
+- [x] Add H100 and H200 to training hardware validation and Modal launch paths.
+- [x] Add an SM90 inference build and runtime path using the simplest correct
       retained implementation.
-- [ ] Preserve explicit `--gpu` experiment overrides and reject unsupported
+- [x] Preserve explicit `--gpu` experiment overrides and reject unsupported
       precision, backend, and architecture combinations clearly.
-- [ ] Add focused correctness and configuration tests for both GPU identifiers.
+- [x] Add focused correctness and configuration tests for both GPU identifiers.
 
 ## Acceptance Criteria
 

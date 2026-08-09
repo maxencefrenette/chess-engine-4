@@ -18,6 +18,9 @@ if(CE4_BUILD_INFERENCE)
   if(CE4_CUDA_ARCH STREQUAL "80")
     set(CE4_INFERENCE_ARCH_SOURCE src/sm80/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM80)
+  elseif(CE4_CUDA_ARCH STREQUAL "90a")
+    set(CE4_INFERENCE_ARCH_SOURCE src/sm90/inference.cu)
+    set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM90)
   elseif(CE4_CUDA_ARCH STREQUAL "100a")
     set(CE4_INFERENCE_ARCH_SOURCE src/sm100/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM100)
@@ -25,7 +28,7 @@ if(CE4_BUILD_INFERENCE)
     set(CE4_INFERENCE_ARCH_SOURCE src/sm120/inference.cu)
     set(CE4_INFERENCE_ARCH_DEFINITION KITTENS_SM120)
   else()
-    message(FATAL_ERROR "CE4 inference supports only CUDA architectures 80, 100a, and 120a")
+    message(FATAL_ERROR "CE4 inference supports only CUDA architectures 80, 90a, 100a, and 120a")
   endif()
   add_library(ce4_inference STATIC
     src/inference/runtime.cu
@@ -74,6 +77,10 @@ string(
   CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
 )
 string(
+  REPLACE "-gencode arch=compute_90a,code=sm_90a" ""
+  CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
+)
+string(
   REPLACE "-gencode arch=compute_100a,code=sm_100a" ""
   CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}"
 )
@@ -91,6 +98,8 @@ pybind11_add_module(_chess_engine_4_kernels MODULE
   src/bindings.cpp
   src/sm80/dense.cu
   src/sm80/moe.cu
+  src/sm90/dense.cu
+  src/sm90/moe.cu
   src/sm100/dense.cu
   src/sm100/moe.cu
   src/sm120/dense.cu
@@ -128,6 +137,10 @@ set_source_files_properties(src/sm100/dense.cu src/sm100/moe.cu PROPERTIES
 set_source_files_properties(src/sm80/dense.cu src/sm80/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM80
   COMPILE_OPTIONS "-gencode=arch=compute_80,code=sm_80"
+)
+set_source_files_properties(src/sm90/dense.cu src/sm90/moe.cu PROPERTIES
+  COMPILE_DEFINITIONS KITTENS_SM90
+  COMPILE_OPTIONS "-gencode=arch=compute_90a,code=sm_90a"
 )
 set_source_files_properties(src/sm120/dense.cu PROPERTIES
   COMPILE_DEFINITIONS "KITTENS_SM120;DENSE_USE_ATEN_GEMM"

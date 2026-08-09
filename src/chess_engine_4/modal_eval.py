@@ -15,6 +15,8 @@ from typing import Any
 
 import modal
 
+from chess_engine_4.hardware import modal_gpu_identifier
+
 APP_NAME = "chess-engine-4-eval"
 ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
@@ -33,6 +35,8 @@ FASTCHESS_URL = (
 )
 LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm120"
 LC0_SM80_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm80"
+LC0_SM90_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm90"
+EVALUATION_GPUS = ("A100", "H100", "H200", "RTX-PRO-6000")
 RUNTIME_LIBRARY_PATH = "/usr/local/cuda/lib64"
 
 app = modal.App(APP_NAME)
@@ -104,16 +108,22 @@ def _lc0_builder_image(cuda_arch: str) -> modal.Image:
 
 lc0_builder_image = _lc0_builder_image("120a")
 lc0_sm80_builder_image = _lc0_builder_image("80")
+lc0_sm90_builder_image = _lc0_builder_image("90a")
 
 
 def prepare_lc0_modal() -> None:
     parser = argparse.ArgumentParser(
         description="Build lc0 once on Modal and cache the Linux binary in the artifacts Volume."
     )
-    parser.add_argument("--gpu", choices=("A100", "RTX-PRO-6000"), default="RTX-PRO-6000")
+    parser.add_argument("--gpu", choices=EVALUATION_GPUS, default="RTX-PRO-6000")
     args = parser.parse_args()
-    prepare_function = _prepare_lc0_sm80_remote if args.gpu == "A100" else _prepare_lc0_remote
-    output = LC0_SM80_REMOTE_PATH if args.gpu == "A100" else LC0_REMOTE_PATH
+    if args.gpu == "A100":
+        prepare_function = _prepare_lc0_sm80_remote
+    elif args.gpu in {"H100", "H200"}:
+        prepare_function = _prepare_lc0_sm90_remote
+    else:
+        prepare_function = _prepare_lc0_remote
+    output = lc0_path_for_gpu(args.gpu)
 
     with modal.enable_output(), app.run():
         result = prepare_function.remote(str(output))
@@ -127,7 +137,7 @@ def benchmark_lc0_modal() -> None:
     parser.add_argument("model", type=Path)
     parser.add_argument("--batch-size", type=int, default=256)
     parser.add_argument("--batches", type=int, default=100)
-    parser.add_argument("--gpu", choices=("A100", "RTX-PRO-6000"), default="RTX-PRO-6000")
+    parser.add_argument("--gpu", choices=EVALUATION_GPUS, default="RTX-PRO-6000")
     args = parser.parse_args()
     if not args.model.exists():
         raise FileNotFoundError(args.model)
@@ -163,7 +173,7 @@ def eval_modal() -> None:
     parser.add_argument("--ping-ms", type=int, default=120_000)
     parser.add_argument(
         "--gpu",
-        choices=("A100", "RTX-PRO-6000"),
+        choices=EVALUATION_GPUS,
         default="RTX-PRO-6000",
     )
     parser.add_argument("--candidate-name", default="candidate")
@@ -231,7 +241,7 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--parallelism", type=int, default=32)
     parser.add_argument(
         "--gpu",
-        choices=("A100", "RTX-PRO-6000"),
+        choices=EVALUATION_GPUS,
         default="RTX-PRO-6000",
     )
     parser.add_argument("--player1-backend", choices=("ce4", "cudnn-fp16"), default="ce4")
@@ -517,6 +527,20 @@ def _prepare_lc0_sm80_remote(output: str) -> dict[str, str]:
     return {"lc0_path": str(output_path)}
 
 
+@app.function(
+    image=lc0_sm90_builder_image,
+    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
+    timeout=3 * 60 * 60,
+)
+def _prepare_lc0_sm90_remote(output: str) -> dict[str, str]:
+    output_path = Path(output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2("/usr/local/bin/lc0", output_path)
+    output_path.chmod(0o755)
+    artifact_volume.commit()
+    return {"lc0_path": str(output_path)}
+
+
 def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
     batch_size = int(payload["batch_size"])
@@ -560,7 +584,7 @@ def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
 def backendbench_function(gpu: str, *, max_containers: int) -> modal.Function:
     return app.function(
         image=image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
         timeout=30 * 60,
         max_containers=max_containers,
@@ -569,7 +593,13 @@ def backendbench_function(gpu: str, *, max_containers: int) -> modal.Function:
 
 
 def lc0_path_for_gpu(gpu: str) -> Path:
-    return LC0_SM80_REMOTE_PATH if gpu == "A100" else LC0_REMOTE_PATH
+    if gpu == "A100":
+        return LC0_SM80_REMOTE_PATH
+    if gpu in {"H100", "H200"}:
+        return LC0_SM90_REMOTE_PATH
+    if gpu == "RTX-PRO-6000":
+        return LC0_REMOTE_PATH
+    raise ValueError(f"Unsupported evaluation GPU {gpu!r}.")
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
@@ -634,7 +664,7 @@ def _engine_limit_flag(payload: dict[str, Any], engine: str) -> str:
 def fastchess_eval_function(gpu: str) -> modal.Function:
     return app.function(
         image=image,
-        gpu=gpu,
+        gpu=modal_gpu_identifier(gpu),
         volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
         timeout=24 * 60 * 60,
         name=f"fastchess_eval_{gpu.lower().replace('-', '_')}",
@@ -644,7 +674,7 @@ def fastchess_eval_function(gpu: str) -> modal.Function:
 def selfplay_eval_function(gpu: str, *, max_containers: int | None = None) -> modal.Function:
     options: dict[str, Any] = {
         "image": image,
-        "gpu": gpu,
+        "gpu": modal_gpu_identifier(gpu),
         "volumes": {REMOTE_ARTIFACT_PATH: artifact_volume},
         "timeout": 24 * 60 * 60,
         "name": f"selfplay_eval_{gpu.lower()}",

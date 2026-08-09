@@ -1,11 +1,13 @@
 from pathlib import Path
 
 from chess_engine_4.modal_eval import (
+    LC0_SM90_REMOTE_PATH,
     OPENING_BOOK_PATH,
     _fastchess_command,
     _parse_fastchess_pair_scores,
     _parse_fastchess_pentanomial,
     _selfplay_command,
+    lc0_path_for_gpu,
 )
 
 
@@ -39,6 +41,18 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
         "format=epd",
         "order=random",
     ]
+
+
+def test_hopper_devices_share_the_sm90_lc0_binary() -> None:
+    assert lc0_path_for_gpu("H100") == LC0_SM90_REMOTE_PATH
+    assert lc0_path_for_gpu("H200") == LC0_SM90_REMOTE_PATH
+
+
+def test_lc0_path_rejects_gpu_without_a_built_architecture() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="Unsupported evaluation GPU"):
+        lc0_path_for_gpu("B200")
 
 
 def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
