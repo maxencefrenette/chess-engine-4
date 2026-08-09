@@ -11,11 +11,10 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
+from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu
 from chess_engine_4.model import KernelBackend, model_parameter_count
 from chess_engine_4.training.config import (
-    TRAINING_GPUS,
     TrainingConfig,
-    TrainingGpu,
     load_training_config,
     resolve_training_kernel,
     training_config_from_dict,

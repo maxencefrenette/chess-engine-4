@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
+from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.training.scaling_laws import (
     UndertrainingLossLaw,
     fit_loss_power_law,
@@ -19,12 +20,6 @@ from chess_engine_4.training.scaling_laws import (
 )
 
 DEFAULT_DATASET = Path("experiments/training-data.toml")
-GPU_DOLLARS_PER_SECOND = {
-    "A100": 0.000583,
-    "B200": 0.001736,
-    "RTX-PRO-6000": 0.000842,
-}
-CPU_DOLLARS_PER_CORE_SECOND = 0.0000131
 DEFAULT_RATIO_EXTRAPOLATION_LIMIT = 2.0
 DEFAULT_BOOTSTRAP_SAMPLES = 200
 DEFAULT_FOCUS_BUDGET = 10.0
@@ -544,7 +539,7 @@ def candidates_for_family(
     for row in models.values():
         batch_size = int(row["batch_size"])
         milliseconds_per_step = float(row["measured_wall_ms_per_step"])
-        rate = _dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
+        rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
         budget_steps = math.floor(budget / rate * 1000.0 / milliseconds_per_step)
         sample_steps = assume_samples // batch_size
         steps = min(budget_steps, sample_steps)
@@ -807,7 +802,7 @@ def _candidate_at_ratio(
     if steps <= 0 or steps * batch_size > assume_samples:
         return None
     milliseconds_per_step = float(row["measured_wall_ms_per_step"])
-    rate = _dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
+    rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
     cost = steps * milliseconds_per_step / 1000.0 * rate
     samples = steps * batch_size
     candidate = BudgetCandidate(
@@ -849,14 +844,6 @@ def _is_observed(evidence: FamilyEvidence, d_model: int, ratio: float) -> bool:
         width == d_model and math.isclose(observed_ratio, ratio, rel_tol=0.01)
         for width, observed_ratio in evidence.observed_coordinates
     )
-
-
-def _dollars_per_second(gpu: str, cpu_cores: int) -> float:
-    try:
-        gpu_rate = GPU_DOLLARS_PER_SECOND[gpu]
-    except KeyError as error:
-        raise ValueError(f"No dollar rate configured for GPU {gpu!r}") from error
-    return gpu_rate + cpu_cores * CPU_DOLLARS_PER_CORE_SECOND
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from typing import Any
 
 import modal
 
+from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_train import app, base_image
 
@@ -15,12 +16,6 @@ ACTIVE_EXPERTS = 2
 EXPERT_COUNT = 64
 TOKEN_ALIGNMENT = 128
 CPU_CORES = 8
-GPU_DOLLARS_PER_SECOND = {
-    "A100": 0.000583,
-    "B200": 0.001736,
-    "RTX-PRO-6000": 0.000842,
-}
-CPU_DOLLARS_PER_CORE_SECOND = 0.0000131
 benchmark_image = with_cuda_kernels(base_image)
 
 
@@ -401,7 +396,7 @@ def _comparison(custom: dict[str, Any], baseline: dict[str, Any]) -> dict[str, A
     for measurement in (custom, baseline):
         gpu = measurement["gpu"]
         measurement["training_ms"] = measurement["forward_ms"] + measurement["backward_ms"]
-        dollars_per_second = GPU_DOLLARS_PER_SECOND[gpu] + CPU_CORES * CPU_DOLLARS_PER_CORE_SECOND
+        dollars_per_second = hardware_dollars_per_second(gpu, CPU_CORES)
         measurement["dollars_per_million_batches"] = (
             measurement["training_ms"] / 1_000 * dollars_per_second * 1_000_000
         )

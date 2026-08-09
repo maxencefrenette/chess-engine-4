@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import math
 
+from chess_engine_4.hardware import TrainingGpu
 from chess_engine_4.model import DenseChessNetConfig, InputPipeline, dense_parameter_count
 from chess_engine_4.training.config import (
     InfraConfig,
     OptimizerConfig,
     RunConfig,
     TrainingConfig,
-    TrainingGpu,
 )
 from chess_engine_4.training.losses import LossWeights
 

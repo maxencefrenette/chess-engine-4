@@ -12,6 +12,7 @@ from typing import Any
 
 import tomli_w
 
+from chess_engine_4.hardware import TRAINING_GPUS
 from chess_engine_4.modal_train import (
     DEFAULT_CONFIG_PATH,
     app,
@@ -20,7 +21,6 @@ from chess_engine_4.modal_train import (
 )
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import (
-    TRAINING_GPUS,
     TrainingConfig,
     load_training_config,
     validate_training_hardware,

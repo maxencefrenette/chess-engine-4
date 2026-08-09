@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from chess_engine_4.hardware import TrainingGpu
 from chess_engine_4.model import (
     InputPipeline,
     KernelBackend,
@@ -15,7 +16,6 @@ from chess_engine_4.training.config import (
     OptimizerConfig,
     RunConfig,
     TrainingConfig,
-    TrainingGpu,
 )
 from chess_engine_4.training.losses import LossWeights
 

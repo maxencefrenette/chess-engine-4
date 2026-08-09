@@ -15,10 +15,10 @@ from chess_engine_4.data.leela import (
     DEFAULT_DATA_ENV_VAR,
     LeelaParquetDataset,
 )
+from chess_engine_4.hardware import gpu_spec
 from chess_engine_4.model import build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import (
-    TRAINING_GPU_CAPABILITIES,
     TrainingConfig,
     resolve_training_kernel,
     validate_training_hardware,
@@ -40,22 +40,6 @@ _LOSS_EMA_DECAY = 0.99
 _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
-_GPU_SPECS = {
-    "A100": {
-        "name": "A100",
-        "tflops": {"bf16": 312.0},
-    },
-    "B200": {
-        "name": "B200",
-        "tflops": {"bf16": 2250.0, "mxfp8": 4500.0, "nvfp4": 9000.0},
-    },
-    "RTX-PRO-6000": {
-        "name": "RTX PRO 6000",
-        "tflops": {"bf16": 503.8},
-    },
-}
-
-
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
     config: TrainingConfig
@@ -567,14 +551,14 @@ def _theoretical_tflops(
     precision: str,
 ) -> float | None:
     _require_training_gpu(device, configured_gpu=configured_gpu)
-    return _GPU_SPECS[configured_gpu]["tflops"].get(precision)
+    return gpu_spec(configured_gpu).theoretical_tflops.get(precision)
 
 
 def _require_training_gpu(device: torch.device, *, configured_gpu: str) -> None:
-    spec = _GPU_SPECS[configured_gpu]
+    spec = gpu_spec(configured_gpu)
     capability = torch.cuda.get_device_capability(device)
     name = torch.cuda.get_device_name(device)
-    if capability != TRAINING_GPU_CAPABILITIES[configured_gpu] or spec["name"] not in name:
+    if capability != spec.capability or spec.device_name not in name:
         raise RuntimeError(
             f"configured gpu={configured_gpu!r}, but Modal provided "
             f"{name} SM{capability[0]}{capability[1]}."

@@ -5,19 +5,12 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
+from chess_engine_4.hardware import TrainingGpu, gpu_spec
 from chess_engine_4.kernels.capabilities import KernelSelection, resolve_kernel_backend
 from chess_engine_4.model import KernelBackend, ModelConfig, Precision, model_config_from_dict
 from chess_engine_4.training.losses import LossWeights
-
-TrainingGpu = Literal["A100", "B200", "RTX-PRO-6000"]
-TRAINING_GPUS: tuple[TrainingGpu, ...] = ("A100", "B200", "RTX-PRO-6000")
-TRAINING_GPU_CAPABILITIES: dict[TrainingGpu, tuple[int, int]] = {
-    "A100": (8, 0),
-    "B200": (10, 0),
-    "RTX-PRO-6000": (12, 0),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +114,7 @@ def resolve_training_kernel(
         backend=model.kernel_backend,
         kind=model.kind,
         capability=(
-            TRAINING_GPU_CAPABILITIES[config.infra.gpu]
+            gpu_spec(config.infra.gpu).capability
             if capability is None
             else capability
         ),

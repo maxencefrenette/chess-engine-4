@@ -14,6 +14,7 @@ from typing import Any
 
 import modal
 
+from chess_engine_4.hardware import TRAINING_GPUS
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_kernels import SUPPORTED_WIDTHS, benchmark_dense_layer
 from chess_engine_4.modal_train import (
@@ -23,7 +24,7 @@ from chess_engine_4.modal_train import (
     base_image,
     data_volume,
 )
-from chess_engine_4.training.config import TRAINING_GPUS, load_training_config, with_overrides
+from chess_engine_4.training.config import load_training_config, with_overrides
 
 LEVELS = ("layer", "step", "production")
 benchmark_image = with_cuda_kernels(base_image)
