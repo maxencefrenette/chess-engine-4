@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from chess_engine_4.hardware import hardware_dollars_per_second
+from chess_engine_4.training.families import FAMILY_SPECS, FamilySpec
 from chess_engine_4.training.scaling_laws import (
     UndertrainingLossLaw,
     fit_loss_power_law,
@@ -43,33 +44,6 @@ SUGGESTION_RATIOS = (
     0.5,
     0.75,
     1.0,
-)
-
-
-@dataclass(frozen=True, slots=True)
-class FamilySpec:
-    family: str
-    config: Path
-    best_runs: Path
-    throughput: Path
-    anchor_ratio: float
-
-
-FAMILY_SPECS = (
-    FamilySpec(
-        family="dense",
-        config=Path("configs/dense.py"),
-        best_runs=Path("experiments/best-runs-dense.toml"),
-        throughput=Path("experiments/throughput-dense.toml"),
-        anchor_ratio=0.2,
-    ),
-    FamilySpec(
-        family="moe64a2",
-        config=Path("configs/moe64a2.py"),
-        best_runs=Path("experiments/best-runs-moe64a2.toml"),
-        throughput=Path("experiments/throughput-moe64a2.toml"),
-        anchor_ratio=0.05,
-    ),
 )
 
 

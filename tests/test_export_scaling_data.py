@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 from chess_engine_4.training.generate_website_data import (
@@ -77,7 +78,7 @@ def test_generate_website_data_uses_one_stale_status(tmp_path: Path) -> None:
     path = tmp_path / "best-runs-dense.toml"
     path.write_text(source.replace("[runs.d32]", "[runs.d32]\nstale = true", 1))
 
-    family = build_family_payload("dense", {**FAMILIES["dense"], "best_runs": path})
+    family = build_family_payload("dense", replace(FAMILIES["dense"], best_runs=path))
     stale_run = next(run for run in family["runs"] if run["name"] == "d32")
 
     assert stale_run["status"] == "stale"

@@ -12,6 +12,7 @@ from typing import Any
 
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import load_training_config
+from chess_engine_4.training.families import FAMILIES, FamilySpec
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
     fit_loss_power_law,
@@ -22,20 +23,15 @@ from chess_engine_4.training.scaling_laws import (
 
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
 CURVE_POINT_COUNT = 61
-FAMILIES = {
+FAMILY_PRESENTATION = {
     "dense": {
         "name": "Dense",
         "description": "Stacked MLP trained on lc0 planes.",
-        "best_runs": Path("experiments/best-runs-dense.toml"),
-        "config": Path("configs/dense.py"),
-        "training_ratio": 0.2,
+        "extrapolate": True,
     },
     "moe64a2": {
         "name": "MoE 64A2",
         "description": "Stacked MLP with alternating dense and 64-expert, 2-active layers.",
-        "best_runs": Path("experiments/best-runs-moe64a2.toml"),
-        "config": Path("configs/moe64a2.py"),
-        "training_ratio": 0.05,
         "extrapolate": False,
     },
 }
@@ -62,13 +58,14 @@ def write_website_data(output: Path) -> None:
     temporary_output.replace(output)
 
 
-def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, Any]:
-    path = metadata["best_runs"]
+def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]:
+    presentation = FAMILY_PRESENTATION[family_id]
+    path = metadata.best_runs
     all_results = read_best_runs(path, include_stale=True)
     results = [result for result in all_results if not result.stale]
     if not results:
         raise ValueError(f"{path}: at least one current run is required.")
-    training_ratio = float(metadata["training_ratio"])
+    training_ratio = metadata.anchor_ratio
     if any(result.training_ratio != training_ratio for result in results):
         raise ValueError(f"{path}: every current run must use training_ratio={training_ratio:g}.")
 
@@ -82,9 +79,9 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     runs = [observed_point(result, family_id) for result in all_results]
     target_width = max(result.d_model for result in results) * 2
     target_config = None
-    if metadata.get("extrapolate", True):
+    if presentation["extrapolate"]:
         target_config = load_training_config(
-            metadata["config"],
+            metadata.config,
             d_model=target_width,
             training_ratio=training_ratio,
         )
@@ -132,8 +129,8 @@ def build_family_payload(family_id: str, metadata: dict[str, Any]) -> dict[str, 
     }
     return {
         "id": family_id,
-        "name": metadata["name"],
-        "description": metadata["description"],
+        "name": presentation["name"],
+        "description": presentation["description"],
         "trainingRatio": training_ratio,
         "runs": runs,
         "extrapolated": extrapolated,
