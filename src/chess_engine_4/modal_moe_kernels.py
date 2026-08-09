@@ -8,7 +8,7 @@ from typing import Any
 
 import modal
 
-from chess_engine_4.hardware import hardware_dollars_per_second
+from chess_engine_4.hardware import gpu_spec, hardware_dollars_per_second
 from chess_engine_4.kernels.benchmarking import (
     cuda_time,
     cuda_time_backward,
@@ -32,8 +32,8 @@ def benchmark_moe_kernels_modal() -> None:
     parser.add_argument("--d-model", type=int, choices=(128, 256, 512), default=128)
     parser.add_argument(
         "--custom-gpu",
-        choices=("A100", "RTX-PRO-6000"),
-        default="RTX-PRO-6000",
+        choices=("A100", "B200", "RTX-PRO-6000"),
+        default="B200",
     )
     parser.add_argument("--warmup", type=int, default=20)
     parser.add_argument("--iterations", type=int, default=100)
@@ -69,6 +69,15 @@ def _benchmark_custom(
     from torch.nn import functional as F
 
     from chess_engine_4.kernels import moe_trainable
+
+    expected = gpu_spec(gpu)
+    capability = torch.cuda.get_device_capability()
+    device_name = torch.cuda.get_device_name()
+    if capability != expected.capability or expected.device_name not in device_name:
+        raise RuntimeError(
+            f"configured gpu={gpu!r}, but Modal provided {device_name} "
+            f"SM{capability[0]}{capability[1]}"
+        )
 
     torch.manual_seed(2026)
     correctness = _make_inputs(torch, d_model, [128] * EXPERT_COUNT)
@@ -154,7 +163,7 @@ def _benchmark_custom(
     return {
         "implementation": "custom-bf16",
         "gpu": gpu,
-        "device_name": torch.cuda.get_device_name(),
+        "device_name": device_name,
         "d_model": d_model,
         "batch_size": batch_size,
         "padded_tokens": x.shape[0],
