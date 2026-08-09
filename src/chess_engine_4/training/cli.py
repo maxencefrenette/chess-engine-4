@@ -90,7 +90,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
-        retention_rate=options.data_retention_rate,
+        sampling_rate=options.data_retention_rate,
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)

@@ -23,6 +23,12 @@ const VALUE_FIELDS: usize = 3;
 const VALUE_COUNT: usize = VALUE_TYPE_COUNT * VALUE_FIELDS;
 const ROOT_VALUE_INDEX: usize = 4;
 
+#[derive(Clone, Copy)]
+struct Sampling {
+    threshold: u64,
+    buckets: u64,
+}
+
 struct ParquetBatchIterator {
     path: PathBuf,
     batch_size: usize,
@@ -31,23 +37,17 @@ struct ParquetBatchIterator {
     frame: Option<DataFrame>,
     frame_offset: usize,
     metadata: FileMetadataRef,
-    retention_numerator: usize,
-    retention_denominator: usize,
-    retention_seed: u64,
+    sampling: Sampling,
+    sampling_seed: u64,
 }
 
 impl ParquetBatchIterator {
-    fn open(
-        path: PathBuf,
-        batch_size: usize,
-        retention_numerator: usize,
-        retention_denominator: usize,
-    ) -> PyResult<Self> {
-        validate_retention(retention_numerator, retention_denominator)?;
+    fn open(path: PathBuf, batch_size: usize, sampling_rate: f64) -> PyResult<Self> {
+        let sampling = Sampling::from_rate(sampling_rate)?;
         let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
         let rows = reader.num_rows().map_err(polars_error)?;
         let metadata = reader.get_metadata().map_err(polars_error)?.clone();
-        let retention_seed = shard_seed(&path);
+        let sampling_seed = shard_seed(&path);
         Ok(Self {
             path,
             batch_size,
@@ -56,9 +56,8 @@ impl ParquetBatchIterator {
             frame: None,
             frame_offset: 0,
             metadata,
-            retention_numerator,
-            retention_denominator,
-            retention_seed,
+            sampling,
+            sampling_seed,
         })
     }
 
@@ -105,16 +104,15 @@ impl ParquetBatchIterator {
             .with_slice(Some((self.row_group_offset, row_count)));
         reader.set_metadata(self.metadata.clone());
         let frame = reader.finish().map_err(polars_error)?;
-        self.frame = Some(if self.retention_numerator == self.retention_denominator {
+        self.frame = Some(if self.sampling.threshold == self.sampling.buckets {
             frame
         } else {
             let retained = (0..row_count)
                 .map(|offset| {
                     retain_row(
                         self.row_group_offset + offset,
-                        self.retention_seed,
-                        self.retention_numerator,
-                        self.retention_denominator,
+                        self.sampling_seed,
+                        self.sampling,
                     )
                 })
                 .collect::<Vec<_>>();
@@ -131,8 +129,7 @@ pub(crate) fn iter_prefetched_parquet_batches(
     batch_size: usize,
     prefetch_per_thread: usize,
     threads: usize,
-    retention_numerator: usize,
-    retention_denominator: usize,
+    sampling_rate: f64,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     if prefetch_per_thread == 0 {
         return Err(PyValueError::new_err(
@@ -142,7 +139,7 @@ pub(crate) fn iter_prefetched_parquet_batches(
     if threads == 0 {
         return Err(PyValueError::new_err("threads must be positive"));
     }
-    validate_retention(retention_numerator, retention_denominator)?;
+    Sampling::from_rate(sampling_rate)?;
 
     let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
     let stop = Arc::new(AtomicBool::new(false));
@@ -166,12 +163,8 @@ pub(crate) fn iter_prefetched_parquet_batches(
                     let _ = sender.send(PrefetchMessage::End);
                     break;
                 };
-                let mut iterator = match ParquetBatchIterator::open(
-                    path,
-                    batch_size,
-                    retention_numerator,
-                    retention_denominator,
-                ) {
+                let mut iterator = match ParquetBatchIterator::open(path, batch_size, sampling_rate)
+                {
                     Ok(iterator) => iterator,
                     Err(error) => {
                         let _ = sender.send(PrefetchMessage::Error(error.to_string()));
@@ -214,8 +207,8 @@ pub(crate) fn parquet_retention_counts(
     let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
     let rows = reader.num_rows().map_err(polars_error)?;
     let seed = shard_seed(&path);
-    let quarter = retained_row_count(rows, seed, 1, 4);
-    let half = retained_row_count(rows, seed, 2, 4);
+    let quarter = retained_row_count(rows, seed, Sampling::from_rate(0.25)?);
+    let half = retained_row_count(rows, seed, Sampling::from_rate(0.5)?);
     Ok((
         rows,
         rows,
@@ -227,25 +220,33 @@ pub(crate) fn parquet_retention_counts(
     ))
 }
 
-fn validate_retention(numerator: usize, denominator: usize) -> PyResult<()> {
-    if denominator == 0 || numerator == 0 || numerator > denominator {
-        return Err(PyValueError::new_err(
-            "retention fraction must satisfy 0 < numerator <= denominator",
-        ));
+impl Sampling {
+    fn from_rate(rate: f64) -> PyResult<Self> {
+        let (threshold, buckets) = match rate {
+            0.125 => (1, 8),
+            0.25 => (1, 4),
+            0.5 => (2, 4),
+            1.0 => (4, 4),
+            _ => {
+                return Err(PyValueError::new_err(
+                    "sampling_rate must be one of: 0.125, 0.25, 0.5, 1.0",
+                ));
+            }
+        };
+        Ok(Self { threshold, buckets })
     }
-    Ok(())
 }
 
-fn retain_row(index: usize, seed: u64, numerator: usize, denominator: usize) -> bool {
+fn retain_row(index: usize, seed: u64, sampling: Sampling) -> bool {
     let mut value = seed ^ (index as u64).wrapping_mul(0x9e3779b97f4a7c15);
     value = (value ^ (value >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
     value = (value ^ (value >> 27)).wrapping_mul(0x94d049bb133111eb);
-    ((value ^ (value >> 31)) % denominator as u64) < numerator as u64
+    ((value ^ (value >> 31)) % sampling.buckets) < sampling.threshold
 }
 
-fn retained_row_count(rows: usize, seed: u64, numerator: usize, denominator: usize) -> usize {
+fn retained_row_count(rows: usize, seed: u64, sampling: Sampling) -> usize {
     (0..rows)
-        .filter(|index| retain_row(*index, seed, numerator, denominator))
+        .filter(|index| retain_row(*index, seed, sampling))
         .count()
 }
 

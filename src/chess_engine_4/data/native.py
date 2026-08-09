@@ -54,8 +54,7 @@ def iter_native_parquet_batches(
     batch_size: int,
     prefetch_per_thread: int,
     threads: int,
-    retention_numerator: int = 4,
-    retention_denominator: int = 4,
+    sampling_rate: float = 1.0,
 ) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
     chess_engine_4_native = _load_native_module()
     native_iter = chess_engine_4_native.iter_prefetched_parquet_batches(
@@ -63,8 +62,7 @@ def iter_native_parquet_batches(
         batch_size,
         prefetch_per_thread,
         threads,
-        retention_numerator,
-        retention_denominator,
+        sampling_rate,
     )
 
     def as_torch_batch(batch):

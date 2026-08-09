@@ -7,6 +7,7 @@ import struct
 import tarfile
 from pathlib import Path
 
+import pytest
 import torch
 
 from chess_engine_4.data.leela import (
@@ -125,7 +126,7 @@ def test_parquet_retention_is_stable_and_reports_usable_rows(tmp_path: Path) -> 
             parquet_path,
             batch_size=2,
             threads=1,
-            retention_rate=0.25,
+            sampling_rate=0.25,
         )
     )
     second = list(
@@ -133,7 +134,7 @@ def test_parquet_retention_is_stable_and_reports_usable_rows(tmp_path: Path) -> 
             parquet_path,
             batch_size=2,
             threads=1,
-            retention_rate=0.25,
+            sampling_rate=0.25,
         )
     )
 
@@ -144,6 +145,33 @@ def test_parquet_retention_is_stable_and_reports_usable_rows(tmp_path: Path) -> 
     assert counts[6] == counts[3] // 2 * 2
     for first_batch, second_batch in zip(first, second, strict=True):
         torch.testing.assert_close(first_batch[0], second_batch[0], rtol=0, atol=0)
+
+
+def test_parquet_dataset_accepts_eighth_sampling_rate(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    parquet_path = tmp_path / "stable-shard.parquet"
+    _write_tar(tar_path, gzip.compress(_records(64)))
+    convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
+
+    first = list(
+        LeelaParquetDataset(parquet_path, batch_size=2, threads=1, sampling_rate=0.125)
+    )
+    second = list(
+        LeelaParquetDataset(parquet_path, batch_size=2, threads=1, sampling_rate=0.125)
+    )
+
+    assert first
+    assert len(first) == len(second)
+    for first_batch, second_batch in zip(first, second, strict=True):
+        torch.testing.assert_close(first_batch[0], second_batch[0], rtol=0, atol=0)
+
+
+def test_parquet_dataset_rejects_unsupported_sampling_rate(tmp_path: Path) -> None:
+    parquet_path = tmp_path / "training.parquet"
+    parquet_path.touch()
+
+    with pytest.raises(ValueError, match="sampling_rate"):
+        LeelaParquetDataset(parquet_path, batch_size=2, sampling_rate=0.3)
 
 
 def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:

@@ -434,8 +434,7 @@ fn iter_prefetched_parquet_batches(
     batch_size: usize,
     prefetch_per_thread: usize,
     threads: usize,
-    retention_numerator: usize,
-    retention_denominator: usize,
+    sampling_rate: f64,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     validate_batch_size(batch_size)?;
     parquet_loader::iter_prefetched_parquet_batches(
@@ -443,8 +442,7 @@ fn iter_prefetched_parquet_batches(
         batch_size,
         prefetch_per_thread,
         threads,
-        retention_numerator,
-        retention_denominator,
+        sampling_rate,
     )
 }
 

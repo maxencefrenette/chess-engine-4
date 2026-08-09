@@ -93,7 +93,7 @@ def train_modal() -> None:
     parser.add_argument(
         "--data-retention-rate",
         type=float,
-        choices=(0.25, 0.5, 1.0),
+        choices=(0.125, 0.25, 0.5, 1.0),
         default=1.0,
     )
     args = parser.parse_args()
