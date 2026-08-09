@@ -2,4 +2,4 @@
 format = "parquet"
 samples = 8020779820
 shards = 1203
-source_experiment = "experiments/2026-08-08.01-training-corpus-capacity"
+source_task = "01kzhkmxbr"
