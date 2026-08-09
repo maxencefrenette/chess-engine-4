@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
+use std::collections::hash_map::RandomState;
 use std::fs::File;
+use std::hash::BuildHasher;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
@@ -42,12 +44,17 @@ struct ParquetBatchIterator {
 }
 
 impl ParquetBatchIterator {
-    fn open(path: PathBuf, batch_size: usize, sampling_rate: f64) -> PyResult<Self> {
+    fn open(
+        path: PathBuf,
+        batch_size: usize,
+        sampling_rate: f64,
+        launch_seed: u64,
+    ) -> PyResult<Self> {
         let sampling = Sampling::from_rate(sampling_rate)?;
         let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
         let rows = reader.num_rows().map_err(polars_error)?;
         let metadata = reader.get_metadata().map_err(polars_error)?.clone();
-        let sampling_seed = shard_seed(&path);
+        let sampling_seed = shard_seed(&path) ^ launch_seed;
         Ok(Self {
             path,
             batch_size,
@@ -140,6 +147,8 @@ pub(crate) fn iter_prefetched_parquet_batches(
         return Err(PyValueError::new_err("threads must be positive"));
     }
     Sampling::from_rate(sampling_rate)?;
+    let launch_seed = RandomState::new().hash_one((paths.len(), batch_size, threads));
+    eprintln!("parquet_sampling sampling_rate={sampling_rate} seed={launch_seed}");
 
     let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
     let stop = Arc::new(AtomicBool::new(false));
@@ -163,8 +172,12 @@ pub(crate) fn iter_prefetched_parquet_batches(
                     let _ = sender.send(PrefetchMessage::End);
                     break;
                 };
-                let mut iterator = match ParquetBatchIterator::open(path, batch_size, sampling_rate)
-                {
+                let mut iterator = match ParquetBatchIterator::open(
+                    path,
+                    batch_size,
+                    sampling_rate,
+                    launch_seed,
+                ) {
                     Ok(iterator) => iterator,
                     Err(error) => {
                         let _ = sender.send(PrefetchMessage::Error(error.to_string()));

@@ -21,7 +21,6 @@ from chess_engine_4.data.leela import (
 )
 from chess_engine_4.data.native import (
     convert_native_lc0_tar_to_parquet,
-    native_parquet_retention_counts,
 )
 
 POLICY_OFFSET = 8
@@ -115,16 +114,16 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)
 
 
-def test_parquet_retention_is_stable_and_reports_usable_rows(tmp_path: Path) -> None:
+def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "stable-shard.parquet"
-    _write_tar(tar_path, gzip.compress(_records(8)))
+    _write_tar(tar_path, gzip.compress(_records(1_024)))
     convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
 
     first = list(
         LeelaParquetDataset(
             parquet_path,
-            batch_size=2,
+            batch_size=16,
             threads=1,
             sampling_rate=0.25,
         )
@@ -132,38 +131,36 @@ def test_parquet_retention_is_stable_and_reports_usable_rows(tmp_path: Path) -> 
     second = list(
         LeelaParquetDataset(
             parquet_path,
-            batch_size=2,
+            batch_size=16,
             threads=1,
             sampling_rate=0.25,
         )
     )
 
-    counts = native_parquet_retention_counts(parquet_path, batch_size=2)
-    assert len(first) == len(second) == counts[6] // 2
-    assert counts[0] == counts[1] == counts[4] == 8
-    assert counts[5] == counts[2] // 2 * 2
-    assert counts[6] == counts[3] // 2 * 2
-    for first_batch, second_batch in zip(first, second, strict=True):
-        torch.testing.assert_close(first_batch[0], second_batch[0], rtol=0, atol=0)
+    assert first and second
+    first_rows = torch.cat([batch[0] for batch in first])
+    second_rows = torch.cat([batch[0] for batch in second])
+    assert not torch.equal(first_rows, second_rows)
 
 
 def test_parquet_dataset_accepts_eighth_sampling_rate(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "stable-shard.parquet"
-    _write_tar(tar_path, gzip.compress(_records(64)))
+    _write_tar(tar_path, gzip.compress(_records(1_024)))
     convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
 
     first = list(
-        LeelaParquetDataset(parquet_path, batch_size=2, threads=1, sampling_rate=0.125)
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.125)
     )
     second = list(
-        LeelaParquetDataset(parquet_path, batch_size=2, threads=1, sampling_rate=0.125)
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.125)
     )
 
-    assert first
-    assert len(first) == len(second)
-    for first_batch, second_batch in zip(first, second, strict=True):
-        torch.testing.assert_close(first_batch[0], second_batch[0], rtol=0, atol=0)
+    assert first and second
+    assert not torch.equal(
+        torch.cat([batch[0] for batch in first]),
+        torch.cat([batch[0] for batch in second]),
+    )
 
 
 def test_parquet_dataset_rejects_unsupported_sampling_rate(tmp_path: Path) -> None:
@@ -218,6 +215,7 @@ def _records(count: int) -> bytes:
         struct.pack_into("<f", record, POLICY_OFFSET, 0.75)
         struct.pack_into("<f", record, POLICY_OFFSET + 2 * 4, 0.25)
         struct.pack_into("<Q", record, PLANES_OFFSET, 0x80)
+        struct.pack_into("<I", record, PLANES_OFFSET + 1, index)
         record[CASTLING_US_OOO_OFFSET] = 1
         record[CASTLING_US_OO_OFFSET] = 0
         record[CASTLING_THEM_OOO_OFFSET] = 1

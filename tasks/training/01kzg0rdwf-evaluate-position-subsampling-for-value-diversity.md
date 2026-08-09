@@ -1,7 +1,7 @@
 ---
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
-status: completed
+status: in-progress
 priority: high
 effort: medium
 dependencies: []
@@ -14,13 +14,13 @@ created_at: 2026-08-07
 
 ## Objective
 
-Test whether deterministic position subsampling increases value-target diversity
+Test whether fresh random position subsampling increases value-target diversity
 enough to improve value learning and searched play at matched accepted samples
 and training FLOPs.
 
 ## Tasks
 
-- [x] Define deterministic, scheduling-independent row sampling.
+- [x] Define fresh random, scheduling-independent row sampling.
 - [x] Audit exact retained and batch-usable row capacity.
 - [x] Train matched candidates at retention 1.0, 0.5, and 0.25.
 - [x] Compare task loss components, EG_flops, stability, runtime, and cost.
@@ -29,10 +29,15 @@ and training FLOPs.
 ## Acceptance Criteria
 
 - The report distinguishes diversity gains from a change in sample count.
-- The chosen sampling rule is deterministic and reproducible.
+- The chosen sampling rule draws a fresh random subset for each launch.
 - Any promoted rule improves the stated objective without a policy regression.
 
 ## Progress
+
+Reopened after the user clarified that each treatment should use a fresh random
+row sample rather than fixed row-identity membership. The original matched
+1.0/0.5/0.25 training and searched UHO tournament will be repeated to test
+whether the ranking replicates.
 
 Reopened after the user requested migration of all Elo tournaments to randomly selected,
 mirrored `UHO_Lichess_4852_v1` openings and approximately $2 of additional 800-node games.
