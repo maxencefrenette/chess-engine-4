@@ -8,8 +8,6 @@ policy_mode_size = 256
 parallelism = 64
 opening_book = "/artifacts/books/UHO_Lichess_4852_v1-random-65536.pgn"
 opening_book_sha256 = "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c"
-opening_seed = 1
-opening_offset = 0
 
 [[engines]]
 name = "dense-d32"

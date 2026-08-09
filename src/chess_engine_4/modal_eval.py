@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
 import shutil
 import subprocess
@@ -26,7 +27,6 @@ OPENING_BOOK_PATH = (
 POLICY_OPENING_BOOK_PATH = (
     Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.pgn"
 )
-OPENING_BOOK_SEED = 1
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
@@ -207,6 +207,7 @@ def eval_modal() -> None:
         "baseline_nodes": args.baseline_nodes,
         "startup_ms": args.startup_ms,
         "ping_ms": args.ping_ms,
+        "opening_seed": random.randrange(2**31),
         "candidate_backend": "ce4",
         "baseline_backend": "cudnn-fp16",
         "candidate_name": args.candidate_name,
@@ -234,8 +235,6 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
     parser.add_argument("--opening-book", default=str(POLICY_OPENING_BOOK_PATH))
-    parser.add_argument("--opening-seed", type=int, default=OPENING_BOOK_SEED)
-    parser.add_argument("--opening-offset", type=int, default=0)
     parser.add_argument(
         "--gpu",
         choices=("A100", "RTX-PRO-6000"),
@@ -246,8 +245,6 @@ def eval_selfplay_modal() -> None:
     args = parser.parse_args()
     if args.games <= 0 or args.games % 2:
         parser.error("--games must be a positive even number.")
-    if args.opening_seed < 0 or args.opening_offset < 0:
-        parser.error("--opening-seed and --opening-offset must be non-negative.")
     payload = {
         "run_name": args.name,
         "games": args.games,
@@ -255,8 +252,7 @@ def eval_selfplay_modal() -> None:
         "visits": args.visits,
         "parallelism": args.parallelism,
         "opening_book": args.opening_book,
-        "opening_seed": args.opening_seed,
-        "opening_offset": args.opening_offset,
+        "opening_seed": random.randrange(2**31),
         "gpu": args.gpu,
         "player1": {
             "weights": args.player1_weights,
@@ -344,6 +340,7 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "log_path": str(log_path),
         "pentanomial": list(_pentanomial_from_pair_scores(pair_scores)),
         "pair_scores": list(pair_scores),
+        "opening_seed": payload["opening_seed"],
     }
 
 
@@ -388,8 +385,7 @@ def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "results": results_path.read_text(),
         "lc0_output": completed.stdout,
         "opening_book": str(opening_book),
-        "opening_seed": int(payload.get("opening_seed", OPENING_BOOK_SEED)),
-        "opening_offset": int(payload.get("opening_offset", 0)),
+        "opening_seed": int(payload["opening_seed"]),
         "ce4_batch_stats": [
             {
                 "weights": match.group("weights"),
@@ -414,8 +410,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         f"--openings-pgn={payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}",
         "--mirror-openings",
         "--openings-mode=shuffled",
-        f"--openings-seed={payload.get('opening_seed', OPENING_BOOK_SEED)}",
-        f"--openings-offset={payload.get('opening_offset', 0)}",
+        f"--openings-seed={payload['opening_seed']}",
         f"--tournament-results-file={results_path}",
         f"--player1.weights={payload['player1']['weights']}",
         f"--player2.weights={payload['player2']['weights']}",
@@ -638,7 +633,7 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         "-concurrency",
         str(payload["concurrency"]),
         "-srand",
-        str(OPENING_BOOK_SEED),
+        str(payload["opening_seed"]),
         "-openings",
         f"file={OPENING_BOOK_PATH}",
         "format=epd",

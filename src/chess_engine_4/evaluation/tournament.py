@@ -5,9 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import random
 import re
 import tomllib
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -59,8 +60,7 @@ class Tournament:
     visits: int | None = None
     opening_book: str = str(POLICY_OPENING_BOOK_PATH)
     opening_book_sha256: str | None = None
-    opening_seed: int = 1
-    opening_offset: int = 0
+    opening_seed: int = field(default_factory=lambda: random.randrange(2**31), init=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,8 +134,6 @@ def load_tournament_config(path: Path) -> tuple[Tournament, list[Engine]]:
             raise ValueError(f"Engine {engine.name!r} must use Safetensors with the ce4 backend.")
     if tournament.games_per_matchup <= 0 or tournament.games_per_matchup % 2:
         raise ValueError("games_per_matchup must be a positive even number.")
-    if tournament.opening_seed < 0 or tournament.opening_offset < 0:
-        raise ValueError("opening_seed and opening_offset must be non-negative.")
     if tournament.waves < 1:
         raise ValueError("waves must be positive.")
     return tournament, engines
@@ -188,7 +186,6 @@ def build_match_payloads(
             "opening_book": tournament.opening_book,
             "opening_book_sha256": tournament.opening_book_sha256,
             "opening_seed": tournament.opening_seed,
-            "opening_offset": tournament.opening_offset,
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
@@ -224,7 +221,7 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         tuple(
             f"{payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}|"
             f"seed={payload.get('opening_seed', 1)}|"
-            f"index={payload.get('opening_offset', 0) + index}"
+            f"index={index}"
             for index in range(len(pair_scores))
         )
         if pair_scores is not None
@@ -569,7 +566,6 @@ def build_report(
         "opening_book": tournament.opening_book,
         "opening_book_sha256": tournament.opening_book_sha256,
         "opening_seed": tournament.opening_seed,
-        "opening_offset": tournament.opening_offset,
         "engines": [asdict(engine) for engine in engines],
         "completed_waves": max((match.wave for match in matches), default=-1) + 1,
         "matches": [asdict(match) for match in matches],

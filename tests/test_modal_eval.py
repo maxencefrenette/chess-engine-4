@@ -9,7 +9,7 @@ from chess_engine_4.modal_eval import (
 )
 
 
-def test_fastchess_command_uses_fixed_paired_openings() -> None:
+def test_fastchess_command_uses_randomized_paired_openings() -> None:
     payload = {
         "lc0_path": "/artifacts/bin/lc0",
         "games": 2,
@@ -17,6 +17,7 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
         "concurrency": 1,
         "startup_ms": 120_000,
         "ping_ms": 120_000,
+        "opening_seed": 12345,
         "candidate_name": "candidate",
         "candidate_weights": "/artifacts/models/candidate.safetensors",
         "candidate_backend": "ce4",
@@ -32,7 +33,7 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
     command = _fastchess_command(payload, Path("/artifacts/evals/test/games.pgn"))
 
     assert "-repeat" in command
-    assert command[command.index("-srand") + 1] == "1"
+    assert command[command.index("-srand") + 1] == "12345"
     openings = command.index("-openings")
     assert command[openings + 1 : openings + 4] == [
         f"file={OPENING_BOOK_PATH}",
@@ -50,7 +51,6 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
         "parallelism": 32,
         "opening_book": "/uho.pgn",
         "opening_seed": 17,
-        "opening_offset": 64,
         "player1": {"weights": "/dense.safetensors", "backend": "ce4"},
         "player2": {"weights": "/t74.pb.gz", "backend": "cudnn-fp16"},
     }
@@ -65,7 +65,7 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--openings-pgn=/uho.pgn" in command
     assert "--openings-mode=shuffled" in command
     assert "--openings-seed=17" in command
-    assert "--openings-offset=64" in command
+    assert not any(argument.startswith("--openings-offset=") for argument in command)
     assert "--player1.backend=ce4" in command
     assert "--player1.backend-opts=max_batch=256,batch_wait_us=200" in command
     assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command
