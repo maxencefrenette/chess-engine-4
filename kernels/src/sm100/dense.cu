@@ -757,7 +757,7 @@ void rmsnorm_backward(
 
 }  // namespace chess_engine_4::dense
 
-void bind_dense_kernels(pybind11::module_ &module) {
+void bind_sm100_dense_kernels(pybind11::module_ &module) {
     bind_thunderkittens_reference(module);
     module.def("dense_mxfp8_gemm", &chess_engine_4::dense::mxfp8_gemm);
     module.def("dense_bf16_gemm", &chess_engine_4::dense::bf16_gemm);

@@ -28,7 +28,7 @@
 #undef MOE_NAMESPACE
 #undef MOE_D_MODEL
 
-void bind_moe_kernels(pybind11::module_ &module) {
+void bind_sm120_moe_kernels(pybind11::module_ &module) {
     module.def("moe_d128_forward", &chess_engine_4::sm120::moe_d128::forward);
     module.def(
         "moe_d128_training_forward",
