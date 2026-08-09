@@ -38,9 +38,8 @@ uv run benchmark-lc0-modal /tmp/ce4-sm90-smoke/sm90-moe64a2-d128.safetensors --g
 
 The first H100 production attempt, Modal run
 `ap-0kl5LSD1rlnqVCcYn7LNCy`, stopped before timing because the Rust loader's
-five-second cold-prefetch deadline expired. The benchmark harness now retries
-that specific bounded startup timeout; the successful retry used the same
-canonical loader and input pipeline.
+five-second cold-prefetch deadline expired. A clean rerun used the same
+canonical loader and input pipeline and completed successfully.
 
 ## Numerical correctness
 

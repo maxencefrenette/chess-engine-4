@@ -16,7 +16,6 @@ import modal
 
 from chess_engine_4.hardware import (
     TRAINING_GPUS,
-    hardware_dollars_per_second,
     modal_gpu_identifier,
 )
 from chess_engine_4.kernels.modal import with_cuda_kernels
@@ -118,27 +117,19 @@ def _benchmark_training(
         te_runner, custom_runner = _build_training_runners(config)
         if "step" in levels:
             synthetic_batch = _synthetic_batch(config.run.batch_size)
-            result["step"] = _with_realized_cost(
-                _paired_measure(
-                    partial(te_runner.step, synthetic_batch),
-                    partial(custom_runner.step, synthetic_batch),
-                    warmup=warmup,
-                    iterations=iterations,
-                ),
-                gpu=config.infra.gpu,
-                cpu_cores=config.infra.cpu_cores,
+            result["step"] = _paired_measure(
+                partial(te_runner.step, synthetic_batch),
+                partial(custom_runner.step, synthetic_batch),
+                warmup=warmup,
+                iterations=iterations,
             )
         if "production" in levels:
-            result["production"] = _with_realized_cost(
-                _benchmark_production(
-                    config,
-                    te_runner=te_runner,
-                    custom_runner=custom_runner,
-                    warmup=warmup,
-                    iterations=iterations,
-                ),
-                gpu=config.infra.gpu,
-                cpu_cores=config.infra.cpu_cores,
+            result["production"] = _benchmark_production(
+                config,
+                te_runner=te_runner,
+                custom_runner=custom_runner,
+                warmup=warmup,
+                iterations=iterations,
             )
     return result
 
@@ -283,7 +274,7 @@ def _benchmark_production(
 
     def production_step(runner: _TrainingRunner) -> None:
         pipeline = pipelines[runner]
-        batch = pipeline.transfer(pipeline.stage(_next_loader_batch(iterator)))
+        batch = pipeline.transfer(pipeline.stage(next(iterator)))
         runner.step(batch)
 
     return _paired_measure(
@@ -292,18 +283,6 @@ def _benchmark_production(
         warmup=warmup,
         iterations=iterations,
     )
-
-
-def _next_loader_batch(iterator: Any, *, attempts: int = 6) -> Any:
-    """Tolerate cold Modal Volume reads without hiding persistent loader failure."""
-
-    for attempt in range(attempts):
-        try:
-            return next(iterator)
-        except ValueError as error:
-            if "timed out after 5s waiting" not in str(error) or attempt + 1 == attempts:
-                raise
-    raise AssertionError("unreachable")
 
 
 def _paired_measure(
@@ -359,28 +338,6 @@ def _summarize(samples: list[float]) -> dict[str, float]:
         "p90": _percentile(ordered, 0.9),
         "stddev": statistics.pstdev(samples),
     }
-
-
-def _with_realized_cost(
-    measurement: dict[str, Any],
-    *,
-    gpu: str,
-    cpu_cores: int,
-) -> dict[str, Any]:
-    dollars_per_second = hardware_dollars_per_second(gpu, cpu_cores)
-    measurement["gpu"] = gpu
-    measurement["cpu_cores"] = cpu_cores
-    measurement["dollars_per_second"] = dollars_per_second
-    for implementation in ("te", "custom"):
-        wall_seconds = measurement[implementation]["wall_ms"]["median"] / 1_000
-        measurement[implementation]["dollars_per_step"] = (
-            wall_seconds * dollars_per_second
-        )
-    measurement["cost_efficiency_vs_te"] = (
-        measurement["te"]["dollars_per_step"]
-        / measurement["custom"]["dollars_per_step"]
-    )
-    return measurement
 
 
 def _percentile(ordered: list[float], quantile: float) -> float:
