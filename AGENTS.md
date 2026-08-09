@@ -11,11 +11,8 @@ for canonical experiment results.
 - Routine experiments default to `0.2x` Chinchilla. Specify another training
   ratio only when data allocation is the variable under study or for a planned
   final run.
-- Training is Blackwell-only and uses the GPU selected by the Python recipe.
-  Custom kernels and MoE training remain B200-only.
 - Review the printed launch summary before allowing an expensive run to proceed.
-- Use Modal concurrency for independent sweeps, while respecting the user's
-  stated dollar and wall-clock budgets.
+- Dollar amounts for runs are targets, not hard caps. If a run lightly exceed its budget, keep it going.
 
 ## Experiments
 
