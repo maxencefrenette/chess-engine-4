@@ -1,8 +1,7 @@
-"""Pinned host staging for native training batches."""
+"""Host-to-device transfer for native training batches."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import assert_never
 
 import torch
@@ -19,11 +18,6 @@ type NativeBatch = tuple[
     torch.Tensor,
 ]
 
-@dataclass(frozen=True, slots=True)
-class StagedBatch:
-    tensors: NativeBatch
-    slot: int | None
-
 
 class TrainingBatchPipeline:
     """Stage and transfer batches using the configured host-to-device path."""
@@ -33,88 +27,34 @@ class TrainingBatchPipeline:
         self._device = device
         match kind:
             case "pageable" | "pinned":
-                self._stager = None
-                self._copy_stream = None
-            case "staging":
-                self._stager = PinnedBatchStager()
                 self._copy_stream = None
             case "overlap":
-                self._stager = None
                 self._copy_stream = torch.cuda.Stream(device=device)
             case _:
                 assert_never(kind)
 
-    def stage(self, batch: NativeBatch) -> StagedBatch:
-        if self._stager is not None:
-            return self._stager.stage(batch)
-        tensors = pin_batch(batch) if self._pin_batch else batch
-        return StagedBatch(tensors, None)
+    def stage(self, batch: NativeBatch) -> NativeBatch:
+        return pin_batch(batch) if self._pin_batch else batch
 
     def transfer(
         self,
-        batch: StagedBatch,
+        batch: NativeBatch,
         *,
         copy_start: torch.cuda.Event | None = None,
         copy_end: torch.cuda.Event | None = None,
     ) -> tuple[PackedPlaneInput, PolicyTarget, torch.Tensor]:
         result = _enqueue_batch_to_device(
-            batch.tensors,
+            batch,
             device=self._device,
             copy_stream=self._copy_stream,
             copy_start=copy_start,
             copy_end=copy_end,
         )
-        transfer_stream = (
-            self._copy_stream
-            if self._copy_stream is not None
-            else torch.cuda.current_stream(self._device)
-        )
-        if batch.slot is not None and self._stager is not None:
-            self._stager.record_h2d(batch.slot, transfer_stream)
         if self._copy_stream is not None:
             current_stream = torch.cuda.current_stream(self._device)
             current_stream.wait_stream(self._copy_stream)
             _record_batch_stream(*result, current_stream)
         return result
-
-
-class PinnedBatchStager:
-    """Copy batches into two reusable pinned slots without racing async H2D copies."""
-
-    def __init__(self) -> None:
-        self._slots: list[NativeBatch] = []
-        self._copy_done: list[torch.cuda.Event | None] = [None, None]
-        self._next_slot = 0
-
-    def stage(self, batch: NativeBatch) -> StagedBatch:
-        if not self._slots:
-            self._slots = [_allocate_pinned_like(batch), _allocate_pinned_like(batch)]
-        slot = self._next_slot
-        self._next_slot = (slot + 1) % len(self._slots)
-        copy_done = self._copy_done[slot]
-        if copy_done is not None:
-            copy_done.synchronize()
-        destination = self._slots[slot]
-        for target, source in zip(destination, batch, strict=True):
-            target.copy_(source)
-        return StagedBatch(destination, slot)
-
-    def record_h2d(self, slot: int, stream: torch.cuda.Stream) -> None:
-        event = self._copy_done[slot]
-        if event is None:
-            event = torch.cuda.Event()
-            self._copy_done[slot] = event
-        event.record(stream)
-
-
-def _allocate_pinned_like(batch: NativeBatch) -> NativeBatch:
-    return (
-        torch.empty_like(batch[0], pin_memory=True),
-        torch.empty_like(batch[1], pin_memory=True),
-        torch.empty_like(batch[2], pin_memory=True),
-        torch.empty_like(batch[3], pin_memory=True),
-        torch.empty_like(batch[4], pin_memory=True),
-    )
 
 
 def pin_batch(batch: NativeBatch) -> NativeBatch:

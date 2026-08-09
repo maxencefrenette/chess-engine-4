@@ -12,7 +12,6 @@ from chess_engine_4.kernels.benchmarking import (
 )
 
 KERNEL_NAME = "dense-custom"
-SUPPORTED_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
 MIN_COSINE_SIMILARITY = 0.999
 MAX_MEAN_ABSOLUTE_ERROR = 1e-3
 MIN_GRADIENT_COSINE_SIMILARITY = 0.99

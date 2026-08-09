@@ -517,16 +517,6 @@ def _prepare_lc0_sm80_remote(output: str) -> dict[str, str]:
     return {"lc0_path": str(output_path)}
 
 
-@app.function(
-    image=image,
-    gpu="RTX-PRO-6000",
-    volumes={REMOTE_ARTIFACT_PATH: artifact_volume},
-    timeout=30 * 60,
-)
-def _benchmark_lc0(payload: dict[str, Any]) -> str:
-    return _run_backendbench_remote(payload)["output"]
-
-
 def _run_backendbench_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
     batch_size = int(payload["batch_size"])

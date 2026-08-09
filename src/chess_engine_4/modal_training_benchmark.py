@@ -15,8 +15,9 @@ from typing import Any
 import modal
 
 from chess_engine_4.hardware import TRAINING_GPUS
+from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS
 from chess_engine_4.kernels.modal import with_cuda_kernels
-from chess_engine_4.modal_kernels import SUPPORTED_WIDTHS, benchmark_dense_layer
+from chess_engine_4.modal_kernels import benchmark_dense_layer
 from chess_engine_4.modal_train import (
     DEFAULT_CONFIG_PATH,
     REMOTE_DATA_PATH,
@@ -36,8 +37,9 @@ def benchmark_training_modal() -> None:
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     widths = parser.add_mutually_exclusive_group()
-    widths.add_argument("--d-model", type=int, choices=SUPPORTED_WIDTHS)
-    widths.add_argument("--widths", type=int, nargs="+", choices=SUPPORTED_WIDTHS)
+    supported_widths = sorted(SUPPORTED_DENSE_WIDTHS)
+    widths.add_argument("--d-model", type=int, choices=supported_widths)
+    widths.add_argument("--widths", type=int, nargs="+", choices=supported_widths)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--gpu", choices=TRAINING_GPUS, default="B200")
     parser.add_argument("--level", choices=("all", *LEVELS), default="all")
