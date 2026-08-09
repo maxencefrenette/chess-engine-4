@@ -14,6 +14,7 @@ SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
 _DENSE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
     (8, 0): "sm80_",
     (10, 0): "",
+    (12, 0): "sm120_",
 }
 _MOE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
     (8, 0): "sm80_",
@@ -168,7 +169,8 @@ def dense_op_prefix(capability: ComputeCapability) -> str:
         return _DENSE_OP_PREFIX_BY_CAPABILITY[capability]
     except KeyError as error:
         raise ValueError(
-            f"custom dense kernels support SM80 and SM100, got {_format_sm(capability)}"
+            f"custom dense kernels support SM80, SM100, and SM120, got "
+            f"{_format_sm(capability)}"
         ) from error
 
 
@@ -180,6 +182,8 @@ def require_dense_precision(capability: ComputeCapability, precision: Precision)
         raise ValueError(
             "custom dense kernels on SM100 require precision='bf16' or 'mxfp8'"
         )
+    if capability == (12, 0) and precision != "bf16":
+        raise ValueError("custom dense kernels on SM120 require precision='bf16'")
     return prefix
 
 

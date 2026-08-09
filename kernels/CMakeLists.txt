@@ -92,6 +92,7 @@ pybind11_add_module(_chess_engine_4_kernels MODULE
   src/sm80/dense.cu
   src/sm80/moe.cu
   src/sm100/dense.cu
+  src/sm120/dense.cu
   src/sm120/moe.cu
 )
 
@@ -127,7 +128,7 @@ set_source_files_properties(src/sm80/dense.cu src/sm80/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM80
   COMPILE_OPTIONS "-gencode=arch=compute_80,code=sm_80"
 )
-set_source_files_properties(src/sm120/moe.cu PROPERTIES
+set_source_files_properties(src/sm120/dense.cu src/sm120/moe.cu PROPERTIES
   COMPILE_DEFINITIONS KITTENS_SM120
   COMPILE_OPTIONS "-gencode=arch=compute_120a,code=sm_120a"
 )

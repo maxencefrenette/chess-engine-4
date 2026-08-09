@@ -7,7 +7,11 @@
 
 #include <algorithm>
 
-namespace chess_engine_4::sm80 {
+#ifndef DENSE_ARCH_NAMESPACE
+#error "DENSE_ARCH_NAMESPACE must be defined by the architecture translation unit"
+#endif
+
+namespace DENSE_ARCH_NAMESPACE {
 
 using namespace kittens;
 
@@ -106,4 +110,4 @@ inline void LaunchBf16Gemm(
     );
 }
 
-}  // namespace chess_engine_4::sm80
+}  // namespace DENSE_ARCH_NAMESPACE
