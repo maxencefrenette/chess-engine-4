@@ -37,7 +37,7 @@ def test_fastchess_command_uses_randomized_paired_openings() -> None:
     openings = command.index("-openings")
     assert command[openings + 1 : openings + 4] == [
         f"file={OPENING_BOOK_PATH}",
-        "format=epd",
+        "format=pgn",
         "order=random",
     ]
 

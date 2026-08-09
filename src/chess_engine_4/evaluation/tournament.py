@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 
 from chess_engine_4.modal_eval import (
-    POLICY_OPENING_BOOK_PATH,
+    OPENING_BOOK_PATH,
     app,
     lc0_path_for_gpu,
     selfplay_eval_function,
@@ -58,7 +58,7 @@ class Tournament:
     policy_mode_size: int
     parallelism: int = 1
     visits: int | None = None
-    opening_book: str = str(POLICY_OPENING_BOOK_PATH)
+    opening_book: str = str(OPENING_BOOK_PATH)
     opening_book_sha256: str | None = None
     opening_seed: int = field(default_factory=lambda: random.randrange(2**31), init=False)
 
@@ -219,7 +219,7 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
     pentanomial = _pentanomial(pair_scores) if pair_scores is not None else None
     opening_ids = (
         tuple(
-            f"{payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}|"
+            f"{payload.get('opening_book', OPENING_BOOK_PATH)}|"
             f"seed={payload.get('opening_seed', 1)}|"
             f"index={index}"
             for index in range(len(pair_scores))

@@ -22,9 +22,6 @@ REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
 OPENING_BOOK_PATH = (
-    Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.epd"
-)
-POLICY_OPENING_BOOK_PATH = (
     Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.pgn"
 )
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
@@ -234,7 +231,7 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
-    parser.add_argument("--opening-book", default=str(POLICY_OPENING_BOOK_PATH))
+    parser.add_argument("--opening-book", default=str(OPENING_BOOK_PATH))
     parser.add_argument(
         "--gpu",
         choices=("A100", "RTX-PRO-6000"),
@@ -346,7 +343,7 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
-    opening_book = Path(payload.get("opening_book", POLICY_OPENING_BOOK_PATH))
+    opening_book = Path(payload.get("opening_book", OPENING_BOOK_PATH))
     if not opening_book.exists():
         raise FileNotFoundError(f"Missing tournament opening book: {opening_book}")
     for player in (payload["player1"], payload["player2"]):
@@ -407,7 +404,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         payload["lc0_path"],
         "selfplay",
         f"--games={payload['games']}",
-        f"--openings-pgn={payload.get('opening_book', POLICY_OPENING_BOOK_PATH)}",
+        f"--openings-pgn={payload.get('opening_book', OPENING_BOOK_PATH)}",
         "--mirror-openings",
         "--openings-mode=shuffled",
         f"--openings-seed={payload['opening_seed']}",
@@ -636,7 +633,7 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         str(payload["opening_seed"]),
         "-openings",
         f"file={OPENING_BOOK_PATH}",
-        "format=epd",
+        "format=pgn",
         "order=random",
         "-report",
         "penta=true",
