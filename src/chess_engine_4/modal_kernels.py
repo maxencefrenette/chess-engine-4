@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from chess_engine_4.kernels.benchmarking import (
+    compare_gradients,
+    cuda_time,
+    cuda_time_backward,
+    tensor_metrics,
+)
+
 KERNEL_NAME = "dense-custom"
 SUPPORTED_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
 MIN_COSINE_SIMILARITY = 0.999
@@ -62,7 +69,7 @@ def benchmark_dense_layer(
     torch.cuda.synchronize()
 
     reference_name = f"te_{precision}"
-    output_metrics = _output_metrics(custom_output, te_output, F)
+    output_metrics = tensor_metrics(custom_output, te_output, F)
     if not torch.isfinite(custom_output).all():
         raise RuntimeError("custom kernel produced non-finite output")
     if output_metrics["cosine_similarity"] < MIN_COSINE_SIMILARITY:
@@ -94,7 +101,12 @@ def benchmark_dense_layer(
         (te_x, layer.layer_norm_weight, layer.fc1_weight, layer.fc2_weight),
         gradient,
     )
-    gradient_metrics = _gradient_metrics(custom_gradients, te_gradients, F)
+    gradient_metrics = compare_gradients(
+        ("input", "norm_weight", "gate_up_weight", "down_weight"),
+        custom_gradients,
+        te_gradients,
+        F,
+    )
     non_finite_gradients = [
         name
         for name, metrics in gradient_metrics.items()
@@ -160,8 +172,8 @@ def benchmark_dense_layer(
     def run_te() -> None:
         graphs["te"](graph_inputs["te"])
 
-    custom_ms = _cuda_time(run_custom, warmup=warmup, iterations=iterations)
-    te_ms = _cuda_time(run_te, warmup=warmup, iterations=iterations)
+    custom_ms = cuda_time(run_custom, warmup=warmup, iterations=iterations)
+    te_ms = cuda_time(run_te, warmup=warmup, iterations=iterations)
     backward_custom_inputs = (
         graph_inputs["custom"],
         graph_blocks["custom"].layer.layer_norm_weight,
@@ -181,14 +193,14 @@ def benchmark_dense_layer(
     def build_te_backward() -> Any:
         return graphs["te"](graph_inputs["te"])
 
-    custom_backward_ms = _cuda_time_backward(
+    custom_backward_ms = cuda_time_backward(
         build_custom_backward,
         backward_custom_inputs,
         gradient,
         warmup=warmup,
         iterations=iterations,
     )
-    te_backward_ms = _cuda_time_backward(
+    te_backward_ms = cuda_time_backward(
         build_te_backward,
         backward_te_inputs,
         gradient,
@@ -213,92 +225,3 @@ def benchmark_dense_layer(
         "gradient_metrics": gradient_metrics,
         "device_name": torch.cuda.get_device_name(),
     }
-
-
-def _output_metrics(output: Any, reference: Any, functional: Any) -> dict[str, float]:
-    difference = output.float() - reference.float()
-    return {
-        "mean_absolute_error": difference.abs().mean().item(),
-        "max_absolute_error": difference.abs().max().item(),
-        "cosine_similarity": functional.cosine_similarity(
-            output.float().flatten(),
-            reference.float().flatten(),
-            dim=0,
-        ).item(),
-    }
-
-
-def _gradient_metrics(
-    custom_gradients: tuple[Any, ...],
-    reference_gradients: tuple[Any, ...],
-    functional: Any,
-) -> dict[str, dict[str, float]]:
-    return {
-        name: {
-            "mean_absolute_error": (custom.float() - reference.float()).abs().mean().item(),
-            "cosine_similarity": functional.cosine_similarity(
-                custom.float().flatten(),
-                reference.float().flatten(),
-                dim=0,
-            ).item(),
-            "custom_finite": bool(custom.isfinite().all().item()),
-            "reference_finite": bool(reference.isfinite().all().item()),
-            "custom_abs_max": custom.float().abs().max().item(),
-            "reference_abs_max": reference.float().abs().max().item(),
-        }
-        for name, custom, reference in zip(
-            ("input", "norm_weight", "gate_up_weight", "down_weight"),
-            custom_gradients,
-            reference_gradients,
-            strict=True,
-        )
-    }
-
-
-def _cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
-    import statistics
-
-    import torch
-
-    with torch.no_grad():
-        for _ in range(warmup):
-            function()
-        torch.cuda.synchronize()
-        samples = []
-        for _ in range(iterations):
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record()
-            function()
-            end.record()
-            end.synchronize()
-            samples.append(start.elapsed_time(end))
-    return statistics.median(samples)
-
-
-def _cuda_time_backward(
-    build_output: Any,
-    inputs: tuple[Any, ...],
-    gradient: Any,
-    *,
-    warmup: int,
-    iterations: int,
-) -> float:
-    import statistics
-
-    import torch
-
-    for _ in range(warmup):
-        torch.autograd.grad(build_output(), inputs, gradient)
-    torch.cuda.synchronize()
-    samples = []
-    for _ in range(iterations):
-        output = build_output()
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        torch.autograd.grad(output, inputs, gradient)
-        end.record()
-        end.synchronize()
-        samples.append(start.elapsed_time(end))
-    return statistics.median(samples)

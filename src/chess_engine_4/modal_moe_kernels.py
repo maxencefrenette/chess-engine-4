@@ -9,6 +9,12 @@ from typing import Any
 import modal
 
 from chess_engine_4.hardware import hardware_dollars_per_second
+from chess_engine_4.kernels.benchmarking import (
+    cuda_time,
+    cuda_time_backward,
+    named_tensor_metrics,
+    tensor_metrics,
+)
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_train import app, base_image
 
@@ -92,8 +98,13 @@ def _benchmark_custom(
         reference_tensors,
         gradient,
     )
-    output_metrics = _output_metrics(custom_output, reference_output, F)
-    gradient_metrics = _gradient_metrics(custom_gradients, reference_gradients, F)
+    output_metrics = tensor_metrics(custom_output, reference_output, F)
+    gradient_metrics = named_tensor_metrics(
+        ("input", "gate_up_weight", "down_weight", "route_probs"),
+        custom_gradients,
+        reference_gradients,
+        F,
+    )
     if not all(tensor.isfinite().all() for tensor in (*custom_gradients, *reference_gradients)):
         raise RuntimeError(f"custom MoE produced non-finite gradients: {gradient_metrics}")
     if output_metrics["cosine_similarity"] < 0.999:
@@ -147,8 +158,8 @@ def _benchmark_custom(
         "d_model": d_model,
         "batch_size": batch_size,
         "padded_tokens": x.shape[0],
-        "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
-        "backward_ms": _cuda_time_backward(
+        "forward_ms": cuda_time(run_forward, warmup=warmup, iterations=iterations),
+        "backward_ms": cuda_time_backward(
             run_forward,
             backward_inputs,
             backward_gradient,
@@ -222,8 +233,8 @@ def _benchmark_te(d_model: int, warmup: int, iterations: int) -> dict[str, Any]:
         "d_model": d_model,
         "batch_size": batch_size,
         "padded_tokens": x.shape[0],
-        "forward_ms": _cuda_time(run_forward, warmup=warmup, iterations=iterations),
-        "backward_ms": _cuda_time_backward(
+        "forward_ms": cuda_time(run_forward, warmup=warmup, iterations=iterations),
+        "backward_ms": cuda_time_backward(
             run_forward,
             backward_inputs,
             backward_gradient,
@@ -312,84 +323,6 @@ def _reference_moe(
 
 def _round_up(value: int, alignment: int) -> int:
     return (value + alignment - 1) // alignment * alignment
-
-
-def _cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
-    import statistics
-
-    import torch
-
-    with torch.no_grad():
-        for _ in range(warmup):
-            function()
-        torch.cuda.synchronize()
-        samples = []
-        for _ in range(iterations):
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record()
-            function()
-            end.record()
-            end.synchronize()
-            samples.append(start.elapsed_time(end))
-    return statistics.median(samples)
-
-
-def _output_metrics(output: Any, reference: Any, functional: Any) -> dict[str, float]:
-    difference = output.float() - reference.float()
-    return {
-        "mean_absolute_error": difference.abs().mean().item(),
-        "max_absolute_error": difference.abs().max().item(),
-        "cosine_similarity": functional.cosine_similarity(
-            output.float().flatten(),
-            reference.float().flatten(),
-            dim=0,
-        ).item(),
-    }
-
-
-def _gradient_metrics(
-    custom: tuple[Any, ...],
-    reference: tuple[Any, ...],
-    functional: Any,
-) -> dict[str, dict[str, float]]:
-    return {
-        name: _output_metrics(custom_gradient, reference_gradient, functional)
-        for name, custom_gradient, reference_gradient in zip(
-            ("input", "gate_up_weight", "down_weight", "route_probs"),
-            custom,
-            reference,
-            strict=True,
-        )
-    }
-
-
-def _cuda_time_backward(
-    build_output: Any,
-    inputs: tuple[Any, ...],
-    gradient: Any,
-    *,
-    warmup: int,
-    iterations: int,
-) -> float:
-    import statistics
-
-    import torch
-
-    for _ in range(warmup):
-        torch.autograd.grad(build_output(), inputs, gradient)
-    torch.cuda.synchronize()
-    samples = []
-    for _ in range(iterations):
-        output = build_output()
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        torch.autograd.grad(output, inputs, gradient)
-        end.record()
-        end.synchronize()
-        samples.append(start.elapsed_time(end))
-    return statistics.median(samples)
 
 
 def _comparison(custom: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
