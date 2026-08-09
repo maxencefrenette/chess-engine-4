@@ -1,0 +1,27 @@
+[tournament]
+name = "position-subsampling-800nodes"
+gpu = "RTX-PRO-6000"
+games_per_matchup = 128
+waves = 3
+max_concurrency = 1
+policy_mode_size = 256
+parallelism = 64
+visits = 800
+
+[[engines]]
+name = "retention-1.0"
+weights = "/artifacts/models/position-subsampling-r1-8t-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17
+
+[[engines]]
+name = "retention-0.5"
+weights = "/artifacts/models/position-subsampling-r0.5-8t-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17
+
+[[engines]]
+name = "retention-0.25"
+weights = "/artifacts/models/position-subsampling-r0.25-8t-full-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17

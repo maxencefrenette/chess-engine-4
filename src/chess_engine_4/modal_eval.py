@@ -409,14 +409,25 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
                 "--no-share-trees",
                 "--temperature=0.0",
                 "--noise-epsilon=0.0",
-                "--player1.backend=multiplexing",
-                "--player1.backend-opts=child(backend="
-                f"{payload['player1']['backend']},max_batch=256,threads=1)",
-                "--player2.backend=multiplexing",
-                "--player2.backend-opts=child(backend="
-                f"{payload['player2']['backend']},max_batch=256,threads=1)",
             ]
         )
+        for player_name in ("player1", "player2"):
+            backend = payload[player_name]["backend"]
+            if backend == "ce4":
+                command.extend(
+                    [
+                        f"--{player_name}.backend=ce4",
+                        f"--{player_name}.backend-opts=max_batch=256",
+                    ]
+                )
+            else:
+                command.extend(
+                    [
+                        f"--{player_name}.backend=multiplexing",
+                        f"--{player_name}.backend-opts=child(backend="
+                        f"{backend},max_batch=256,threads=1)",
+                    ]
+                )
     return command
 
 

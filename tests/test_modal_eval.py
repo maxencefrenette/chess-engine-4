@@ -59,7 +59,8 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--no-share-trees" in command
     assert "--temperature=0.0" in command
     assert "--noise-epsilon=0.0" in command
-    assert "--player1.backend-opts=child(backend=ce4,max_batch=256,threads=1)" in command
+    assert "--player1.backend=ce4" in command
+    assert "--player1.backend-opts=max_batch=256" in command
     assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command
 
 

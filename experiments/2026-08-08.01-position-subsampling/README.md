@@ -1,212 +1,184 @@
 # Position subsampling for value diversity
 
-## Status
+## Outcome
 
-Blocked on the quarter-retention cost cap. Full and half retention completed valid matched runs and
-were exported; the quarter arm was stopped when its sustained standard-loader throughput projected
-a material breach of `$1.50`. No tournament, sampling-rule promotion, or canonical data mutation
-has been performed by this task.
+Three matched `moe64a2 d512` treatments completed at retention rates 1.0, 0.5,
+and 0.25. Each consumed exactly 983,040,000 accepted rows in 15,000 optimizer
+steps. Half and quarter retention both improved training loss and searched-play
+strength relative to full retention. Half retention has the best tournament
+point estimate, but it is not distinguishable from quarter retention at this
+sample size. Retain 0.5 as the leading candidate; do not promote it to a
+canonical configuration until the user reviews this report.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
 Base commit: `316c327da2612f5b71e9776a9ae8d3fc773c216d`
 
-## Design correction
+Relevant implementation commits are `3bbb430` (deterministic streaming
+retention), `13dcaf0` (initial-run evidence), `7a51a48` (eight-thread probe),
+`90f50cf` (paired Elo integration), and `cb63e11` (matched full/half evidence).
 
-The first capacity analysis incorrectly strengthened position retention into a within-game,
-raw-archive materialization requirement. The user rejected that interpretation. The experiment
-now reads the existing canonical Parquet shards directly and retains rows while streaming. It
-does not inspect game boundaries, read raw tar archives, create derived datasets, or modify
-canonical Parquet.
+## Sampling and provenance
 
-For each row, the sampler computes a stable 64-bit FNV-1a seed from the Parquet shard basename,
-mixes the absolute zero-based row index with SplitMix64 finalization, and takes the result modulo
-four. The treatments retain residues `< 4`, `< 2`, and `< 1`, respectively, for rates `1.0`,
-`0.5`, and `0.25`. The quarter subset is therefore nested inside the half subset, which is nested
-inside the full corpus. Decisions are independent of worker scheduling and global RNG state.
+The experiment reads canonical Parquet directly and creates no derived
+dataset. For every row it hashes the shard basename with 64-bit FNV-1a, mixes
+the absolute zero-based row index with SplitMix64, and retains hash residues
+`<4`, `<2`, or `<1` modulo four. The 0.25 subset is nested in 0.5, which is
+nested in 1.0. Membership is independent of worker scheduling and global RNG.
+This deliberately implements the user's corrected row-streaming design; it
+does not infer game boundaries or claim within-game stratification.
 
-The first launch commands overrode the Parquet loader to one thread. With sorted shard paths, this
-made the consumed row sequence and final partial-shard cutoff reproducible, not merely each row's
-accept/reject decision. It also created a severe input bottleneck. The row decision itself remains
-reproducible with multithreaded prefetch because it depends only on shard identity and row index,
-as the user required.
-Each shard still drops an incomplete final batch, matching the existing loader contract; the
-footer audit reports both accepted rows and exact batch-usable rows so all treatments can use the
-quarter arm's common step count without repetition.
+The exact startup snapshot is [parquet-files.txt](parquet-files.txt): 497
+sorted shard basenames, SHA-256
+`ef7aa839e1ec2c01780123c42de086243995ec4cf9a7a0af3a0c01ffb7b3b595`.
+Later atomic corpus appends could not enter these runs. The footer and hash
+audit found:
 
-The retention rate is recorded in the launch summary, W&B config, returned run metadata, and
-checkpoint metadata. `train-modal --dry-run` prints the exact launch summary without starting
-Modal, allowing all three summaries and costs to be reviewed before the authorized paid runs.
-
-## Corpus stabilization gate
-
-The experiment was originally redirected to the then-canonical snapshot of 480 shards and
-3,949,735,220 rows. Before launch, a read-only footer audit observed 491 shards and 4,030,056,311
-rows because it ran during an authorized concurrent corpus conversion. The corpus task then
-reported 497 verified shards and 4,074,985,928 rows, with 17 unique new Parquet names and an exact
-row delta matching the source audit. There is no overwrite or collision evidence; their temporary
-source tars were deleted after exact verification.
-
-The user intends the separate corpus task to continue filling verified Parquet up to the 900 GiB
-operational ceiling, but clarified that training need not wait: the experiment freezes an explicit
-startup filename manifest, and the planned iterator will not reach later atomic appends. This task
-therefore uses the 497-shard snapshot recorded below and does not modify any corpus files.
-
-## Startup snapshot and launch plan
-
-The startup snapshot is retained in `parquet-files.txt`. It contains 497 sorted shard basenames and
-has SHA-256 `ef7aa839e1ec2c01780123c42de086243995ec4cf9a7a0af3a0c01ffb7b3b595`. Later atomic
-appends to `/parquet` cannot enter any treatment because every payload receives these exact 497
-paths.
-
-The footer and deterministic-hash audit produced:
-
-| Rate | Accepted rows | Batch-usable rows |
+| Retention | Accepted rows | Batch-usable rows |
 | ---: | ---: | ---: |
 | 1.0 | 4,074,985,928 | 4,058,644,480 |
 | 0.5 | 2,037,509,235 | 2,021,195,776 |
 | 0.25 | 1,018,779,501 | 1,003,094,016 |
 
-The cost planner selected canonical `moe64a2 d512` in this sample range with 94% selection across
-100 bootstrap fits. All treatments use the same 15,000 optimizer steps and therefore exactly the
-same 983,040,000 accepted training samples. Retention only changes the number of underlying rows
-that the loader scans to assemble each accepted batch: approximately 983,040,000 / 1,966,080,000 /
-3,932,160,000 source rows for full / half / quarter retention. It never changes the batch size,
-optimizer steps, or accepted sample allocation.
+Canonical `/parquet`, source manifests, and training configuration files were
+not modified by this experiment. Checkpoints, exports, and evaluation outputs
+use isolated `/artifacts` names.
+
+## Matched training protocol
+
+The cost planner selected the strongest measured family/configuration in the
+original planning envelope: MoE64A2 d512x8 with Transformer Engine MXFP8. All
+three launch summaries matched on model family, width, depth, optimizer/loss,
+seed, batch, accepted samples, steps, and training FLOPs. Only retention and
+output names differed.
 
 | Quantity | Matched value |
 | --- | ---: |
-| Model | moe64a2 d512x8, TE MXFP8 |
 | Seed | 1 |
 | Batch size | 65,536 |
 | Steps | 15,000 |
-| Samples | 983,040,000 |
+| Accepted samples | 983,040,000 |
 | Training ratio | 0.0468065454273x |
 | Learning rate | 0.00037 |
 | FLOPs/sample | 181,555,318 |
 | Training FLOPs | 1.7847613980672e17 |
-| Loader threads | 1 |
+| Loader threads / prefetch | 8 / 2 per worker |
 
-Measured eight-thread full-retention steady-state time is 40.895007764 ms/step, including
-0.398448734 ms/step of data fetch. For a deliberately conservative prelaunch bound, the fetch
-component is scaled linearly by `8 / retention_rate` while the remaining step time is held fixed.
-At the configured B200 plus eight-CPU rate of `$0.0018408/s`, the resulting bounds are:
+The lower-retention arms scanned approximately 1.97B and 3.93B underlying
+rows to assemble the same accepted sample count as the full-retention arm; no
+rows were repeated. The quarter arm's full run exceeded the original planning
+estimate because scanning eventually became input-bound. The user explicitly
+authorized completing it after clarifying that `$1.50` was not a strict cap.
 
-| Rate | Bounded ms/step | Runtime | GPU+CPU cost |
-| ---: | ---: | ---: | ---: |
-| 1.0 | 43.684149 | 655.262 s | $1.206207 |
-| 0.5 | 46.871739 | 703.076 s | $1.294222 |
-| 0.25 | 53.246919 | 798.704 s | $1.470254 |
-
-All three estimates are strictly below `$1.50`; the most conservative arm retains about three
-cents of margin. The inspected dry-run launch summaries agree on every field except retention:
+Representative command (substitute `RATE` and the matching output name):
 
 ```sh
-uv run train-modal --dry-run --config configs/moe64a2.py --d-model 512 \
-  --training-ratio 0.04680654542731256 --steps 15000 --dataloader-threads 1 \
+uv run train-modal --config configs/moe64a2.py --d-model 512 \
+  --training-ratio 0.04680654542731256 --steps 15000 \
+  --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
   --data-retention-rate RATE \
   --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
   --wandb-name position-subsampling-rRATE
 ```
 
-The three corresponding paid commands were launched concurrently for `RATE` values `1.0`, `0.5`,
-and `0.25`. They were stopped as soon as live throughput proved that completing them would violate
-the strict per-run cap.
+## Training results
 
-## Aborted-run evidence and corrected cost model
+Costs are rate-derived realized costs, not rounded Modal invoice line items:
+B200 `$0.001736/s` plus eight CPU cores at `$0.0000131/core-s`, or
+`$0.0018408/s`. Runtime is the W&B run duration, consistently applied to all
+arms.
 
-The prelaunch estimate assumed that the measured eight-thread fetch time could be scaled to a
-single thread and by inverse retention while the rest of the step remained unchanged. That model
-was wrong: decoding and rejecting rows serialized the input pipeline and starved the GPU. The
-three apps were stopped at the same wall-clock decision point, before any final checkpoint:
+| Retention | W&B | Runtime | Cost | EMA task loss | Final policy | Final value | Final moves-left | EMA policy top-1 | Spikes |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.0 | [fyej1izp](https://wandb.ai/maxence-frenette/uncategorized/runs/fyej1izp) | 676.213 s | $1.244772 | 2.865781 | 2.026412 | 0.691026 | 0.147160 | 0.507204 | 0 |
+| 0.5 | [4fe9jk45](https://wandb.ai/maxence-frenette/uncategorized/runs/4fe9jk45) | 663.502 s | $1.221374 | 2.848112 | 2.036135 | 0.678729 | 0.145244 | 0.512639 | 0 |
+| 0.25 | [qhw06zrh](https://wandb.ai/maxence-frenette/uncategorized/runs/qhw06zrh) | 1,007.769 s | $1.855101 | 2.837690 | 2.031988 | 0.669298 | 0.140740 | 0.515694 | 0 |
 
-| Rate | Modal app | W&B | Last observed step | Representative samples/s | Projected cost to 15,000 steps |
-| ---: | --- | --- | ---: | ---: | ---: |
-| 1.0 | `ap-TAvG8K14mlB9iVyCxIEdJz` | [5e4itcmi](https://wandb.ai/maxence-frenette/uncategorized/runs/5e4itcmi) | 6,500 | ~0.83M | ~$2.18 |
-| 0.5 | `ap-xpxRwoF129uYqToCVgFElh` | [fl24lk80](https://wandb.ai/maxence-frenette/uncategorized/runs/fl24lk80) | 1,680 | ~0.23M | ~$7.91 |
-| 0.25 | `ap-DA8ZQ2oKGmUrOWnLv0pFgV` | [res2mpla](https://wandb.ai/maxence-frenette/uncategorized/runs/res2mpla) | 1,120 | ~0.145M | ~$12.49 |
+Final task losses were 2.864599, 2.860108, and 2.842026 for retention 1.0,
+0.5, and 0.25. Final policy top-1 was 0.512161, 0.513901, and 0.515823;
+value-Q MSE was 0.031954, 0.031193, and 0.030953; moves-left MAE was
+9.0021, 8.8788, and 8.6445. Overall accepted-sample throughput was 1.551M,
+1.542M, and 1.007M samples/s. The final quarter interval fell to 0.710M
+samples/s, explaining its higher runtime and cost. All runs had zero detected
+loss spikes.
 
-The apps ran for roughly 8.5 minutes each. At `$0.0018408/s`, the provisional realized charge is
-approximately `$0.94` per arm (`$2.82` total); exact Modal billing is not available in the training
-result because termination prevented normal return. These are invalid partial runs and must not be
-used for the retention comparison.
+`compare-run` reported `EG_flops` of 5.575x, 8.004x, and 9.981x in retention
+order. These trend comparisons are supporting diagnostics only; no best-run
+file was changed.
 
-### Eight-thread quarter-rate throughput probe
+Final checkpoints and exports:
 
-The user authorized a small bounded probe before reducing experimental power. The inspected launch
-summary specified eight CPU/loader threads, prefetch depth two per worker, retention 0.25, batch
-65,536, and 500 steps / 32,768,000 accepted samples. Even at the prior one-thread throughput, its
-training cost was bounded near `$0.42`; the actual Modal app lifetime was 76 seconds, or about
-`$0.140` at the configured combined rate.
+| Retention | Checkpoint | lc0 export |
+| ---: | --- | --- |
+| 1.0 | `/artifacts/checkpoints/position-subsampling-r1-8t-final.pt` | `/artifacts/models/position-subsampling-r1-8t-final.safetensors` |
+| 0.5 | `/artifacts/checkpoints/position-subsampling-r0.5-8t-final.pt` | `/artifacts/models/position-subsampling-r0.5-8t-final.safetensors` |
+| 0.25 | `/artifacts/checkpoints/position-subsampling-r0.25-8t-full-final.pt` | `/artifacts/models/position-subsampling-r0.25-8t-full-final.safetensors` |
+
+Earlier single-thread and prematurely stopped quarter attempts are invalid and
+were not used in any comparison. Their retained evidence remains in the git
+history and W&B rather than being overwritten.
+
+## Searched lc0 tournament
+
+The retained [tournament.toml](tournament.toml) specifies 800 visits per move,
+three 128-game matchups on RTX PRO 6000, 64 parallel games, deterministic
+temperature/noise settings, and the repository's two-move opening book. Every
+opening was mirrored with colors swapped. This is 384 searched games / 192
+paired openings in a complete three-candidate round robin; it is not
+policy-only play.
+
+The ce4 exports use lc0's native backend directly. A small evaluator fix was
+required because the previous searched command wrapped the native ce4 backend
+in legacy protobuf `multiplexing`, which attempted to parse Safetensors as a
+protobuf network. A 16-game end-to-end probe then completed in 43.898 s. Its
+conservative extrapolation was 1,053.6 s and `$0.915`, below the `$1` launch
+gate. The actual tournament used 507.705 GPU-seconds. At RTX PRO 6000
+`$0.000842/s` plus a conservative two CPU cores, its rate-derived cost was
+`$0.440790`.
+
+Command:
 
 ```sh
-uv run train-modal --config configs/moe64a2.py --d-model 512 \
-  --training-ratio 0.04680654542731256 --steps 500 \
-  --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
-  --data-retention-rate 0.25 \
-  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
-  --no-wandb --wandb-name position-subsampling-throughput-probe-r0.25
+uv run eval-tournament-modal \
+  --config experiments/2026-08-08.01-position-subsampling/tournament.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-results.json
 ```
 
-Modal app `ap-z7K9StZLBrgQXtNwiMy5JU` completed all 500 steps. After warmup, most logged intervals
-sustained 1.59-1.60M accepted samples/s, matching the known eight-thread full-retention GPU-limited
-rate. A few row-group/shard transitions dipped to 1.07-1.48M, but the complete 500-step training
-window was about 21 seconds (~42 ms/step). This short initial-shard window was useful but, as the
-full treatment attempt below showed, was not representative of sustained quarter-rate loading.
+Direct matchup WDL is from the first model's perspective:
 
-Scaling the measured ~42 ms/step window to 15,000 steps gives about 630 seconds of training. Adding
-the probe's conservative ~55 seconds of container startup and final-checkpoint overhead gives 685
-seconds and `$1.261` per treatment. Because quarter retention is the worst scanning treatment and
-it is GPU-fed, the full and half treatments should be approximately equal rather than materially
-cheaper. The revised matched-sample plan therefore restores the original 15,000 steps / 983,040,000
-accepted samples for all three arms, with an estimated cost of about `$1.26` each and roughly
-`$0.24` margin below the cap.
+| Matchup | W-D-L | Runtime | Throughput | Pentanomial |
+| --- | ---: | ---: | ---: | --- |
+| 1.0 vs 0.5 | 31-46-51 | 166.624 s | 0.7682 games/s | [6, 30, 13, 8, 7] |
+| 0.5 vs 0.25 | 43-40-45 | 156.763 s | 0.8165 games/s | [6, 15, 23, 15, 5] |
+| 1.0 vs 0.25 | 39-40-49 | 184.318 s | 0.6945 games/s | [10, 14, 22, 12, 6] |
 
-## Standard-loader matched treatment execution
+Aggregate searched-play throughput was 0.7563 games/s. This is the evaluator's
+end-to-end inference/search throughput; the experiment did not substitute a
+policy-only or synthetic backend benchmark.
 
-The user explicitly authorized the standard production loader: eight threads and configured
-prefetch depth two, with stable-hash membership independent of worker scheduling. All inspected
-launch summaries matched exactly on seed, model, optimizer/loss recipe, batch 65,536, 15,000 steps,
-983,040,000 accepted samples, and 1.7847613980672e17 FLOPs; only retention differed.
+The connected Bradley-Terry score quasi-MLE treats draws as 0.5 and reports
+two-sided 95% Wald intervals with a CR1 sandwich covariance clustered by the
+64 reused indexed mirrored openings. All 192 ordered pair scores are retained
+in [tournament-results.json](tournament-results.json).
 
-Full and half retention completed without spikes:
+| Rank | Retention | Centered Elo | 95% CI |
+| ---: | ---: | ---: | ---: |
+| 1 | 0.5 | +16.36 | [-6.07, +38.80] |
+| 2 | 0.25 | +10.91 | [-15.72, +37.54] |
+| 3 | 1.0 | -27.27 | [-49.93, -4.61] |
 
-| Rate | W&B | Runtime | Realized cost | Task loss (EMA) | Policy | Value | Moves left | Policy top-1 (EMA) | Spikes |
-| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1.0 | [fyej1izp](https://wandb.ai/maxence-frenette/uncategorized/runs/fyej1izp) | 676.213 s | $1.2448 | 2.865781 | 2.026412 | 0.691026 | 0.147160 | 0.507204 | 0 |
-| 0.5 | [4fe9jk45](https://wandb.ai/maxence-frenette/uncategorized/runs/4fe9jk45) | 663.502 s | $1.2214 | 2.848112 | 2.036135 | 0.678729 | 0.145244 | 0.512639 | 0 |
+The 0.5 and 0.25 intervals overlap heavily, and their direct match was nearly
+even. Both reduced value and moves-left training losses and beat 1.0 in their
+direct searched matchups. This supports the value-diversity hypothesis, while
+not resolving whether 0.5 or 0.25 is optimal.
 
-Their final checkpoints are `/artifacts/checkpoints/position-subsampling-r1-8t-final.pt` and
-`/artifacts/checkpoints/position-subsampling-r0.5-8t-final.pt`; isolated exports are
-`/artifacts/models/position-subsampling-r1-8t-final.safetensors` and
-`/artifacts/models/position-subsampling-r0.5-8t-final.safetensors`. At matched accepted samples,
-half retention improves EMA task loss by 0.017669, EMA policy top-1 by 0.005436, final value loss by
-0.012298, and final moves-left loss by 0.001916, while its final policy loss is 0.009723 worse.
+## Recommendation
 
-The concurrently launched quarter arm was first stopped because three-way Volume reads created
-obvious contention. It was then relaunched alone with unchanged standard settings as W&B run
-[r11jwe6g](https://wandb.ai/maxence-frenette/uncategorized/runs/r11jwe6g). The standalone full-window
-attempt sustained only about 1.0-1.17M accepted samples/s through step 1,110, averaging roughly
-64 ms/step rather than the short probe's 42 ms/step. Completing 15,000 steps plus fixed overhead
-projected about `$1.8-$1.9`, so it was stopped as a materially unexpected violation of the strict
-per-run cap. It produced no valid final checkpoint.
-
-Completing the matched quarter arm now requires either an explicit cap increase to `$2.00` or a
-change to the standard loader. Reducing quarter samples alone is invalid; reducing all arms would
-discard the two valid matched runs and require retraining them.
-
-## Evaluation protocol
-
-If all three runs complete validly, export all checkpoints and run a connected searched lc0
-tournament at approximately 800 nodes per move. Use mirrored openings and retain raw paired-game
-evidence. Paired Elo/confidence-interval analysis should reuse the implementation from task
-`01kzg0rdd6`; commit `4369bca` has been integrated as `90f50cf`. Report WDL, Elo and
-CI, runtime, inference throughput, and the tournament cost estimate before launch, stopping for
-approval if it exceeds `$1`.
-
-## Current recommendation
-
-Do not promote or reject a retention rate from two completed arms. Keep canonical configs and data
-unchanged and preserve the sampler branch unmerged. The three-candidate 800-node tournament cannot
-start until a valid matched quarter checkpoint exists; orchestration has requested authorization
-to complete quarter under a hard `$2.00` cap.
+Retain the deterministic sampler and 0.5 retention as the leading candidate
+for review. It delivered almost all of quarter retention's training and search
+gain without the quarter arm's 52% runtime/cost increase, and its tournament
+point estimate was highest. Reject 1.0 as the preferred treatment for this
+matched allocation. Do not promote 0.5, edit canonical data/configs, or merge
+this branch until the user reviews the evidence. If a follow-up is desired,
+spend it on additional paired 0.5-vs-0.25 searched games rather than another
+training sweep.

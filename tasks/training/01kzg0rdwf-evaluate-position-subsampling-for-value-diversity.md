@@ -1,7 +1,7 @@
 ---
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
-status: in-progress
+status: completed
 priority: high
 effort: medium
 dependencies: []
@@ -14,16 +14,17 @@ created_at: 2026-08-07
 
 ## Objective
 
-Test whether sampling roughly 1-10% of positions from each game increases game
-and value-target diversity enough to improve value learning at matched training
-FLOPs or matched dollar cost.
+Test whether deterministic position subsampling increases value-target diversity
+enough to improve value learning and searched play at matched accepted samples
+and training FLOPs.
 
 ## Tasks
 
-- [ ] Define deterministic sampling that avoids accidental game-length bias.
-- [ ] Measure the resulting game, position, and value-target distributions.
-- [ ] Train matched candidates at several sampling rates.
-- [ ] Compare task loss components, EG_flops, and realized cost.
+- [x] Define deterministic, scheduling-independent row sampling.
+- [x] Audit exact retained and batch-usable row capacity.
+- [x] Train matched candidates at retention 1.0, 0.5, and 0.25.
+- [x] Compare task loss components, EG_flops, stability, runtime, and cost.
+- [x] Run a complete 800-visit mirrored-opening round robin with paired Elo intervals.
 
 ## Acceptance Criteria
 
@@ -34,16 +35,13 @@ FLOPs or matched dollar cost.
 ## Progress
 
 The raw-archive capacity blocker was superseded by the user's corrected design. A deterministic
-row-identity sampler now streams canonical Parquet directly without derived datasets or game-boundary
-assumptions. A 497-shard startup manifest fixes the exact input snapshot despite concurrent atomic
-corpus appends. The three authorized 15,000-step runs were stopped after live single-thread loader
-throughput invalidated the sub-$1.50 cost estimate; none completed or produced a final checkpoint.
-An authorized 500-step quarter-rate probe initially showed 1.59-1.60M accepted samples/s, so the
-user authorized standard eight-thread replacement runs at matched 15,000 steps / 983,040,000
-accepted samples. Full and half completed validly for $1.2448 and $1.2214 and were exported. The
-quarter arm's longer standalone window sustained only ~1.0-1.17M samples/s, projecting $1.8-$1.9;
-it was stopped under the strict $1.50 cap without a final checkpoint. Completion and the required
-three-candidate 800-node tournament are blocked pending authorization of a hard $2.00 quarter cap.
+row-identity sampler streams canonical Parquet without derived datasets or game-boundary assumptions,
+and a 497-shard manifest fixes provenance. Three standard eight-thread runs completed at exactly
+15,000 steps / 983,040,000 accepted samples each. The user authorized the full quarter run after
+clarifying that $1.50 was not strict. Half and quarter retention improved loss and searched play
+over full retention. A complete 384-game, 192-pair round robin at 800 visits ranked half first and
+quarter second with overlapping intervals. The retained experiment report recommends half retention
+for review but makes no canonical promotion.
 
 ## Source
 
