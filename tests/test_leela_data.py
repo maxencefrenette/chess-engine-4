@@ -15,10 +15,12 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     V6_RECORD_SIZE,
     LeelaParquetDataset,
-    LeelaTarDataset,
     resolve_data_paths,
 )
-from chess_engine_4.data.native import convert_native_lc0_tar_to_parquet
+from chess_engine_4.data.native import (
+    convert_native_lc0_tar_to_parquet,
+    iter_native_packed_batches,
+)
 
 POLICY_OFFSET = 8
 PLANES_OFFSET = POLICY_OFFSET + POLICY_SIZE * 4
@@ -45,13 +47,13 @@ ORIG_D_OFFSET = 8332
 ORIG_M_OFFSET = 8336
 
 
-def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
+def test_native_tar_decoder_yields_tensor_batches_from_gzip_members(
     tmp_path: Path,
 ) -> None:
     tar_path = tmp_path / "training.tar"
     _write_tar(tar_path, gzip.compress(_records(4)))
 
-    batches = list(LeelaTarDataset(tar_path, batch_size=2))
+    batches = list(_tar_batches(tar_path, batch_size=2))
 
     assert len(batches) == 2
     packed_planes, plane_scalars, policy_indices, policy_probs, value = batches[0]
@@ -84,11 +86,11 @@ def test_leela_tar_dataset_yields_native_tensor_batches_from_gzip_members(
     assert tuple(batches[1][0].shape) == (2, 104, 8)
 
 
-def test_leela_tar_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
+def test_native_tar_decoder_drops_incomplete_final_batch(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     _write_tar(tar_path, gzip.compress(_records(3)))
 
-    batches = list(LeelaTarDataset(tar_path, batch_size=2))
+    batches = list(_tar_batches(tar_path, batch_size=2))
 
     assert len(batches) == 1
     assert tuple(batches[0][0].shape) == (2, 104, 8)
@@ -100,7 +102,7 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     _write_tar(tar_path, gzip.compress(_records(4)))
 
     records, input_bytes, output_bytes = convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
-    tar_batch = next(iter(LeelaTarDataset(tar_path, batch_size=4, threads=1)))
+    tar_batch = next(iter(_tar_batches(tar_path, batch_size=4)))
     parquet_batch = next(iter(LeelaParquetDataset(parquet_path, batch_size=4, threads=1)))
 
     assert records == 4
@@ -126,14 +128,23 @@ def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> N
 def test_resolve_data_paths_loads_dotenv(tmp_path: Path, monkeypatch) -> None:
     data_dir = tmp_path / "data"
     data_dir.mkdir()
-    tar_path = data_dir / "training.tar"
-    tar_path.touch()
+    parquet_path = data_dir / "training.parquet"
+    parquet_path.touch()
     env_path = tmp_path / ".env"
     env_path.write_text(f"CHESS_ENGINE_4_DATA_PATH={data_dir}\n")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("CHESS_ENGINE_4_DATA_PATH", raising=False)
 
-    assert resolve_data_paths(None) == [tar_path]
+    assert resolve_data_paths(None) == [parquet_path]
+
+
+def _tar_batches(path: Path, *, batch_size: int):
+    return iter_native_packed_batches(
+        [path],
+        batch_size=batch_size,
+        prefetch_per_thread=2,
+        threads=1,
+    )
 
 
 def _write_tar(path: Path, payload: bytes) -> None:

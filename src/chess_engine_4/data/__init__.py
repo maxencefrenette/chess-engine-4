@@ -7,14 +7,14 @@ from chess_engine_4.data.leela import (
     POLICY_SIZE,
     VALUE_FIELDS,
     VALUE_TYPE_COUNT,
-    LeelaTarDataset,
+    LeelaParquetDataset,
 )
 
 __all__ = [
     "DEFAULT_DATA_ENV_VAR",
     "COMPACT_POLICY_SIZE",
     "INPUT_PLANE_COUNT",
-    "LeelaTarDataset",
+    "LeelaParquetDataset",
     "POLICY_SIZE",
     "VALUE_FIELDS",
     "VALUE_TYPE_COUNT",
