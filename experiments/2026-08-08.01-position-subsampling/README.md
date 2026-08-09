@@ -19,7 +19,9 @@ Relevant implementation commits are `3bbb430` (deterministic streaming
 retention), `13dcaf0` (initial-run evidence), `7a51a48` (eight-thread probe),
 `90f50cf` (paired Elo integration), and `cb63e11` (matched full/half evidence).
 Completion commit `8d327b3d` retains the evaluator fix, tournament protocol,
-raw paired results, final report, and task disposition.
+raw paired results, final report, and task disposition. UHO migration,
+randomized-pair provenance, native lc0 batching, and the expanded tournament
+evidence are retained in `fd04acaf`.
 
 ## Sampling and provenance
 
