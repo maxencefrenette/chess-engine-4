@@ -1,21 +1,22 @@
 ---
 id: "01kzhkmxb2"
-title: "Benchmark candidate widths for the 20 dollar run"
+title: "Benchmark deferred d1536 candidate widths"
 status: pending
-priority: high
+priority: low
 effort: medium
 dependencies: []
 tags: ["training", "scaling", "benchmark"]
 created_at: 2026-08-08
 ---
 
-# Benchmark candidate widths for the 20 dollar run
+# Benchmark deferred d1536 candidate widths
 
 ## Objective
 
-Measure only the missing model shapes that could change the final `$20`
-selection. Dense d1536 is already a supported recipe width; MoE d1536 remains
-a feasibility candidate and must not become canonical without evidence.
+Revisit dense and MoE d1536 only after the current `$20` milestone. Dense d1536
+is already a supported recipe width; MoE d1536 remains a feasibility candidate
+and must not become canonical without evidence. This task is deliberately
+deferred and does not block the final run.
 
 ## Tasks
 

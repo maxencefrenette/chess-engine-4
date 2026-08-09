@@ -4,7 +4,7 @@ title: "Select and train the 20 dollar model"
 status: pending
 priority: critical
 effort: large
-dependencies: ["01kzg0rdwf", "01kzhkmxb2", "01kzhkmxbr"]
+dependencies: ["01kzg0rdwf", "01kzhkmxbr"]
 tags: ["training", "final-run", "budget"]
 created_at: 2026-08-08
 ---
