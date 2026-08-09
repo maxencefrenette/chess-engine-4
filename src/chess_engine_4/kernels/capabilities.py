@@ -18,6 +18,7 @@ _DENSE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
 }
 _MOE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {
     (8, 0): "sm80_",
+    (10, 0): "sm100_",
     (12, 0): "",
 }
 
@@ -127,7 +128,8 @@ def require_moe_kernel(
 ) -> str:
     if capability not in _MOE_OP_PREFIX_BY_CAPABILITY:
         raise ValueError(
-            f"custom MoE kernels support SM80 and SM120, got {_format_sm(capability)}"
+            f"custom MoE kernels support SM80, SM100, and SM120, got "
+            f"{_format_sm(capability)}"
         )
     if precision != "bf16":
         raise ValueError("custom MoE kernels require precision='bf16'")
@@ -192,7 +194,8 @@ def moe_op_prefix(capability: ComputeCapability) -> str:
         return _MOE_OP_PREFIX_BY_CAPABILITY[capability]
     except KeyError as error:
         raise ValueError(
-            f"custom MoE kernels support SM80 and SM120, got {_format_sm(capability)}"
+            f"custom MoE kernels support SM80, SM100, and SM120, got "
+            f"{_format_sm(capability)}"
         ) from error
 
 

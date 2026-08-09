@@ -115,8 +115,9 @@ def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
 
     validate_training_hardware(config)
 
-    with pytest.raises(ValueError, match="support SM80 and SM120, got SM100"):
-        validate_training_hardware(with_overrides(config, gpu="B200"))
+    b200_config = with_overrides(config, gpu="B200")
+    validate_training_hardware(b200_config)
+    assert resolve_training_kernel(b200_config).variant == "moe-sm100-bf16"
 
 
 @pytest.mark.parametrize("config_path", ["configs/dense.py", "configs/moe64a2.py"])
