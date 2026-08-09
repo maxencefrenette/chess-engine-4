@@ -1,12 +1,13 @@
 ---
 id: "01kzj7y1r1"
 title: "Add SM120 dense training kernels"
-status: in-progress
+status: completed
 priority: high
 effort: large
 dependencies: []
 tags: ["cuda", "sm120", "dense-training"]
 created_at: 2026-08-08
+completed_at: 2026-08-08
 ---
 
 # Add SM120 dense training kernels
@@ -19,11 +20,11 @@ the retained cuBLAS dense inference path.
 
 ## Tasks
 
-- [ ] Add SM120 compilation, capability dispatch, and Python bindings.
-- [ ] Preserve explicit-backend failure semantics for unsupported shapes and precisions.
-- [ ] Add focused dispatch and numerical forward/backward tests.
-- [ ] Compare the end-to-end custom layer against Transformer Engine on RTX PRO 6000.
-- [ ] Run the repository verification gate and record the relevant pinned upstream commits.
+- [x] Add SM120 compilation, capability dispatch, and Python bindings.
+- [x] Preserve explicit-backend failure semantics for unsupported shapes and precisions.
+- [x] Add focused dispatch and numerical forward/backward tests.
+- [x] Compare the end-to-end custom layer against Transformer Engine on RTX PRO 6000.
+- [x] Run the repository verification gate and record the relevant pinned upstream commits.
 
 ## Acceptance Criteria
 
@@ -45,3 +46,13 @@ the retained cuBLAS dense inference path.
 
 Low-precision SM120 inference is out of scope until the current export/runtime
 format can represent and validate it independently.
+
+## Result
+
+The BF16 path passed numerical checks on RTX PRO 6000. The final matched d256,
+batch-8192 benchmark measured a 4.6355 ms custom synthetic step versus 3.6488 ms
+for Transformer Engine, and a 7.4324 ms custom real-pipeline step versus 6.3739
+ms for Transformer Engine. The backend therefore remains explicit-only and was
+not promoted. See `experiments/2026-08-08.02-sm120-dense-training/README.md`.
+
+Verification passed with 141 tests, Ruff, website lint/build, and diff check.
