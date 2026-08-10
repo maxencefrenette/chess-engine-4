@@ -67,16 +67,13 @@ def test_training_config_round_trips_through_dict() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
-def test_launch_summary_records_retention(capsys) -> None:
+def test_launch_summary_records_sampling_rate(capsys) -> None:
     config = load_training_config("configs/dense.py", d_model=64)
 
-    print_launch_summary(
-        config,
-        data_retention_rate=0.25,
-    )
+    print_launch_summary(config)
 
     summary = capsys.readouterr().out
-    assert "data_retention_rate=0.25" in summary
+    assert "sampling_rate=0.25" in summary
 
 
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:

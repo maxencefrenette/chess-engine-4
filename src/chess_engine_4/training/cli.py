@@ -58,7 +58,7 @@ _GPU_SPECS = {
 class TrainOptions:
     config: TrainingConfig
     data: str | None = None
-    data_retention_rate: float = 1.0
+    sampling_rate: float = 0.25
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -89,7 +89,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
-        sampling_rate=options.data_retention_rate,
+        sampling_rate=options.sampling_rate,
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
@@ -115,7 +115,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             steps=steps,
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
-            data_retention_rate=options.data_retention_rate,
+            sampling_rate=options.sampling_rate,
         )
         if options.wandb
         else None
@@ -339,7 +339,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     samples_seen=seen,
                     flops_per_sample=flops_per_sample,
                     metrics=metrics,
-                    data_retention_rate=options.data_retention_rate,
+                    sampling_rate=options.sampling_rate,
                     final=step == steps,
                 )
             )
@@ -368,7 +368,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 samples_seen=seen,
                 flops_per_sample=flops_per_sample,
                 metrics=last_metrics,
-                data_retention_rate=options.data_retention_rate,
+                sampling_rate=options.sampling_rate,
                 final=True,
             )
         )
@@ -387,7 +387,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
-        "data_retention_rate": options.data_retention_rate,
+        "sampling_rate": options.sampling_rate,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -498,7 +498,7 @@ def _save_checkpoint(
     samples_seen: int,
     flops_per_sample: int,
     metrics: dict[str, float | int],
-    data_retention_rate: float,
+    sampling_rate: float,
     final: bool,
 ) -> Path:
     if checkpoint_dir is None:
@@ -517,7 +517,7 @@ def _save_checkpoint(
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "metrics": metrics,
-            "data_retention_rate": data_retention_rate,
+            "sampling_rate": sampling_rate,
         },
         path,
     )
@@ -648,7 +648,7 @@ def _init_wandb(
     steps: int,
     flops_per_sample: int,
     theoretical_tflops: float | None,
-    data_retention_rate: float,
+    sampling_rate: float,
 ) -> Any:
     import wandb
 
@@ -670,7 +670,7 @@ def _init_wandb(
         "theoretical_tflops": theoretical_tflops,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
-        "data_retention_rate": data_retention_rate,
+        "sampling_rate": sampling_rate,
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,

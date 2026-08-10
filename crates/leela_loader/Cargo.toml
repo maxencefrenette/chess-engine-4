@@ -14,6 +14,7 @@ half = "2.7"
 numpy = { version = "0.27", features = ["half"] }
 polars = { version = "0.55.1", default-features = false, features = ["parquet", "dtype-u8", "dtype-u16"] }
 pyo3 = { version = "0.27", features = ["extension-module"] }
+rand = "0.9"
 
 [package.metadata.maturin]
 module-name = "chess_engine_4_native"

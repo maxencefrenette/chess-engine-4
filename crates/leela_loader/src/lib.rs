@@ -447,15 +447,6 @@ fn iter_prefetched_parquet_batches(
 }
 
 #[pyfunction]
-fn parquet_retention_counts(
-    path: PathBuf,
-    batch_size: usize,
-) -> PyResult<(usize, usize, usize, usize, usize, usize, usize)> {
-    validate_batch_size(batch_size)?;
-    parquet_loader::parquet_retention_counts(path, batch_size)
-}
-
-#[pyfunction]
 fn convert_lc0_tar_to_parquet(input: PathBuf, output: PathBuf) -> PyResult<(usize, u64, u64)> {
     converter::convert_lc0_tar_to_parquet(input, output)
 }
@@ -486,7 +477,6 @@ fn make_packed_batch_iterator(paths: Vec<PathBuf>, batch_size: usize) -> PackedB
 fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
-    module.add_function(wrap_pyfunction!(parquet_retention_counts, module)?)?;
     module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;
     module.add("COMPACT_POLICY_SIZE", COMPACT_POLICY_SIZE)?;

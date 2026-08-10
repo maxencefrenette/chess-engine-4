@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import random
 import re
 import shutil
 import subprocess
@@ -204,7 +203,6 @@ def eval_modal() -> None:
         "baseline_nodes": args.baseline_nodes,
         "startup_ms": args.startup_ms,
         "ping_ms": args.ping_ms,
-        "opening_seed": random.randrange(2**31),
         "candidate_backend": "ce4",
         "baseline_backend": "cudnn-fp16",
         "candidate_name": args.candidate_name,
@@ -336,7 +334,6 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "log_path": str(log_path),
         "pentanomial": list(_pentanomial_from_pair_scores(pair_scores)),
         "pair_scores": list(pair_scores),
-        "opening_seed": payload["opening_seed"],
     }
 
 
@@ -601,12 +598,10 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         str(payload["rounds"]),
         "-concurrency",
         str(payload["concurrency"]),
-        "-srand",
-        str(payload["opening_seed"]),
         "-openings",
         f"file={OPENING_BOOK_PATH}",
         "format=pgn",
-        "order=random",
+        "order=sequential",
         "-report",
         "penta=true",
         "-startup-ms",

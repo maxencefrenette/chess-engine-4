@@ -143,17 +143,17 @@ def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
     assert not torch.equal(first_rows, second_rows)
 
 
-def test_parquet_dataset_accepts_eighth_sampling_rate(tmp_path: Path) -> None:
+def test_parquet_dataset_accepts_arbitrary_sampling_rate(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "stable-shard.parquet"
     _write_tar(tar_path, gzip.compress(_records(1_024)))
     convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
 
     first = list(
-        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.125)
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
     )
     second = list(
-        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.125)
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
     )
 
     assert first and second
@@ -163,12 +163,15 @@ def test_parquet_dataset_accepts_eighth_sampling_rate(tmp_path: Path) -> None:
     )
 
 
-def test_parquet_dataset_rejects_unsupported_sampling_rate(tmp_path: Path) -> None:
+@pytest.mark.parametrize("sampling_rate", [0.0, 1.1])
+def test_parquet_dataset_rejects_invalid_sampling_rate(
+    tmp_path: Path, sampling_rate: float
+) -> None:
     parquet_path = tmp_path / "training.parquet"
     parquet_path.touch()
 
     with pytest.raises(ValueError, match="sampling_rate"):
-        LeelaParquetDataset(parquet_path, batch_size=2, sampling_rate=0.3)
+        LeelaParquetDataset(parquet_path, batch_size=2, sampling_rate=sampling_rate)
 
 
 def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:

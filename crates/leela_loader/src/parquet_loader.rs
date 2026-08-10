@@ -1,7 +1,5 @@
 use std::collections::VecDeque;
-use std::collections::hash_map::RandomState;
 use std::fs::File;
-use std::hash::BuildHasher;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::sync_channel;
@@ -13,6 +11,7 @@ use polars::io::parquet::metadata::FileMetadataRef;
 use polars::prelude::*;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use rand::Rng;
 
 use crate::converter::PARQUET_ROW_GROUP_ROWS;
 use crate::{
@@ -25,12 +24,6 @@ const VALUE_FIELDS: usize = 3;
 const VALUE_COUNT: usize = VALUE_TYPE_COUNT * VALUE_FIELDS;
 const ROOT_VALUE_INDEX: usize = 4;
 
-#[derive(Clone, Copy)]
-struct Sampling {
-    threshold: u64,
-    buckets: u64,
-}
-
 struct ParquetBatchIterator {
     path: PathBuf,
     batch_size: usize,
@@ -39,22 +32,14 @@ struct ParquetBatchIterator {
     frame: Option<DataFrame>,
     frame_offset: usize,
     metadata: FileMetadataRef,
-    sampling: Sampling,
-    sampling_seed: u64,
+    sampling_rate: f64,
 }
 
 impl ParquetBatchIterator {
-    fn open(
-        path: PathBuf,
-        batch_size: usize,
-        sampling_rate: f64,
-        launch_seed: u64,
-    ) -> PyResult<Self> {
-        let sampling = Sampling::from_rate(sampling_rate)?;
+    fn open(path: PathBuf, batch_size: usize, sampling_rate: f64) -> PyResult<Self> {
         let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
         let rows = reader.num_rows().map_err(polars_error)?;
         let metadata = reader.get_metadata().map_err(polars_error)?.clone();
-        let sampling_seed = shard_seed(&path) ^ launch_seed;
         Ok(Self {
             path,
             batch_size,
@@ -63,8 +48,7 @@ impl ParquetBatchIterator {
             frame: None,
             frame_offset: 0,
             metadata,
-            sampling,
-            sampling_seed,
+            sampling_rate,
         })
     }
 
@@ -111,17 +95,12 @@ impl ParquetBatchIterator {
             .with_slice(Some((self.row_group_offset, row_count)));
         reader.set_metadata(self.metadata.clone());
         let frame = reader.finish().map_err(polars_error)?;
-        self.frame = Some(if self.sampling.threshold == self.sampling.buckets {
+        self.frame = Some(if self.sampling_rate == 1.0 {
             frame
         } else {
+            let mut rng = rand::rng();
             let retained = (0..row_count)
-                .map(|offset| {
-                    retain_row(
-                        self.row_group_offset + offset,
-                        self.sampling_seed,
-                        self.sampling,
-                    )
-                })
+                .map(|_| rng.random_bool(self.sampling_rate))
                 .collect::<Vec<_>>();
             let mask = BooleanChunked::from_slice("retained".into(), &retained);
             frame.filter(&mask).map_err(polars_error)?
@@ -146,9 +125,11 @@ pub(crate) fn iter_prefetched_parquet_batches(
     if threads == 0 {
         return Err(PyValueError::new_err("threads must be positive"));
     }
-    Sampling::from_rate(sampling_rate)?;
-    let launch_seed = RandomState::new().hash_one((paths.len(), batch_size, threads));
-    eprintln!("parquet_sampling sampling_rate={sampling_rate} seed={launch_seed}");
+    if !(0.0 < sampling_rate && sampling_rate <= 1.0) {
+        return Err(PyValueError::new_err(
+            "sampling_rate must be greater than 0 and at most 1",
+        ));
+    }
 
     let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
     let stop = Arc::new(AtomicBool::new(false));
@@ -172,12 +153,8 @@ pub(crate) fn iter_prefetched_parquet_batches(
                     let _ = sender.send(PrefetchMessage::End);
                     break;
                 };
-                let mut iterator = match ParquetBatchIterator::open(
-                    path,
-                    batch_size,
-                    sampling_rate,
-                    launch_seed,
-                ) {
+                let mut iterator = match ParquetBatchIterator::open(path, batch_size, sampling_rate)
+                {
                     Ok(iterator) => iterator,
                     Err(error) => {
                         let _ = sender.send(PrefetchMessage::Error(error.to_string()));
@@ -211,67 +188,6 @@ pub(crate) fn iter_prefetched_parquet_batches(
         stop,
         handles,
     })
-}
-
-pub(crate) fn parquet_retention_counts(
-    path: PathBuf,
-    batch_size: usize,
-) -> PyResult<(usize, usize, usize, usize, usize, usize, usize)> {
-    let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
-    let rows = reader.num_rows().map_err(polars_error)?;
-    let seed = shard_seed(&path);
-    let quarter = retained_row_count(rows, seed, Sampling::from_rate(0.25)?);
-    let half = retained_row_count(rows, seed, Sampling::from_rate(0.5)?);
-    Ok((
-        rows,
-        rows,
-        half,
-        quarter,
-        rows / batch_size * batch_size,
-        half / batch_size * batch_size,
-        quarter / batch_size * batch_size,
-    ))
-}
-
-impl Sampling {
-    fn from_rate(rate: f64) -> PyResult<Self> {
-        let (threshold, buckets) = match rate {
-            0.125 => (1, 8),
-            0.25 => (1, 4),
-            0.5 => (2, 4),
-            1.0 => (4, 4),
-            _ => {
-                return Err(PyValueError::new_err(
-                    "sampling_rate must be one of: 0.125, 0.25, 0.5, 1.0",
-                ));
-            }
-        };
-        Ok(Self { threshold, buckets })
-    }
-}
-
-fn retain_row(index: usize, seed: u64, sampling: Sampling) -> bool {
-    let mut value = seed ^ (index as u64).wrapping_mul(0x9e3779b97f4a7c15);
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d049bb133111eb);
-    ((value ^ (value >> 31)) % sampling.buckets) < sampling.threshold
-}
-
-fn retained_row_count(rows: usize, seed: u64, sampling: Sampling) -> usize {
-    (0..rows)
-        .filter(|index| retain_row(*index, seed, sampling))
-        .count()
-}
-
-fn shard_seed(path: &std::path::Path) -> u64 {
-    let name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or_default();
-    let hash = name.bytes().fold(0xcbf29ce484222325_u64, |hash, byte| {
-        (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
-    });
-    hash
 }
 
 fn build_batch_data(frame: &DataFrame) -> PyResult<PackedBatchData> {

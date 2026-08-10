@@ -89,8 +89,8 @@ class LeelaParquetDataset(LeelaTarDataset):
             raise ValueError("prefetch_per_thread must be positive.")
         if threads <= 0:
             raise ValueError("threads must be positive.")
-        if sampling_rate not in {0.125, 0.25, 0.5, 1.0}:
-            raise ValueError("sampling_rate must be one of: 0.125, 0.25, 0.5, 1.0.")
+        if not 0.0 < sampling_rate <= 1.0:
+            raise ValueError("sampling_rate must be greater than 0 and at most 1.")
         self.paths = resolve_data_paths(paths, env_var=env_var, suffix=".parquet")
         self.batch_size = batch_size
         self.prefetch_per_thread = prefetch_per_thread

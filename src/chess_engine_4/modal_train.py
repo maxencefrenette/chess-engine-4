@@ -89,14 +89,15 @@ def train_modal() -> None:
     parser.add_argument("--wandb-name", default=None)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
-        "--data-retention-rate",
+        "--sampling-rate",
         type=float,
-        choices=(0.125, 0.25, 0.5, 1.0),
-        default=1.0,
+        default=0.25,
     )
     args = parser.parse_args()
+    if not 0.0 < args.sampling_rate <= 1.0:
+        parser.error("--sampling-rate must be greater than 0 and at most 1")
     config = resolve_training_config(args)
-    print_launch_summary(config, data_retention_rate=args.data_retention_rate)
+    print_launch_summary(config, sampling_rate=args.sampling_rate)
     if args.dry_run:
         return
 
@@ -107,7 +108,7 @@ def train_modal() -> None:
         "wandb_entity": os.environ.get("WANDB_ENTITY"),
         "wandb_mode": os.environ.get("WANDB_MODE"),
         "wandb_name": args.wandb_name,
-        "data_retention_rate": args.data_retention_rate,
+        "sampling_rate": args.sampling_rate,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
@@ -151,7 +152,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
             data=REMOTE_PARQUET_DATA_PATH,
-            data_retention_rate=float(payload.get("data_retention_rate", 1.0)),
+            sampling_rate=float(payload.get("sampling_rate", 0.25)),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -240,7 +241,7 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
-    data_retention_rate: float = 1.0,
+    sampling_rate: float = 0.25,
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -269,7 +270,7 @@ def print_launch_summary(
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
-        f" data_retention_rate={data_retention_rate:g}"
+        f" sampling_rate={sampling_rate:g}"
     )
 
 

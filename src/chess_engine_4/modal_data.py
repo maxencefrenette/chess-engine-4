@@ -20,51 +20,6 @@ from chess_engine_4.modal_train import (
 _CONVERSION_CONCURRENCY = 16
 
 
-def audit_parquet_retention_modal() -> None:
-    """Count exact deterministic retention capacity without reading Parquet rows."""
-
-    parser = argparse.ArgumentParser(description="Audit retained canonical Parquet rows.")
-    parser.add_argument("--batch-size", type=int, default=65_536)
-    args = parser.parse_args()
-    if args.batch_size <= 0:
-        parser.error("batch-size must be positive")
-    sources = sorted(_converted_names())
-    if not sources:
-        parser.error("no canonical Parquet files found on the training-data Volume")
-    print(
-        f"retention_audit_plan files={len(sources)} batch_size={args.batch_size:,} "
-        f"concurrency={_CONVERSION_CONCURRENCY}"
-    )
-    results: list[dict[str, Any]] = []
-    with app.run():
-        for result in _audit_retention_one_remote.map(
-            sources,
-            itertools.repeat(args.batch_size),
-            order_outputs=False,
-        ):
-            results.append(result)
-    totals = {
-        key: sum(int(result[key]) for result in results)
-        for key in (
-            "raw_rows",
-            "full_rows",
-            "half_rows",
-            "quarter_rows",
-            "usable_full_rows",
-            "usable_half_rows",
-            "usable_quarter_rows",
-        )
-    }
-    print(
-        f"retention_audit_complete files={len(results)} raw_rows={totals['raw_rows']:,} "
-        f"full_rows={totals['full_rows']:,} half_rows={totals['half_rows']:,} "
-        f"quarter_rows={totals['quarter_rows']:,} "
-        f"usable_full_rows={totals['usable_full_rows']:,} "
-        f"usable_half_rows={totals['usable_half_rows']:,} "
-        f"usable_quarter_rows={totals['usable_quarter_rows']:,}"
-    )
-
-
 def convert_data_modal() -> None:
     parser = argparse.ArgumentParser(description="Convert LCZero training tar files on Modal.")
     selection = parser.add_mutually_exclusive_group()
@@ -208,32 +163,6 @@ def _verify_one_remote(source_name: str, batches: int) -> dict[str, int | str]:
     except Exception as error:
         raise RuntimeError(f"failed to verify {source_name}: {error}") from error
     return {"file": source_name, "batches": verified}
-
-
-@app.function(
-    image=image,
-    cpu=2,
-    max_containers=_CONVERSION_CONCURRENCY,
-    volumes={REMOTE_DATA_PATH: data_volume},
-    timeout=30 * 60,
-)
-def _audit_retention_one_remote(source_name: str, batch_size: int) -> dict[str, Any]:
-    from chess_engine_4.data.native import native_parquet_retention_counts
-
-    result = native_parquet_retention_counts(
-        Path(REMOTE_PARQUET_DATA_PATH) / source_name,
-        batch_size=batch_size,
-    )
-    keys = (
-        "raw_rows",
-        "full_rows",
-        "half_rows",
-        "quarter_rows",
-        "usable_full_rows",
-        "usable_half_rows",
-        "usable_quarter_rows",
-    )
-    return {"file": source_name, **dict(zip(keys, result, strict=True))}
 
 
 def _source_names() -> list[str]:

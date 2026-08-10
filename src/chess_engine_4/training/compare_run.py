@@ -87,10 +87,6 @@ def compare_run_data(
     training_ratio = _positive_float(config, "training_ratio")
     candidate_flops = flops_per_sample * batch_size * steps
     metrics = metrics_from_summary(wandb_url, summary)
-    if metrics.loss_spike_count:
-        raise ValueError(
-            f"W&B run is invalid: detected {metrics.loss_spike_count} loss spike(s)."
-        )
     defaults = read_best_runs(best_runs_path)
     loss_curve = fit_loss_power_law((result.flops, result.loss) for result in defaults)
     same_width = [

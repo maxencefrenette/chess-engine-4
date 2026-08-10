@@ -9,7 +9,7 @@ from chess_engine_4.modal_eval import (
 )
 
 
-def test_fastchess_command_uses_randomized_paired_openings() -> None:
+def test_fastchess_command_uses_sequential_paired_openings() -> None:
     payload = {
         "lc0_path": "/artifacts/bin/lc0",
         "games": 2,
@@ -17,7 +17,6 @@ def test_fastchess_command_uses_randomized_paired_openings() -> None:
         "concurrency": 1,
         "startup_ms": 120_000,
         "ping_ms": 120_000,
-        "opening_seed": 12345,
         "candidate_name": "candidate",
         "candidate_weights": "/artifacts/models/candidate.safetensors",
         "candidate_backend": "ce4",
@@ -33,12 +32,12 @@ def test_fastchess_command_uses_randomized_paired_openings() -> None:
     command = _fastchess_command(payload, Path("/artifacts/evals/test/games.pgn"))
 
     assert "-repeat" in command
-    assert command[command.index("-srand") + 1] == "12345"
+    assert "-srand" not in command
     openings = command.index("-openings")
     assert command[openings + 1 : openings + 4] == [
         f"file={OPENING_BOOK_PATH}",
         "format=pgn",
-        "order=random",
+        "order=sequential",
     ]
 
 
