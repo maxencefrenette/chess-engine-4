@@ -182,7 +182,10 @@ def _fit_with_covariance(
     covariance = _cluster_robust_covariance(
         ratings, indices, matches, hessian, transform
     )
-    return fit_elos(engines, matches), covariance
+    fitted = fit_elos(engines, matches)
+    for row in fitted:
+        row["ci_method"] = "pentanomial cluster-robust sandwich"
+    return fitted, covariance
 
 
 if __name__ == "__main__":

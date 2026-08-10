@@ -236,22 +236,25 @@ Direct WDL is from the first model's perspective:
 | 1.0 vs 0.25 | 736 | 471-310-691 | 574.947 s | [142, 151, 292, 87, 64] |
 | 1.0 vs 0.25, fresh extension | 568 | 347-226-563 | 440.151 s | [124, 108, 237, 58, 41] |
 
-All 2,776 ordered pair scores and stable opening identities are retained in
-the two raw result files. [tournament-uho-combined-results.json](tournament-uho-combined-results.json)
-contains the combined 1,304-cluster fit. The Bradley-Terry quasi-MLE treats
-draws as 0.5 and uses two-sided 95% Wald intervals with a CR1 sandwich
-covariance clustered by opening identity.
+The raw result files retain aggregate WDL, pentanomial counts, runtime, and
+protocol metadata. Per-pair scores and opening identities were removed after
+analysis to keep the repository artifacts compact.
+[tournament-uho-combined-results.json](tournament-uho-combined-results.json)
+contains the reproducible 2,776-pentanomial-cluster fit. The Bradley-Terry
+quasi-MLE treats draws as 0.5 and uses two-sided 95% Wald intervals with a CR1
+sandwich covariance clustered within each mirrored opening pair. This compact
+evidence does not preserve cross-match correlation from reused openings.
 
 | Rank | Retention | Centered Elo | 95% CI |
 | ---: | ---: | ---: | ---: |
-| 1 | 0.25 | +28.76 | [+22.57, +34.95] |
-| 2 | 0.5 | +3.41 | [-3.61, +10.43] |
-| 3 | 1.0 | -32.17 | [-38.36, -25.98] |
+| 1 | 0.25 | +28.76 | [+22.75, +34.78] |
+| 2 | 0.5 | +3.41 | [-3.51, +10.33] |
+| 3 | 1.0 | -32.17 | [-38.23, -26.12] |
 
-The correlated pairwise contrasts, which are the correct significance tests,
-are 0.25 minus 0.5 = `+25.35 Elo [13.66, 37.05]`, 0.5 minus 1.0 =
-`+35.58 [23.89, 47.28]`, and 0.25 minus 1.0 =
-`+60.94 [50.73, 71.14]`. The randomized-UHO tournament therefore resolves all
+The paired pairwise contrasts are 0.25 minus 0.5 =
+`+25.35 Elo [13.88, 36.83]`, 0.5 minus 1.0 =
+`+35.58 [24.05, 47.11]`, and 0.25 minus 1.0 =
+`+60.94 [51.05, 70.82]`. The randomized-UHO tournament therefore resolves all
 three treatments rather than merely narrowing their marginal intervals.
 
 Tournament runtime was 2,244.657 GPU-seconds. At RTX PRO 6000 `$0.000842/s`
@@ -286,8 +289,10 @@ uv run python experiments/2026-08-08.01-position-subsampling/analyze_uho.py \
 ```
 
 The launch-generated opening seeds were `250116766`, `651675137`, and
-`1099564731`. The three raw result files retain all 2,208 ordered pair scores
-and opening identities. Direct WDL is from the first model's perspective:
+`1099564731`. The three raw result files retain aggregate WDL, pentanomial
+counts, runtime, and protocol metadata for all 2,208 mirrored opening pairs;
+per-pair scores and opening identities were removed. Direct WDL is from the
+first model's perspective:
 
 | Matchup | Opening pairs | W-D-L | Runtime | Pentanomial |
 | --- | ---: | ---: | ---: | --- |

@@ -22,26 +22,26 @@
     {
       "name": "retention-0.25",
       "elo": 28.762943240010355,
-      "elo_95ci": 6.189695143600408,
-      "elo_95ci_low": 22.573248096409948,
-      "elo_95ci_high": 34.95263838361076,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 6.017408890016192,
+      "elo_95ci_low": 22.745534349994163,
+      "elo_95ci_high": 34.78035213002654,
+      "ci_method": "pentanomial cluster-robust sandwich"
     },
     {
       "name": "retention-0.5",
       "elo": 3.4094136037638703,
-      "elo_95ci": 7.015865402671658,
-      "elo_95ci_low": -3.6064517989077873,
-      "elo_95ci_high": 10.425279006435527,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 6.923717506272881,
+      "elo_95ci_low": -3.514303902509011,
+      "elo_95ci_high": 10.333131110036751,
+      "ci_method": "pentanomial cluster-robust sandwich"
     },
     {
       "name": "retention-1.0",
       "elo": -32.172356843774224,
-      "elo_95ci": 6.1910391964081795,
-      "elo_95ci_low": -38.3633960401824,
-      "elo_95ci_high": -25.981317647366044,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 6.052766569010978,
+      "elo_95ci_low": -38.2251234127852,
+      "elo_95ci_high": -26.119590274763247,
+      "ci_method": "pentanomial cluster-robust sandwich"
     }
   ],
   "pairwise_contrasts": [
@@ -49,28 +49,28 @@
       "left": "retention-0.25",
       "right": "retention-0.5",
       "elo_difference": 25.353529636246485,
-      "elo_95ci": 11.693605958247813,
-      "elo_95ci_low": 13.659923677998671,
-      "elo_95ci_high": 37.0471355944943
+      "elo_95ci": 11.474239171888216,
+      "elo_95ci_low": 13.879290464358268,
+      "elo_95ci_high": 36.8277688081347
     },
     {
       "left": "retention-0.5",
       "right": "retention-1.0",
       "elo_difference": 35.5817704475381,
-      "elo_95ci": 11.695740309575307,
-      "elo_95ci_low": 23.88603013796279,
-      "elo_95ci_high": 47.277510757113404
+      "elo_95ci": 11.529895261517646,
+      "elo_95ci_low": 24.051875186020453,
+      "elo_95ci_high": 47.11166570905574
     },
     {
       "left": "retention-0.25",
       "right": "retention-1.0",
       "elo_difference": 60.93530008378458,
-      "elo_95ci": 10.200990993817252,
-      "elo_95ci_low": 50.73430908996733,
-      "elo_95ci_high": 71.13629107760184
+      "elo_95ci": 9.8869874921786,
+      "elo_95ci_low": 51.048312591605985,
+      "elo_95ci_high": 70.82228757596319
     }
   ],
-  "clusters": 1304,
+  "clusters": 2776,
   "total_games": 5552,
   "tournament_runtime_sec": 2244.657411644,
   "probe_runtime_sec": 33.08899232,

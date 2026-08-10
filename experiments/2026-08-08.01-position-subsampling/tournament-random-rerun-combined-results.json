@@ -13,26 +13,26 @@
     {
       "name": "random-retention-0.25",
       "elo": 35.6969416460127,
-      "elo_95ci": 7.483661793964456,
-      "elo_95ci_low": 28.21327985204824,
-      "elo_95ci_high": 43.180603439977155,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 7.48366179396449,
+      "elo_95ci_low": 28.213279852048206,
+      "elo_95ci_high": 43.18060343997719,
+      "ci_method": "pentanomial cluster-robust sandwich"
     },
     {
       "name": "random-retention-0.5",
       "elo": 3.5235514279230986,
-      "elo_95ci": 6.720085302871278,
-      "elo_95ci_low": -3.1965338749481798,
-      "elo_95ci_high": 10.243636730794377,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 6.7200853028713725,
+      "elo_95ci_low": -3.196533874948274,
+      "elo_95ci_high": 10.24363673079447,
+      "ci_method": "pentanomial cluster-robust sandwich"
     },
     {
       "name": "random-retention-1.0",
       "elo": -39.22049307393579,
-      "elo_95ci": 6.809080989998402,
-      "elo_95ci_low": -46.02957406393419,
-      "elo_95ci_high": -32.41141208393739,
-      "ci_method": "paired-opening cluster-robust sandwich"
+      "elo_95ci": 6.809080989998425,
+      "elo_95ci_low": -46.02957406393422,
+      "elo_95ci_high": -32.411412083937364,
+      "ci_method": "pentanomial cluster-robust sandwich"
     }
   ],
   "pairwise_contrasts": [
@@ -40,25 +40,25 @@
       "left": "random-retention-0.25",
       "right": "random-retention-0.5",
       "elo_difference": 32.1733902180896,
-      "elo_95ci": 12.488630698369702,
-      "elo_95ci_low": 19.684759519719897,
-      "elo_95ci_high": 44.662020916459305
+      "elo_95ci": 12.488630698369832,
+      "elo_95ci_low": 19.68475951971977,
+      "elo_95ci_high": 44.66202091645943
     },
     {
       "left": "random-retention-0.5",
       "right": "random-retention-1.0",
       "elo_difference": 42.74404450185889,
-      "elo_95ci": 11.271249574293218,
-      "elo_95ci_low": 31.47279492756567,
-      "elo_95ci_high": 54.0152940761521
+      "elo_95ci": 11.271249574293336,
+      "elo_95ci_low": 31.472794927565552,
+      "elo_95ci_high": 54.01529407615222
     },
     {
       "left": "random-retention-0.25",
       "right": "random-retention-1.0",
       "elo_difference": 74.91743471994849,
-      "elo_95ci": 12.632418971508793,
-      "elo_95ci_low": 62.2850157484397,
-      "elo_95ci_high": 87.54985369145729
+      "elo_95ci": 12.632418971508809,
+      "elo_95ci_low": 62.285015748439676,
+      "elo_95ci_high": 87.5498536914573
     }
   ],
   "clusters": 2208,
