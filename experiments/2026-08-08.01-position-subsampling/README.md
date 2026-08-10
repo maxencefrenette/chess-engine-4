@@ -3,20 +3,21 @@
 ## Outcome
 
 Three matched `moe64a2 d512` treatments completed at retention rates 1.0, 0.5,
-and 0.25. Each consumed exactly 983,040,000 accepted rows in 15,000 optimizer
-steps. Half and quarter retention both improved training loss and searched-play
-strength relative to full retention. The primary randomized-UHO tournament
-resolves the ranking: quarter retention leads half by 25.35 Elo with 95% CI
-`[13.66, 37.05]`, and half leads full by 35.58 Elo with 95% CI
-`[23.89, 47.28]`. Retain 0.25 as the leading candidate; do not promote it to a
-canonical configuration until the user reviews this report.
+and 0.25, then the entire experiment was replicated with fresh random row
+membership. Every run consumed exactly 983,040,000 accepted rows in 15,000
+optimizer steps. Both experiments rank searched strength 0.25 > 0.5 > 1.0.
+In the fresh-random replication, quarter leads half by 32.17 Elo with 95% CI
+`[19.68, 44.66]`, and half leads full by 42.74 Elo with 95% CI
+`[31.47, 54.02]`. The diversity result holds. Retain random subsampling for
+review, but do not canonically promote the quarter run because it recorded two
+automatic loss-spike flags.
 
 Task: `01kzg0rdwf`  
 Branch: `codex/position-subsampling-01kzg0rdwf`  
 Base commit: `316c327da2612f5b71e9776a9ae8d3fc773c216d`
 
 Relevant implementation commits are `3bbb430` (deterministic streaming
-retention), `13dcaf0` (initial-run evidence), `7a51a48` (eight-thread probe),
+retention), `4e20293b` (fresh random membership), `13dcaf0` (initial-run evidence), `7a51a48` (eight-thread probe),
 `90f50cf` (paired Elo integration), and `cb63e11` (matched full/half evidence).
 Completion commit `8d327b3d` retains the evaluator fix, tournament protocol,
 raw paired results, final report, and task disposition. UHO migration,
@@ -48,6 +49,13 @@ audit found:
 Canonical `/parquet`, source manifests, and training configuration files were
 not modified by this experiment. Checkpoints, exports, and evaluation outputs
 use isolated `/artifacts` names.
+
+After the initial experiment, the user clarified that each launch should draw
+a fresh random subset rather than reuse fixed row membership. The current
+loader therefore mixes the stable shard/row identity with a fresh per-iterator
+seed. The seed is shared across workers, so membership is independent of
+prefetch scheduling, and is printed in the launch log for provenance. There is
+still no derived dataset or mutation of canonical Parquet.
 
 ## Matched training protocol
 
@@ -110,6 +118,59 @@ loss spikes.
 `compare-run` reported `EG_flops` of 5.575x, 8.004x, and 9.981x in retention
 order. These trend comparisons are supporting diagnostics only; no best-run
 file was changed.
+
+## Fresh-random replication
+
+The complete matched training experiment was repeated after changing only row
+membership from fixed to fresh random samples. The same 497-shard manifest,
+model recipe, seed, batch, steps, accepted samples, optimizer, and training
+FLOPs were retained. The logged sampling seeds were
+`16744882689526351630`, `11635758382966936071`, and
+`9229423701945907918` in retention order.
+
+| Retention | W&B | Runtime | Cost | EMA task loss | Final policy | Final value | Final moves-left | EMA policy top-1 | Spikes |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.0 | [xqwf95gr](https://wandb.ai/maxence-frenette/uncategorized/runs/xqwf95gr) | 651.804 s | $1.199841 | 2.865800 | 2.026427 | 0.691094 | 0.147131 | 0.507592 | 0 |
+| 0.5 | [2o60pa22](https://wandb.ai/maxence-frenette/uncategorized/runs/2o60pa22) | 658.386 s | $1.211957 | 2.847041 | 2.037432 | 0.666627 | 0.140095 | 0.512505 | 0 |
+| 0.25 | [qhqb7a9c](https://wandb.ai/maxence-frenette/uncategorized/runs/qhqb7a9c) | 691.347 s | $1.272631 | 2.835924 | 2.024474 | 0.674327 | 0.140235 | 0.515167 | 2 |
+
+Every arm again consumed exactly 983,040,000 accepted rows in 15,000 steps.
+Fresh random membership reproduced the task-loss ordering and avoided the
+original quarter-rate loader slowdown: realized costs were within 6.1% of one
+another. Half retention had the best final value-Q MSE (`0.030509`) and
+moves-left MAE (`8.6185`); quarter retained the best EMA task loss and policy
+top-1. Full and half had zero detected loss spikes. Quarter recorded two
+one-off spike flags around logged steps 2,450 and 7,010; its subsequent losses
+and gradients returned immediately to trend, but repository methodology still
+disqualifies that run from canonical promotion.
+
+`compare-run` reports `EG_flops` 5.573x for full and 8.186x for half, with
+`BEATS TREND` / `PROMOTE` diagnostic verdicts. It correctly refuses to assign
+an `EG_flops` or promotion verdict to quarter because of the two spike flags.
+
+Fresh-random checkpoints and exports:
+
+| Retention | Checkpoint | lc0 export |
+| ---: | --- | --- |
+| 1.0 | `/artifacts/checkpoints/position-subsampling-random-r1-final.pt` | `/artifacts/models/position-subsampling-random-r1-final.safetensors` |
+| 0.5 | `/artifacts/checkpoints/position-subsampling-random-r0.5-final.pt` | `/artifacts/models/position-subsampling-random-r0.5-final.safetensors` |
+| 0.25 | `/artifacts/checkpoints/position-subsampling-random-r0.25-final.pt` | `/artifacts/models/position-subsampling-random-r0.25-final.safetensors` |
+
+Representative replication commands (substitute `RATE` in all three names):
+
+```sh
+uv run train-modal --config configs/moe64a2.py --d-model 512 \
+  --training-ratio 0.04680654542731256 --steps 15000 \
+  --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
+  --data-retention-rate RATE \
+  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
+  --wandb-name position-subsampling-random-rRATE
+
+uv run export-model \
+  /artifacts/checkpoints/position-subsampling-random-rRATE-final.pt \
+  --output artifacts/models/position-subsampling-random-rRATE-final.safetensors \
+  --remote-only
+```
 
 Final checkpoints and exports:
 
@@ -196,13 +257,72 @@ plus a conservative two CPU cores, its rate-derived cost was `$1.948812`.
 Including the 33.089-second batching probe gives `$1.977539`, approximately
 the requested `$2` allocation.
 
+## Fresh-random searched replication
+
+The three fresh-random exports were compared at 800 visits with the pinned UHO
+book. Every randomly shuffled opening was played as an adjacent mirrored pair.
+The initial plan used 1,856 games per matchup, but its first measured match
+took 968.051 seconds and projected to `$2.52`. It was stopped after wave one;
+the two remaining matchups were resized to 1,280 games each, projecting the
+complete connected comparison to `$1.9997`. No completed evidence was dropped.
+
+```sh
+uv run eval-tournament-modal \
+  --config experiments/2026-08-08.01-position-subsampling/tournament-random-rerun.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-random-rerun-results.json
+
+uv run eval-tournament-modal \
+  --config experiments/2026-08-08.01-position-subsampling/tournament-random-rerun-half-quarter.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-random-rerun-half-quarter-results.json
+
+uv run eval-tournament-modal \
+  --config experiments/2026-08-08.01-position-subsampling/tournament-random-rerun-full-quarter.toml \
+  --output experiments/2026-08-08.01-position-subsampling/tournament-random-rerun-full-quarter-results.json
+
+uv run python experiments/2026-08-08.01-position-subsampling/analyze_uho.py \
+  --random-rerun
+```
+
+The launch-generated opening seeds were `250116766`, `651675137`, and
+`1099564731`. The three raw result files retain all 2,208 ordered pair scores
+and opening identities. Direct WDL is from the first model's perspective:
+
+| Matchup | Opening pairs | W-D-L | Runtime | Pentanomial |
+| --- | ---: | ---: | ---: | --- |
+| 1.0 vs 0.5 | 928 | 611-369-876 | 968.051 s | [174, 181, 387, 108, 78] |
+| 0.5 vs 0.25 | 640 | 425-274-581 | 559.210 s | [110, 132, 261, 78, 59] |
+| 1.0 vs 0.25 | 640 | 397-252-631 | 551.678 s | [132, 133, 259, 69, 47] |
+
+The connected clustered fit in
+[tournament-random-rerun-combined-results.json](tournament-random-rerun-combined-results.json)
+gives:
+
+| Rank | Retention | Centered Elo | 95% CI |
+| ---: | ---: | ---: | ---: |
+| 1 | 0.25 | +35.70 | [+28.21, +43.18] |
+| 2 | 0.5 | +3.52 | [-3.20, +10.24] |
+| 3 | 1.0 | -39.22 | [-46.03, -32.41] |
+
+The correlated contrasts are 0.25 minus 0.5 = `+32.17 Elo [19.68, 44.66]`,
+0.5 minus 1.0 = `+42.74 [31.47, 54.02]`, and 0.25 minus 1.0 =
+`+74.92 [62.29, 87.55]`. Thus fresh random membership reproduces and slightly
+strengthens the original searched ranking.
+
+The matches used 2,078.939 completed GPU-seconds and cost `$1.804934` at the
+same RTX PRO 6000 plus two-CPU rate. This rate-derived figure excludes startup
+and the few aborted seconds immediately after the oversized plan entered wave
+two, so it is not a rounded Modal invoice line item. End-to-end completed-play
+throughput was 2.124 games/s. Backend inference batches averaged 177.5-240.3
+positions, every model reached batch 256, and per-model inference throughput
+ranged from 57.3k to 70.5k positions/s.
+
 ## Recommendation
 
-Retain the deterministic sampler and 0.25 retention as the leading candidate
-for review. It has the best task/value/moves-left losses and now beats 0.5 by a
-statistically resolved 25.35 Elo in the primary searched tournament. Its cost
-is the tradeoff: quarter-retention training took 52% longer and cost 52% more
-than half retention because of additional Parquet scanning. Reject 1.0 as the
-preferred treatment for this matched allocation. Do not promote 0.25, edit
-canonical training data/configs, or merge this branch until the user reviews
-the evidence.
+Retain fresh random subsampling: the loss and searched-play ranking replicated
+decisively, and the rerun kept all three training costs within 6.1%. Quarter
+retention is the strongest searched model, but its two automatic spike flags
+make that particular run ineligible for canonical promotion. Half retention is
+the clean zero-spike candidate and still beats full by `+42.74 Elo`. Reject 1.0
+as the preferred treatment for this matched allocation. Do not change
+canonical training configs or merge this branch until the user reviews the
+evidence; obtain a clean quarter checkpoint before promoting 0.25.

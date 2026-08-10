@@ -1,13 +1,14 @@
 ---
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
-status: in-progress
+status: completed
 priority: high
 effort: medium
 dependencies: []
 tags: ["value", "data", "experiment", "notion-import"]
 touches: ["training", "data", "experiments"]
 created_at: 2026-08-07
+completed_at: 2026-08-09
 ---
 
 # Evaluate position subsampling for value diversity
@@ -33,6 +34,15 @@ and training FLOPs.
 - Any promoted rule improves the stated objective without a policy regression.
 
 ## Progress
+
+Fresh-random replication completed on the same 497-shard manifest. All three
+arms consumed 983,040,000 accepted rows in 15,000 steps; EMA task loss ranked
+0.25 (2.835924), 0.5 (2.847041), then 1.0 (2.865800). A 4,416-game / 2,208-pair
+random-UHO tournament at 800 visits reproduced the searched ranking: quarter
+beats half by +32.17 Elo [19.68, 44.66], and half beats full by +42.74
+[31.47, 54.02]. Completed-game tournament cost was $1.804934. The quarter run
+had two automatic spike flags, so random subsampling is retained for review but
+0.25 is not promoted pending a clean checkpoint.
 
 Reopened after the user clarified that each treatment should use a fresh random
 row sample rather than fixed row-identity membership. The original matched
