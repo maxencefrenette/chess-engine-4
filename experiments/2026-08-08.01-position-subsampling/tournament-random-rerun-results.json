@@ -1,0 +1,75 @@
+{
+  "tournament": {
+    "name": "position-subsampling-random-rerun-uho-800nodes",
+    "gpu": "RTX-PRO-6000",
+    "games_per_matchup": 1856,
+    "waves": 3,
+    "max_concurrency": 1,
+    "policy_mode_size": 256,
+    "parallelism": 64,
+    "visits": 800,
+    "opening_book": "/artifacts/books/UHO_Lichess_4852_v1-random-65536.pgn",
+    "opening_book_sha256": "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c",
+    "opening_seed": 250116766
+  },
+  "opening_book": "/artifacts/books/UHO_Lichess_4852_v1-random-65536.pgn",
+  "opening_book_sha256": "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c",
+  "opening_seed": 250116766,
+  "engines": [
+    {
+      "name": "random-retention-1.0",
+      "weights": "/artifacts/models/position-subsampling-random-r1-final.safetensors",
+      "backend": "ce4",
+      "training_flops": 1.7847613980672E+17,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "random-retention-0.5",
+      "weights": "/artifacts/models/position-subsampling-random-r0.5-final.safetensors",
+      "backend": "ce4",
+      "training_flops": 1.7847613980672E+17,
+      "seed_elo": 0.0
+    },
+    {
+      "name": "random-retention-0.25",
+      "weights": "/artifacts/models/position-subsampling-random-r0.25-final.safetensors",
+      "backend": "ce4",
+      "training_flops": 1.7847613980672E+17,
+      "seed_elo": 0.0
+    }
+  ],
+  "completed_waves": 1,
+  "matches": [
+    {
+      "wave": 0,
+      "player1": "random-retention-1.0",
+      "player2": "random-retention-0.5",
+      "player1_wins": 611,
+      "player2_wins": 876,
+      "draws": 369,
+      "runtime_sec": 968.05125011,
+      "pentanomial": [
+        174,
+        181,
+        387,
+        108,
+        78
+      ]
+    }
+  ],
+  "ratings": [],
+  "rating_model": {
+    "point_estimate": "Bradley-Terry score quasi-MLE with draws worth 0.5",
+    "regularization": "centered Normal(0, 10000 Elo) stabilization prior",
+    "confidence_level": 0.95,
+    "interval": "two-sided Wald interval",
+    "covariance": "CR1 sandwich clustered by mirrored opening pair from aggregate pentanomial counts",
+    "paired_matches": 1,
+    "unpaired_matches": 0,
+    "clusters": 928,
+    "free_rating_parameters": 2
+  },
+  "flops_scaling_law": null,
+  "total_games": 1856,
+  "total_gpu_runtime_sec": 968.05125011
+}

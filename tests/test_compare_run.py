@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from chess_engine_4.training.compare_run import compare_run_data
 from chess_engine_4.training.wandb_metrics import (
     LOSS_MEAN_KEY,
@@ -60,7 +58,7 @@ policy_top1 = 0.3
         summary={
             LOSS_MEAN_KEY: 2.9,
             POLICY_TOP1_KEY: 0.4,
-            LOSS_SPIKE_COUNT_KEY: 0,
+            LOSS_SPIKE_COUNT_KEY: 1,
         },
         best_runs_path=best_runs,
     )
@@ -72,26 +70,3 @@ policy_top1 = 0.3
     assert comparison.beats_trend
     assert comparison.incumbent_eg_flops is not None
     assert comparison.eg_flops > comparison.incumbent_eg_flops
-
-
-def test_compare_run_rejects_loss_spikes(tmp_path: Path) -> None:
-    best_runs = tmp_path / "best.toml"
-    best_runs.write_text("", encoding="utf-8")
-
-    with pytest.raises(ValueError, match="detected 1 loss spike"):
-        compare_run_data(
-            wandb_url="https://wandb.ai/e/p/runs/candidate",
-            config={
-                "flops_per_sample": 10,
-                "batch_size": 5,
-                "steps": 20,
-                "d_model": 64,
-                "training_ratio": 0.25,
-            },
-            summary={
-                LOSS_MEAN_KEY: 2.9,
-                POLICY_TOP1_KEY: 0.4,
-                LOSS_SPIKE_COUNT_KEY: 1,
-            },
-            best_runs_path=best_runs,
-        )

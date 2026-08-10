@@ -22,9 +22,7 @@ ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
-OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.epd"
-POLICY_OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "noob_2moves.pgn"
-OPENING_BOOK_SEED = 1
+OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1.pgn"
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
@@ -239,6 +237,7 @@ def eval_selfplay_modal() -> None:
     parser.add_argument("--policy-mode-size", type=int, default=256)
     parser.add_argument("--visits", type=int, default=None)
     parser.add_argument("--parallelism", type=int, default=32)
+    parser.add_argument("--opening-book", default=str(OPENING_BOOK_PATH))
     parser.add_argument(
         "--gpu",
         choices=EVALUATION_GPUS,
@@ -255,6 +254,7 @@ def eval_selfplay_modal() -> None:
         "policy_mode_size": args.policy_mode_size,
         "visits": args.visits,
         "parallelism": args.parallelism,
+        "opening_book": args.opening_book,
         "gpu": args.gpu,
         "player1": {
             "weights": args.player1_weights,
@@ -347,8 +347,9 @@ def _run_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
     _require_lc0(payload)
-    if not POLICY_OPENING_BOOK_PATH.exists():
-        raise FileNotFoundError(f"Missing policy opening book: {POLICY_OPENING_BOOK_PATH}")
+    opening_book = Path(payload.get("opening_book", OPENING_BOOK_PATH))
+    if not opening_book.exists():
+        raise FileNotFoundError(f"Missing tournament opening book: {opening_book}")
     for player in (payload["player1"], payload["player2"]):
         if not Path(player["weights"]).exists():
             raise FileNotFoundError(player["weights"])
@@ -384,6 +385,7 @@ def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "results_path": str(results_path),
         "results": results_path.read_text(),
         "lc0_output": completed.stdout,
+        "opening_book": str(opening_book),
     }
     (run_dir / "results.json").write_text(json.dumps(result, indent=2) + "\n")
     artifact_volume.commit()
@@ -395,7 +397,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         payload["lc0_path"],
         "selfplay",
         f"--games={payload['games']}",
-        f"--openings-pgn={POLICY_OPENING_BOOK_PATH}",
+        f"--openings-pgn={payload.get('opening_book', OPENING_BOOK_PATH)}",
         "--mirror-openings",
         "--openings-mode=sequential",
         f"--tournament-results-file={results_path}",
@@ -419,14 +421,17 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
                 "--no-share-trees",
                 "--temperature=0.0",
                 "--noise-epsilon=0.0",
-                "--player1.backend=multiplexing",
-                "--player1.backend-opts=child(backend="
-                f"{payload['player1']['backend']},max_batch=256,threads=1)",
-                "--player2.backend=multiplexing",
-                "--player2.backend-opts=child(backend="
-                f"{payload['player2']['backend']},max_batch=256,threads=1)",
             ]
         )
+        for player_name in ("player1", "player2"):
+            backend = payload[player_name]["backend"]
+            command.extend(
+                [
+                    f"--{player_name}.backend=multiplexing",
+                    f"--{player_name}.backend-opts=child(backend="
+                    f"{backend},max_batch=256,threads=1)",
+                ]
+            )
     return command
 
 
@@ -613,12 +618,10 @@ def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:
         str(payload["rounds"]),
         "-concurrency",
         str(payload["concurrency"]),
-        "-srand",
-        str(OPENING_BOOK_SEED),
         "-openings",
         f"file={OPENING_BOOK_PATH}",
-        "format=epd",
-        "order=random",
+        "format=pgn",
+        "order=sequential",
         "-report",
         "penta=true",
         "-startup-ms",

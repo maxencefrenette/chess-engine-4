@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.modal_train import add_training_config_arguments, resolve_training_config
+from chess_engine_4.modal_train import (
+    add_training_config_arguments,
+    print_launch_summary,
+    resolve_training_config,
+)
 from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import (
     load_training_config,
@@ -90,6 +94,15 @@ def test_legacy_non_lc0_geometry_is_rejected(name: str, value: int) -> None:
 
     with pytest.raises(ValueError, match=rf"{name} must be"):
         training_config_from_dict(values)
+
+
+def test_launch_summary_records_sampling_rate(capsys) -> None:
+    config = load_training_config("configs/dense.py", d_model=64)
+
+    print_launch_summary(config)
+
+    summary = capsys.readouterr().out
+    assert "sampling_rate=1" in summary
 
 
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:

@@ -7,6 +7,7 @@ import struct
 import tarfile
 from pathlib import Path
 
+import pytest
 import torch
 
 from chess_engine_4.data.leela import (
@@ -128,6 +129,66 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)
 
 
+def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    parquet_path = tmp_path / "stable-shard.parquet"
+    _write_tar(tar_path, gzip.compress(_records(1_024)))
+    convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
+
+    first = list(
+        LeelaParquetDataset(
+            parquet_path,
+            batch_size=16,
+            threads=1,
+            sampling_rate=0.25,
+        )
+    )
+    second = list(
+        LeelaParquetDataset(
+            parquet_path,
+            batch_size=16,
+            threads=1,
+            sampling_rate=0.25,
+        )
+    )
+
+    assert first and second
+    first_rows = torch.cat([batch[0] for batch in first])
+    second_rows = torch.cat([batch[0] for batch in second])
+    assert not torch.equal(first_rows, second_rows)
+
+
+def test_parquet_dataset_accepts_arbitrary_sampling_rate(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    parquet_path = tmp_path / "stable-shard.parquet"
+    _write_tar(tar_path, gzip.compress(_records(1_024)))
+    convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
+
+    first = list(
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
+    )
+    second = list(
+        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
+    )
+
+    assert first and second
+    assert not torch.equal(
+        torch.cat([batch[0] for batch in first]),
+        torch.cat([batch[0] for batch in second]),
+    )
+
+
+@pytest.mark.parametrize("sampling_rate", [0.0, 1.1])
+def test_parquet_dataset_rejects_invalid_sampling_rate(
+    tmp_path: Path, sampling_rate: float
+) -> None:
+    parquet_path = tmp_path / "training.parquet"
+    parquet_path.touch()
+
+    with pytest.raises(ValueError, match="sampling_rate"):
+        LeelaParquetDataset(parquet_path, batch_size=2, sampling_rate=sampling_rate)
+
+
 def test_leela_parquet_dataset_drops_incomplete_final_batch(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "training.parquet"
@@ -181,6 +242,7 @@ def _records(count: int) -> bytes:
         struct.pack_into("<f", record, POLICY_OFFSET, 0.75)
         struct.pack_into("<f", record, POLICY_OFFSET + 2 * 4, 0.25)
         struct.pack_into("<Q", record, PLANES_OFFSET, 0x80)
+        struct.pack_into("<I", record, PLANES_OFFSET + 1, index)
         record[CASTLING_US_OOO_OFFSET] = 1
         record[CASTLING_US_OO_OFFSET] = 0
         record[CASTLING_THEM_OOO_OFFSET] = 1

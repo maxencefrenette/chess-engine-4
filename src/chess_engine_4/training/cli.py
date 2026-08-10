@@ -40,10 +40,13 @@ _LOSS_EMA_DECAY = 0.99
 _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
+
+
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
     config: TrainingConfig
     data: str | None = None
+    sampling_rate: float = 1.0
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None
@@ -76,6 +79,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         batch_size=config.run.batch_size,
         prefetch_per_thread=config.infra.dataloader_prefetch_per_thread,
         threads=config.infra.dataloader_threads,
+        sampling_rate=options.sampling_rate,
     )
     iterator = iter(dataset)
     model = build_model(config.model).to(device)
@@ -102,6 +106,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             flops_per_sample=flops_per_sample,
             theoretical_tflops=theoretical_tflops,
             kernel_variant=kernel_selection.variant,
+            sampling_rate=options.sampling_rate,
         )
         if options.wandb
         else None
@@ -325,6 +330,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                     samples_seen=seen,
                     flops_per_sample=flops_per_sample,
                     metrics=metrics,
+                    sampling_rate=options.sampling_rate,
                     final=step == steps,
                 )
             )
@@ -353,6 +359,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 samples_seen=seen,
                 flops_per_sample=flops_per_sample,
                 metrics=last_metrics,
+                sampling_rate=options.sampling_rate,
                 final=True,
             )
         )
@@ -372,6 +379,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "kernel_backend": config.model.kernel_backend,
         "kernel_variant": kernel_selection.variant,
         "input_pipeline": config.model.input_pipeline,
+        "sampling_rate": options.sampling_rate,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
     if options.profile is not None:
@@ -482,6 +490,7 @@ def _save_checkpoint(
     samples_seen: int,
     flops_per_sample: int,
     metrics: dict[str, float | int],
+    sampling_rate: float,
     final: bool,
 ) -> Path:
     if checkpoint_dir is None:
@@ -500,6 +509,7 @@ def _save_checkpoint(
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "metrics": metrics,
+            "sampling_rate": sampling_rate,
         },
         path,
     )
@@ -631,6 +641,7 @@ def _init_wandb(
     flops_per_sample: int,
     theoretical_tflops: float | None,
     kernel_variant: str,
+    sampling_rate: float,
 ) -> Any:
     import wandb
 
@@ -653,6 +664,7 @@ def _init_wandb(
         "theoretical_tflops": theoretical_tflops,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
+        "sampling_rate": sampling_rate,
         "model_kind": config.model.kind,
         "d_model": config.model.d_model,
         "depth": config.model.depth,

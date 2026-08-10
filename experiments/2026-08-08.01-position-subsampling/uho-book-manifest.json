@@ -1,0 +1,16 @@
+{
+  "upstream_repository": "https://github.com/official-stockfish/books.git",
+  "upstream_commit": "65815ccdbc7727cd4f6aee252ba8f67fb740e92f",
+  "upstream_archive": "UHO_Lichess_4852_v1.epd.zip",
+  "upstream_archive_sha256": "4e298f11e8acfa106babe02968f2e61582145e7874c59284690b20b9650e0e07",
+  "source_rows": 2632036,
+  "source_epd_sha256": "7a7f6470615a69c6cf23d565417701d38732876f480af90d67b42abade35644a",
+  "sample_method": "uniform reservoir sampling without replacement",
+  "sample_size": 65536,
+  "sample_seed": 1,
+  "selected_indices_sha256": "03978176b1aafb1b82613d8faf4d792f6c56df53f031a966b9e7f67bacf63fbb",
+  "sample_epd_sha256": "b8e1df5f02417975dc7a24ae90f2808dbb835912f0f9e67d9ebaf412b41b847d",
+  "sample_pgn_sha256": "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c",
+  "modal_epd": "/artifacts/books/UHO_Lichess_4852_v1-random-65536.epd",
+  "modal_pgn": "/artifacts/books/UHO_Lichess_4852_v1-random-65536.pgn"
+}

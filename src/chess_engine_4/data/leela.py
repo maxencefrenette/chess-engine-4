@@ -36,6 +36,7 @@ class LeelaParquetDataset:
         env_var: str = DEFAULT_DATA_ENV_VAR,
         prefetch_per_thread: int = 2,
         threads: int = 2,
+        sampling_rate: float = 1.0,
     ) -> None:
         if batch_size <= 0:
             raise ValueError("batch_size must be positive.")
@@ -43,10 +44,13 @@ class LeelaParquetDataset:
             raise ValueError("prefetch_per_thread must be positive.")
         if threads <= 0:
             raise ValueError("threads must be positive.")
-        self.paths = resolve_data_paths(paths, env_var=env_var)
+        if not 0.0 < sampling_rate <= 1.0:
+            raise ValueError("sampling_rate must be greater than 0 and at most 1.")
+        self.paths = resolve_data_paths(paths, env_var=env_var, suffix=".parquet")
         self.batch_size = batch_size
         self.prefetch_per_thread = prefetch_per_thread
         self.threads = threads
+        self.sampling_rate = sampling_rate
 
     def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
         return iter_native_parquet_batches(
@@ -54,6 +58,7 @@ class LeelaParquetDataset:
             batch_size=self.batch_size,
             prefetch_per_thread=self.prefetch_per_thread,
             threads=self.threads,
+            sampling_rate=self.sampling_rate,
         )
 
 

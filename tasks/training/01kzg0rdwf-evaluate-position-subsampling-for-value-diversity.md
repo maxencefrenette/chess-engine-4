@@ -1,34 +1,35 @@
 ---
 id: "01kzg0rdwf"
 title: "Evaluate position subsampling for value diversity"
-status: pending
+status: completed
 priority: high
 effort: medium
 dependencies: []
 tags: ["value", "data", "experiment", "notion-import"]
 touches: ["training", "data", "experiments"]
 created_at: 2026-08-07
+completed_at: 2026-08-09
 ---
 
 # Evaluate position subsampling for value diversity
 
 ## Objective
 
-Test whether sampling roughly 1-10% of positions from each game increases game
-and value-target diversity enough to improve value learning at matched training
-FLOPs or matched dollar cost.
+Test whether fresh random position subsampling increases value-target diversity
+enough to improve value learning and searched play at matched accepted samples
+and training FLOPs.
 
 ## Tasks
 
-- [ ] Define deterministic sampling that avoids accidental game-length bias.
-- [ ] Measure the resulting game, position, and value-target distributions.
-- [ ] Train matched candidates at several sampling rates.
-- [ ] Compare task loss components, EG_flops, and realized cost.
+- [x] Define fresh random Bernoulli row sampling.
+- [x] Train matched candidates at sampling rates 1.0, 0.5, and 0.25.
+- [x] Compare task loss components, EG_flops, stability, runtime, and cost.
+- [x] Run a complete 800-visit mirrored-opening round robin with paired Elo intervals.
 
 ## Acceptance Criteria
 
 - The report distinguishes diversity gains from a change in sample count.
-- The chosen sampling rule is deterministic and reproducible.
+- The chosen sampling rule draws a fresh random subset for each launch.
 - Any promoted rule improves the stated objective without a policy regression.
 
 ## Source

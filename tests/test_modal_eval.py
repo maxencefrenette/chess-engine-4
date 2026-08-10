@@ -11,7 +11,7 @@ from chess_engine_4.modal_eval import (
 )
 
 
-def test_fastchess_command_uses_fixed_paired_openings() -> None:
+def test_fastchess_command_uses_sequential_paired_openings() -> None:
     payload = {
         "lc0_path": "/artifacts/bin/lc0",
         "games": 2,
@@ -34,12 +34,12 @@ def test_fastchess_command_uses_fixed_paired_openings() -> None:
     command = _fastchess_command(payload, Path("/artifacts/evals/test/games.pgn"))
 
     assert "-repeat" in command
-    assert command[command.index("-srand") + 1] == "1"
+    assert "-srand" not in command
     openings = command.index("-openings")
     assert command[openings + 1 : openings + 4] == [
         f"file={OPENING_BOOK_PATH}",
-        "format=epd",
-        "order=random",
+        "format=pgn",
+        "order=sequential",
     ]
 
 
@@ -62,6 +62,7 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
         "policy_mode_size": 64,
         "visits": 16,
         "parallelism": 32,
+        "opening_book": "/uho.pgn",
         "player1": {"weights": "/dense.safetensors", "backend": "ce4"},
         "player2": {"weights": "/t74.pb.gz", "backend": "cudnn-fp16"},
     }
@@ -73,6 +74,10 @@ def test_selfplay_command_configures_deterministic_low_visit_search() -> None:
     assert "--no-share-trees" in command
     assert "--temperature=0.0" in command
     assert "--noise-epsilon=0.0" in command
+    assert "--openings-pgn=/uho.pgn" in command
+    assert "--openings-mode=sequential" in command
+    assert not any(argument.startswith("--openings-seed=") for argument in command)
+    assert "--player1.backend=multiplexing" in command
     assert "--player1.backend-opts=child(backend=ce4,max_batch=256,threads=1)" in command
     assert "--player2.backend-opts=child(backend=cudnn-fp16,max_batch=256,threads=1)" in command
 

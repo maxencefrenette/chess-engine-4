@@ -11,6 +11,7 @@ use polars::io::parquet::metadata::FileMetadataRef;
 use polars::prelude::*;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use rand::Rng;
 
 use crate::converter::PARQUET_ROW_GROUP_ROWS;
 use crate::{
@@ -31,10 +32,11 @@ struct ParquetBatchIterator {
     frame: Option<DataFrame>,
     frame_offset: usize,
     metadata: FileMetadataRef,
+    sampling_rate: f64,
 }
 
 impl ParquetBatchIterator {
-    fn open(path: PathBuf, batch_size: usize) -> PyResult<Self> {
+    fn open(path: PathBuf, batch_size: usize, sampling_rate: f64) -> PyResult<Self> {
         let mut reader = ParquetReader::new(File::open(&path).map_err(io_error)?);
         let rows = reader.num_rows().map_err(polars_error)?;
         let metadata = reader.get_metadata().map_err(polars_error)?.clone();
@@ -46,6 +48,7 @@ impl ParquetBatchIterator {
             frame: None,
             frame_offset: 0,
             metadata,
+            sampling_rate,
         })
     }
 
@@ -91,7 +94,17 @@ impl ParquetBatchIterator {
         let mut reader = ParquetReader::new(File::open(&self.path).map_err(io_error)?)
             .with_slice(Some((self.row_group_offset, row_count)));
         reader.set_metadata(self.metadata.clone());
-        self.frame = Some(reader.finish().map_err(polars_error)?);
+        let frame = reader.finish().map_err(polars_error)?;
+        self.frame = Some(if self.sampling_rate == 1.0 {
+            frame
+        } else {
+            let mut rng = rand::rng();
+            let retained = (0..row_count)
+                .map(|_| rng.random_bool(self.sampling_rate))
+                .collect::<Vec<_>>();
+            let mask = BooleanChunked::from_slice("retained".into(), &retained);
+            frame.filter(&mask).map_err(polars_error)?
+        });
         self.row_group_offset += row_count;
         Ok(true)
     }
@@ -102,6 +115,7 @@ pub(crate) fn iter_prefetched_parquet_batches(
     batch_size: usize,
     prefetch_per_thread: usize,
     threads: usize,
+    sampling_rate: f64,
 ) -> PyResult<PrefetchedPackedBatchIterator> {
     if prefetch_per_thread == 0 {
         return Err(PyValueError::new_err(
@@ -110,6 +124,11 @@ pub(crate) fn iter_prefetched_parquet_batches(
     }
     if threads == 0 {
         return Err(PyValueError::new_err("threads must be positive"));
+    }
+    if !(0.0 < sampling_rate && sampling_rate <= 1.0) {
+        return Err(PyValueError::new_err(
+            "sampling_rate must be greater than 0 and at most 1",
+        ));
     }
 
     let paths = Arc::new(Mutex::new(VecDeque::from(paths)));
@@ -134,7 +153,8 @@ pub(crate) fn iter_prefetched_parquet_batches(
                     let _ = sender.send(PrefetchMessage::End);
                     break;
                 };
-                let mut iterator = match ParquetBatchIterator::open(path, batch_size) {
+                let mut iterator = match ParquetBatchIterator::open(path, batch_size, sampling_rate)
+                {
                     Ok(iterator) => iterator,
                     Err(error) => {
                         let _ = sender.send(PrefetchMessage::Error(error.to_string()));

@@ -6,6 +6,8 @@ waves = 4
 max_concurrency = 8
 policy_mode_size = 256
 parallelism = 64
+opening_book = "/artifacts/books/UHO_Lichess_4852_v1.pgn"
+opening_book_sha256 = "a836fa6dc1386b132ea86384afe2bb6e811cdef4fd855bf0fb3f288f2ab20471"
 
 [[engines]]
 name = "dense-d32"

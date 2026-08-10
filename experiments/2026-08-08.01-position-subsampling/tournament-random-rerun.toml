@@ -1,0 +1,28 @@
+[tournament]
+name = "position-subsampling-random-rerun-uho-800nodes"
+gpu = "RTX-PRO-6000"
+games_per_matchup = 1856
+waves = 3
+max_concurrency = 1
+policy_mode_size = 256
+parallelism = 64
+visits = 800
+opening_book_sha256 = "dd1b5de3efadd40f9ecaa7392c69545de6f2e44ba9213362e4c6723ce7db803c"
+
+[[engines]]
+name = "random-retention-1.0"
+weights = "/artifacts/models/position-subsampling-random-r1-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17
+
+[[engines]]
+name = "random-retention-0.5"
+weights = "/artifacts/models/position-subsampling-random-r0.5-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17
+
+[[engines]]
+name = "random-retention-0.25"
+weights = "/artifacts/models/position-subsampling-random-r0.25-final.safetensors"
+backend = "ce4"
+training_flops = 1.7847613980672e17

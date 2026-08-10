@@ -29,6 +29,11 @@ def test_policy_config_builds_connected_opening_waves() -> None:
     assert len(first) == len(second) == 7
     assert all(payload["visits"] is None for payload in payloads)
     assert all(payload["policy_mode_size"] == 256 for payload in payloads)
+    assert all(
+        payload["opening_book"].endswith("UHO_Lichess_4852_v1.pgn")
+        for payload in payloads
+    )
+    assert all("opening_seed" not in payload for payload in payloads)
 
 
 def test_adaptive_wave_pairs_each_engine_once() -> None:
@@ -80,6 +85,7 @@ def test_parse_match_result_retains_lc0_opening_pairs() -> None:
     payload = {
         "wave": 0,
         "games": 4,
+        "opening_book": "/uho.pgn",
         "player1": {"name": "alpha", "weights": "/alpha"},
         "player2": {"name": "beta", "weights": "/beta"},
     }
@@ -105,6 +111,10 @@ gameready gameid 1 play_start_ply 4 player1 black result blackwon
 
     assert match.pentanomial == (0, 0, 1, 0, 1)
     assert match.pair_scores == (4, 2)
+    assert match.opening_ids == (
+        "/uho.pgn|index=0",
+        "/uho.pgn|index=1",
+    )
 
 
 def test_fit_elos_orders_engines_by_score() -> None:

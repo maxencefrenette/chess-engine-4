@@ -87,9 +87,19 @@ def train_modal() -> None:
     add_training_config_arguments(parser, include_steps=True)
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--sampling-rate",
+        type=float,
+        default=1.0,
+    )
     args = parser.parse_args()
+    if not 0.0 < args.sampling_rate <= 1.0:
+        parser.error("--sampling-rate must be greater than 0 and at most 1")
     config = resolve_training_config(args)
-    print_launch_summary(config)
+    print_launch_summary(config, sampling_rate=args.sampling_rate)
+    if args.dry_run:
+        return
 
     payload = {
         "config": asdict(config),
@@ -98,6 +108,7 @@ def train_modal() -> None:
         "wandb_entity": os.environ.get("WANDB_ENTITY"),
         "wandb_mode": os.environ.get("WANDB_MODE"),
         "wandb_name": args.wandb_name,
+        "sampling_rate": args.sampling_rate,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
@@ -141,6 +152,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
             data=REMOTE_PARQUET_DATA_PATH,
+            sampling_rate=float(payload.get("sampling_rate", 1.0)),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -229,6 +241,7 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
+    sampling_rate: float = 1.0,
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -259,6 +272,7 @@ def print_launch_summary(
         f"input_pipeline={config.model.input_pipeline} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
+        f" sampling_rate={sampling_rate:g}"
     )
 
 
