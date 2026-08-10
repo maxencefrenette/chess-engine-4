@@ -35,7 +35,7 @@ and training FLOPs.
 
 ## Progress
 
-Fresh-random replication completed on the same 497-shard manifest. All three
+Fresh-random replication completed on the same 497-shard corpus state. All three
 arms consumed 983,040,000 accepted rows in 15,000 steps; EMA task loss ranked
 0.25 (2.835924), 0.5 (2.847041), then 1.0 (2.865800). A 4,416-game / 2,208-pair
 random-UHO tournament at 800 visits reproduced the searched ranking: quarter
@@ -58,8 +58,8 @@ ranks quarter retention +25.35 Elo over half (95% CI [13.66, 37.05]) and half +3
 ([23.89, 47.28]). Quarter retention is recommended for review without canonical promotion.
 
 The raw-archive capacity blocker was superseded by the user's corrected design. A deterministic
-row-identity sampler streams canonical Parquet without derived datasets or game-boundary assumptions,
-and a 497-shard manifest fixes provenance. Three standard eight-thread runs completed at exactly
+row-identity sampler streams canonical Parquet without derived datasets or game-boundary assumptions.
+Three standard eight-thread runs completed at exactly
 15,000 steps / 983,040,000 accepted samples each. The user authorized the full quarter run after
 clarifying that $1.50 was not strict. Half and quarter retention improved loss and searched play
 over full retention. A complete 384-game, 192-pair round robin at 800 visits ranked half first and

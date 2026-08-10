@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import itertools
 import os
 import time
@@ -26,21 +25,15 @@ def audit_parquet_retention_modal() -> None:
 
     parser = argparse.ArgumentParser(description="Audit retained canonical Parquet rows.")
     parser.add_argument("--batch-size", type=int, default=65_536)
-    parser.add_argument("--output-manifest", type=Path, default=None)
     args = parser.parse_args()
     if args.batch_size <= 0:
         parser.error("batch-size must be positive")
     sources = sorted(_converted_names())
     if not sources:
         parser.error("no canonical Parquet files found on the training-data Volume")
-    manifest = "".join(f"{source}\n" for source in sources)
-    manifest_sha256 = hashlib.sha256(manifest.encode()).hexdigest()
-    if args.output_manifest is not None:
-        args.output_manifest.parent.mkdir(parents=True, exist_ok=True)
-        args.output_manifest.write_text(manifest, encoding="utf-8")
     print(
         f"retention_audit_plan files={len(sources)} batch_size={args.batch_size:,} "
-        f"manifest_sha256={manifest_sha256} concurrency={_CONVERSION_CONCURRENCY}"
+        f"concurrency={_CONVERSION_CONCURRENCY}"
     )
     results: list[dict[str, Any]] = []
     with app.run():

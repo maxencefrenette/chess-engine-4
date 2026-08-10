@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -89,7 +88,6 @@ def train_modal() -> None:
     parser.add_argument("--wandb", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--wandb-name", default=None)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--parquet-manifest", type=Path, default=None)
     parser.add_argument(
         "--data-retention-rate",
         type=float,
@@ -98,12 +96,7 @@ def train_modal() -> None:
     )
     args = parser.parse_args()
     config = resolve_training_config(args)
-    data_paths, data_manifest_sha256 = _load_parquet_manifest(args.parquet_manifest)
-    print_launch_summary(
-        config,
-        data_retention_rate=args.data_retention_rate,
-        data_manifest_sha256=data_manifest_sha256,
-    )
+    print_launch_summary(config, data_retention_rate=args.data_retention_rate)
     if args.dry_run:
         return
 
@@ -115,8 +108,6 @@ def train_modal() -> None:
         "wandb_mode": os.environ.get("WANDB_MODE"),
         "wandb_name": args.wandb_name,
         "data_retention_rate": args.data_retention_rate,
-        "data_paths": data_paths,
-        "data_manifest_sha256": data_manifest_sha256,
         "checkpoint_dir": str(REMOTE_CHECKPOINT_PATH),
         "checkpoint_every": CHECKPOINT_EVERY_STEPS,
     }
@@ -159,9 +150,8 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
     result = run_training(
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
-            data=payload.get("data_paths") or REMOTE_PARQUET_DATA_PATH,
+            data=REMOTE_PARQUET_DATA_PATH,
             data_retention_rate=float(payload.get("data_retention_rate", 1.0)),
-            data_manifest_sha256=payload.get("data_manifest_sha256"),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -251,7 +241,6 @@ def print_launch_summary(
     *,
     steps: int | None = None,
     data_retention_rate: float = 1.0,
-    data_manifest_sha256: str | None = None,
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(
@@ -281,23 +270,7 @@ def print_launch_summary(
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
         f" data_retention_rate={data_retention_rate:g}"
-        f" data_manifest_sha256={data_manifest_sha256 or 'live-directory'}"
     )
-
-
-def _load_parquet_manifest(path: Path | None) -> tuple[list[str] | None, str | None]:
-    if path is None:
-        return None, None
-    manifest = path.read_text(encoding="utf-8")
-    names = [line.strip() for line in manifest.splitlines() if line.strip()]
-    if not names:
-        raise ValueError(f"Parquet manifest is empty: {path}")
-    if len(names) != len(set(names)):
-        raise ValueError(f"Parquet manifest contains duplicate names: {path}")
-    if any(Path(name).name != name or not name.endswith(".parquet") for name in names):
-        raise ValueError(f"Parquet manifest contains an invalid shard name: {path}")
-    data_paths = [str(Path(REMOTE_PARQUET_DATA_PATH) / name) for name in names]
-    return data_paths, hashlib.sha256(manifest.encode()).hexdigest()
 
 
 def training_function(

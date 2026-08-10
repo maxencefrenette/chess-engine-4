@@ -34,11 +34,9 @@ nested in 1.0. Membership is independent of worker scheduling and global RNG.
 This deliberately implements the user's corrected row-streaming design; it
 does not infer game boundaries or claim within-game stratification.
 
-The exact startup snapshot is [parquet-files.txt](parquet-files.txt): 497
-sorted shard basenames, SHA-256
-`ef7aa839e1ec2c01780123c42de086243995ec4cf9a7a0af3a0c01ffb7b3b595`.
-Later atomic corpus appends could not enter these runs. The footer and hash
-audit found:
+The loader resolved 497 Parquet shards from the canonical data directory when
+these runs constructed their datasets. Later atomic corpus appends could not
+enter an already-running iterator. The footer audit found:
 
 | Retention | Accepted rows | Batch-usable rows |
 | ---: | ---: | ---: |
@@ -46,9 +44,9 @@ audit found:
 | 0.5 | 2,037,509,235 | 2,021,195,776 |
 | 0.25 | 1,018,779,501 | 1,003,094,016 |
 
-Canonical `/parquet`, source manifests, and training configuration files were
-not modified by this experiment. Checkpoints, exports, and evaluation outputs
-use isolated `/artifacts` names.
+Canonical `/parquet` and training configuration files were not modified by
+this experiment. Checkpoints, exports, and evaluation outputs use isolated
+`/artifacts` names.
 
 After the initial experiment, the user clarified that each launch should draw
 a fresh random subset rather than reuse fixed row membership. The current
@@ -90,7 +88,6 @@ uv run train-modal --config configs/moe64a2.py --d-model 512 \
   --training-ratio 0.04680654542731256 --steps 15000 \
   --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
   --data-retention-rate RATE \
-  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
   --wandb-name position-subsampling-rRATE
 ```
 
@@ -122,7 +119,7 @@ file was changed.
 ## Fresh-random replication
 
 The complete matched training experiment was repeated after changing only row
-membership from fixed to fresh random samples. The same 497-shard manifest,
+membership from fixed to fresh random samples. The same 497-shard corpus state,
 model recipe, seed, batch, steps, accepted samples, optimizer, and training
 FLOPs were retained. The logged sampling seeds were
 `16744882689526351630`, `11635758382966936071`, and
@@ -163,7 +160,6 @@ uv run train-modal --config configs/moe64a2.py --d-model 512 \
   --training-ratio 0.04680654542731256 --steps 15000 \
   --dataloader-threads 8 --dataloader-prefetch-per-thread 2 \
   --data-retention-rate RATE \
-  --parquet-manifest experiments/2026-08-08.01-position-subsampling/parquet-files.txt \
   --wandb-name position-subsampling-random-rRATE
 
 uv run export-model \
