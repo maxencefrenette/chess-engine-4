@@ -15,3 +15,12 @@ citation = "Microsoft AI Technical Report, June 2026"
 url = "https://microsoft.ai/pdf/mai-thinking-1.pdf"
 filename = "mai-thinking-1.pdf"
 relevance = "Scaling ladders, architecture scaling, pretraining methodology, and MoE design."
+
+[[paper]]
+slug = "skaling"
+title = "Skaling: Chinchilla's Exponents Meet Kaplan's Coupling"
+authors = "Mathurin Videau, Badr Youbi-Idrissi, David Lopez-Paz, Kartik Ahuja"
+citation = "arXiv:2608.07222"
+url = "https://arxiv.org/pdf/2608.07222"
+filename = "skaling.pdf"
+relevance = "Coupled model-size/data scaling laws and sparse profiling grids."
