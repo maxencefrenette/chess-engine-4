@@ -91,7 +91,7 @@ def train_modal() -> None:
     parser.add_argument(
         "--sampling-rate",
         type=float,
-        default=0.25,
+        default=1.0,
     )
     args = parser.parse_args()
     if not 0.0 < args.sampling_rate <= 1.0:
@@ -152,7 +152,7 @@ def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str
         TrainOptions(
             config=training_config_from_dict(payload["config"]),
             data=REMOTE_PARQUET_DATA_PATH,
-            sampling_rate=float(payload.get("sampling_rate", 0.25)),
+            sampling_rate=float(payload.get("sampling_rate", 1.0)),
             wandb=payload.get("wandb", True),
             wandb_name=payload.get("wandb_name"),
             checkpoint_dir=(
@@ -241,7 +241,7 @@ def print_launch_summary(
     config: TrainingConfig,
     *,
     steps: int | None = None,
-    sampling_rate: float = 0.25,
+    sampling_rate: float = 1.0,
 ) -> None:
     run_steps = config.run.steps if steps is None else steps
     flops_per_sample = measure_training_flops_per_sample(

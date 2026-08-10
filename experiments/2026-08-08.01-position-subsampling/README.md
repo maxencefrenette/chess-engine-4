@@ -5,8 +5,8 @@
 Fresh random row sampling improved both task loss and searched play at matched
 accepted samples and training FLOPs. The ranking was 0.25 > 0.5 > 1.0. At 800
 visits, quarter beat half by `+32.17 Elo [19.68, 44.66]`, while half beat full
-by `+42.74 [31.47, 54.02]`. Promote 0.25 as the canonical training sampling
-rate.
+by `+42.74 [31.47, 54.02]`. The 0.25 checkpoint is promotion-eligible, but the
+canonical training sampling rate remains 1.0 pending a separate decision.
 
 The quarter run recorded two isolated automatic spike flags around steps 2,450
 and 7,010, then immediately returned to trend. Sampling rate was the only
@@ -108,6 +108,6 @@ uv run python experiments/2026-08-08.01-position-subsampling/analyze_uho.py \
 
 ## Recommendation
 
-Use fresh random sampling at 0.25 for canonical training. It improves the
-matched task objective without a policy regression and decisively leads both
-alternatives in searched play.
+Retain fresh random sampling at 0.25 as the strongest candidate. It improves
+the matched task objective without a policy regression and decisively leads
+both alternatives in searched play. Keep the canonical default at 1.0 for now.

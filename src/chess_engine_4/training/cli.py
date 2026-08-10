@@ -58,7 +58,7 @@ _GPU_SPECS = {
 class TrainOptions:
     config: TrainingConfig
     data: str | None = None
-    sampling_rate: float = 0.25
+    sampling_rate: float = 1.0
     wandb: bool = True
     wandb_name: str | None = None
     checkpoint_dir: Path | None = None

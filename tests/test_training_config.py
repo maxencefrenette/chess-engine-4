@@ -73,7 +73,7 @@ def test_launch_summary_records_sampling_rate(capsys) -> None:
     print_launch_summary(config)
 
     summary = capsys.readouterr().out
-    assert "sampling_rate=0.25" in summary
+    assert "sampling_rate=1" in summary
 
 
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
