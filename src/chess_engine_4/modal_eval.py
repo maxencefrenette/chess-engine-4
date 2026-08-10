@@ -20,9 +20,7 @@ ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
-OPENING_BOOK_PATH = (
-    Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1-random-65536.pgn"
-)
+OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1.pgn"
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 

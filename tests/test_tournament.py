@@ -30,7 +30,7 @@ def test_policy_config_builds_connected_opening_waves() -> None:
     assert all(payload["visits"] is None for payload in payloads)
     assert all(payload["policy_mode_size"] == 256 for payload in payloads)
     assert all(
-        payload["opening_book"].endswith("UHO_Lichess_4852_v1-random-65536.pgn")
+        payload["opening_book"].endswith("UHO_Lichess_4852_v1.pgn")
         for payload in payloads
     )
     assert all("opening_seed" not in payload for payload in payloads)
