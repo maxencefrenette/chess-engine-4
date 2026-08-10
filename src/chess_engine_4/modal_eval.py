@@ -249,7 +249,6 @@ def eval_selfplay_modal() -> None:
         "visits": args.visits,
         "parallelism": args.parallelism,
         "opening_book": args.opening_book,
-        "opening_seed": random.randrange(2**31),
         "gpu": args.gpu,
         "player1": {
             "weights": args.player1_weights,
@@ -382,17 +381,6 @@ def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
         "results": results_path.read_text(),
         "lc0_output": completed.stdout,
         "opening_book": str(opening_book),
-        "opening_seed": int(payload["opening_seed"]),
-        "ce4_batch_stats": [
-            {
-                "weights": match.group("weights"),
-                "calls": int(match.group("calls")),
-                "positions": int(match.group("positions")),
-                "average_batch": float(match.group("average_batch")),
-                "max_batch": int(match.group("max_batch")),
-            }
-            for match in _CE4_BATCH_STATS.finditer(completed.stdout)
-        ],
     }
     (run_dir / "results.json").write_text(json.dumps(result, indent=2) + "\n")
     artifact_volume.commit()
@@ -406,8 +394,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         f"--games={payload['games']}",
         f"--openings-pgn={payload.get('opening_book', OPENING_BOOK_PATH)}",
         "--mirror-openings",
-        "--openings-mode=shuffled",
-        f"--openings-seed={payload['opening_seed']}",
+        "--openings-mode=sequential",
         f"--tournament-results-file={results_path}",
         f"--player1.weights={payload['player1']['weights']}",
         f"--player2.weights={payload['player2']['weights']}",
@@ -433,21 +420,13 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
         )
         for player_name in ("player1", "player2"):
             backend = payload[player_name]["backend"]
-            if backend == "ce4":
-                command.extend(
-                    [
-                        f"--{player_name}.backend=ce4",
-                        f"--{player_name}.backend-opts=max_batch=256,batch_wait_us=200",
-                    ]
-                )
-            else:
-                command.extend(
-                    [
-                        f"--{player_name}.backend=multiplexing",
-                        f"--{player_name}.backend-opts=child(backend="
-                        f"{backend},max_batch=256,threads=1)",
-                    ]
-                )
+            command.extend(
+                [
+                    f"--{player_name}.backend=multiplexing",
+                    f"--{player_name}.backend-opts=child(backend="
+                    f"{backend},max_batch=256,threads=1)",
+                ]
+            )
     return command
 
 
@@ -458,13 +437,6 @@ _PGN_GAME = re.compile(
     r'^\[Result "(?P<result>1-0|0-1|1/2-1/2)"\]',
     re.MULTILINE,
 )
-_CE4_BATCH_STATS = re.compile(
-    r"ce4_batch_stats weights=(?P<weights>\S+) calls=(?P<calls>\d+) "
-    r"positions=(?P<positions>\d+) average_batch=(?P<average_batch>[0-9.eE+-]+) "
-    r"max_batch=(?P<max_batch>\d+)"
-)
-
-
 def _parse_fastchess_pentanomial(
     pgn: str, player: str
 ) -> tuple[int, int, int, int, int]:

@@ -112,8 +112,6 @@ class SelfPlayTournament {
   int multi_games_size_;
   const std::string kTournamentResultsFile;
   const float kDiscardedStartChance;
-  const int kOpeningOffset;
-  const int kOpeningSeed;
 };
 
 }  // namespace lczero

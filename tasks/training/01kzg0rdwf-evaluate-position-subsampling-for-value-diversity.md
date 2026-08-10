@@ -35,6 +35,11 @@ and training FLOPs.
 
 ## Progress
 
+After experiment review, the custom ce4 batching queue and lc0 selfplay opening
+extensions were removed. Current evaluation uses lc0's stock multiplexing
+backend and sequential mirrored openings; retained tournament evidence remains
+historical and unchanged.
+
 Fresh-random replication completed on the same 497-shard corpus state. All three
 arms consumed 983,040,000 accepted rows in 15,000 steps; EMA task loss ranked
 0.25 (2.835924), 0.5 (2.847041), then 1.0 (2.865800). A 4,416-game / 2,208-pair

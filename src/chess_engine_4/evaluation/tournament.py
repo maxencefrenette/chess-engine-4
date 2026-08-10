@@ -5,10 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import random
 import re
 import tomllib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +59,6 @@ class Tournament:
     visits: int | None = None
     opening_book: str = str(OPENING_BOOK_PATH)
     opening_book_sha256: str | None = None
-    opening_seed: int = field(default_factory=lambda: random.randrange(2**31), init=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +183,6 @@ def build_match_payloads(
             "parallelism": tournament.parallelism,
             "opening_book": tournament.opening_book,
             "opening_book_sha256": tournament.opening_book_sha256,
-            "opening_seed": tournament.opening_seed,
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
@@ -220,7 +217,6 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
     opening_ids = (
         tuple(
             f"{payload.get('opening_book', OPENING_BOOK_PATH)}|"
-            f"seed={payload.get('opening_seed', 1)}|"
             f"index={index}"
             for index in range(len(pair_scores))
         )
@@ -565,7 +561,6 @@ def build_report(
         "tournament": asdict(tournament),
         "opening_book": tournament.opening_book,
         "opening_book_sha256": tournament.opening_book_sha256,
-        "opening_seed": tournament.opening_seed,
         "engines": [asdict(engine) for engine in engines],
         "completed_waves": max((match.wave for match in matches), default=-1) + 1,
         "matches": [asdict(match) for match in matches],

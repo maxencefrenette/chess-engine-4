@@ -221,6 +221,12 @@ model/match averages ranged from 176.8 to 241.7 and every backend reached batch
 256. End-to-end searched-play throughput was 2.473 games/s, versus 0.756 for
 the unbatched historical tournament.
 
+Post-experiment implementation note: after review, the custom ce4 coalescing
+queue and lc0 opening-shuffle extensions were removed to keep the vendored lc0
+fork minimal. Current tournaments use lc0's stock `multiplexing` backend around
+ce4 and native sequential mirrored openings. The measurements below retain the
+historical protocol under which they were collected.
+
 Direct WDL is from the first model's perspective:
 
 | Matchup | Opening pairs | W-D-L | Runtime | Pentanomial |
