@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from chess_engine_4.hardware import TrainingGpu, gpu_spec
 from chess_engine_4.kernels.capabilities import KernelSelection, resolve_kernel_backend
@@ -44,6 +44,7 @@ class InfraConfig:
 
 @dataclass(frozen=True, slots=True)
 class OptimizerConfig:
+    algorithm: Literal["adamw", "muon"] = "adamw"
     lr: float = 3e-4
     weight_decay: float = 0.01
     max_grad_norm: float = 1.0

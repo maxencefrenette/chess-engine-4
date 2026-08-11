@@ -1,13 +1,14 @@
 ---
 id: "01kzg0rdr7"
 title: "Evaluate the Muon optimizer"
-status: pending
+status: completed
 priority: medium
 effort: medium
 dependencies: []
 tags: ["optimizer", "experiment", "notion-import"]
 touches: ["training", "experiments"]
 created_at: 2026-08-07
+completed_at: 2026-08-11
 ---
 
 # Evaluate the Muon optimizer
@@ -19,10 +20,10 @@ stacked MLP architecture relative to fused AdamW.
 
 ## Tasks
 
-- [ ] Define which matrix parameters use Muon and how remaining parameters are optimized.
-- [ ] Benchmark optimizer overhead and memory use.
-- [ ] Tune the minimum necessary optimizer hyperparameters at a cheap width.
-- [ ] Run a matched controlled experiment and report EG_flops and realized cost.
+- [x] Define which matrix parameters use Muon and how remaining parameters are optimized.
+- [x] Benchmark optimizer overhead and memory use.
+- [x] Tune the minimum necessary optimizer hyperparameters at a cheap width.
+- [x] Run a matched controlled experiment and report EG_flops and realized cost.
 
 ## Acceptance Criteria
 

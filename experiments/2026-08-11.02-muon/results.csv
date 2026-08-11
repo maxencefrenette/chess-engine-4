@@ -1,0 +1,11 @@
+optimizer,width,lr_multiplier,lr,loss,loss_spike_count,eg_flops,runtime_sec,cost_dollars,wandb_url
+adamw,64,1.0,0.006205,3.889359081,0,1.128,10.064360,0.009529,https://wandb.ai/maxence-frenette/chess-engine-4/runs/adt7rfr5
+muon,64,0.5,0.0031025,3.860349377,0,1.271,19.039055,0.018026,https://wandb.ai/maxence-frenette/chess-engine-4/runs/urfet6gy
+muon,64,1.0,0.006205,3.861108174,0,1.267,20.452568,0.019364,https://wandb.ai/maxence-frenette/chess-engine-4/runs/tbh0z3z6
+muon,64,2.0,0.01241,3.870761704,0,1.217,24.895016,0.023571,https://wandb.ai/maxence-frenette/chess-engine-4/runs/j07dm07p
+adamw,128,1.0,0.00289,3.668101425,0,0.917,13.767000,0.013035,https://wandb.ai/maxence-frenette/chess-engine-4/runs/6avq3le8
+muon,128,0.5,0.001445,3.614166530,0,1.174,26.933037,0.025500,https://wandb.ai/maxence-frenette/chess-engine-4/runs/tym0ilj5
+adamw,256,1.0,0.001275,3.409629203,0,0.926,23.842000,0.022574,https://wandb.ai/maxence-frenette/chess-engine-4/runs/ufjguuuy
+muon,256,0.5,0.0006375,3.353811328,0,1.256,43.018561,0.040730,https://wandb.ai/maxence-frenette/chess-engine-4/runs/ibxacy4k
+adamw,512,1.0,0.000493,3.168127590,0,0.997,46.730631,0.086022,https://wandb.ai/maxence-frenette/chess-engine-4/runs/u4c69pip
+muon,512,0.5,0.0002465,3.173264867,0,0.965,114.267321,0.210343,https://wandb.ai/maxence-frenette/chess-engine-4/runs/8yc97of8
