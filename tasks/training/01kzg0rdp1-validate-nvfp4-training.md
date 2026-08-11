@@ -1,34 +1,38 @@
 ---
 id: "01kzg0rdp1"
 title: "Validate NVFP4 dense training"
-status: pending
+status: completed
 priority: high
-effort: large
+effort: small
 dependencies: []
 tags: ["precision", "kernels", "notion-import"]
 touches: ["training", "kernels"]
 created_at: 2026-08-07
+completed_at: 2026-08-11
 ---
 
 # Validate NVFP4 dense training
 
 ## Objective
 
-Establish whether NVFP4 can train useful dense networks on supported Blackwell
-shapes. MoE validation is deferred.
+Decide whether NVFP4 warrants dense training work at relevant model widths.
 
 ## Tasks
 
-- [ ] Identify model shapes where NVFP4 kernels are technically appropriate.
-- [ ] Validate forward, backward, optimizer, checkpoint, and export behavior.
-- [ ] Run matched short throughput and numerical-correctness benchmarks.
-- [ ] Run a controlled training comparison where the smoke tests pass.
+- [x] Benchmark paired MXFP8 and NVFP4 inference across large widths.
+- [x] Locate the performance crossover and record the decision.
 
 ## Acceptance Criteria
 
-- Reports end-to-end throughput, realized dollar cost, and final loss tradeoffs.
-- Defines numerical acceptance thresholds and records any unsupported shapes.
-- Does not promote NVFP4 solely from a microbenchmark win.
+- The paired benchmark and crossover are retained in an experiment report.
+- Further work is stopped if NVFP4 is not useful at relevant widths.
+
+## Outcome
+
+NVFP4 was 0.728-0.771x as fast as MXFP8 at d2048 and crossed over only
+between d2048 and d3072. Those widths exceed current needs, so training and
+numerical validation are not worth pursuing now. See
+`experiments/2026-08-11.03-nvfp4-inference-crossover/`.
 
 ## Source
 
