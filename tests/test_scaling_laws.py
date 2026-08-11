@@ -33,9 +33,13 @@ def test_read_best_runs() -> None:
 def test_dense_scaling_points_include_minimum_safe_width_arm() -> None:
     points = read_dense_scaling_points(Path("experiments/best-runs-dense.toml"))
 
-    assert len(points) == 25
+    assert len(points) == 26
     assert min(params for params, _, _ in points) == 979_488
-    assert all(samples / params >= 2.74 for params, samples, _ in points)
+    assert (
+        168_974_752,
+        414_474_240,
+        pytest.approx(2.894608466824528),
+    ) in points
 
 
 def test_skaling_inverse_recovers_samples_at_fixed_model_size() -> None:

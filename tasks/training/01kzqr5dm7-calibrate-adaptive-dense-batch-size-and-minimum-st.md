@@ -1,7 +1,7 @@
 ---
 id: "01kzqr5dm7"
 title: "Calibrate adaptive dense batch size and minimum steps"
-status: pending
+status: completed
 priority: high
 effort: medium
 dependencies: []
@@ -29,8 +29,9 @@ when neither batch can provide enough optimizer steps.
 - [x] Obtain user review of the proposed fitted threshold.
 - [x] Implement automatic batch selection and reject horizons below the
   validated minimum.
-- [ ] Confirm the d1280 multiplier at the exact `16d` batch; the retained
-  `1.30x` run used the stale rounded `19.2d` batch.
+- [x] Confirm the d1280 multiplier at the exact `16d` batch. The exact-batch
+  `1.30x` run recorded two spikes, which the user explicitly reviewed and
+  accepted for promotion.
 - [x] Record commands, W&B URLs, costs, metrics, uncertainty, and the promotion
   verdict in `experiments/2026-08-10.04-dense-minimum-steps`.
 
@@ -50,6 +51,9 @@ when neither batch can provide enough optimizer steps.
 - D1280 provisionally selected `1.30x` over `1.15x`: final EMA loss
   `2.8680` versus `2.8768`, with zero versus one loss spike. The two-run
   extension cost `$2.218`, but used batch 24,576 rather than exact `16d`.
+- The exact d1280 `16d` minimum-horizon confirmation used batch 20,480 for
+  20,238 steps. It reached EMA loss `2.8946` and `EG_flops 1.340x`; the user
+  explicitly accepted its two spikes and promoted the run. It cost `$0.837`.
 
 ## Acceptance Criteria
 

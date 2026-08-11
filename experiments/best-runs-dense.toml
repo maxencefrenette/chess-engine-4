@@ -566,3 +566,15 @@ params = 110014368
 samples_seen = 550076416
 loss = 2.9322109324287133
 loss_spike_count = 0
+
+[scaling_runs.d1280-r0p0490575]
+training_ratio = 0.049057534938710845
+source_experiment = "experiments/2026-08-10.04-dense-minimum-steps"
+model_kind = "dense"
+run_name = "dense-minsteps-lr16d-d1280-m130-exact"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/06ai7vtr"
+d_model = 1280
+params = 168974752
+samples_seen = 414474240
+loss = 2.894608466824528
+loss_spike_count = 2
