@@ -20,83 +20,93 @@ runtime_sec = 18.584747413
 
 [runs.d64]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-04.03-dense-depth-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "depthlaw-r02-d64x8"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/l2ceek0g"
+optimizer = "adamh"
+run_name = "hyperball-lshape-selected-d64-r0p2-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sypoqkcp"
 flops = 5.958643951616e13
 d_model = 64
 depth = 8
 activation = "swiglu"
 batch_size = 2048
-lr = 3.2e-3
+lr = 7.1e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 979488
 samples_seen = 9795584
-loss = 3.805240865867032
-policy_top1 = 0.27154822161971875
-runtime_sec = 19.005637954
+loss = 3.665815720482124
+policy_top1 = 0.3125
+runtime_sec = 25.352033469
+loss_spike_count = 0
 
 [runs.d128]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-04.03-dense-depth-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "depthlaw-r02-d128x8"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/votcuh04"
+optimizer = "adamh"
+run_name = "hyperball-scaling-grid-d128-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/x44em6l7"
 flops = 4.63100904849408e14
 d_model = 128
 depth = 8
 activation = "swiglu"
 batch_size = 4096
-lr = 1.5e-3
+lr = 5.0e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 2743456
 samples_seen = 27435008
-loss = 3.484933865134214
-policy_top1 = 0.33256895801431896
-runtime_sec = 28.72951413
+loss = 3.42706602691802
+policy_top1 = 0.359130859375
+runtime_sec = 34.286751138
+loss_spike_count = 0
 
 [runs.d256]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-04.03-dense-depth-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "depthlaw-r02-d256x8"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/f25b7mud"
+optimizer = "adamh"
+run_name = "hyperball-scaling-grid-d256-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eaenbj95"
 flops = 4.542506530111488e15
 d_model = 256
 depth = 8
 activation = "swiglu"
 batch_size = 8192
-lr = 6.4e-4
+lr = 5.0e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 8630688
 samples_seen = 86310912
-loss = 3.2310701769902725
-policy_top1 = 0.3955887433257338
-runtime_sec = 56.468993141
+loss = 3.175590149778562
+policy_top1 = 0.416259765625
+runtime_sec = 57.121019427
+# Two isolated recoverable spikes; EMA returned to trend and EG_flops promoted.
+loss_spike_count = 2
 
 [runs.d512]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-04.03-dense-depth-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "depth8-refresh-d512"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/nd28y2wg"
+optimizer = "adamh"
+run_name = "hyperball-scaling-grid-d512-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/9shmd6r0"
 flops = 5.3939674389479424e16
 d_model = 512
 depth = 8
 activation = "swiglu"
 batch_size = 16384
-lr = 2.6e-4
+lr = 3.5e-3
 lr_cooldown_frac = 0.1
 max_grad_norm = 1.0
 params = 29842336
 samples_seen = 298418176
-loss = 3.0316757731577573
-policy_top1 = 0.45221554940703057
-runtime_sec = 455.077747744
+loss = 2.949905403455843
+policy_top1 = 0.478759765625
+runtime_sec = 130.483719687
+# Four isolated recoverable spikes; EMA returned to trend and EG_flops promoted.
+loss_spike_count = 4
 
 [runs.d768]
 training_ratio = 0.2
@@ -269,303 +279,303 @@ loss_spike_count = 0
 # consumed by compare-run and generate-website-data.
 [scaling_runs.d64-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d64-r0p055"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/adt7rfr5"
+run_name = "hyperball-promotion-width-d64-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/c8ki1yba"
 d_model = 64
 params = 979488
 samples_seen = 2693120
-loss = 3.889359081
+loss = 3.882124073673779
 loss_spike_count = 0
 
 [scaling_runs.d128-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d128-r0p055"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/6avq3le8"
+run_name = "hyperball-promotion-width-d128-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/m49k7gdm"
 d_model = 128
 params = 2743456
 samples_seen = 7544832
-loss = 3.668101425
+loss = 3.637907113204588
 loss_spike_count = 0
 
 [scaling_runs.d256-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d256-r0p055"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ufjguuuy"
+run_name = "hyperball-d256-r0p055-lr0p005"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/tiadc73r"
 d_model = 256
 params = 8630688
 samples_seen = 23732224
-loss = 3.409629203
+loss = 3.3761050609474075
 loss_spike_count = 0
 
 [scaling_runs.d512-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d512-r0p055-lr085"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/u4c69pip"
+run_name = "hyperball-promotion-d512-r0p055-lr0p0035"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3ua9a9eg"
 d_model = 512
 params = 29842336
 samples_seen = 82067456
-loss = 3.168127590
+loss = 3.1274988070894665
 loss_spike_count = 0
 
 [scaling_runs.d768-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d768-r0p055-lr100"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/gk7to9xk"
+run_name = "hyperball-promotion-width-d768-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ua5qjt2n"
 d_model = 768
 params = 63636896
 samples_seen = 175005696
-loss = 3.033530889
-loss_spike_count = 0
+loss = 2.9908818753315134
+loss_spike_count = 6
 
 [scaling_runs.d1024-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "dense-half-width-d1024-r0p055-lr115"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eaghg0z2"
+run_name = "hyperball-promotion-lr-d1024-r0p055-lr0p0025"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/0hzz1ai9"
 d_model = 1024
 params = 110014368
 samples_seen = 302546944
-loss = 2.941947915
-loss_spike_count = 0
+loss = 2.9093125554867174
+loss_spike_count = 6
 
 [scaling_runs.d64-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling-d64-r0.1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/tg9b2hmj"
+run_name = "hyperball-lshape-selected-d64-r0p1-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/jl3xj98w"
 d_model = 64
 params = 979488
 samples_seen = 4896768
-loss = 3.800400281030469
+loss = 3.7890899555971993
 loss_spike_count = 0
 
 [scaling_runs.d64-r0p2]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r0.2-refresh"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/le0zet8j"
+run_name = "hyperball-lshape-selected-d64-r0p2-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/sypoqkcp"
 d_model = 64
 params = 979488
 samples_seen = 9795584
-loss = 3.638110563920138
+loss = 3.665815720482124
 loss_spike_count = 0
 
 [scaling_runs.d64-r0p3]
 training_ratio = 0.3
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r0.3"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/g2c1jlod"
+run_name = "hyperball-lshape-selected-d64-r0p3-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/n5a5m0si"
 d_model = 64
 params = 979488
 samples_seen = 14692352
-loss = 3.5733069928965593
+loss = 3.609938613508653
 loss_spike_count = 0
 
 [scaling_runs.d64-r0p5]
 training_ratio = 0.5
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r0.5"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mf306mun"
+run_name = "hyperball-lshape-selected-d64-r0p5-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/r8hohsb2"
 d_model = 64
 params = 979488
 samples_seen = 24487936
-loss = 3.535491963956659
+loss = 3.5527116187842047
 loss_spike_count = 0
 
 [scaling_runs.d64-r0p75]
 training_ratio = 0.75
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r0.75"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/9j0sewuw"
+run_name = "hyperball-lshape-selected-d64-r0p75-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/s28fesht"
 d_model = 64
 params = 979488
 samples_seen = 36730880
-loss = 3.4954902005542547
+loss = 3.5229253154054736
 loss_spike_count = 0
 
 [scaling_runs.d64-r1]
 training_ratio = 1.0
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2yi3k8lq"
+run_name = "hyperball-lshape-selected-d64-r1-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/rqy9r23s"
 d_model = 64
 params = 979488
 samples_seen = 48973824
-loss = 3.47169538474479
+loss = 3.4962525629111068
 loss_spike_count = 0
 
 [scaling_runs.d64-r1p5]
 training_ratio = 1.5
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r1.5"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3ygng034"
+run_name = "hyperball-lshape-selected-d64-r1p5-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/1vyrlzbr"
 d_model = 64
 params = 979488
 samples_seen = 73461760
-loss = 3.4588644355549767
+loss = 3.483847300570369
 loss_spike_count = 0
 
 [scaling_runs.d64-r2]
 training_ratio = 2.0
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d64-r2"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2xrkwmir"
+run_name = "hyperball-lshape-selected-d64-r2-lr0p0071"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/1e093go2"
 d_model = 64
 params = 979488
 samples_seen = 97949696
-loss = 3.4473413054477997
+loss = 3.477143392638563
 loss_spike_count = 0
 
 [scaling_runs.d128-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling4-d128-r0.1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/lywanz0i"
+run_name = "hyperball-scaling-grid-d128-r0p1"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/lo1tqw1q"
 d_model = 128
 params = 2743456
 samples_seen = 13717504
-loss = 3.536921148121582
+loss = 3.532889281509068
 loss_spike_count = 0
 
 [scaling_runs.d128-r0p2]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d128-r0.2-refresh"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mvf2q9b3"
+run_name = "hyperball-scaling-grid-d128-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/x44em6l7"
 d_model = 128
 params = 2743456
 samples_seen = 27435008
-loss = 3.416120267458515
+loss = 3.42706602691802
 loss_spike_count = 0
 
 [scaling_runs.d128-r0p3]
 training_ratio = 0.3
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d128-r0.3"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4smpr2se"
+run_name = "hyperball-scaling-grid-d128-r0p3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/rue6025m"
 d_model = 128
 params = 2743456
 samples_seen = 41152512
-loss = 3.357092340645167
+loss = 3.3717490706984674
 loss_spike_count = 0
 
 [scaling_runs.d128-r0p75]
 training_ratio = 0.75
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d128-r0.75"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/0spk3hr4"
+run_name = "hyperball-scaling-grid-d128-r0p75"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ypww27ui"
 d_model = 128
 params = 2743456
 samples_seen = 102879232
-loss = 3.26741583678992
+loss = 3.2747900722929923
 loss_spike_count = 0
 
 [scaling_runs.d128-r1]
 training_ratio = 1.0
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d128-r1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ma5d219p"
+run_name = "hyperball-scaling-grid-d128-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/w19485tt"
 d_model = 128
 params = 2743456
 samples_seen = 137170944
-loss = 3.252725598223235
+loss = 3.2622609315681195
 loss_spike_count = 0
 
 [scaling_runs.d256-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling4-d256-r0.1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbaqm6d7"
+run_name = "hyperball-scaling-grid-d256-r0p1"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q4348s9n"
 d_model = 256
 params = 8630688
 samples_seen = 43155456
-loss = 3.2844779592801827
-loss_spike_count = 1
+loss = 3.264339182476742
+loss_spike_count = 0
 
 [scaling_runs.d256-r0p2]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d256-r0.2-refresh"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/6kufmxzg"
+run_name = "hyperball-scaling-grid-d256-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eaenbj95"
 d_model = 256
 params = 8630688
 samples_seen = 86310912
-loss = 3.1806255764143296
-loss_spike_count = 0
+loss = 3.175590149778562
+loss_spike_count = 2
 
 [scaling_runs.d256-r0p3]
 training_ratio = 0.3
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d256-r0.3"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbibhzvv"
+run_name = "hyperball-scaling-grid-d256-r0p3"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/7wslqpoc"
 d_model = 256
 params = 8630688
 samples_seen = 129458176
-loss = 3.138097543359241
+loss = 3.1234926731388315
 loss_spike_count = 0
 
 [scaling_runs.d512-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d512-r0.1-refresh"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/13xpo9r5"
+run_name = "hyperball-scaling-grid-d512-r0p1"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/v3qc9fjy"
 d_model = 512
 params = 29842336
 samples_seen = 149209088
-loss = 3.0847157847463245
-loss_spike_count = 0
+loss = 3.027363477906377
+loss_spike_count = 3
 
 [scaling_runs.d512-r0p2]
 training_ratio = 0.2
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d512-r0.2-refresh"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/irfjpljb"
+run_name = "hyperball-scaling-grid-d512-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/9shmd6r0"
 d_model = 512
 params = 29842336
 samples_seen = 298418176
-loss = 3.0019486853616155
-loss_spike_count = 0
+loss = 2.949905403455843
+loss_spike_count = 4
 
 [scaling_runs.d1024-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-10.01-skaling-law"
+source_experiment = "experiments/2026-08-11.03-hyperball"
 model_kind = "dense"
-run_name = "skaling2-d1024-r0.1"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/zqeck1z3"
+run_name = "hyperball-scaling-grid-d1024-r0p1"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/aqkjb17c"
 d_model = 1024
 params = 110014368
 samples_seen = 550076416
-loss = 2.9322109324287133
-loss_spike_count = 0
+loss = 2.8342919785689555
+loss_spike_count = 8
 
 [scaling_runs.d1280-r0p0490575]
 training_ratio = 0.049057534938710845

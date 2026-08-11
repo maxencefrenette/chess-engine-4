@@ -26,6 +26,7 @@ from chess_engine_4.training.config import (
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
 from chess_engine_4.training.losses import lczero_loss
+from chess_engine_4.training.optimizers import AdamHyperball, optimizer_metrics
 from chess_engine_4.training.packed_input import (
     PackedPlaneInput,
     build_training_model,
@@ -244,6 +245,9 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 optimizer.step()
         else:
             optimizer.step()
+        latest_optimizer_metrics = (
+            optimizer_metrics(optimizer) if should_log or should_checkpoint else {}
+        )
         if options.profile is not None:
             train_end.record()
             profile_records.append(
@@ -286,6 +290,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             if output.router_tokens_per_expert is not None:
                 final_router_tokens_per_expert = output.router_tokens_per_expert.cpu().tolist()
             metrics["perf/flops_seen"] = flops_seen
+            metrics.update(latest_optimizer_metrics)
             metrics["stability/loss_spike_count"] = loss_spike_detector.count
             metrics["perf/step_time_sec"] = interval_elapsed / interval_steps
             metrics["perf/samples_per_sec_interval"] = interval_samples / interval_elapsed
@@ -390,6 +395,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     }
     if final_router_tokens_per_expert is not None:
         result["router_tokens_per_expert"] = final_router_tokens_per_expert
+    result.update(optimizer_metrics(optimizer))
     if options.profile is not None:
         result.update(
             {
@@ -554,6 +560,10 @@ def _build_optimizer(
     *,
     config: TrainingConfig,
 ) -> torch.optim.Optimizer:
+    if config.optimizer.kind == "adamh":
+        return AdamHyperball(model, lr=config.optimizer.lr)
+    if config.optimizer.weight_decay is None:
+        raise ValueError("AdamW requires weight_decay.")
     return te().optimizers.FusedAdam(
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
@@ -680,12 +690,13 @@ def _init_wandb(
         "history_length": config.model.history_length,
         "activation": config.model.activation,
         "rms_norm_eps": config.model.rms_norm_eps,
+        "optimizer": config.optimizer.kind,
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
         "max_grad_norm": config.optimizer.max_grad_norm,
         "lr_warmup_steps": config.optimizer.lr_warmup_steps,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
-        "fused_adamw": True,
+        "fused_adamw": config.optimizer.kind == "adamw",
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,

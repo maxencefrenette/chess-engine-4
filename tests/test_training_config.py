@@ -59,12 +59,23 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.activation == "silu"
     assert overridden.model.precision == "nvfp4"
     assert overridden.optimizer.lr == 0.001
+    assert overridden.optimizer.kind == "adamh"
     assert overridden.optimizer.max_grad_norm == 3.0
     assert overridden.optimizer.lr_warmup_steps == 25
     assert overridden.optimizer.lr_cooldown_frac == 0.2
     assert overridden.infra.gpu == "RTX-PRO-6000"
     assert overridden.optimizer.weight_decay == config.optimizer.weight_decay
     assert overridden.loss == config.loss
+
+
+def test_optimizer_override_selects_adamh_without_weight_decay() -> None:
+    config = load_training_config("configs/dense.py", d_model=64)
+
+    overridden = with_overrides(config, optimizer="adamh", lr=0.0071)
+
+    assert overridden.optimizer.kind == "adamh"
+    assert overridden.optimizer.lr == 0.0071
+    assert overridden.optimizer.weight_decay is None
 
 
 def test_training_config_round_trips_through_dict() -> None:
@@ -609,8 +620,10 @@ def test_dense_family_scales_training_horizon() -> None:
         12.5,
         rel=1e-3,
     )
-    assert baseline.optimizer.lr == 0.00055
-    assert undertrained.optimizer.lr == 0.0013
+    assert baseline.optimizer.kind == "adamh"
+    assert baseline.optimizer.weight_decay is None
+    assert baseline.optimizer.lr == 0.005
+    assert undertrained.optimizer.lr == 0.005
 
 
 def test_dense_family_uses_batch16_below_fitted_step_cutoff() -> None:
@@ -633,7 +646,7 @@ def test_dense_family_uses_batch16_below_fitted_step_cutoff() -> None:
     assert config.run.batch_size == batch32 // 2
     assert config.run.steps == steps32 * 2
     assert config.run.batch_size * config.run.steps == batch32 * steps32
-    assert config.optimizer.lr == pytest.approx(0.00019 * 1.15)
+    assert config.optimizer.lr == 0.0025
 
 
 def test_dense_family_keeps_batch32_above_fitted_step_cutoff() -> None:
@@ -676,7 +689,7 @@ def test_dense_family_rejects_horizon_below_fitted_step_cutoff() -> None:
         )
 
 
-def test_dense_family_uses_tuned_d1280_batch16_lr_multiplier() -> None:
+def test_dense_family_uses_adamh_lr_at_d1280_batch16() -> None:
     batch32 = 32 * 1280
     training_ratio = 0.0698120891268
 
@@ -688,14 +701,14 @@ def test_dense_family_uses_tuned_d1280_batch16_lr_multiplier() -> None:
 
     assert config.run.batch_size == batch32 // 2
     assert config.run.steps == 28_800
-    assert config.optimizer.lr == pytest.approx(0.00014 * 1.30)
+    assert config.optimizer.lr == 0.0025
 
 
 @pytest.mark.parametrize(
     ("d_model", "expected_lr"),
-    [(512, 0.000493), (768, 0.00033), (1024, 0.000253)],
+    [(512, 0.0035), (768, 0.0035), (1024, 0.0025)],
 )
-def test_dense_family_uses_stable_short_horizon_batch16_lr(
+def test_dense_family_uses_promoted_adamh_lr_at_short_horizon(
     d_model: int, expected_lr: float
 ) -> None:
     config = load_training_config(
@@ -705,7 +718,9 @@ def test_dense_family_uses_stable_short_horizon_batch16_lr(
     )
 
     assert config.run.batch_size < 32 * d_model
-    assert config.optimizer.lr == pytest.approx(expected_lr)
+    assert config.optimizer.kind == "adamh"
+    assert config.optimizer.weight_decay is None
+    assert config.optimizer.lr == expected_lr
 
 
 def test_dense_family_recomputes_recipe_for_history_length() -> None:
@@ -714,4 +729,4 @@ def test_dense_family_recomputes_recipe_for_history_length() -> None:
 
     assert shortened.model.history_length == 2
     assert shortened.run.steps < full.run.steps
-    assert shortened.optimizer.lr > full.optimizer.lr
+    assert shortened.optimizer.lr == full.optimizer.lr == 0.005

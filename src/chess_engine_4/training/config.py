@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from chess_engine_4.hardware import TrainingGpu, gpu_spec
 from chess_engine_4.kernels.capabilities import KernelSelection, resolve_kernel_backend
@@ -42,13 +42,29 @@ class InfraConfig:
             raise ValueError("cpu_cores must be positive.")
 
 
+type OptimizerKind = Literal["adamw", "adamh"]
+
+
 @dataclass(frozen=True, slots=True)
 class OptimizerConfig:
+    kind: OptimizerKind = "adamw"
     lr: float = 3e-4
-    weight_decay: float = 0.01
+    weight_decay: float | None = 0.01
     max_grad_norm: float = 1.0
     lr_warmup_steps: int = 0
     lr_cooldown_frac: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.kind == "adamw":
+            if self.weight_decay is None or self.weight_decay < 0:
+                raise ValueError("AdamW weight_decay must be non-negative.")
+        elif self.kind == "adamh":
+            if self.weight_decay is not None:
+                raise ValueError("AdamH does not accept weight_decay.")
+        else:
+            raise ValueError(f"unsupported optimizer kind {self.kind!r}.")
+        if self.lr <= 0:
+            raise ValueError("optimizer lr must be positive.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,7 +156,9 @@ def with_overrides(
     expansion_ratio: float | None = None,
     history_length: int | None = None,
     activation: str | None = None,
+    optimizer: OptimizerKind | None = None,
     lr: float | None = None,
+    weight_decay: float | None = None,
     max_grad_norm: float | None = None,
     lr_warmup_steps: int | None = None,
     lr_cooldown_frac: float | None = None,
@@ -167,8 +185,19 @@ def with_overrides(
         config = replace(config, model=replace(config.model, history_length=history_length))
     if activation is not None:
         config = replace(config, model=replace(config.model, activation=activation))
+    if optimizer is not None:
+        config = replace(
+            config,
+            optimizer=replace(
+                config.optimizer,
+                kind=optimizer,
+                weight_decay=None if optimizer == "adamh" else 0.01,
+            ),
+        )
     if lr is not None:
         config = replace(config, optimizer=replace(config.optimizer, lr=lr))
+    if weight_decay is not None:
+        config = replace(config, optimizer=replace(config.optimizer, weight_decay=weight_decay))
     if max_grad_norm is not None:
         config = replace(
             config,

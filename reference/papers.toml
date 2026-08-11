@@ -24,3 +24,21 @@ citation = "arXiv:2608.07222"
 url = "https://arxiv.org/pdf/2608.07222"
 filename = "skaling.pdf"
 relevance = "Coupled model-size/data scaling laws and sparse profiling grids."
+
+[[paper]]
+slug = "hyperball"
+title = "Fantastic Pretraining Optimizers and Where to Find Them II: Hyperball Optimization"
+authors = "Kaiyue Wen, Xingyu Dang, Kaifeng Lyu, Tengyu Ma, Percy Liang"
+citation = "arXiv:2606.16899"
+url = "https://arxiv.org/pdf/2606.16899"
+filename = "hyperball.pdf"
+relevance = "Weight-decay-free norm control, angular learning rates, and optimizer transfer across model scales."
+
+[[paper]]
+slug = "hyperball-free-lunch"
+title = "Hyperball May Not Be a Free Lunch"
+authors = "Yihao Xiao, Jialong Sun, Zitian Gao, Zeming Wei, Chutian Wang, Ran Tao, Jiaye Teng, Bryan Dai"
+citation = "arXiv:2607.22444"
+url = "https://arxiv.org/pdf/2607.22444"
+filename = "hyperball-free-lunch.pdf"
+relevance = "Hyperball effective step-size dynamics and learning-rate schedule sensitivity."

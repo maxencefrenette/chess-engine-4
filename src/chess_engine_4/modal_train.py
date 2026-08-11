@@ -190,6 +190,8 @@ def add_training_config_arguments(
         default=None,
     )
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--optimizer", choices=("adamw", "adamh"), default=None)
+    parser.add_argument("--weight-decay", type=float, default=None)
     if include_steps:
         parser.add_argument("--max-grad-norm", type=float, default=None)
         parser.add_argument("--lr-warmup-steps", type=int, default=None)
@@ -223,7 +225,9 @@ def resolve_training_config(args: argparse.Namespace) -> TrainingConfig:
         depth=args.depth,
         expansion_ratio=args.expansion_ratio,
         activation=args.activation,
+        optimizer=args.optimizer,
         lr=args.lr,
+        weight_decay=args.weight_decay,
         max_grad_norm=getattr(args, "max_grad_norm", None),
         lr_warmup_steps=getattr(args, "lr_warmup_steps", None),
         lr_cooldown_frac=getattr(args, "lr_cooldown_frac", None),
@@ -264,7 +268,9 @@ def print_launch_summary(
         f"steps={run_steps:,} "
         f"samples={samples:,} "
         f"flops={flops_per_sample * samples:.3e} "
+        f"optimizer={config.optimizer.kind} "
         f"lr={config.optimizer.lr:g} "
+        f"weight_decay={config.optimizer.weight_decay} "
         f"precision={config.model.precision} "
         f"gpu={config.infra.gpu} "
         f"kernel_backend={config.model.kernel_backend} "
