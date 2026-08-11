@@ -51,14 +51,11 @@ def is_hyperball_parameter(name: str, parameter: torch.nn.Parameter) -> bool:
         return False
     if parameter.ndim == 2:
         return (
-            name.endswith(".layer.fc1_weight")
-            or name.endswith(".layer.fc2_weight")
+            name.endswith((".layer.fc1_weight", ".layer.fc2_weight"))
             or (".experts." in name and name.rsplit(".", 1)[-1].startswith("weight"))
         )
     if parameter.ndim == 3:
-        return name.endswith(".experts.gate_up_weight") or name.endswith(
-            ".experts.down_weight"
-        )
+        return name.endswith((".experts.gate_up_weight", ".experts.down_weight"))
     return False
 
 

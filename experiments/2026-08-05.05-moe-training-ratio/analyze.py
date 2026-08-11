@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import tomllib
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -104,7 +105,7 @@ def interpolated_cost(
         key=lambda result: result.loss,
         reverse=True,
     )
-    for weaker, stronger in zip(points, points[1:], strict=False):
+    for weaker, stronger in pairwise(points):
         if weaker.loss >= target_loss >= stronger.loss:
             fraction = (weaker.loss - target_loss) / (weaker.loss - stronger.loss)
             return math.exp(

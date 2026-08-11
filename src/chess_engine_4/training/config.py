@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -71,9 +71,9 @@ class OptimizerConfig:
 class TrainingConfig:
     run: RunConfig = RunConfig()
     infra: InfraConfig = InfraConfig()
-    model: ModelConfig = model_config_from_dict({})
+    model: ModelConfig = field(default_factory=lambda: model_config_from_dict({}))
     optimizer: OptimizerConfig = OptimizerConfig()
-    loss: LossWeights = LossWeights()
+    loss: LossWeights = field(default_factory=LossWeights)
 
 
 def load_training_config(

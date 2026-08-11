@@ -141,16 +141,16 @@ def _trials(lrs_by_width: dict[int, tuple[float, ...]]) -> list[Trial]:
             raise RuntimeError(f"d{width} lacks an exact-16d throughput row")
         rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
         cost = float(row["measured_wall_ms_per_step"]) / 1_000 * config.run.steps * rate
-        for lr in lrs:
-            trials.append(
-                Trial(
-                    width=width,
-                    batch_size=config.run.batch_size,
-                    steps=config.run.steps,
-                    lr=lr,
-                    estimated_cost=cost,
-                )
+        trials.extend(
+            Trial(
+                width=width,
+                batch_size=config.run.batch_size,
+                steps=config.run.steps,
+                lr=lr,
+                estimated_cost=cost,
             )
+            for lr in lrs
+        )
     return trials
 
 

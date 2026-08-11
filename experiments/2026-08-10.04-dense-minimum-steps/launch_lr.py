@@ -131,18 +131,18 @@ def _trials(
             str(row["gpu"]), int(row["cpu_cores"])
         )
         estimated_cost = float(row["measured_wall_ms_per_step"]) / 1_000 * steps * rate
-        for multiplier in multipliers:
-            trials.append(
-                Trial(
-                    width=width,
-                    training_ratio=training_ratio,
-                    batch_size=batch_size,
-                    steps=steps,
-                    lr=base_lr * multiplier,
-                    multiplier=multiplier,
-                    estimated_cost=estimated_cost,
-                )
+        trials.extend(
+            Trial(
+                width=width,
+                training_ratio=training_ratio,
+                batch_size=batch_size,
+                steps=steps,
+                lr=base_lr * multiplier,
+                multiplier=multiplier,
+                estimated_cost=estimated_cost,
             )
+            for multiplier in multipliers
+        )
     return trials
 
 

@@ -124,9 +124,14 @@ def test_extrapolated_width_cost_assumes_largest_width_mfu() -> None:
     ) == pytest.approx(expected_ratio)
 
 
-@pytest.mark.parametrize("budget, samples", [(0.0, 100), (1.0, 0)])
-def test_planner_rejects_non_positive_inputs(budget: float, samples: int) -> None:
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize(
+    ("budget", "samples", "message"),
+    [(0.0, 100, "budget must be positive"), (1.0, 0, "assume_samples must be positive")],
+)
+def test_planner_rejects_non_positive_inputs(
+    budget: float, samples: int, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
         plan_budget(budget, assume_samples=samples, fits=[])
 
 

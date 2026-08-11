@@ -74,7 +74,20 @@ line-length = 100
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+    "PT",
+    "ARG",
+    "C4",
+    "PIE",
+    "PERF",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

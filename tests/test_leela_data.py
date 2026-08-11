@@ -152,7 +152,8 @@ def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
         )
     )
 
-    assert first and second
+    assert first
+    assert second
     first_rows = torch.cat([batch[0] for batch in first])
     second_rows = torch.cat([batch[0] for batch in second])
     assert not torch.equal(first_rows, second_rows)
@@ -171,7 +172,8 @@ def test_parquet_dataset_accepts_arbitrary_sampling_rate(tmp_path: Path) -> None
         LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
     )
 
-    assert first and second
+    assert first
+    assert second
     assert not torch.equal(
         torch.cat([batch[0] for batch in first]),
         torch.cat([batch[0] for batch in second]),

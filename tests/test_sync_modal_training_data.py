@@ -7,7 +7,8 @@ import pytest
 
 SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "sync_modal_training_data.py"
 SPEC = importlib.util.spec_from_file_location("sync_modal_training_data", SCRIPT_PATH)
-assert SPEC is not None and SPEC.loader is not None
+assert SPEC is not None
+assert SPEC.loader is not None
 sync = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(sync)
 

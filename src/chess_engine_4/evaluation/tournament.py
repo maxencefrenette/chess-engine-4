@@ -197,7 +197,7 @@ def parse_match_result(payload: dict[str, Any], result: dict[str, Any]) -> Match
         payload["player1"]["weights"]: payload["player1"]["name"],
         payload["player2"]["weights"]: payload["player2"]["name"],
     }
-    scores = {name: 0 for name in weights_to_name.values()}
+    scores = dict.fromkeys(weights_to_name.values(), 0)
     draws = 0
     games = 0
     for block in _RESULT_BLOCK.finditer(result["results"]):

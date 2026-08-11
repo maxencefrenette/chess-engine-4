@@ -126,7 +126,7 @@ def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
         gpu="RTX-PRO-6000",
     )
 
-    with pytest.raises(ValueError, match="mxfp8.*not supported on SM120"):
+    with pytest.raises(ValueError, match=r"mxfp8.*not supported on SM120"):
         validate_training_hardware(config)
 
 
@@ -167,7 +167,7 @@ def test_a100_rejects_low_precision_recipe() -> None:
     config = load_training_config("configs/dense.py", d_model=128)
     config = with_overrides(config, gpu="A100", quantization_recipe="mxfp8")
 
-    with pytest.raises(ValueError, match="mxfp8.*not supported on SM80"):
+    with pytest.raises(ValueError, match=r"mxfp8.*not supported on SM80"):
         validate_training_hardware(config)
 
 
