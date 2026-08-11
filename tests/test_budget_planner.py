@@ -39,21 +39,23 @@ def test_assumed_samples_hard_caps_plan() -> None:
     assert candidate.sample_limited
 
 
-def test_planner_excludes_moe_without_qb_allocation_evidence() -> None:
+def test_planner_uses_quantile_moe_skaling_evidence() -> None:
     _, fits = planner_inputs()
     candidate = plan_budget(5.0, assume_samples=3_949_735_220, fits=fits)
 
     assert candidate is not None
-    assert candidate.family == "dense"
+    assert candidate.family == "moe64a2"
     assert candidate.estimated_cost <= candidate.budget
 
 
-def test_only_dense_has_enough_current_evidence_to_fit() -> None:
+def test_both_families_use_skaling_and_share_floor() -> None:
     _, fits = planner_inputs()
 
     assert isinstance(next(fit.law for fit in fits if fit.spec.family == "dense"), SkalingLaw)
-    assert all(fit.spec.family != "moe64a2" for fit in fits)
+    assert all(isinstance(fit.law, SkalingLaw) for fit in fits)
     dense = next(fit for fit in fits if fit.spec.family == "dense")
+    moe = next(fit for fit in fits if fit.spec.family == "moe64a2")
+    assert moe.law.floor == dense.law.floor
     candidates = candidates_for_family(
         100.0,
         assume_samples=8_020_779_820,
@@ -116,7 +118,7 @@ def test_value_of_information_runs_are_unmeasured_and_cheap() -> None:
         )
 
 
-def test_twice_dataset_prefers_direct_ten_dollar_training() -> None:
+def test_twice_dataset_value_of_information_is_finite() -> None:
     evidence, fits = planner_inputs()
     ensembles = bootstrap_family_fits(evidence, fits, samples=50, seed=2026)
     comparisons = suggest_runs(
@@ -130,5 +132,9 @@ def test_twice_dataset_prefers_direct_ten_dollar_training() -> None:
     )
 
     assert comparisons
-    assert comparisons[0].expected_loss_improvement <= 1e-12
+    assert comparisons == sorted(
+        comparisons,
+        key=lambda comparison: comparison.expected_loss_improvement,
+        reverse=True,
+    )
     assert all(0 <= comparison.probability_improves <= 1 for comparison in comparisons)

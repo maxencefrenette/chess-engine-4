@@ -1,6 +1,6 @@
 import scalingData from "@/generated/scaling-laws.json";
 
-export type TrainingGpu = "B200" | "RTX-PRO-6000";
+export type TrainingGpu = "A100" | "B200" | "RTX-PRO-6000";
 
 export type BestRun = {
   name: string;

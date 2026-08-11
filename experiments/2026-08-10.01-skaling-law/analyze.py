@@ -95,8 +95,10 @@ def read_observations(family: str) -> list[Observation]:
             )
     else:
         with NEW_DENSE_RUNS.open("rb") as handle:
-            new_runs = tomllib.load(handle)["moe_runs"]
+            new_runs = tomllib.load(handle)["qb_moe_runs"]
         for name, row in new_runs.items():
+            if not row.get("fit_eligible", True):
+                continue
             total = int(row["params"])
             width = int(row["d_model"])
             observations.append(
@@ -171,6 +173,301 @@ def mape(fit: Fit, observations: list[Observation], model_size_field: str) -> fl
     return float(100 * np.mean(np.abs(predicted - observed) / observed))
 
 
+def fit_shared_skaling_floor(
+    moe_model_size_field: str,
+    *,
+    balance_families: bool = False,
+) -> dict[str, object]:
+    """Jointly fit dense and d256+ MoE Skaling laws with one shared floor."""
+    dense = [
+        row
+        for row in read_observations("dense")
+        if row.current_recipe and row.width >= 64 and row.ratio >= 0.1
+    ]
+    moe = [row for row in read_observations("moe64a2") if row.width >= 256]
+
+    def arrays(
+        observations: list[Observation], model_size_field: str
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        return (
+            np.array(
+                [getattr(row, model_size_field) / 1e6 for row in observations]
+            ),
+            np.array([row.samples / 1e8 for row in observations]),
+            np.array([row.loss for row in observations]),
+        )
+
+    dense_n, dense_d, dense_loss = arrays(dense, "total_params")
+    moe_n, moe_d, moe_loss = arrays(moe, moe_model_size_field)
+    family_lower = np.array([-13.8, -13.8, 0.01, 0.01, 0.01])
+    family_upper = np.array([16.2, 16.2, 2.0, 2.0, 2.0])
+    lower = np.concatenate((family_lower, family_lower, np.array([0.0])))
+    upper = np.concatenate((family_upper, family_upper, np.array([3.0])))
+
+    def predict(
+        values: np.ndarray, model_size: np.ndarray, data: np.ndarray, offset: int
+    ) -> np.ndarray:
+        log_a, log_b, alpha, beta, coupling = values[offset : offset + 5]
+        inner = np.exp(log_a) * model_size**-alpha + np.exp(log_b) * data**-beta
+        return inner**coupling + values[-1]
+
+    def residuals(values: np.ndarray) -> np.ndarray:
+        dense_residuals = np.log(predict(values, dense_n, dense_d, 0)) - np.log(
+            dense_loss
+        )
+        moe_residuals = np.log(predict(values, moe_n, moe_d, 5)) - np.log(moe_loss)
+        if balance_families:
+            dense_residuals /= math.sqrt(len(dense_residuals))
+            moe_residuals /= math.sqrt(len(moe_residuals))
+        return np.concatenate((dense_residuals, moe_residuals))
+
+    sampler = qmc.Sobol(d=len(lower), scramble=True, seed=20260811)
+    starts = qmc.scale(
+        sampler.random_base2(int(math.log2(FIT_RESTARTS))), lower, upper
+    )
+    best = min(
+        (
+            least_squares(
+                residuals,
+                initial,
+                bounds=(lower, upper),
+                loss="huber",
+                f_scale=0.05,
+                max_nfev=20_000,
+            )
+            for initial in starts
+        ),
+        key=lambda candidate: float(np.sum(candidate.fun**2)),
+    )
+
+    def family_output(
+        observations: list[Observation],
+        losses: np.ndarray,
+        model_size: np.ndarray,
+        data: np.ndarray,
+        offset: int,
+    ) -> dict[str, object]:
+        log_a, log_b, alpha, beta, coupling = best.x[offset : offset + 5]
+        predictions = predict(best.x, model_size, data, offset)
+        return {
+            "observation_count": len(observations),
+            "mape": float(100 * np.mean(np.abs(predictions - losses) / losses)),
+            "parameters": {
+                "A": math.exp(log_a),
+                "B": math.exp(log_b),
+                "alpha": float(alpha),
+                "beta": float(beta),
+                "k": float(coupling),
+                "E": float(best.x[-1]),
+            },
+        }
+
+    return {
+        "family": "dense+moe64a2",
+        "comparison": "shared_skaling_floor",
+        "weighting": "family_balanced" if balance_families else "observation_weighted",
+        "moe_model_size": moe_model_size_field,
+        "dense_minimum_width": 64,
+        "dense_minimum_ratio": 0.1,
+        "moe_minimum_width": 256,
+        "shared_E": float(best.x[-1]),
+        "dense": family_output(dense, dense_loss, dense_n, dense_d, 0),
+        "moe64a2": family_output(moe, moe_loss, moe_n, moe_d, 5),
+    }
+
+
+def fit_moe_with_dense_data_term(model_size_field: str) -> dict[str, object]:
+    """Fit MoE A/alpha/k while reusing dense B/beta/E."""
+    dense = [
+        row
+        for row in read_observations("dense")
+        if row.current_recipe and row.width >= 64 and row.ratio >= 0.1
+    ]
+    dense_fit = fit_law(dense, law="skaling", model_size_field="total_params")
+    _, log_b, _, beta, _, floor = dense_fit.params
+    moe = [row for row in read_observations("moe64a2") if row.width >= 256]
+
+    def constrained_fit(
+        observations: list[Observation], *, restarts: int = FIT_RESTARTS
+    ) -> Fit:
+        model_size = np.array(
+            [getattr(row, model_size_field) / 1e6 for row in observations]
+        )
+        data = np.array([row.samples / 1e8 for row in observations])
+        losses = np.array([row.loss for row in observations])
+        lower = np.array([-13.8, 0.01, 0.01])
+        upper = np.array([16.2, 2.0, 2.0])
+
+        def expand(values: np.ndarray) -> np.ndarray:
+            log_a, alpha, coupling = values
+            return np.array([log_a, log_b, alpha, beta, coupling, floor])
+
+        def residuals(values: np.ndarray) -> np.ndarray:
+            log_a, _, alpha, _, coupling, _ = expand(values)
+            inner = np.exp(log_a) * model_size**-alpha + np.exp(log_b) * data**-beta
+            return np.log(inner**coupling + floor) - np.log(losses)
+
+        sampler = qmc.Sobol(d=3, scramble=True, seed=20260811)
+        starts = qmc.scale(
+            sampler.random_base2(int(math.log2(restarts))), lower, upper
+        )
+        best = None
+        for initial in starts:
+            candidate = least_squares(
+                residuals,
+                initial,
+                bounds=(lower, upper),
+                loss="huber",
+                f_scale=0.05,
+                max_nfev=20_000,
+            )
+            objective = float(np.sum(candidate.fun**2))
+            if best is None or objective < best.objective:
+                best = Fit(
+                    law="skaling_dense_data_term",
+                    params=tuple(float(value) for value in expand(candidate.x)),
+                    objective=objective,
+                )
+        assert best is not None
+        return best
+
+    fit = constrained_fit(moe)
+    leave_one_out = [
+        mape(
+            constrained_fit(
+                [row for row in moe if row != heldout], restarts=16
+            ),
+            [heldout],
+            model_size_field,
+        )
+        for heldout in moe
+    ]
+    max_width = max(row.width for row in moe)
+    size_test = [row for row in moe if row.width == max_width]
+    size_train = [row for row in moe if row.width < max_width]
+    longest = [
+        max((row for row in moe if row.width == width), key=lambda row: row.ratio)
+        for width in sorted({row.width for row in moe})
+    ]
+    data_train = [row for row in moe if row not in longest]
+    return {
+        "family": "moe64a2",
+        "comparison": "reuse_dense_B_beta_E",
+        "model_size": model_size_field,
+        "minimum_width": 256,
+        "observation_count": len(moe),
+        "parameters": {
+            "A": math.exp(fit.params[0]),
+            "B": math.exp(fit.params[1]),
+            "alpha": fit.params[2],
+            "beta": fit.params[3],
+            "k": fit.params[4],
+            "E": fit.params[5],
+        },
+        "full_mape": mape(fit, moe, model_size_field),
+        "leave_one_out_mape": float(np.mean(leave_one_out)),
+        "size_extrapolation_mape": mape(
+            constrained_fit(size_train), size_test, model_size_field
+        ),
+        "data_extrapolation_mape": mape(
+            constrained_fit(data_train), longest, model_size_field
+        ),
+    }
+
+
+def fit_moe_with_dense_floor(model_size_field: str) -> dict[str, object]:
+    """Fit the MoE Skaling law while reusing only dense E."""
+    dense = [
+        row
+        for row in read_observations("dense")
+        if row.current_recipe and row.width >= 64 and row.ratio >= 0.1
+    ]
+    dense_fit = fit_law(dense, law="skaling", model_size_field="total_params")
+    floor = dense_fit.params[-1]
+    moe = [row for row in read_observations("moe64a2") if row.width >= 256]
+
+    def constrained_fit(
+        observations: list[Observation], *, restarts: int = FIT_RESTARTS
+    ) -> Fit:
+        model_size = np.array(
+            [getattr(row, model_size_field) / 1e6 for row in observations]
+        )
+        data = np.array([row.samples / 1e8 for row in observations])
+        losses = np.array([row.loss for row in observations])
+        lower = np.array([-13.8, -13.8, 0.01, 0.01, 0.01])
+        upper = np.array([16.2, 16.2, 2.0, 2.0, 2.0])
+
+        def expand(values: np.ndarray) -> np.ndarray:
+            log_a, log_b, alpha, beta, coupling = values
+            return np.array([log_a, log_b, alpha, beta, coupling, floor])
+
+        def residuals(values: np.ndarray) -> np.ndarray:
+            log_a, log_b, alpha, beta, coupling, _ = expand(values)
+            inner = np.exp(log_a) * model_size**-alpha + np.exp(log_b) * data**-beta
+            return np.log(inner**coupling + floor) - np.log(losses)
+
+        sampler = qmc.Sobol(d=5, scramble=True, seed=20260811)
+        starts = qmc.scale(
+            sampler.random_base2(int(math.log2(restarts))), lower, upper
+        )
+        best = None
+        for initial in starts:
+            candidate = least_squares(
+                residuals,
+                initial,
+                bounds=(lower, upper),
+                loss="huber",
+                f_scale=0.05,
+                max_nfev=20_000,
+            )
+            objective = float(np.sum(candidate.fun**2))
+            if best is None or objective < best.objective:
+                best = Fit(
+                    law="skaling_dense_floor",
+                    params=tuple(float(value) for value in expand(candidate.x)),
+                    objective=objective,
+                )
+        assert best is not None
+        return best
+
+    fit = constrained_fit(moe)
+    max_width = max(row.width for row in moe)
+    size_test = [row for row in moe if row.width == max_width]
+    size_train = [row for row in moe if row.width < max_width]
+    longest = [
+        max((row for row in moe if row.width == width), key=lambda row: row.ratio)
+        for width in sorted({row.width for row in moe})
+    ]
+    data_train = [row for row in moe if row not in longest]
+    sparse = l_shape_rows(moe, anchor_width=None, anchor_ratio=0.01)
+    sparse_holdout = [row for row in moe if row not in sparse]
+    return {
+        "family": "moe64a2",
+        "comparison": "reuse_dense_E",
+        "model_size": model_size_field,
+        "minimum_width": 256,
+        "observation_count": len(moe),
+        "parameters": {
+            "A": math.exp(fit.params[0]),
+            "B": math.exp(fit.params[1]),
+            "alpha": fit.params[2],
+            "beta": fit.params[3],
+            "k": fit.params[4],
+            "E": fit.params[5],
+        },
+        "full_mape": mape(fit, moe, model_size_field),
+        "l_shape_heldout_mape": mape(
+            constrained_fit(sparse), sparse_holdout, model_size_field
+        ),
+        "size_extrapolation_mape": mape(
+            constrained_fit(size_train), size_test, model_size_field
+        ),
+        "data_extrapolation_mape": mape(
+            constrained_fit(data_train), longest, model_size_field
+        ),
+    }
+
+
 def evaluation_folds(
     observations: list[Observation],
 ) -> dict[str, list[tuple[list[Observation], list[Observation]]]]:
@@ -228,10 +525,16 @@ def l_shape_rows(
     observations: list[Observation],
     *,
     anchor_width: int | None = None,
+    anchor_ratio: float | None = None,
 ) -> list[Observation]:
     min_width = min(row.width for row in observations) if anchor_width is None else anchor_width
-    # Anchor both arms at the cheapest eligible ratio observed for the smallest model.
-    min_ratio = min(row.ratio for row in observations if row.width == min_width)
+    # Default to the cheapest eligible corner; callers may select an explicit
+    # low-compute size arm when that corner run is diagnostically invalid.
+    min_ratio = (
+        min(row.ratio for row in observations if row.width == min_width)
+        if anchor_ratio is None
+        else anchor_ratio
+    )
     return [
         row for row in observations if row.width == min_width or row.ratio == min_ratio
     ]
@@ -373,6 +676,7 @@ def evaluate(
     minimum_width: int | None = None,
     minimum_ratio: float | None = None,
     l_shape_width: int | None = None,
+    l_shape_ratio: float | None = None,
     current_only: bool = False,
     include_influence: bool = False,
 ) -> dict[str, object]:
@@ -392,6 +696,7 @@ def evaluate(
         "model_size": model_size_field,
         "minimum_width": minimum_width,
         "minimum_ratio": minimum_ratio,
+        "l_shape_ratio": l_shape_ratio,
         "current_only": current_only,
         "observation_count": len(observations),
         "observations": [asdict(row) for row in observations],
@@ -454,7 +759,11 @@ def evaluate(
             }
         output["cross_validation"][regime] = regime_output
 
-    sparse = l_shape_rows(observations, anchor_width=l_shape_width)
+    sparse = l_shape_rows(
+        observations,
+        anchor_width=l_shape_width,
+        anchor_ratio=l_shape_ratio,
+    )
     sparse_holdout = [row for row in observations if row not in sparse]
     output["l_shape"] = {
         "train": [row.name for row in sparse],
@@ -542,8 +851,20 @@ def main() -> None:
             l_shape_width=64,
             current_only=True,
         ),
-        evaluate("moe64a2", "total_params"),
-        evaluate("moe64a2", "active_params"),
+        evaluate(
+            "moe64a2", "total_params", minimum_width=256, l_shape_ratio=0.01
+        ),
+        evaluate(
+            "moe64a2", "active_params", minimum_width=256, l_shape_ratio=0.01
+        ),
+        fit_shared_skaling_floor("total_params"),
+        fit_shared_skaling_floor("active_params"),
+        fit_shared_skaling_floor("total_params", balance_families=True),
+        fit_shared_skaling_floor("active_params", balance_families=True),
+        fit_moe_with_dense_data_term("total_params"),
+        fit_moe_with_dense_data_term("active_params"),
+        fit_moe_with_dense_floor("total_params"),
+        fit_moe_with_dense_floor("active_params"),
         compare_l_shape_anchors((32, 64), model_size_field="total_params"),
         compare_d32_extrapolation("total_params"),
     ]

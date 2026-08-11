@@ -73,7 +73,12 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
     ]
     assert moe["trainingRatio"] == 0.05
     assert moe["extrapolated"] == []
-    assert all(not points for points in moe["curves"].values())
+    assert len(moe["curves"]["loss"]) == 61
+    assert moe["curves"]["policyTop1"] == []
+    assert all(
+        len(moe["curves"][name]) == 61
+        for name in ("params", "samples", "samplesPerParam", "lr", "steps", "batchSize")
+    )
 
 
 def test_generate_website_data_uses_one_stale_status(tmp_path: Path) -> None:

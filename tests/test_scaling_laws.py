@@ -6,11 +6,12 @@ from pathlib import Path
 import pytest
 
 from chess_engine_4.training.scaling_laws import (
-    fit_loss_power_law,
+    SkalingLaw,
     fit_sigmoid_law,
-    fit_undertraining_loss_law,
+    fit_skaling_law,
     read_best_runs,
     read_dense_scaling_points,
+    read_scaling_points,
 )
 
 
@@ -37,20 +38,47 @@ def test_dense_scaling_points_exclude_d32_and_very_short_runs() -> None:
     assert all(samples / params >= 4.99 for params, samples, _ in points)
 
 
-def test_undertraining_loss_law_penalizes_shorter_runs() -> None:
-    baseline = fit_loss_power_law([(1e13, 4.0), (1e14, 3.6), (1e15, 3.3), (1e16, 3.1)])
-    law = fit_undertraining_loss_law(
-        baseline,
-        [
-            (1e14, 0.25, 4.3),
-            (1e14, 0.5, 3.9),
-            (1e15, 0.25, 3.8),
-            (1e15, 0.5, 3.5),
-        ],
+def test_skaling_inverse_recovers_samples_at_fixed_model_size() -> None:
+    law = SkalingLaw(
+        model_coefficient=2.0,
+        data_coefficient=3.0,
+        model_exponent=0.4,
+        data_exponent=0.3,
+        coupling=0.7,
+        floor=2.0,
+        rmse=0.0,
     )
+    loss = law.predict(100_000_000, 500_000_000)
 
-    assert law.predict(1e15, 0.25) > law.predict(1e15, 0.5)
-    assert law.predict(1e15, 0.5) > law.predict(1e15, 1.0)
+    assert law.samples_for_loss(100_000_000, loss) == pytest.approx(500_000_000)
+
+
+def test_fixed_floor_skaling_fit_reuses_floor() -> None:
+    source = SkalingLaw(2.0, 3.0, 0.4, 0.3, 0.7, 2.2, 0.0)
+    points = [
+        (params, samples, source.predict(params, samples))
+        for params, samples in (
+            (1_000_000, 10_000_000),
+            (1_000_000, 30_000_000),
+            (1_000_000, 100_000_000),
+            (3_000_000, 10_000_000),
+            (10_000_000, 10_000_000),
+            (30_000_000, 10_000_000),
+            (100_000_000, 10_000_000),
+        )
+    ]
+
+    fit = fit_skaling_law(points, fixed_floor=source.floor, restarts=8)
+
+    assert fit.floor == source.floor
+    assert fit.rmse < 1e-5
+
+
+def test_read_quantile_moe_scaling_points() -> None:
+    points = read_scaling_points(Path("experiments/best-runs-moe64a2.toml"))
+
+    assert len(points) == 11
+    assert min(params for params, _, _ in points) == 106_213_792
 
 
 def test_sigmoid_law_is_bounded_and_recovers_synthetic_curve() -> None:

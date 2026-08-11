@@ -9,7 +9,7 @@ from pathlib import Path
 
 from chess_engine_4.training.scaling_laws import (
     DEFAULT_BEST_RUNS,
-    fit_loss_power_law,
+    fit_family_skaling_law,
     read_best_runs,
 )
 from chess_engine_4.training.wandb_metrics import metrics_from_summary, wandb_run_path_from_url
@@ -83,19 +83,24 @@ def compare_run_data(
     flops_per_sample = _positive_int(config, "flops_per_sample")
     batch_size = _positive_int(config, "batch_size")
     steps = _positive_int(config, "steps")
+    params = _positive_int(config, "parameter_count")
     d_model = _positive_int(config, "d_model")
     training_ratio = _positive_float(config, "training_ratio")
     candidate_flops = flops_per_sample * batch_size * steps
     metrics = metrics_from_summary(wandb_url, summary)
     defaults = read_best_runs(best_runs_path)
-    loss_curve = fit_loss_power_law((result.flops, result.loss) for result in defaults)
+    loss_curve = fit_family_skaling_law(best_runs_path)
+    samples = batch_size * steps
     same_width = [
         result
         for result in defaults
-        if result.d_model == d_model and result.training_ratio == training_ratio
+        if result.d_model == d_model
     ]
     incumbent_eg_flops = (
-        max(loss_curve.flops_for_loss(result.loss) / result.flops for result in same_width)
+        max(
+            loss_curve.samples_for_loss(result.params, result.loss) / result.samples_seen
+            for result in same_width
+        )
         if same_width
         else None
     )
@@ -105,8 +110,8 @@ def compare_run_data(
         training_ratio=training_ratio,
         flops=candidate_flops,
         loss=metrics.loss,
-        predicted_loss=loss_curve.predict(candidate_flops),
-        eg_flops=loss_curve.flops_for_loss(metrics.loss) / candidate_flops,
+        predicted_loss=loss_curve.predict(params, samples),
+        eg_flops=loss_curve.samples_for_loss(params, metrics.loss) / samples,
         incumbent_eg_flops=incumbent_eg_flops,
     )
 

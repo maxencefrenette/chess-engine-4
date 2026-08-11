@@ -21,6 +21,107 @@ runtime_sec = 362.849805988
 loss_spike_count = 2
 router_dead_experts = 0
 
+# Quantile-balanced observations used by the canonical Skaling L(N, D) fit.
+# D128 and every auxiliary-router run are intentionally excluded.
+[scaling_runs.d256-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 256
+params = 106213792
+samples_seen = 53116928
+loss = 3.3220133513136725
+
+[scaling_runs.d256-r0p02]
+training_ratio = 0.02
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 256
+params = 106213792
+samples_seen = 106201088
+loss = 3.175055231571945
+
+[scaling_runs.d256-r0p05]
+training_ratio = 0.05
+source_experiment = "experiments/2026-08-10.03-quantile-load-balancing"
+model_kind = "moe64a2"
+d_model = 256
+params = 106213792
+samples_seen = 265519104
+loss = 3.032097204509688
+
+[scaling_runs.d256-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 256
+params = 106213792
+samples_seen = 531070976
+loss = 2.959046508484534
+
+[scaling_runs.d256-r0p25]
+training_ratio = 0.25
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 256
+params = 106213792
+samples_seen = 1327661056
+loss = 2.8832094220473827
+
+[scaling_runs.d384-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 384
+params = 237176480
+samples_seen = 118603776
+loss = 3.1700020787780456
+
+[scaling_runs.d512-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 512
+params = 420043680
+samples_seen = 210042880
+loss = 3.084558078649358
+
+[scaling_runs.d512-r0p05]
+training_ratio = 0.05
+source_experiment = "experiments/2026-08-10.03-quantile-load-balancing"
+model_kind = "moe64a2"
+d_model = 512
+params = 420043680
+samples_seen = 1050083328
+loss = 2.8474868406565843
+
+[scaling_runs.d640-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 640
+params = 654815392
+samples_seen = 327450624
+loss = 3.0416923513366125
+
+[scaling_runs.d768-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 768
+params = 941491616
+samples_seen = 470777856
+loss = 2.9822169034849333
+
+[scaling_runs.d1024-r0p01]
+training_ratio = 0.01
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "moe64a2"
+d_model = 1024
+params = 1670557600
+samples_seen = 835321856
+loss = 2.9161453425344086
+
 [runs.d512]
 training_ratio = 0.05
 source_experiment = "experiments/2026-08-10.03-quantile-load-balancing"

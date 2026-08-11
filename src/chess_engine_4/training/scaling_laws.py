@@ -66,46 +66,6 @@ class SigmoidLaw:
 
 
 @dataclass(frozen=True, slots=True)
-class LossPowerLaw:
-    floor: float
-    coefficient: float
-    exponent: float
-    rmse: float
-
-    def predict(self, x: float) -> float:
-        return self.floor + self.coefficient * x ** (-self.exponent)
-
-    def flops_for_loss(self, loss: float) -> float:
-        if loss <= self.floor:
-            return math.inf
-        return (self.coefficient / (loss - self.floor)) ** (1.0 / self.exponent)
-
-    def format(self) -> str:
-        return f"L(C) = {self.floor:.4f} + {self.coefficient:.4g} * C^-{self.exponent:.4f}"
-
-
-@dataclass(frozen=True, slots=True)
-class UndertrainingLossLaw:
-    baseline: LossPowerLaw
-    penalty_coefficient: float
-    compute_exponent: float
-    ratio_exponent: float
-    rmse: float
-
-    def predict(self, one_x_flops: float, training_ratio: float) -> float:
-        if one_x_flops <= 0:
-            raise ValueError("1x training FLOPs must be positive.")
-        if training_ratio <= 0:
-            raise ValueError("training ratio must be positive.")
-        penalty = (
-            self.penalty_coefficient
-            * (one_x_flops / 1e15) ** (-self.compute_exponent)
-            * (training_ratio ** (-self.ratio_exponent) - 1.0)
-        )
-        return self.baseline.predict(one_x_flops) + penalty
-
-
-@dataclass(frozen=True, slots=True)
 class SkalingLaw:
     model_coefficient: float
     data_coefficient: float
@@ -134,17 +94,33 @@ class SkalingLaw:
             f")^{self.coupling:.4f} + {self.floor:.4f}"
         )
 
+    def samples_for_loss(self, params: float, loss: float) -> float:
+        """Return samples needed to reach loss at fixed model size."""
+        if params <= 0:
+            raise ValueError("Skaling-law model size must be positive.")
+        if loss <= self.floor:
+            return math.inf
+        model_size = params / 1e6
+        reducible = (loss - self.floor) ** (1.0 / self.coupling)
+        data_term = reducible - self.model_coefficient * model_size ** (-self.model_exponent)
+        if data_term <= 0:
+            return math.inf
+        return 1e8 * (self.data_coefficient / data_term) ** (1.0 / self.data_exponent)
 
-def read_dense_scaling_points(path: Path = DEFAULT_BEST_RUNS) -> list[tuple[int, int, float]]:
-    """Read the curated dense Skaling observations from a canonical best-runs file."""
+
+def read_scaling_points(
+    path: Path = DEFAULT_BEST_RUNS,
+) -> list[tuple[int, int, float]]:
+    """Read curated Skaling observations from a canonical best-runs file."""
     with path.open("rb") as handle:
         rows = tomllib.load(handle).get("scaling_runs", {})
     if len(rows) < 7:
         raise ValueError(f"{path}: at least seven scaling_runs are required")
     points = []
+    families = {str(row.get("model_kind")) for row in rows.values()}
+    if len(families) != 1:
+        raise ValueError(f"{path}: scaling_runs must contain exactly one model family")
     for name, row in rows.items():
-        if row.get("model_kind") != "dense":
-            raise ValueError(f"{path}: scaling_runs.{name} is not dense")
         params = int(row["params"])
         samples = int(row["samples_seen"])
         loss = float(row["loss"])
@@ -152,6 +128,15 @@ def read_dense_scaling_points(path: Path = DEFAULT_BEST_RUNS) -> list[tuple[int,
             raise ValueError(f"{path}: scaling_runs.{name} has non-positive fit data")
         points.append((params, samples, loss))
     return points
+
+
+def read_dense_scaling_points(path: Path = DEFAULT_BEST_RUNS) -> list[tuple[int, int, float]]:
+    """Backward-compatible dense scaling-point reader."""
+    with path.open("rb") as handle:
+        rows = tomllib.load(handle).get("scaling_runs", {})
+    if rows and {str(row.get("model_kind")) for row in rows.values()} != {"dense"}:
+        raise ValueError(f"{path}: scaling_runs are not dense")
+    return read_scaling_points(path)
 
 
 def fit_dense_skaling_law(
@@ -164,11 +149,34 @@ def fit_dense_skaling_law(
     return fit_skaling_law(read_dense_scaling_points(path), initial=initial, restarts=restarts)
 
 
+def fit_family_skaling_law(
+    path: Path,
+    *,
+    dense_path: Path = DEFAULT_BEST_RUNS,
+    initial: SkalingLaw | None = None,
+    restarts: int = 64,
+) -> SkalingLaw:
+    """Fit one canonical family, sharing dense E with sparse families."""
+    with path.open("rb") as handle:
+        rows = tomllib.load(handle).get("scaling_runs", {})
+    families = {str(row.get("model_kind")) for row in rows.values()}
+    fixed_floor = None
+    if families != {"dense"}:
+        fixed_floor = fit_dense_skaling_law(dense_path, restarts=restarts).floor
+    return fit_skaling_law(
+        read_scaling_points(path),
+        initial=initial,
+        restarts=restarts,
+        fixed_floor=fixed_floor,
+    )
+
+
 def fit_skaling_law(
     points: Iterable[tuple[int, int, float]],
     *,
     initial: SkalingLaw | None = None,
     restarts: int = 64,
+    fixed_floor: float | None = None,
 ) -> SkalingLaw:
     values = list(points)
     if len(values) < 7:
@@ -181,11 +189,15 @@ def fit_skaling_law(
     model_size = np.array([params / 1e6 for params, _, _ in values])
     data = np.array([samples / 1e8 for _, samples, _ in values])
     losses = np.array([loss for _, _, loss in values])
-    lower = np.array([-13.8, -13.8, 0.01, 0.01, 0.01, 0.0])
-    upper = np.array([16.2, 16.2, 2.0, 2.0, 2.0, 3.0])
+    lower = np.array([-13.8, -13.8, 0.01, 0.01, 0.01])
+    upper = np.array([16.2, 16.2, 2.0, 2.0, 2.0])
+    if fixed_floor is None:
+        lower = np.append(lower, 0.0)
+        upper = np.append(upper, 3.0)
 
     def predictions(parameters: np.ndarray) -> np.ndarray:
-        log_a, log_b, alpha, beta, coupling, floor = parameters
+        log_a, log_b, alpha, beta, coupling = parameters[:5]
+        floor = float(parameters[5]) if fixed_floor is None else fixed_floor
         inner = np.exp(log_a) * model_size**-alpha + np.exp(log_b) * data**-beta
         return inner**coupling + floor
 
@@ -196,19 +208,16 @@ def fit_skaling_law(
     power = math.ceil(math.log2(restarts))
     starts = list(qmc.scale(sampler.random_base2(power), lower, upper)[:restarts])
     if initial is not None:
-        starts.insert(
-            0,
-            np.array(
-                [
-                    math.log(initial.model_coefficient),
-                    math.log(initial.data_coefficient),
-                    initial.model_exponent,
-                    initial.data_exponent,
-                    initial.coupling,
-                    initial.floor,
-                ]
-            ),
-        )
+        values = [
+            math.log(initial.model_coefficient),
+            math.log(initial.data_coefficient),
+            initial.model_exponent,
+            initial.data_exponent,
+            initial.coupling,
+        ]
+        if fixed_floor is None:
+            values.append(initial.floor)
+        starts.insert(0, np.array(values))
 
     best_parameters = None
     best_objective = math.inf
@@ -226,7 +235,8 @@ def fit_skaling_law(
             best_parameters = candidate.x
             best_objective = objective
     assert best_parameters is not None
-    log_a, log_b, alpha, beta, coupling, floor = best_parameters
+    log_a, log_b, alpha, beta, coupling = best_parameters[:5]
+    floor = float(best_parameters[5]) if fixed_floor is None else fixed_floor
     rmse = float(np.sqrt(np.mean(np.square(predictions(best_parameters) - losses))))
     return SkalingLaw(
         model_coefficient=math.exp(float(log_a)),
@@ -315,82 +325,3 @@ def fit_sigmoid_law(points: Iterable[tuple[float, float]]) -> SigmoidLaw:
     ceiling, slope, midpoint = (float(value) for value in parameters)
     rmse = float(np.sqrt(np.mean(np.square(sigmoid(x_values, *parameters) - y_values))))
     return SigmoidLaw(ceiling=ceiling, slope=slope, midpoint=midpoint, rmse=rmse)
-
-
-def fit_loss_power_law(points: Iterable[tuple[float, float]]) -> LossPowerLaw:
-    values = list(points)
-    losses = [loss for _, loss in values]
-    min_loss = min(losses)
-    span = max(losses) - min_loss
-    lower_floor = max(0.0, min_loss - max(2.0, span * 20))
-    upper_floor = min_loss - 1e-6
-
-    best: LossPowerLaw | None = None
-    for index in range(1000):
-        floor = lower_floor + (upper_floor - lower_floor) * index / 999
-        shifted = [(flops, loss - floor) for flops, loss in values]
-        if any(loss <= 0 for _, loss in shifted):
-            continue
-        law = fit_power_law(shifted)
-        coefficient = 10**law.intercept
-        exponent = -law.slope
-        errors = [floor + coefficient * flops ** (-exponent) - loss for flops, loss in values]
-        rmse = math.sqrt(sum(error**2 for error in errors) / len(errors))
-        candidate = LossPowerLaw(
-            floor=floor,
-            coefficient=coefficient,
-            exponent=exponent,
-            rmse=rmse,
-        )
-        if best is None or candidate.rmse < best.rmse:
-            best = candidate
-
-    if best is None:
-        raise ValueError("Could not fit loss scaling law.")
-    return best
-
-
-def fit_undertraining_loss_law(
-    baseline: LossPowerLaw,
-    points: Iterable[tuple[float, float, float]],
-) -> UndertrainingLossLaw:
-    values = list(points)
-    if len(values) < 3:
-        raise ValueError("At least three undertrained points are required.")
-    if any(one_x_flops <= 0 or ratio <= 0 for one_x_flops, ratio, _ in values):
-        raise ValueError("Undertraining-law inputs must be positive.")
-
-    one_x_flops = np.array([flops / 1e15 for flops, _, _ in values])
-    training_ratios = np.array([ratio for _, ratio, _ in values])
-    penalties = np.array([loss - baseline.predict(flops) for flops, _, loss in values])
-
-    def penalty(
-        inputs: tuple[np.ndarray, np.ndarray],
-        coefficient: float,
-        compute_exponent: float,
-        ratio_exponent: float,
-    ) -> np.ndarray:
-        flops, ratios = inputs
-        return coefficient * flops ** (-compute_exponent) * (ratios ** (-ratio_exponent) - 1.0)
-
-    parameters, _ = curve_fit(
-        penalty,
-        (one_x_flops, training_ratios),
-        penalties,
-        p0=(0.08, 0.17, 1.4),
-        bounds=((0.0, -2.0, 1e-3), (20.0, 2.0, 5.0)),
-        maxfev=100_000,
-    )
-    coefficient, compute_exponent, ratio_exponent = (float(value) for value in parameters)
-    rmse = float(
-        np.sqrt(
-            np.mean(np.square(penalty((one_x_flops, training_ratios), *parameters) - penalties))
-        )
-    )
-    return UndertrainingLossLaw(
-        baseline=baseline,
-        penalty_coefficient=coefficient,
-        compute_exponent=compute_exponent,
-        ratio_exponent=ratio_exponent,
-        rmse=rmse,
-    )

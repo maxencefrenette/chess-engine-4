@@ -205,22 +205,84 @@ uv run train-modal --config configs/dense.py --d-model 64 --training-ratio 2.0
 uv run train-modal --config configs/dense.py --d-model 1024 --training-ratio 0.1
 ```
 
-## MoE result from the initial pass
+## MoE low-horizon follow-up
 
-Dense and MoE remain separate laws. For MoE using total parameters, Skaling
-improves full fit (`0.262%` versus `0.679%`), interpolation (`0.347%` versus
-`0.824%`), and data extrapolation (`0.728%` versus `1.640%`), but worsens the
-single largest-width holdout (`1.438%` versus `0.197%`) and puts `alpha` at its
-upper bound. Active-parameter sensitivity is slightly worse. MoE therefore
-remains a research candidate, not an adopted allocation law.
+The promoted d768 `0.05x` point improved the initial total-parameter MoE
+size-holdout error from `1.438%` to `0.931%`, but Skaling still lost to
+Chinchilla (`0.809%`) and kept `alpha` at its upper bound. We then lowered the
+MoE profiling floor to the round `0.01x` Chinchilla multiple. At d768/d1024,
+this gives 4,789/6,373 steps versus 6,473/8,393 for the dense `0.05x` floor.
+
+| Width | Ratio | EMA loss | Runtime | Spikes | Dead experts | W&B |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| d128 | 0.01x | 3.671131 | 17.1s | 0 | 7 | [ibwgx24k](https://wandb.ai/maxence-frenette/uncategorized/runs/ibwgx24k) |
+| d768 | 0.01x | 2.989817 | 449.7s | 2 | 0 | [mr7j625v](https://wandb.ai/maxence-frenette/uncategorized/runs/mr7j625v) |
+| d1024 | 0.01x | 2.921788 | 964.0s | 1 | 0 | [osidxhsh](https://wandb.ai/maxence-frenette/uncategorized/runs/osidxhsh) |
+
+D128 is retained as diagnostic evidence but excluded from the MoE scaling law.
+Its 829-step `0.01x` run ended with seven dead experts, and fits trained on
+d256-d1024 increasingly underpredict its longer-horizon losses, reaching `5.8%`
+error at `0.5x`. D256 is predicted from d512+ within `0.56%` MAPE, supporting
+d256 as the family floor.
+
+The d256+ free fit is not allocation-ready:
+
+| Model-size definition | Regime | Chinchilla MAPE | Skaling MAPE |
+| --- | --- | ---: | ---: |
+| total parameters | full fit | 0.410% | **0.402%** |
+| total parameters | interpolation, one cell | **0.418%** | 0.441% |
+| total parameters | size extrapolation | 0.888% | **0.888%** |
+| active parameters | full fit | 0.410% | **0.402%** |
+| active parameters | interpolation, one cell | **0.418%** | 0.441% |
+| active parameters | size extrapolation | **0.888%** | 0.888% |
+
+Removing d128 leaves only ten observations and the free MoE fit becomes
+unidentified: its `alpha` falls to the `0.01` lower bound while `beta` hits the
+`2.0` upper bound. The d256-anchored sparse edge has only six rows, not enough
+to fit Skaling's six parameters and test a holdout.
+
+### Shared dense/MoE loss floor
+
+Dense and d256+ MoE were then fitted jointly with family-specific
+`A/B/alpha/beta/k` and one shared `E`. The observation-weighted fit gives
+`E = 2.3350`. For MoE, `alpha` reaches the `2.0` upper bound for both total and
+active parameters, but `A` simultaneously reaches its approximately `1e-6`
+lower bound. The fit has effectively removed the model-size term, so `alpha =
+2.0` is not an identified scaling exponent.
+
+Equal family weighting gives `E = 2.3165` and the same boundary collapse. The
+shared floor modestly regularizes the fit, but it does not recover a usable MoE
+model-size law. MoE therefore retains its existing allocation law.
+
+Reusing the entire dense data term (`B = 0.13757`, `beta = 1.33179`, `E =
+2.39938`) and fitting only MoE `A/alpha/k` makes `alpha = 2.0` with a nonzero
+amplitude, but prediction quality is worse:
+
+| MoE size | Full MAPE | Leave-one-out | Size extrapolation | Data extrapolation |
+| --- | ---: | ---: | ---: | ---: |
+| total parameters | 0.915% | 1.097% | 0.789% | 2.527% |
+| active parameters | 0.922% | 1.072% | 0.785% | 2.614% |
+
+This sensitivity is retained but rejected. In Skaling, `B` is inside the term
+raised to `k`, so it is not an architecture-independent data amplitude when
+families have different coupling exponents. Sharing `B/beta/E` overconstrains
+the MoE surface and is not used by budget planning.
+
+An initially launched d768 `0.02x` run was interrupted at 8,360 of 9,577 steps
+when the floor changed. It is preserved in `new-runs.toml` but excluded from
+fits. Including that partial run, the follow-up recorded `$3.845` of hardware
+runtime: `$1.226` interrupted, `$0.016` d128, `$0.828` d768, and `$1.774`
+d1024, using the measured GPU-plus-CPU rates.
 
 ## Recommendation
 
 Use the 19-row current-recipe `d64+`, `>=0.1x` surface for dense budget planning,
 with bootstrap uncertainty and the production width gate. Use d64, not d32, as
 the fitted L-shape anchor; keep d32 for cheap smoke tests and diagnostics. Do not
-extrapolate beyond d1024. The next high-value size evidence is d768 at `0.1x`,
-or d1024 at `0.2x`, to reduce dependence on the single d1024 endpoint.
+extrapolate beyond d1024. Keep the MoE `0.01x` observations as profiling
+evidence, exclude d128 from MoE scaling fits, and share `E` in dense/MoE joint
+sensitivities. Do not use Skaling for MoE allocation: the joint fit drives the
+MoE model-size amplitude to zero and does not identify a stable `alpha`.
 
 Reproduce with:
 
@@ -229,3 +291,80 @@ uv run python experiments/2026-08-10.01-skaling-law/analyze.py
 uv run python experiments/2026-08-10.01-skaling-law/plot_dense_grid.py
 uv run python experiments/2026-08-10.01-skaling-law/plot_anchor_comparison.py
 ```
+
+## Quantile-balanced MoE rebuild
+
+The August 11 follow-up supersedes the auxiliary-router MoE conclusions above.
+It rebuilt the sparse surface using only the canonical quantile-balanced router:
+a d256 vertical band at `0.01/0.02/0.05/0.1/0.25x` and a constant-`0.01x`
+diagonal through d256/d384/d512/d640/d768/d1024. The canonical d256 `0.05x`
+run was reused, and the canonical d512 `0.05x` run was reserved as an off-sweep
+holdout.
+
+| Width | Ratio | EMA loss | Runtime | Spikes | Dead experts | W&B |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| d256 | 0.01x | 3.322013 | 76.6s | 0 | 0 | [iqn4sxxt](https://wandb.ai/maxence-frenette/uncategorized/runs/iqn4sxxt) |
+| d384 | 0.01x | 3.170002 | 96.8s | 0 | 0 | [q3n8darf](https://wandb.ai/maxence-frenette/uncategorized/runs/q3n8darf) |
+| d512 | 0.01x | 3.084558 | 173.0s | 0 | 0 | [32d7fa87](https://wandb.ai/maxence-frenette/uncategorized/runs/32d7fa87) |
+| d640 | 0.01x | 3.041692 | 288.5s | 0 | 0 | [4018d7xe](https://wandb.ai/maxence-frenette/uncategorized/runs/4018d7xe) |
+| d768 | 0.01x | 2.982217 | 430.0s | 0 | 0 | [c0m58k9r](https://wandb.ai/maxence-frenette/uncategorized/runs/c0m58k9r) |
+| d1024 | 0.01x | 2.916145 | 1,018.2s | 1 | 0 | [cfjttm2t](https://wandb.ai/maxence-frenette/uncategorized/runs/cfjttm2t) |
+| d256 | 0.02x | 3.175055 | 161.5s | 0 | 0 | [bv7aml7c](https://wandb.ai/maxence-frenette/uncategorized/runs/bv7aml7c) |
+| d256 | 0.05x reused | 3.032097 | 362.8s | 2 | 0 | [88paxyjp](https://wandb.ai/maxence-frenette/uncategorized/runs/88paxyjp) |
+| d256 | 0.1x | 2.959047 | 669.5s | 0 | 0 | [4199ak70](https://wandb.ai/maxence-frenette/uncategorized/runs/4199ak70) |
+| d256 | 0.25x | 2.883209 | 1,957.1s | 1 | 0 | [zslenyxv](https://wandb.ai/maxence-frenette/uncategorized/runs/zslenyxv) |
+
+The two prerequisite B200 profiles measured `29.35 ms/step` at d384 and
+`71.89 ms/step` at d640, with nonzero traffic to every expert. The nine new
+training runs cost `$5.664` and the profiles cost `$0.048`, for **`$5.712`**
+of measured GPU-plus-CPU runtime against the reviewed `$6.50` allowance.
+
+The new surface makes the distinction between horizon and model extrapolation
+clear:
+
+| Total-parameter fit | Full MAPE | d512/0.05x holdout | d1024 size extrapolation |
+| --- | ---: | ---: | ---: |
+| Chinchilla | 0.414% | 1.868% | **0.326%** |
+| Skaling | 0.407% | 1.868% | 0.989% |
+| Skaling, dense `E` reused | **0.386%** | **1.851%** | 0.628% |
+
+Training-horizon extrapolation works better than model-size extrapolation. A
+boundary fit that withholds both longest-horizon cells predicts d256 `0.25x`
+within `0.183%` for both Chinchilla and Skaling. Its other withheld cell,
+d512 `0.05x`, is missed by `1.776%`: both laws predict about `2.8981` versus
+the observed `2.8475`. The canonical d512 QB result is substantially better
+than the vertical-plus-diagonal surface predicts.
+
+The coupled model-size law is still not identified. In the full free Skaling
+fit, both `alpha` and `beta` reach their `2.0` upper bounds and `k = 0.0760`.
+Fixing `E = 2.39938` from dense modestly improves all-row and holdout MAPE, but
+`alpha` and `beta` remain at `2.0` with `k = 0.1094`. Active-parameter fits are
+effectively unchanged. The sweep therefore supports d256 horizon
+extrapolation, but not a stable MoE model-size exponent or coupled allocation
+law. No new run is promoted to the canonical registry.
+
+## Production Skaling cutover
+
+By explicit decision on August 11, validation-loss prediction was fully cut
+over to Skaling despite the MoE parameter-stability caveat above. Both families
+now fit canonical `[scaling_runs]` and predict directly from total parameters
+`N` and accepted samples `D`. MoE reuses the dense floor `E`; its other five
+parameters remain family-specific.
+
+The retained central fits are:
+
+- Dense: `A=1.209`, `B=0.1376`, `alpha=1.5067`, `beta=1.3318`, `k=0.1539`,
+  `E=2.3994`, RMSE `0.0070`.
+- MoE64A2: `A=5.453`, `B=0.1304`, `alpha=2.0`, `beta=2.0`, `k=0.1094`,
+  shared `E=2.3994`, RMSE `0.0150`.
+
+The cutover removes the active FLOPs-only loss curve and the separate
+undertraining penalty. Budget planning, bootstrap uncertainty, value of
+information, run comparison, and website loss curves all consume `SkalingLaw`.
+Run-comparison `EG_flops` is now the sample-equivalent gain at fixed model size,
+which is also FLOPs-equivalent for one fixed architecture.
+
+At the current `8,020,779,820`-sample corpus, the central planner selects dense
+d768 at `$1`, MoE d512 at `$5`, and MoE d768 at `$10`. These selections inherit
+the documented MoE instability and must retain bootstrap uncertainty in
+decision-making.

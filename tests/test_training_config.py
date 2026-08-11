@@ -393,7 +393,7 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
-@pytest.mark.parametrize("d_model", [768])
+@pytest.mark.parametrize("d_model", [384, 640, 768])
 def test_moe64a2_new_widths_use_te_mxfp8(d_model: int) -> None:
     config = load_training_config("configs/moe64a2.py", d_model=d_model)
 

@@ -1,6 +1,7 @@
 import type { BestRun, TrainingGpu } from "@/data/best-runs";
 
 const MODAL_GPU_USD_PER_SECOND: Record<TrainingGpu, number> = {
+  A100: 0.000583,
   B200: 0.001736,
   "RTX-PRO-6000": 0.000842,
 };

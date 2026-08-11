@@ -16,7 +16,7 @@ from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.families import FAMILIES, FamilySpec
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
-    fit_loss_power_law,
+    fit_family_skaling_law,
     fit_power_law,
     fit_sigmoid_law,
     read_best_runs,
@@ -93,13 +93,9 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
         "batchSize",
     )
     curves = {name: [] for name in curve_names}
-    loss_law = None
+    loss_law = fit_family_skaling_law(path)
     policy_law = None
-    if len(results) >= 3:
-        loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
-        policy_law = fit_sigmoid_law(
-            (result_flops[r.budget], r.policy_top1) for r in results
-        )
+    if len(results) >= 2:
         params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
         samples_law = fit_power_law(
             (result_flops[r.budget], r.samples_seen) for r in results
@@ -108,10 +104,14 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
             (result_flops[r.budget], r.batch_size) for r in results
         )
         lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
+    if len(results) >= 3:
+        policy_law = fit_sigmoid_law(
+            (result_flops[r.budget], r.policy_top1) for r in results
+        )
     extrapolated = []
     target_flops = max(result_flops.values())
     if target_config is not None:
-        if loss_law is None or policy_law is None:
+        if policy_law is None:
             raise ValueError(f"{path}: at least three current runs are required to extrapolate.")
         target_flops_per_sample = measure_training_flops_per_sample(
             target_config.model,
@@ -129,7 +129,7 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
             )
         )
 
-    if loss_law is not None and policy_law is not None:
+    if len(results) >= 2:
         min_log_flops = math.log10(min(result_flops.values()))
         max_log_flops = math.log10(target_flops)
         curve_flops = [
@@ -141,8 +141,15 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
             for index in range(CURVE_POINT_COUNT)
         ]
         curves = {
-            "loss": curve(curve_flops, loss_law.predict),
-            "policyTop1": curve(curve_flops, policy_law.predict),
+            "loss": curve(
+                curve_flops,
+                lambda flops: loss_law.predict(
+                    params_law.predict(flops), samples_law.predict(flops)
+                ),
+            ),
+            "policyTop1": (
+                curve(curve_flops, policy_law.predict) if policy_law is not None else []
+            ),
             "params": curve(curve_flops, params_law.predict),
             "samples": curve(curve_flops, samples_law.predict),
             "samplesPerParam": curve(
@@ -214,7 +221,7 @@ def extrapolated_recipe_point(
         "physicalFlops": flops,
         "params": params,
         "samplesSeen": samples,
-        "loss": loss_law.predict(flops),
+        "loss": loss_law.predict(params, samples),
         "policyTop1": policy_law.predict(flops),
         "lr": config.optimizer.lr,
         "batchSize": config.run.batch_size,
