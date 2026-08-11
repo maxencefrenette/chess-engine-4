@@ -11,6 +11,8 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <functional>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -40,6 +42,7 @@ void CheckCublas(cublasStatus_t status, const char *operation) {
 
 struct HostTensor {
     std::vector<std::int64_t> shape;
+    std::string dtype;
     const std::byte *data;
     std::size_t bytes;
 };
@@ -81,8 +84,9 @@ SafetensorsFile LoadSafetensors(const std::string &path) {
         if (name == "__metadata__") {
             continue;
         }
-        if (value.at("dtype").get<std::string>() != "BF16") {
-            throw std::runtime_error("Tensor " + name + " is not BF16");
+        const std::string dtype = value.at("dtype").get<std::string>();
+        if (dtype != "BF16" && dtype != "F32") {
+            throw std::runtime_error("Tensor " + name + " has an unsupported dtype");
         }
         const auto offsets = value.at("data_offsets").get<std::vector<std::size_t>>();
         if (offsets.size() != 2 || offsets[0] > offsets[1] || data_start + offsets[1] > size) {
@@ -92,6 +96,7 @@ SafetensorsFile LoadSafetensors(const std::string &path) {
             name,
             HostTensor{
                 .shape = value.at("shape").get<std::vector<std::int64_t>>(),
+                .dtype = dtype,
                 .data = file.storage.data() + data_start + offsets[0],
                 .bytes = offsets[1] - offsets[0],
             }
@@ -115,6 +120,19 @@ public:
     explicit DeviceTensor(const HostTensor &host) : bytes_(host.bytes), shape_(host.shape) {
         CheckCuda(cudaMalloc(&data_, bytes_), "cudaMalloc weight");
         CheckCuda(cudaMemcpy(data_, host.data, bytes_, cudaMemcpyHostToDevice), "copy weight");
+    }
+
+    static DeviceTensor ZerosFloat32(std::initializer_list<std::int64_t> shape) {
+        DeviceTensor tensor;
+        tensor.shape_ = shape;
+        const std::size_t elements = std::accumulate(
+            tensor.shape_.begin(), tensor.shape_.end(), std::size_t{1},
+            std::multiplies<>{}
+        );
+        tensor.bytes_ = elements * sizeof(float);
+        CheckCuda(cudaMalloc(&tensor.data_, tensor.bytes_), "cudaMalloc zero tensor");
+        CheckCuda(cudaMemset(tensor.data_, 0, tensor.bytes_), "zero tensor");
+        return tensor;
     }
 
     ~DeviceTensor() {
@@ -142,6 +160,7 @@ public:
     const __nv_bfloat16 *data() const {
         return static_cast<const __nv_bfloat16 *>(data_);
     }
+    const float *float_data() const { return static_cast<const float *>(data_); }
 
 private:
     void *data_ = nullptr;
@@ -152,7 +171,8 @@ private:
 const HostTensor &RequireTensor(
     const SafetensorsFile &file,
     const std::string &name,
-    std::initializer_list<std::int64_t> shape
+    std::initializer_list<std::int64_t> shape,
+    const char *dtype = "BF16"
 ) {
     const auto iter = file.tensors.find(name);
     if (iter == file.tensors.end()) {
@@ -160,6 +180,9 @@ const HostTensor &RequireTensor(
     }
     if (iter->second.shape != std::vector<std::int64_t>(shape)) {
         throw std::runtime_error("Tensor " + name + " has an unexpected shape");
+    }
+    if (iter->second.dtype != dtype) {
+        throw std::runtime_error("Tensor " + name + " has an unexpected dtype");
     }
     return iter->second;
 }
@@ -379,6 +402,11 @@ public:
                     && info_.d_model != 512 && info_.d_model != 1024))) {
             throw std::runtime_error("Unsupported MoE model contract");
         }
+        const auto router_balancing = file.metadata.find("router_load_balancing");
+        if (is_moe_ && router_balancing != file.metadata.end()
+            && router_balancing->get<std::string>() != "quantile") {
+            throw std::runtime_error("Unsupported MoE router load balancing");
+        }
         selected_planes_ = info_.history_length * kPlanesPerHistory + (kInputPlanes - kHistoryPlanes);
         input_dim_ = selected_planes_ * 64;
         policy_storage_size_ = MetadataInt(file.metadata, "policy_storage_size");
@@ -419,6 +447,12 @@ public:
                 block.router = DeviceTensor(RequireTensor(
                     file, prefix + ".router.weight", {kMoeExpertCount, info_.d_model}
                 ));
+                const auto beta = file.tensors.find(prefix + ".router_qb_beta");
+                block.router_qb_beta = beta == file.tensors.end()
+                    ? DeviceTensor::ZerosFloat32({kMoeExpertCount})
+                    : DeviceTensor(RequireTensor(
+                        file, prefix + ".router_qb_beta", {kMoeExpertCount}, "F32"
+                    ));
                 block.gate_up = DeviceTensor(RequireTensor(
                     file, prefix + ".experts.gate_up.weight",
                     {kMoeExpertCount, 2 * hidden_dim_, info_.d_model}
@@ -559,6 +593,7 @@ private:
         bool is_moe = false;
         DeviceTensor norm;
         DeviceTensor router;
+        DeviceTensor router_qb_beta;
         DeviceTensor gate_up;
         DeviceTensor down;
     };
@@ -583,7 +618,8 @@ private:
                     kMoeExpertCount, info_.d_model
                 );
                 LaunchMoeDispatch(
-                    normalized_, router_logits_, expert_input_, expert_probabilities_,
+                    normalized_, router_logits_, block.router_qb_beta.float_data(),
+                    expert_input_, expert_probabilities_,
                     expert_offsets_, route_positions_, expert_counts_, expert_cursors_,
                     batch_size, info_.d_model, maximum_padded_expert_rows_, stream_
                 );

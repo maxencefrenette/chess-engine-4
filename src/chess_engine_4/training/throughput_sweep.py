@@ -182,8 +182,7 @@ def run_modal_profiles(
         for width in widths
     }
     functions = {
-        key: training_function(key[0], gpu=key[1], kernel_backend=key[2])
-        for key in function_keys
+        key: training_function(key[0], gpu=key[1], kernel_backend=key[2]) for key in function_keys
     }
     completed: dict[int, dict[str, Any]] = {}
     errors: list[str] = []
@@ -231,6 +230,7 @@ def make_entry(
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
+        "router_load_balancing": "quantile" if model.kind == "moe64a2" else "none",
         "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,
@@ -280,6 +280,7 @@ def entry_matches(
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
+        "router_load_balancing": ("quantile" if config.model.kind == "moe64a2" else "none"),
         "gpu": config.infra.gpu,
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,

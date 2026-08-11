@@ -73,6 +73,15 @@ def test_training_config_round_trips_through_dict() -> None:
     assert training_config_from_dict(asdict(config)) == config
 
 
+def test_training_config_ignores_legacy_router_auxiliary_loss() -> None:
+    values = asdict(load_training_config("configs/moe64a2.py", d_model=256))
+    values["loss"]["router_aux"] = 0.01
+
+    config = training_config_from_dict(values)
+
+    assert "router_aux" not in asdict(config.loss)
+
+
 def test_legacy_fixed_lc0_geometry_is_accepted_and_removed() -> None:
     values = asdict(load_training_config("configs/dense.py", d_model=64))
     values["model"].update(input_planes=112, board_size=8, policy_size=1858)
@@ -103,6 +112,14 @@ def test_launch_summary_records_sampling_rate(capsys) -> None:
 
     summary = capsys.readouterr().out
     assert "sampling_rate=1" in summary
+
+
+def test_moe_launch_summary_records_quantile_routing(capsys) -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=128)
+
+    print_launch_summary(config)
+
+    assert "router_load_balancing=quantile" in capsys.readouterr().out
 
 
 def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
@@ -369,7 +386,7 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2
     assert config.model.expansion_ratio == 2.0
-    assert config.loss.router_aux == 0.01
+    assert "router_aux" not in asdict(config.loss)
     assert config.model.kernel_backend == "custom"
     assert config.model.precision == "bf16"
     assert config.infra.gpu == "RTX-PRO-6000"

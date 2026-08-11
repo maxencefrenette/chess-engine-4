@@ -17,6 +17,7 @@ constexpr int kThreads = 256;
 
 __global__ void RouteKernel(
     const __nv_bfloat16* logits,
+    const float* qb_beta,
     int* route_experts,
     __nv_bfloat16* route_probabilities,
     int* expert_counts,
@@ -30,26 +31,35 @@ __global__ void RouteKernel(
         maximum = fmaxf(maximum, __bfloat162float(logits[token * kMoeExpertCount + expert]));
     }
     float denominator = 0.0f;
-    float best_value = -INFINITY;
-    float second_value = -INFINITY;
+    float best_score = -INFINITY;
+    float second_score = -INFINITY;
     int best_expert = 0;
     int second_expert = 1;
     for (int expert = 0; expert < kMoeExpertCount; ++expert) {
         const float value = __bfloat162float(logits[token * kMoeExpertCount + expert]);
+        const float score = value - qb_beta[expert];
         denominator += expf(value - maximum);
-        if (value > best_value) {
-            second_value = best_value;
+        if (score > best_score) {
+            second_score = best_score;
             second_expert = best_expert;
-            best_value = value;
+            best_score = score;
             best_expert = expert;
-        } else if (value > second_value) {
-            second_value = value;
+        } else if (score > second_score) {
+            second_score = score;
             second_expert = expert;
         }
     }
     route_experts[token * 2] = best_expert;
     route_experts[token * 2 + 1] = second_expert;
-    route_probabilities[token * 2] = __float2bfloat16(expf(best_value - maximum) / denominator);
+    const float best_value = __bfloat162float(
+        logits[token * kMoeExpertCount + best_expert]
+    );
+    const float second_value = __bfloat162float(
+        logits[token * kMoeExpertCount + second_expert]
+    );
+    route_probabilities[token * 2] = __float2bfloat16(
+        expf(best_value - maximum) / denominator
+    );
     route_probabilities[token * 2 + 1] = __float2bfloat16(
         expf(second_value - maximum) / denominator
     );
@@ -265,6 +275,7 @@ void LaunchExpertKernels(
 void LaunchMoeDispatch(
     const __nv_bfloat16* input,
     const __nv_bfloat16* router_logits,
+    const float* router_qb_beta,
     __nv_bfloat16* expert_input,
     __nv_bfloat16* expert_probabilities,
     int* expert_offsets,
@@ -280,7 +291,7 @@ void LaunchMoeDispatch(
     __nv_bfloat16* staged_probabilities = expert_probabilities + maximum_padded_rows;
     cudaMemsetAsync(expert_counts, 0, kMoeExpertCount * sizeof(int), stream);
     RouteKernel<<<batch_size, 1, 0, stream>>>(
-        router_logits, route_experts, staged_probabilities,
+        router_logits, router_qb_beta, route_experts, staged_probabilities,
         expert_counts, batch_size
     );
     PrefixOffsetsKernel<<<1, 1, 0, stream>>>(expert_counts, expert_offsets);

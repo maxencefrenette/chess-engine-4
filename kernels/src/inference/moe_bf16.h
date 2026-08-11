@@ -11,6 +11,7 @@ constexpr int kMoeActiveExpertCount = 2;
 void LaunchMoeDispatch(
     const __nv_bfloat16* input,
     const __nv_bfloat16* router_logits,
+    const float* router_qb_beta,
     __nv_bfloat16* expert_input,
     __nv_bfloat16* expert_probabilities,
     int* expert_offsets,

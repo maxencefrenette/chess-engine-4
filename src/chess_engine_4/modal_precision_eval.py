@@ -63,11 +63,17 @@ def _run_precision_evaluation(payload: dict[str, Any]) -> dict[str, Any]:
     checkpoint = torch.load(checkpoint_path, map_location="cuda", weights_only=False)
     raw_config = checkpoint["config"]
     model_config = model_config_from_dict(raw_config["model"])
-    loss_weights = LossWeights(**raw_config.get("loss", {}))
+    raw_loss = dict(raw_config.get("loss", {}))
+    raw_loss.pop("router_aux", None)
+    loss_weights = LossWeights(**raw_loss)
     models = {}
     for precision in ("mxfp8", "bf16"):
         model = build_model(model_config).cuda().eval()
-        model.load_state_dict(checkpoint["model_state_dict"])
+        state = dict(checkpoint["model_state_dict"])
+        for name, tensor in model.state_dict().items():
+            if name.endswith(".router_qb_beta") and name not in state:
+                state[name] = torch.zeros_like(tensor)
+        model.load_state_dict(state)
         models[precision] = model
     expander = PlaneInputExpander().cuda().eval()
 

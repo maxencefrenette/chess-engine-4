@@ -68,14 +68,12 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
 
     moe = payload["families"][1]
     assert [point["name"] for point in moe["runs"] if point["status"] == "current"] == [
-        "d128",
         "d256",
         "d512",
-        "d768",
-        "d1024",
     ]
     assert moe["trainingRatio"] == 0.05
     assert moe["extrapolated"] == []
+    assert all(not points for points in moe["curves"].values())
 
 
 def test_generate_website_data_uses_one_stale_status(tmp_path: Path) -> None:

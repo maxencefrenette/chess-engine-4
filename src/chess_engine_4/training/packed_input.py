@@ -52,20 +52,22 @@ class _GraphablePackedModel(nn.Module):
 
     def forward(self, packed_planes: torch.Tensor, plane_scalars: torch.Tensor) -> GraphOutput:
         output: ChessNetOutput = self.model(self.input_expander(packed_planes, plane_scalars))
-        router_aux_loss = output.router_aux_loss
         router_dead_experts = output.router_dead_experts
-        if router_aux_loss is None:
-            router_aux_loss = output.policy_logits.new_zeros(())
+        router_tokens_per_expert = output.router_tokens_per_expert
         if router_dead_experts is None:
             router_dead_experts = torch.zeros(
                 (), dtype=torch.int64, device=output.policy_logits.device
+            )
+        if router_tokens_per_expert is None:
+            router_tokens_per_expert = torch.zeros(
+                (0, 0), dtype=torch.int64, device=output.policy_logits.device
             )
         return (
             output.policy_logits,
             output.wdl_logits,
             output.moves_left,
-            router_aux_loss,
             router_dead_experts,
+            router_tokens_per_expert,
         )
 
 
@@ -76,15 +78,19 @@ class _GraphedTrainingModel(nn.Module):
         self.has_router = has_router
 
     def forward(self, planes: PackedPlaneInput) -> ChessNetOutput:
-        policy_logits, wdl_logits, moves_left, router_aux_loss, router_dead_experts = self.graph(
-            *planes
-        )
+        (
+            policy_logits,
+            wdl_logits,
+            moves_left,
+            router_dead_experts,
+            router_tokens_per_expert,
+        ) = self.graph(*planes)
         return ChessNetOutput(
             policy_logits=policy_logits,
             wdl_logits=wdl_logits,
             moves_left=moves_left,
-            router_aux_loss=router_aux_loss if self.has_router else None,
             router_dead_experts=router_dead_experts if self.has_router else None,
+            router_tokens_per_expert=(router_tokens_per_expert if self.has_router else None),
         )
 
 

@@ -290,7 +290,17 @@ def read_dataset_samples(path: Path) -> int:
 
 
 def read_family_evidence(specs: tuple[FamilySpec, ...]) -> list[FamilyEvidence]:
-    return [read_one_family_evidence(spec) for spec in specs]
+    evidence = []
+    for spec in specs:
+        try:
+            evidence.append(read_one_family_evidence(spec))
+        except InsufficientFamilyEvidence:
+            continue
+    return evidence
+
+
+class InsufficientFamilyEvidence(ValueError):
+    """A family has too few current observations for budget planning."""
 
 
 def read_one_family_evidence(spec: FamilySpec) -> FamilyEvidence:
@@ -315,7 +325,9 @@ def read_one_family_evidence(spec: FamilySpec) -> FamilyEvidence:
     with spec.best_runs.open("rb") as handle:
         allocation_runs = list(tomllib.load(handle).get("allocation_runs", {}).values())
     if len(allocation_runs) < 3:
-        raise ValueError(f"{spec.best_runs}: at least three allocation_runs are required")
+        raise InsufficientFamilyEvidence(
+            f"{spec.best_runs}: at least three allocation_runs are required"
+        )
     if any(row["model_kind"] != spec.family for row in allocation_runs):
         raise ValueError(f"{spec.best_runs}: allocation_runs contain another model family")
     observed_coordinates = {

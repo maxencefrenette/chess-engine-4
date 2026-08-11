@@ -71,12 +71,6 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
         raise ValueError(f"{path}: every current run must use training_ratio={training_ratio:g}.")
 
     result_flops = {result.budget: result.flops for result in results}
-    loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
-    policy_law = fit_sigmoid_law((result_flops[r.budget], r.policy_top1) for r in results)
-    params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
-    samples_law = fit_power_law((result_flops[r.budget], r.samples_seen) for r in results)
-    batch_size_law = fit_power_law((result_flops[r.budget], r.batch_size) for r in results)
-    lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
     runs = [observed_point(result, family_id) for result in all_results]
     target_width = max(result.d_model for result in results) * 2
     target_config = None
@@ -88,9 +82,37 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
                 training_ratio=training_ratio,
             )
 
+    curve_names = (
+        "loss",
+        "policyTop1",
+        "params",
+        "samples",
+        "samplesPerParam",
+        "lr",
+        "steps",
+        "batchSize",
+    )
+    curves = {name: [] for name in curve_names}
+    loss_law = None
+    policy_law = None
+    if len(results) >= 3:
+        loss_law = fit_loss_power_law((result_flops[r.budget], r.loss) for r in results)
+        policy_law = fit_sigmoid_law(
+            (result_flops[r.budget], r.policy_top1) for r in results
+        )
+        params_law = fit_power_law((result_flops[r.budget], r.params) for r in results)
+        samples_law = fit_power_law(
+            (result_flops[r.budget], r.samples_seen) for r in results
+        )
+        batch_size_law = fit_power_law(
+            (result_flops[r.budget], r.batch_size) for r in results
+        )
+        lr_law = fit_power_law((result_flops[r.budget], r.lr) for r in results)
     extrapolated = []
     target_flops = max(result_flops.values())
     if target_config is not None:
+        if loss_law is None or policy_law is None:
+            raise ValueError(f"{path}: at least three current runs are required to extrapolate.")
         target_flops_per_sample = measure_training_flops_per_sample(
             target_config.model,
             batch_size=target_config.run.batch_size,
@@ -107,28 +129,34 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
             )
         )
 
-    min_log_flops = math.log10(min(result_flops.values()))
-    max_log_flops = math.log10(target_flops)
-    curve_flops = [
-        10 ** (min_log_flops + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1))
-        for index in range(CURVE_POINT_COUNT)
-    ]
-    curves = {
-        "loss": curve(curve_flops, loss_law.predict),
-        "policyTop1": curve(curve_flops, policy_law.predict),
-        "params": curve(curve_flops, params_law.predict),
-        "samples": curve(curve_flops, samples_law.predict),
-        "samplesPerParam": curve(
-            curve_flops,
-            lambda flops: samples_law.predict(flops) / params_law.predict(flops),
-        ),
-        "lr": curve(curve_flops, lr_law.predict),
-        "steps": curve(
-            curve_flops,
-            lambda flops: samples_law.predict(flops) / batch_size_law.predict(flops),
-        ),
-        "batchSize": curve(curve_flops, batch_size_law.predict),
-    }
+    if loss_law is not None and policy_law is not None:
+        min_log_flops = math.log10(min(result_flops.values()))
+        max_log_flops = math.log10(target_flops)
+        curve_flops = [
+            10
+            ** (
+                min_log_flops
+                + (max_log_flops - min_log_flops) * index / (CURVE_POINT_COUNT - 1)
+            )
+            for index in range(CURVE_POINT_COUNT)
+        ]
+        curves = {
+            "loss": curve(curve_flops, loss_law.predict),
+            "policyTop1": curve(curve_flops, policy_law.predict),
+            "params": curve(curve_flops, params_law.predict),
+            "samples": curve(curve_flops, samples_law.predict),
+            "samplesPerParam": curve(
+                curve_flops,
+                lambda flops: samples_law.predict(flops) / params_law.predict(flops),
+            ),
+            "lr": curve(curve_flops, lr_law.predict),
+            "steps": curve(
+                curve_flops,
+                lambda flops: samples_law.predict(flops) / batch_size_law.predict(flops),
+            ),
+            "batchSize": curve(curve_flops, batch_size_law.predict),
+        }
+
     return {
         "id": family_id,
         "name": presentation["name"],

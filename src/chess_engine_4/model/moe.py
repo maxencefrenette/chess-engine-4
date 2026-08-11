@@ -21,7 +21,7 @@ from chess_engine_4.model.dense import (
     select_lc0_history,
 )
 from chess_engine_4.model.output import ChessNetOutput
-from chess_engine_4.model.transformer_engine import te, te_router
+from chess_engine_4.model.transformer_engine import te
 
 EXPERT_COUNT = 64
 ACTIVE_EXPERT_COUNT = 2
@@ -45,6 +45,30 @@ def _route_slots(
         - expert_offsets[sorted_experts]
     )
     return torch.empty_like(sorted_slots).scatter_(0, route_order, sorted_slots)
+
+
+def _quantile_balancing_update(
+    scores: torch.Tensor,
+    *,
+    topk: int,
+    beta: torch.Tensor,
+    update_beta: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Select experts with QB and solve the next per-expert dual coordinate."""
+
+    num_tokens, num_experts = scores.shape
+    topk_result = (scores - beta).topk(topk + int(update_beta), dim=1)
+    indices = topk_result.indices[:, :topk]
+    if not update_beta:
+        return indices, beta
+    if (num_tokens * topk) % num_experts:
+        raise ValueError(
+            "quantile balancing requires routed assignments to be divisible by experts"
+        )
+    target = num_tokens * topk // num_experts
+    cutoff = topk_result.values[:, -1:]
+    next_beta = (scores - cutoff).topk(target + 1, dim=0).values[-1]
+    return indices, next_beta - next_beta.mean()
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +134,10 @@ class MoeBlock(nn.Module):
             bias=False,
             params_dtype=torch.bfloat16,
         )
+        self.register_buffer(
+            "router_qb_beta",
+            torch.zeros(EXPERT_COUNT, dtype=torch.float32),
+        )
         self.experts = transformer_engine.ops.Sequential(
             transformer_engine.ops.GroupedLinear(
                 EXPERT_COUNT,
@@ -131,27 +159,24 @@ class MoeBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         residual = x
         x = self.norm(x)
-        router_probs, routing_map = te_router().fused_topk_with_score_function(
-            self.router(x)[:, :EXPERT_COUNT].float(),
-            topk=ACTIVE_EXPERT_COUNT,
-            use_pre_softmax=True,
-            num_groups=None,
-            group_topk=None,
-            scaling_factor=None,
-            score_function="softmax",
-            expert_bias=None,
-        )
+        router_logits = self.router(x)[:, :EXPERT_COUNT].float()
+        update_beta = self.training and torch.is_grad_enabled()
+        with torch.no_grad():
+            route_experts, next_beta = _quantile_balancing_update(
+                router_logits.detach(),
+                topk=ACTIVE_EXPERT_COUNT,
+                beta=self.router_qb_beta,
+                update_beta=update_beta,
+            )
+            if update_beta:
+                self.router_qb_beta.copy_(next_beta)
+            routing_map = torch.zeros_like(router_logits, dtype=torch.bool).scatter_(
+                1, route_experts, True
+            )
+        router_probs = router_logits.softmax(dim=-1) * routing_map
         routed, tokens_per_expert = self._run_experts(x, router_probs, routing_map)
-        router_aux_loss = te_router().fused_moe_aux_loss(
-            router_probs,
-            tokens_per_expert,
-            total_num_tokens=x.shape[0],
-            num_experts=EXPERT_COUNT,
-            topk=ACTIVE_EXPERT_COUNT,
-            coeff=1.0,
-        )
         dead_experts = tokens_per_expert.eq(0).sum()
-        return residual + routed, router_aux_loss, dead_experts
+        return residual + routed, dead_experts, tokens_per_expert
 
     def _run_experts(
         self,
@@ -365,13 +390,13 @@ class Moe64A2ChessNet(nn.Module):
         rule50_plane_index = self.config.history_length * PLANES_PER_HISTORY_POSITION + 5
         x = normalize_lc0_planes(x, rule50_plane_index=rule50_plane_index).flatten(start_dim=1)
         x = self.input(x)
-        router_aux_losses = []
         dead_experts = []
+        tokens_per_expert = []
         for block in self.blocks:
             if isinstance(block, MoeBlock):
-                x, router_aux_loss, block_dead_experts = block(x)
-                router_aux_losses.append(router_aux_loss)
+                x, block_dead_experts, block_tokens_per_expert = block(x)
                 dead_experts.append(block_dead_experts)
+                tokens_per_expert.append(block_tokens_per_expert)
             else:
                 x = block(x)
         x = self.norm(x)
@@ -379,8 +404,8 @@ class Moe64A2ChessNet(nn.Module):
             policy_logits=self.policy_head(x)[:, :POLICY_SIZE],
             wdl_logits=self.wdl_head(x)[:, :3],
             moves_left=self.moves_left_head(x)[:, 0],
-            router_aux_loss=torch.stack(router_aux_losses).mean(),
             router_dead_experts=torch.stack(dead_experts).max(),
+            router_tokens_per_expert=torch.stack(tokens_per_expert),
         )
 
     def enable_custom_kernels(self) -> None:

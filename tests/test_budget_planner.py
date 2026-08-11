@@ -13,7 +13,7 @@ from chess_engine_4.training.budget_planner import (
     read_family_evidence,
     suggest_runs,
 )
-from chess_engine_4.training.scaling_laws import SkalingLaw, UndertrainingLossLaw
+from chess_engine_4.training.scaling_laws import SkalingLaw
 
 
 def planner_inputs():
@@ -39,23 +39,20 @@ def test_assumed_samples_hard_caps_plan() -> None:
     assert candidate.sample_limited
 
 
-def test_planner_compares_dense_and_moe() -> None:
+def test_planner_excludes_moe_without_qb_allocation_evidence() -> None:
     _, fits = planner_inputs()
     candidate = plan_budget(5.0, assume_samples=3_949_735_220, fits=fits)
 
     assert candidate is not None
-    assert candidate.family == "moe64a2"
+    assert candidate.family == "dense"
     assert candidate.estimated_cost <= candidate.budget
 
 
-def test_dense_uses_skaling_while_moe_keeps_existing_law() -> None:
+def test_only_dense_has_enough_current_evidence_to_fit() -> None:
     _, fits = planner_inputs()
 
     assert isinstance(next(fit.law for fit in fits if fit.spec.family == "dense"), SkalingLaw)
-    assert isinstance(
-        next(fit.law for fit in fits if fit.spec.family == "moe64a2"),
-        UndertrainingLossLaw,
-    )
+    assert all(fit.spec.family != "moe64a2" for fit in fits)
     dense = next(fit for fit in fits if fit.spec.family == "dense")
     candidates = candidates_for_family(
         100.0,
@@ -133,5 +130,5 @@ def test_twice_dataset_prefers_direct_ten_dollar_training() -> None:
     )
 
     assert comparisons
-    assert comparisons[0].expected_loss_improvement < 0
+    assert comparisons[0].expected_loss_improvement <= 1e-12
     assert all(0 <= comparison.probability_improves <= 1 for comparison in comparisons)

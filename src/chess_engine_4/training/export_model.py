@@ -110,6 +110,11 @@ def exported_moe_model(
     depth = int(model["depth"])
     d_model = int(model["d_model"])
     hidden_dim = int(d_model * float(model.get("expansion_ratio", 2.0)))
+    if model.get("router_load_balancing") == "quantile":
+        for layer in range(0, depth, 2):
+            name = f"blocks.{layer}.router_qb_beta"
+            if name not in state:
+                raise ValueError(f"Checkpoint is missing tensor {name!r}.")
     tensors = _common_tensors(state)
     for layer in range(depth):
         target = f"blocks.{layer}"
@@ -117,17 +122,18 @@ def exported_moe_model(
             tensors.update(_dense_block_tensors(state, layer))
             continue
 
-        tensors[f"{target}.norm.weight"] = _bf16_tensor(
-            state, f"blocks.{layer}.norm.weight"
+        tensors[f"{target}.norm.weight"] = _bf16_tensor(state, f"blocks.{layer}.norm.weight")
+        tensors[f"{target}.router.weight"] = _bf16_tensor(state, f"blocks.{layer}.router.weight")[
+            :64
+        ]
+        tensors[f"{target}.router_qb_beta"] = _router_qb_beta_tensor(
+            state,
+            layer=layer,
+            quantile_checkpoint=model.get("router_load_balancing") == "quantile",
         )
-        tensors[f"{target}.router.weight"] = _bf16_tensor(
-            state, f"blocks.{layer}.router.weight"
-        )[:64]
         custom_gate_up = f"blocks.{layer}.experts.gate_up_weight"
         if custom_gate_up in state:
-            tensors[f"{target}.experts.gate_up.weight"] = _bf16_tensor(
-                state, custom_gate_up
-            )
+            tensors[f"{target}.experts.gate_up.weight"] = _bf16_tensor(state, custom_gate_up)
             tensors[f"{target}.experts.down.weight"] = _bf16_tensor(
                 state, f"blocks.{layer}.experts.down_weight"
             )
@@ -166,6 +172,7 @@ def exported_moe_model(
             "num_experts": "64",
             "num_active_experts": "2",
             "layer_pattern": "alternating-moe-dense",
+            "router_load_balancing": "quantile",
         }
     )
     return tensors, metadata
@@ -252,6 +259,25 @@ def _bf16_tensor(state: dict[str, Any], name: str) -> torch.Tensor:
     if tensor.dtype != torch.bfloat16:
         raise ValueError(f"Tensor {name!r} must be BF16, got {tensor.dtype}.")
     return tensor.detach().cpu().contiguous()
+
+
+def _router_qb_beta_tensor(
+    state: dict[str, Any],
+    *,
+    layer: int,
+    quantile_checkpoint: bool,
+) -> torch.Tensor:
+    name = f"blocks.{layer}.router_qb_beta"
+    tensor = state.get(name)
+    if tensor is None:
+        if quantile_checkpoint:
+            raise ValueError(f"Checkpoint is missing tensor {name!r}.")
+        return torch.zeros(64, dtype=torch.float32)
+    if not isinstance(tensor, torch.Tensor) or tensor.shape != (64,):
+        raise ValueError(f"Tensor {name!r} must have shape (64,).")
+    if not tensor.is_floating_point():
+        raise ValueError(f"Tensor {name!r} must be floating point.")
+    return tensor.detach().to(device="cpu", dtype=torch.float32).contiguous()
 
 
 def _mounted_artifact_path(path: Path) -> Path:

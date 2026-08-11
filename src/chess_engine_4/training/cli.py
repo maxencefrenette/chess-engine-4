@@ -131,6 +131,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
     pending_losses: list[torch.Tensor] = []
     checkpoint_paths: list[Path] = []
     final_checkpoint_saved = False
+    final_router_tokens_per_expert: list[list[int]] | None = None
     trace_profiler: torch.profiler.profile | None = None
     for step in range(1, steps + 1):
         if (
@@ -282,6 +283,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 elapsed=elapsed,
                 lr=current_lr,
             )
+            if output.router_tokens_per_expert is not None:
+                final_router_tokens_per_expert = output.router_tokens_per_expert.cpu().tolist()
             metrics["perf/flops_seen"] = flops_seen
             metrics["stability/loss_spike_count"] = loss_spike_detector.count
             metrics["perf/step_time_sec"] = interval_elapsed / interval_steps
@@ -366,6 +369,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         )
         if options.checkpoint_commit is not None:
             options.checkpoint_commit()
+    if wandb_run is not None and final_router_tokens_per_expert is not None:
+        wandb_run.summary["router/final_tokens_per_expert"] = final_router_tokens_per_expert
     if wandb_run is not None:
         wandb_run.finish()
     result: dict[str, Any] = {
@@ -383,6 +388,8 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
         "sampling_rate": options.sampling_rate,
         "checkpoint_path": str(checkpoint_paths[-1]) if checkpoint_paths else "",
     }
+    if final_router_tokens_per_expert is not None:
+        result["router_tokens_per_expert"] = final_router_tokens_per_expert
     if options.profile is not None:
         result.update(
             {
@@ -687,7 +694,7 @@ def _init_wandb(
     if config.model.kind == "moe64a2":
         wandb_config["num_experts"] = config.model.num_experts
         wandb_config["num_active_experts"] = config.model.num_active_experts
-        wandb_config["router_aux_loss_weight"] = config.loss.router_aux
+        wandb_config["router_load_balancing"] = "quantile"
     return wandb.init(
         name=run_name or config.run.name,
         config=wandb_config,
@@ -763,11 +770,17 @@ def _training_metrics(
         "perf/samples_per_sec": samples_per_sec,
         "perf/samples_seen": samples_seen,
     }
-    if loss.router_aux is not None:
-        metrics["loss/aux"] = loss.aux.item()
-        metrics["loss/aux/router"] = loss.router_aux.item()
     if output.router_dead_experts is not None:
         metrics["router/dead_experts"] = output.router_dead_experts.item()
+    if output.router_tokens_per_expert is not None:
+        loads = output.router_tokens_per_expert.float()
+        for layer, layer_loads in enumerate(loads):
+            mean_load = layer_loads.mean()
+            metrics[f"router/layer_{layer}/load_min"] = layer_loads.min().item()
+            metrics[f"router/layer_{layer}/load_max"] = layer_loads.max().item()
+            metrics[f"router/layer_{layer}/load_std"] = layer_loads.std().item()
+            metrics[f"router/layer_{layer}/load_cv"] = (layer_loads.std() / mean_load).item()
+            metrics[f"router/layer_{layer}/dead_experts"] = layer_loads.eq(0).sum().item()
     return metrics
 
 

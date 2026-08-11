@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import asdict
 
 import pytest
 import torch
@@ -20,7 +21,7 @@ from chess_engine_4.model import (
 )
 from chess_engine_4.model.dense import normalize_lc0_planes
 from chess_engine_4.model.export import PortableChessNet
-from chess_engine_4.model.moe import _route_slots
+from chess_engine_4.model.moe import _quantile_balancing_update, _route_slots
 from chess_engine_4.training.losses import (
     LossWeights,
     lczero_loss,
@@ -143,27 +144,6 @@ def test_lczero_loss_backpropagates() -> None:
     assert any(parameter.grad is not None for parameter in model.parameters())
 
 
-def test_lczero_loss_adds_router_aux_without_changing_task_loss() -> None:
-    model = PortableChessNet(DenseChessNetConfig(d_model=64, depth=1, expansion_ratio=2.0))
-    planes = torch.randn(2, 112, 8, 8)
-    output = model(planes)
-    output = type(output)(
-        policy_logits=output.policy_logits,
-        wdl_logits=output.wdl_logits,
-        moves_left=output.moves_left,
-        router_aux_loss=torch.tensor(1.25, requires_grad=True),
-        router_dead_experts=torch.tensor(0),
-    )
-    policy = _compact_policy(batch_size=2, indices=[0], probs=[1.0])
-    values = torch.zeros(2, 6, 3)
-
-    loss = lczero_loss(output, policy, values, weights=LossWeights(router_aux=0.01))
-
-    torch.testing.assert_close(loss.total, loss.task + torch.tensor(0.0125))
-    torch.testing.assert_close(loss.aux, torch.tensor(0.0125))
-    torch.testing.assert_close(loss.router_aux, torch.tensor(1.25))
-
-
 def test_moe64a2_config_has_fixed_routing_shape() -> None:
     config = model_config_from_dict(
         {
@@ -177,8 +157,70 @@ def test_moe64a2_config_has_fixed_routing_shape() -> None:
     assert isinstance(config, Moe64A2ChessNetConfig)
     assert config.num_experts == 64
     assert config.num_active_experts == 2
+    assert "router_load_balancing" not in asdict(config)
     with pytest.raises(ValueError, match="unknown key"):
         model_config_from_dict({"kind": "moe64a2", "num_experts": 32})
+
+
+@pytest.mark.parametrize("strategy", ["aux_loss", "quantile"])
+def test_moe64a2_accepts_legacy_router_strategy(strategy: str) -> None:
+    config = model_config_from_dict(
+        {
+            "kind": "moe64a2",
+            "d_model": 64,
+            "depth": 2,
+            "router_load_balancing": strategy,
+        }
+    )
+
+    assert "router_load_balancing" not in asdict(config)
+
+
+def test_quantile_balancing_update_matches_column_quantile_contract() -> None:
+    torch.manual_seed(1)
+    scores = torch.randn(64, 8)
+    beta = torch.zeros(8)
+
+    indices, next_beta = _quantile_balancing_update(
+        scores,
+        topk=2,
+        beta=beta,
+        update_beta=True,
+    )
+
+    topk_result = scores.topk(3, dim=1)
+    cutoff = topk_result.values[:, -1:]
+    target = scores.shape[0] * 2 // scores.shape[1]
+    expected = (scores - cutoff).topk(target + 1, dim=0).values[-1]
+    expected = expected - expected.mean()
+    torch.testing.assert_close(indices, topk_result.indices[:, :2])
+    torch.testing.assert_close(next_beta, expected)
+    torch.testing.assert_close(next_beta.mean(), torch.tensor(0.0), atol=1e-7, rtol=0)
+
+
+def test_quantile_balancing_eval_keeps_fixed_bias() -> None:
+    scores = torch.tensor([[1.0, 0.9, 0.8], [0.1, 0.2, 0.3]])
+    beta = torch.tensor([0.5, 0.0, -0.5])
+
+    indices, returned_beta = _quantile_balancing_update(
+        scores,
+        topk=1,
+        beta=beta,
+        update_beta=False,
+    )
+
+    torch.testing.assert_close(indices, (scores - beta).topk(1, dim=1).indices)
+    assert returned_beta is beta
+
+
+def test_quantile_balancing_requires_divisible_route_count() -> None:
+    with pytest.raises(ValueError, match="divisible"):
+        _quantile_balancing_update(
+            torch.randn(5, 4),
+            topk=2,
+            beta=torch.zeros(4),
+            update_beta=True,
+        )
 
 
 def test_moe64a2_uses_fused_dispatch_for_large_widths() -> None:

@@ -112,7 +112,7 @@ def config(
             lr_warmup_steps=0,
             lr_cooldown_frac=0.1,
         ),
-        loss=LossWeights(policy=1.0, value=1.0, moves_left=1.0, router_aux=0.01),
+        loss=LossWeights(policy=1.0, value=1.0, moves_left=1.0),
     )
 
 
