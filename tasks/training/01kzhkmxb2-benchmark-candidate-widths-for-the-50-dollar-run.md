@@ -13,16 +13,15 @@ created_at: 2026-08-08
 
 ## Objective
 
-Revisit dense and MoE d1536 only after the current `$50` milestone. Dense d1536
-is supported; MoE d1536 remains experimental. This does not block the final run.
+Revisit dense d1536 only after the `$50` milestone. MoE d1536 is deferred with
+the rest of MoE work. This does not block the final run.
 
 ## Tasks
 
 - [ ] Benchmark dense d1536 on the current stack.
-- [ ] Test MoE d1536 feasibility without making it canonical.
-- [ ] Compare d1024/d1536/d2048 loss, parameters, throughput, and cost.
+- [ ] Compare dense d1024/d1536 loss, parameters, throughput, and cost.
 
 ## Acceptance Criteria
 
-- Results use same-stack measurements and distinguish MoE total/active parameters.
+- Results use same-stack dense measurements.
 - Unsupported shapes fail explicitly; this task does not launch final training.

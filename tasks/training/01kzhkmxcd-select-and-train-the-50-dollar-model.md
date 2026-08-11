@@ -13,12 +13,13 @@ created_at: 2026-08-08
 
 ## Objective
 
-Select and train the strongest supported model at a roughly `$50` training-cost
-target, using the new tablebase-rescored dataset and current measured throughput.
+Select and train the strongest supported dense model at a roughly `$50`
+training-cost target, using the new tablebase-rescored dataset and current
+measured throughput. MoE is deferred.
 
 ## Tasks
 
-- [ ] Rerun the budget planner with the new dataset and fresh throughput data.
+- [ ] Rerun dense-only budget planning with the new dataset and fresh throughput.
 - [ ] Freeze the config, seed, sample count, dataset manifest, and cost basis.
 - [ ] Review the printed Modal launch summary with the user before allowing the
       expensive run to proceed.

@@ -1,8 +1,8 @@
 ---
 id: "01kzg0rdp1"
-title: "Validate NVFP4 training"
+title: "Validate NVFP4 dense training"
 status: pending
-priority: low
+priority: high
 effort: large
 dependencies: []
 tags: ["precision", "kernels", "notion-import"]
@@ -10,13 +10,12 @@ touches: ["training", "kernels"]
 created_at: 2026-08-07
 ---
 
-# Validate NVFP4 training
+# Validate NVFP4 dense training
 
 ## Objective
 
-Establish whether NVFP4 can train useful dense or MoE networks on supported
-Blackwell shapes, and quantify its realized cost advantage and numerical risk
-against the current BF16 or MXFP8 recipe.
+Establish whether NVFP4 can train useful dense networks on supported Blackwell
+shapes. MoE validation is deferred.
 
 ## Tasks
 

@@ -21,8 +21,8 @@ build.
 ## Tasks
 
 - [ ] Explain the LCZero data contract and Rust/Parquet input pipeline.
-- [ ] Explain the dense and MoE model families, including total versus active
-  parameters and their training/inference tradeoffs.
+- [ ] Explain dense as the current path and MoE as a deferred experiment,
+  including the evidence that motivated the decision.
 - [ ] Explain Modal training, precision, custom kernels, checkpoints, export,
   lc0 inference, evaluation, and canonical-run promotion.
 - [ ] Integrate retained experiment evidence and scaling charts without

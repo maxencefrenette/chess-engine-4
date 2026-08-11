@@ -1,6 +1,6 @@
 ---
 id: "01kzhp5wp9"
-title: "Benchmark H100 and H200 training cost"
+title: "Benchmark H100 and H200 dense training cost"
 status: pending
 priority: high
 effort: medium
@@ -9,24 +9,21 @@ tags: ["sm90", "modal", "benchmark", "cost"]
 created_at: 2026-08-08
 ---
 
-# Benchmark H100 and H200 training cost
+# Benchmark H100 and H200 dense training cost
 
 ## Objective
 
-Measure whether H100 or H200 is the cheapest supported GPU for any canonical
-model using steady-state end-to-end training cost, then update the checked-in
-per-width recipe selections manually.
+Measure whether H100 or H200 is cheapest for any canonical dense width, then
+update the checked-in dense recipe. MoE comparisons are deferred.
 
 ## Tasks
 
-- [ ] Profile H100 and H200 against every other supported GPU for each relevant
-      canonical model configuration.
+- [ ] Profile H100 and H200 against other supported GPUs for each dense width.
 - [ ] Hold model, batch, precision, backend, input pipeline, and loader settings
       fixed within each comparison.
 - [ ] Compute cost per step from measured wall time and the configured GPU plus
       reserved CPU rates; exclude startup cost.
-- [ ] Record the measurements and manually update `configs/dense.py` and
-      `configs/moe64a2.py` only where a new GPU is cheaper.
+- [ ] Record measurements and update `configs/dense.py` where a GPU is cheaper.
 
 ## Acceptance Criteria
 
