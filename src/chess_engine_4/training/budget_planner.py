@@ -662,7 +662,7 @@ def _candidate_for_profile_budget(
         steps=steps,
         samples=samples,
         training_ratio=training_ratio,
-        predicted_loss=_predict_dimensions(row, samples, training_ratio, fit),
+        predicted_loss=fit.law.predict(int(row["params"]), samples),
         estimated_cost=estimated_cost,
         sample_limited=math.isclose(ratio_cap, assume_samples / samples_1x),
         extrapolated=not (
@@ -1001,15 +1001,6 @@ def _predict_candidate(candidate: BudgetCandidate, fit: FamilyFit) -> float:
     return fit.law.predict(candidate.params, candidate.samples)
 
 
-def _predict_dimensions(
-    row: dict[str, object],
-    samples: int,
-    training_ratio: float,
-    fit: FamilyFit,
-) -> float:
-    return fit.law.predict(int(row["params"]), samples)
-
-
 def _fit_noise(fit: FamilyFit) -> float:
     return max(fit.law.rmse, 0.005)
 
@@ -1171,12 +1162,6 @@ def _planning_config(
             training_ratio=training_ratio,
         )
     )
-
-
-def _throughput_profile(
-    spec: FamilySpec, d_model: int, batch_size: int
-) -> dict[str, object] | None:
-    return _throughput_profiles(spec).get((d_model, batch_size))
 
 
 def _is_observed(evidence: FamilyEvidence, d_model: int, ratio: float) -> bool:

@@ -705,7 +705,6 @@ def _init_wandb(
     if config.model.kind == "moe64a2":
         wandb_config["num_experts"] = config.model.num_experts
         wandb_config["num_active_experts"] = config.model.num_active_experts
-        wandb_config["router_load_balancing"] = "quantile"
     return wandb.init(
         name=run_name or config.run.name,
         config=wandb_config,

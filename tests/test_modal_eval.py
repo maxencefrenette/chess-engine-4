@@ -5,7 +5,6 @@ from chess_engine_4.modal_eval import (
     OPENING_BOOK_PATH,
     _fastchess_command,
     _parse_fastchess_pair_scores,
-    _parse_fastchess_pentanomial,
     _selfplay_command,
     lc0_path_for_gpu,
 )
@@ -105,5 +104,4 @@ def test_fastchess_pgn_parser_retains_pentanomial_pairs() -> None:
 [Result "1-0"]
 """
 
-    assert _parse_fastchess_pentanomial(pgn, "candidate") == (1, 0, 0, 1, 0)
     assert _parse_fastchess_pair_scores(pgn, "candidate") == (3, 0)

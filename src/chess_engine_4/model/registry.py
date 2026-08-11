@@ -24,9 +24,6 @@ _FIXED_LC0_GEOMETRY = {
 
 def model_config_from_dict(values: dict[str, Any]) -> ModelConfig:
     values = dict(values)
-    legacy_router_balancing = values.pop("router_load_balancing", None)
-    if legacy_router_balancing not in (None, "aux_loss", "quantile"):
-        raise ValueError("[model].router_load_balancing must be 'aux_loss' or 'quantile'.")
     for name, expected in _FIXED_LC0_GEOMETRY.items():
         actual = values.pop(name, expected)
         if actual != expected:

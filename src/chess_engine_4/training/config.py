@@ -111,14 +111,12 @@ def load_training_config(
 
 
 def training_config_from_dict(values: dict[str, Any]) -> TrainingConfig:
-    loss_values = dict(values.get("loss", {}))
-    loss_values.pop("router_aux", None)
     return TrainingConfig(
         run=RunConfig(**values.get("run", {})),
         infra=InfraConfig(**values.get("infra", {})),
         model=model_config_from_dict(values.get("model", {})),
         optimizer=OptimizerConfig(**values.get("optimizer", {})),
-        loss=LossWeights(**loss_values),
+        loss=LossWeights(**values.get("loss", {})),
     )
 
 

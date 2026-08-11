@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-from dataclasses import asdict
 
 import pytest
 import torch
@@ -157,23 +156,8 @@ def test_moe64a2_config_has_fixed_routing_shape() -> None:
     assert isinstance(config, Moe64A2ChessNetConfig)
     assert config.num_experts == 64
     assert config.num_active_experts == 2
-    assert "router_load_balancing" not in asdict(config)
     with pytest.raises(ValueError, match="unknown key"):
         model_config_from_dict({"kind": "moe64a2", "num_experts": 32})
-
-
-@pytest.mark.parametrize("strategy", ["aux_loss", "quantile"])
-def test_moe64a2_accepts_legacy_router_strategy(strategy: str) -> None:
-    config = model_config_from_dict(
-        {
-            "kind": "moe64a2",
-            "d_model": 64,
-            "depth": 2,
-            "router_load_balancing": strategy,
-        }
-    )
-
-    assert "router_load_balancing" not in asdict(config)
 
 
 def test_quantile_balancing_update_matches_column_quantile_contract() -> None:

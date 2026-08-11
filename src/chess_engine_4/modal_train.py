@@ -276,7 +276,6 @@ def print_launch_summary(
         f"kernel_backend={config.model.kernel_backend} "
         f"kernel_variant={kernel_selection.variant} "
         f"input_pipeline={config.model.input_pipeline} "
-        f"router_load_balancing={'quantile' if config.model.kind == 'moe64a2' else 'none'} "
         f"cpu_cores={config.infra.cpu_cores} "
         f"dataloader_threads={config.infra.dataloader_threads}"
         f" sampling_rate={sampling_rate:g}"

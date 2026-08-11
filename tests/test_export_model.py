@@ -137,7 +137,6 @@ def test_exported_moe_model_flattens_experts() -> None:
 
     assert metadata["architecture"] == "moe64a2"
     assert metadata["num_experts"] == "64"
-    assert metadata["router_load_balancing"] == "quantile"
     torch.testing.assert_close(
         tensors["blocks.0.router_qb_beta"],
         torch.linspace(-1, 1, 64),
@@ -147,28 +146,5 @@ def test_exported_moe_model_flattens_experts() -> None:
     assert tensors["blocks.1.gate_up.weight"].shape == (1024, 128)
 
     del state["blocks.0.router_qb_beta"]
-    legacy_tensors, _ = exported_moe_model(checkpoint)
-    torch.testing.assert_close(
-        legacy_tensors["blocks.0.router_qb_beta"],
-        torch.zeros(64),
-    )
-
-
-def test_export_rejects_quantile_moe_without_router_bias() -> None:
-    checkpoint = {
-        "config": {
-            "model": {
-                "kind": "moe64a2",
-                "d_model": 64,
-                "depth": 2,
-                "expansion_ratio": 2.0,
-                "activation": "swiglu",
-                "history_length": 8,
-                "router_load_balancing": "quantile",
-            }
-        },
-        "model_state_dict": {},
-    }
-
     with pytest.raises(ValueError, match="router_qb_beta"):
         exported_moe_model(checkpoint)

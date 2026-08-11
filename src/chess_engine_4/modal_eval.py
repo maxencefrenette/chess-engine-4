@@ -444,13 +444,6 @@ _PGN_GAME = re.compile(
 )
 
 
-def _parse_fastchess_pentanomial(
-    pgn: str, player: str
-) -> tuple[int, int, int, int, int]:
-    """Count player scores for fastchess's same-round reversed-color pairs."""
-    return _pentanomial_from_pair_scores(_parse_fastchess_pair_scores(pgn, player))
-
-
 def _pentanomial_from_pair_scores(
     pair_scores: tuple[int, ...],
 ) -> tuple[int, int, int, int, int]:

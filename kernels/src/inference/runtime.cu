@@ -11,8 +11,6 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
-#include <functional>
-#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -120,19 +118,6 @@ public:
     explicit DeviceTensor(const HostTensor &host) : bytes_(host.bytes), shape_(host.shape) {
         CheckCuda(cudaMalloc(&data_, bytes_), "cudaMalloc weight");
         CheckCuda(cudaMemcpy(data_, host.data, bytes_, cudaMemcpyHostToDevice), "copy weight");
-    }
-
-    static DeviceTensor ZerosFloat32(std::initializer_list<std::int64_t> shape) {
-        DeviceTensor tensor;
-        tensor.shape_ = shape;
-        const std::size_t elements = std::accumulate(
-            tensor.shape_.begin(), tensor.shape_.end(), std::size_t{1},
-            std::multiplies<>{}
-        );
-        tensor.bytes_ = elements * sizeof(float);
-        CheckCuda(cudaMalloc(&tensor.data_, tensor.bytes_), "cudaMalloc zero tensor");
-        CheckCuda(cudaMemset(tensor.data_, 0, tensor.bytes_), "zero tensor");
-        return tensor;
     }
 
     ~DeviceTensor() {
@@ -402,11 +387,6 @@ public:
                     && info_.d_model != 512 && info_.d_model != 1024))) {
             throw std::runtime_error("Unsupported MoE model contract");
         }
-        const auto router_balancing = file.metadata.find("router_load_balancing");
-        if (is_moe_ && router_balancing != file.metadata.end()
-            && router_balancing->get<std::string>() != "quantile") {
-            throw std::runtime_error("Unsupported MoE router load balancing");
-        }
         selected_planes_ = info_.history_length * kPlanesPerHistory + (kInputPlanes - kHistoryPlanes);
         input_dim_ = selected_planes_ * 64;
         policy_storage_size_ = MetadataInt(file.metadata, "policy_storage_size");
@@ -447,12 +427,9 @@ public:
                 block.router = DeviceTensor(RequireTensor(
                     file, prefix + ".router.weight", {kMoeExpertCount, info_.d_model}
                 ));
-                const auto beta = file.tensors.find(prefix + ".router_qb_beta");
-                block.router_qb_beta = beta == file.tensors.end()
-                    ? DeviceTensor::ZerosFloat32({kMoeExpertCount})
-                    : DeviceTensor(RequireTensor(
-                        file, prefix + ".router_qb_beta", {kMoeExpertCount}, "F32"
-                    ));
+                block.router_qb_beta = DeviceTensor(RequireTensor(
+                    file, prefix + ".router_qb_beta", {kMoeExpertCount}, "F32"
+                ));
                 block.gate_up = DeviceTensor(RequireTensor(
                     file, prefix + ".experts.gate_up.weight",
                     {kMoeExpertCount, 2 * hidden_dim_, info_.d_model}
