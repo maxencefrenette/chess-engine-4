@@ -303,26 +303,26 @@ loss_spike_count = 0
 
 [scaling_runs.d256-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.03-hyperball"
+source_experiment = "experiments/2026-08-11.04-adamh-16d-learning-rates"
 model_kind = "dense"
-run_name = "hyperball-d256-r0p055-lr0p005"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/tiadc73r"
+run_name = "adamh-16d-lr-d256-r0p055-lr0p0022"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/xljjmfxc"
 d_model = 256
 params = 8630688
 samples_seen = 23732224
-loss = 3.3761050609474075
+loss = 3.3889763691168704
 loss_spike_count = 0
 
 [scaling_runs.d512-r0p055]
 training_ratio = 0.055
-source_experiment = "experiments/2026-08-11.03-hyperball"
+source_experiment = "experiments/2026-08-11.04-adamh-16d-learning-rates"
 model_kind = "dense"
-run_name = "hyperball-promotion-d512-r0p055-lr0p0035"
-wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3ua9a9eg"
+run_name = "adamh-16d-lr-d512-r0p055-lr0p0013"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/97mwm56n"
 d_model = 512
 params = 29842336
 samples_seen = 82067456
-loss = 3.1274988070894665
+loss = 3.1847415991424066
 loss_spike_count = 0
 
 [scaling_runs.d768-r0p055]
@@ -507,14 +507,14 @@ loss_spike_count = 0
 
 [scaling_runs.d256-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-11.03-hyperball"
+source_experiment = "experiments/2026-08-11.04-adamh-16d-learning-rates"
 model_kind = "dense"
-run_name = "hyperball-scaling-grid-d256-r0p1"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/q4348s9n"
+run_name = "adamh-16d-canonical-d256-r0p1-lr0p0022"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/gq0xgwl1"
 d_model = 256
 params = 8630688
 samples_seen = 43155456
-loss = 3.264339182476742
+loss = 3.289253059296462
 loss_spike_count = 0
 
 [scaling_runs.d256-r0p2]
@@ -543,15 +543,15 @@ loss_spike_count = 0
 
 [scaling_runs.d512-r0p1]
 training_ratio = 0.1
-source_experiment = "experiments/2026-08-11.03-hyperball"
+source_experiment = "experiments/2026-08-11.04-adamh-16d-learning-rates"
 model_kind = "dense"
-run_name = "hyperball-scaling-grid-d512-r0p1"
-wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/v3qc9fjy"
+run_name = "adamh-16d-canonical-d512-r0p1-lr0p0013"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/5vcqk48c"
 d_model = 512
 params = 29842336
 samples_seen = 149209088
-loss = 3.027363477906377
-loss_spike_count = 3
+loss = 3.091250210629312
+loss_spike_count = 0
 
 [scaling_runs.d512-r0p2]
 training_ratio = 0.2

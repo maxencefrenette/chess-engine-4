@@ -646,7 +646,7 @@ def test_dense_family_uses_batch16_below_fitted_step_cutoff() -> None:
     assert config.run.batch_size == batch32 // 2
     assert config.run.steps == steps32 * 2
     assert config.run.batch_size * config.run.steps == batch32 * steps32
-    assert config.optimizer.lr == 0.0025
+    assert config.optimizer.lr == 0.00044
 
 
 def test_dense_family_keeps_batch32_above_fitted_step_cutoff() -> None:
@@ -669,6 +669,7 @@ def test_dense_family_keeps_batch32_above_fitted_step_cutoff() -> None:
     assert config.run.batch_size == batch32
     assert config.run.steps == steps32
     assert config.run.batch_size * config.run.steps == batch32 * steps32
+    assert config.optimizer.lr == 0.0025
 
 
 def test_dense_family_rejects_horizon_below_fitted_step_cutoff() -> None:
@@ -701,12 +702,20 @@ def test_dense_family_uses_adamh_lr_at_d1280_batch16() -> None:
 
     assert config.run.batch_size == batch32 // 2
     assert config.run.steps == 28_800
-    assert config.optimizer.lr == 0.0025
+    assert config.optimizer.lr == 0.00044
 
 
 @pytest.mark.parametrize(
     ("d_model", "expected_lr"),
-    [(512, 0.0035), (768, 0.0035), (1024, 0.0025)],
+    [
+        (64, 0.005),
+        (128, 0.0035),
+        (256, 0.0022),
+        (512, 0.0013),
+        (768, 0.001),
+        (1024, 0.00044),
+        (1280, 0.00044),
+    ],
 )
 def test_dense_family_uses_promoted_adamh_lr_at_short_horizon(
     d_model: int, expected_lr: float

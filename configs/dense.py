@@ -19,7 +19,7 @@ _SAMPLES_PER_PARAMETER = 50.0
 _BATCH32_PER_WIDTH = 32
 _MINIMUM_STEPS_COEFFICIENT = 62.7575303963433
 _MINIMUM_STEPS_WIDTH_EXPONENT = 0.8073049254601639
-_ADAMH_LR_BY_WIDTH = {
+_ADAMH_LR_32D_BY_WIDTH = {
     64: 0.0071,
     128: 0.005,
     256: 0.005,
@@ -27,6 +27,15 @@ _ADAMH_LR_BY_WIDTH = {
     768: 0.0035,
     1024: 0.0025,
     1280: 0.0025,
+}
+_ADAMH_LR_16D_BY_WIDTH = {
+    64: 0.005,
+    128: 0.0035,
+    256: 0.0022,
+    512: 0.0013,
+    768: 0.001,
+    1024: 0.00044,
+    1280: 0.00044,
 }
 _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     64: "pageable",
@@ -80,6 +89,7 @@ def config(
     if steps32 >= minimum_steps:
         batch_size = batch32
         steps = steps32
+        lr = _ADAMH_LR_32D_BY_WIDTH[d_model]
     else:
         batch_size = batch32 // 2
         steps = steps32 * 2
@@ -89,6 +99,7 @@ def config(
                 f"steps at the minimum dense batch for d_model={d_model}; "
                 f"the fitted minimum is {minimum_steps:,.1f}."
             )
+        lr = _ADAMH_LR_16D_BY_WIDTH[d_model]
     return TrainingConfig(
         run=RunConfig(
             name=_run_name(d_model, training_ratio),
@@ -115,7 +126,7 @@ def config(
         ),
         optimizer=OptimizerConfig(
             kind="adamh",
-            lr=_ADAMH_LR_BY_WIDTH[d_model],
+            lr=lr,
             weight_decay=None,
             max_grad_norm=1.0,
             lr_warmup_steps=0,
