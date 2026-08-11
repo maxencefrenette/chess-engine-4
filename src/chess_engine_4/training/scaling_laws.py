@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, least_squares
 from scipy.special import expit
+from scipy.stats import qmc
 
 DEFAULT_BEST_RUNS = Path("experiments/best-runs-dense.toml")
 
@@ -102,6 +103,140 @@ class UndertrainingLossLaw:
             * (training_ratio ** (-self.ratio_exponent) - 1.0)
         )
         return self.baseline.predict(one_x_flops) + penalty
+
+
+@dataclass(frozen=True, slots=True)
+class SkalingLaw:
+    model_coefficient: float
+    data_coefficient: float
+    model_exponent: float
+    data_exponent: float
+    coupling: float
+    floor: float
+    rmse: float
+
+    def predict(self, params: float, samples: float) -> float:
+        if params <= 0 or samples <= 0:
+            raise ValueError("Skaling-law inputs must be positive.")
+        model_size = params / 1e6
+        data = samples / 1e8
+        inner = (
+            self.model_coefficient * model_size ** (-self.model_exponent)
+            + self.data_coefficient * data ** (-self.data_exponent)
+        )
+        return inner**self.coupling + self.floor
+
+    def format(self) -> str:
+        return (
+            "L(N,D) = ("
+            f"{self.model_coefficient:.4g} * N^-{self.model_exponent:.4f} + "
+            f"{self.data_coefficient:.4g} * D^-{self.data_exponent:.4f}"
+            f")^{self.coupling:.4f} + {self.floor:.4f}"
+        )
+
+
+def read_dense_scaling_points(path: Path = DEFAULT_BEST_RUNS) -> list[tuple[int, int, float]]:
+    """Read the curated dense Skaling observations from a canonical best-runs file."""
+    with path.open("rb") as handle:
+        rows = tomllib.load(handle).get("scaling_runs", {})
+    if len(rows) < 7:
+        raise ValueError(f"{path}: at least seven scaling_runs are required")
+    points = []
+    for name, row in rows.items():
+        if row.get("model_kind") != "dense":
+            raise ValueError(f"{path}: scaling_runs.{name} is not dense")
+        params = int(row["params"])
+        samples = int(row["samples_seen"])
+        loss = float(row["loss"])
+        if params <= 0 or samples <= 0 or loss <= 0:
+            raise ValueError(f"{path}: scaling_runs.{name} has non-positive fit data")
+        points.append((params, samples, loss))
+    return points
+
+
+def fit_dense_skaling_law(
+    path: Path = DEFAULT_BEST_RUNS,
+    *,
+    initial: SkalingLaw | None = None,
+    restarts: int = 64,
+) -> SkalingLaw:
+    """Fit the dense Skaling law from canonical best-runs observations."""
+    return fit_skaling_law(read_dense_scaling_points(path), initial=initial, restarts=restarts)
+
+
+def fit_skaling_law(
+    points: Iterable[tuple[int, int, float]],
+    *,
+    initial: SkalingLaw | None = None,
+    restarts: int = 64,
+) -> SkalingLaw:
+    values = list(points)
+    if len(values) < 7:
+        raise ValueError("At least seven points are required to fit a Skaling law.")
+    if restarts <= 0:
+        raise ValueError("restarts must be positive")
+    if any(params <= 0 or samples <= 0 or loss <= 0 for params, samples, loss in values):
+        raise ValueError("Skaling-law fit data must be positive.")
+
+    model_size = np.array([params / 1e6 for params, _, _ in values])
+    data = np.array([samples / 1e8 for _, samples, _ in values])
+    losses = np.array([loss for _, _, loss in values])
+    lower = np.array([-13.8, -13.8, 0.01, 0.01, 0.01, 0.0])
+    upper = np.array([16.2, 16.2, 2.0, 2.0, 2.0, 3.0])
+
+    def predictions(parameters: np.ndarray) -> np.ndarray:
+        log_a, log_b, alpha, beta, coupling, floor = parameters
+        inner = np.exp(log_a) * model_size**-alpha + np.exp(log_b) * data**-beta
+        return inner**coupling + floor
+
+    def residuals(parameters: np.ndarray) -> np.ndarray:
+        return np.log(predictions(parameters)) - np.log(losses)
+
+    sampler = qmc.Sobol(d=len(lower), scramble=True, seed=20260810)
+    power = math.ceil(math.log2(restarts))
+    starts = list(qmc.scale(sampler.random_base2(power), lower, upper)[:restarts])
+    if initial is not None:
+        starts.insert(
+            0,
+            np.array(
+                [
+                    math.log(initial.model_coefficient),
+                    math.log(initial.data_coefficient),
+                    initial.model_exponent,
+                    initial.data_exponent,
+                    initial.coupling,
+                    initial.floor,
+                ]
+            ),
+        )
+
+    best_parameters = None
+    best_objective = math.inf
+    for start in starts:
+        candidate = least_squares(
+            residuals,
+            start,
+            bounds=(lower, upper),
+            loss="huber",
+            f_scale=0.05,
+            max_nfev=20_000,
+        )
+        objective = float(np.sum(candidate.fun**2))
+        if objective < best_objective:
+            best_parameters = candidate.x
+            best_objective = objective
+    assert best_parameters is not None
+    log_a, log_b, alpha, beta, coupling, floor = best_parameters
+    rmse = float(np.sqrt(np.mean(np.square(predictions(best_parameters) - losses))))
+    return SkalingLaw(
+        model_coefficient=math.exp(float(log_a)),
+        data_coefficient=math.exp(float(log_b)),
+        model_exponent=float(alpha),
+        data_exponent=float(beta),
+        coupling=float(coupling),
+        floor=float(floor),
+        rmse=rmse,
+    )
 
 
 def read_best_runs(

@@ -220,3 +220,234 @@ samples_seen = 746061824
 loss = 2.937496792893929
 policy_top1 = 0.48131627240617
 loss_spike_count = 0
+
+# Current-recipe observations used for the dense Skaling L(N, D) fit. These are
+# intentionally separate from [runs], which remains the canonical 0.2x recipe
+# consumed by compare-run and generate-website-data.
+[scaling_runs.d64-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling-d64-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/tg9b2hmj"
+d_model = 64
+params = 979488
+samples_seen = 4896768
+loss = 3.800400281030469
+loss_spike_count = 0
+
+[scaling_runs.d64-r0p2]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/le0zet8j"
+d_model = 64
+params = 979488
+samples_seen = 9795584
+loss = 3.638110563920138
+loss_spike_count = 0
+
+[scaling_runs.d64-r0p3]
+training_ratio = 0.3
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/g2c1jlod"
+d_model = 64
+params = 979488
+samples_seen = 14692352
+loss = 3.5733069928965593
+loss_spike_count = 0
+
+[scaling_runs.d64-r0p5]
+training_ratio = 0.5
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mf306mun"
+d_model = 64
+params = 979488
+samples_seen = 24487936
+loss = 3.535491963956659
+loss_spike_count = 0
+
+[scaling_runs.d64-r0p75]
+training_ratio = 0.75
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r0.75"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/9j0sewuw"
+d_model = 64
+params = 979488
+samples_seen = 36730880
+loss = 3.4954902005542547
+loss_spike_count = 0
+
+[scaling_runs.d64-r1]
+training_ratio = 1.0
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2yi3k8lq"
+d_model = 64
+params = 979488
+samples_seen = 48973824
+loss = 3.47169538474479
+loss_spike_count = 0
+
+[scaling_runs.d64-r1p5]
+training_ratio = 1.5
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r1.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3ygng034"
+d_model = 64
+params = 979488
+samples_seen = 73461760
+loss = 3.4588644355549767
+loss_spike_count = 0
+
+[scaling_runs.d64-r2]
+training_ratio = 2.0
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d64-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2xrkwmir"
+d_model = 64
+params = 979488
+samples_seen = 97949696
+loss = 3.4473413054477997
+loss_spike_count = 0
+
+[scaling_runs.d128-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling4-d128-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/lywanz0i"
+d_model = 128
+params = 2743456
+samples_seen = 13717504
+loss = 3.536921148121582
+loss_spike_count = 0
+
+[scaling_runs.d128-r0p2]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d128-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mvf2q9b3"
+d_model = 128
+params = 2743456
+samples_seen = 27435008
+loss = 3.416120267458515
+loss_spike_count = 0
+
+[scaling_runs.d128-r0p3]
+training_ratio = 0.3
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d128-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4smpr2se"
+d_model = 128
+params = 2743456
+samples_seen = 41152512
+loss = 3.357092340645167
+loss_spike_count = 0
+
+[scaling_runs.d128-r0p75]
+training_ratio = 0.75
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d128-r0.75"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/0spk3hr4"
+d_model = 128
+params = 2743456
+samples_seen = 102879232
+loss = 3.26741583678992
+loss_spike_count = 0
+
+[scaling_runs.d128-r1]
+training_ratio = 1.0
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d128-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ma5d219p"
+d_model = 128
+params = 2743456
+samples_seen = 137170944
+loss = 3.252725598223235
+loss_spike_count = 0
+
+[scaling_runs.d256-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling4-d256-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbaqm6d7"
+d_model = 256
+params = 8630688
+samples_seen = 43155456
+loss = 3.2844779592801827
+loss_spike_count = 1
+
+[scaling_runs.d256-r0p2]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d256-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/6kufmxzg"
+d_model = 256
+params = 8630688
+samples_seen = 86310912
+loss = 3.1806255764143296
+loss_spike_count = 0
+
+[scaling_runs.d256-r0p3]
+training_ratio = 0.3
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d256-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbibhzvv"
+d_model = 256
+params = 8630688
+samples_seen = 129458176
+loss = 3.138097543359241
+loss_spike_count = 0
+
+[scaling_runs.d512-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d512-r0.1-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/13xpo9r5"
+d_model = 512
+params = 29842336
+samples_seen = 149209088
+loss = 3.0847157847463245
+loss_spike_count = 0
+
+[scaling_runs.d512-r0p2]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d512-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/irfjpljb"
+d_model = 512
+params = 29842336
+samples_seen = 298418176
+loss = 3.0019486853616155
+loss_spike_count = 0
+
+[scaling_runs.d1024-r0p1]
+training_ratio = 0.1
+source_experiment = "experiments/2026-08-10.01-skaling-law"
+model_kind = "dense"
+run_name = "skaling2-d1024-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/zqeck1z3"
+d_model = 1024
+params = 110014368
+samples_seen = 550076416
+loss = 2.9322109324287133
+loss_spike_count = 0
