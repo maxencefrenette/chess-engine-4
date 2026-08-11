@@ -44,10 +44,9 @@ should remain in the project backlog. Do not create tasks for incidental edits.
 
 ## Verification
 
-For kernel work, follow `.agents/skills/kernel-development/SKILL.md` and inspect the local
-upstream references before introducing a new implementation pattern.
-For ML architecture or methodology work, follow `.agents/skills/ml-references/SKILL.md` and
-consult the local paper manifest.
+For kernel work, inspect the local upstream references before introducing a new implementation
+pattern.
+For ML architecture or methodology work, consult the local paper manifest.
 
 Run the relevant focused tests while iterating. Before committing a broad
 change, run:

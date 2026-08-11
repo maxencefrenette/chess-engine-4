@@ -1,4 +1,0 @@
-interface:
-  display_name: "ML References"
-  short_description: "Consult locally cached ML papers"
-  default_prompt: "Inspect the relevant locally cached ML papers before making architecture or experiment recommendations."

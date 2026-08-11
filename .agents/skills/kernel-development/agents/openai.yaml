@@ -1,4 +1,0 @@
-interface:
-  display_name: "Kernel Development"
-  short_description: "Use local upstream references when developing GPU kernels"
-  default_prompt: "Inspect the local kernel reference repositories before designing or optimizing GPU kernels."
