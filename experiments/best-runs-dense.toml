@@ -98,6 +98,28 @@ loss = 3.0316757731577573
 policy_top1 = 0.45221554940703057
 runtime_sec = 455.077747744
 
+[runs.d768]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.02-scaling-points"
+model_kind = "dense"
+run_name = "scaling-dense-d768-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/5w1kgfp2"
+flops = 2.44603074486042624e17
+d_model = 768
+depth = 8
+activation = "swiglu"
+batch_size = 24576
+lr = 1.5e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 63636896
+samples_seen = 636370944
+loss = 2.927339579577512
+policy_top1 = 0.4856797096747424
+runtime_sec = 344.773616995
+# Accepted with one isolated late spike; EMA improved after it.
+loss_spike_count = 1
+
 [runs.d1024]
 training_ratio = 0.2
 source_experiment = "experiments/2026-08-04.03-dense-depth-scaling"
@@ -117,6 +139,27 @@ samples_seen = 1100152832
 loss = 2.8882412565462
 policy_top1 = 0.4973036514264204
 runtime_sec = 1404.911800012
+
+[runs.d1280]
+training_ratio = 0.2
+source_experiment = "experiments/2026-08-10.02-scaling-points"
+model_kind = "dense"
+run_name = "scaling-dense-d1280-r0p2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/doglducv"
+flops = 1.720338654081908736e18
+d_model = 1280
+depth = 8
+activation = "swiglu"
+batch_size = 49152
+lr = 7.1e-5
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 168974752
+samples_seen = 1689747456
+loss = 2.8583555006903705
+policy_top1 = 0.5067038289414763
+runtime_sec = 1586.565776933
+loss_spike_count = 0
 
 # Validated non-default-ratio observations used for model/data allocation.
 [allocation_runs.d128-r0p1]

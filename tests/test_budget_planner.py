@@ -44,7 +44,7 @@ def test_planner_compares_dense_and_moe() -> None:
     candidate = plan_budget(5.0, assume_samples=3_949_735_220, fits=fits)
 
     assert candidate is not None
-    assert candidate.family == "dense"
+    assert candidate.family == "moe64a2"
     assert candidate.estimated_cost <= candidate.budget
 
 

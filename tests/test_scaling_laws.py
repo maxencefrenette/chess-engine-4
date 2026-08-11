@@ -22,7 +22,9 @@ def test_read_best_runs() -> None:
         "d128",
         "d256",
         "d512",
+        "d768",
         "d1024",
+        "d1280",
     ]
     assert all(run.training_ratio == 0.2 for run in best_runs)
 

@@ -65,6 +65,29 @@ runtime_sec = 742.305132587
 loss_spike_count = 1
 router_dead_experts = 0
 
+[runs.d768]
+training_ratio = 0.05
+source_experiment = "experiments/2026-08-10.02-scaling-points"
+model_kind = "moe64a2"
+run_name = "scaling-moe64a2-d768-r0p05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/uysyhdm4"
+flops = 9.07528813207289856e17
+d_model = 768
+depth = 8
+activation = "swiglu"
+batch_size = 98304
+lr = 2.0e-4
+lr_cooldown_frac = 0.1
+max_grad_norm = 1.0
+params = 941491616
+samples_seen = 2353692672
+loss = 2.7785019016110297
+policy_top1 = 0.5366734660257239
+runtime_sec = 2001.581074696
+# Accepted with three isolated spikes; EMA recovered after each interval.
+loss_spike_count = 3
+router_dead_experts = 0
+
 [runs.d1024]
 training_ratio = 0.05
 source_experiment = "experiments/2026-08-06.04-moe-r005-baseline"

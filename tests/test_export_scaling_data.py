@@ -24,7 +24,9 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
         "d128",
         "d256",
         "d512",
+        "d768",
         "d1024",
+        "d1280",
     ]
     assert dense["trainingRatio"] == 0.2
     assert all(point["status"] == "current" for point in dense["runs"])
@@ -43,6 +45,8 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
         "RTX-PRO-6000",
         "RTX-PRO-6000",
         "RTX-PRO-6000",
+        "B200",
+        "B200",
         "B200",
         "B200",
     ]
@@ -67,6 +71,7 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
         "d128",
         "d256",
         "d512",
+        "d768",
         "d1024",
     ]
     assert moe["trainingRatio"] == 0.05
