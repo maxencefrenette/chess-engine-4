@@ -1,0 +1,72 @@
+{
+  "baseline_runs": [
+    {
+      "modal_run": "ap-RJ419vxvjTQszCRis8tnG7",
+      "device": "NVIDIA B200",
+      "torch": "2.11.0+cu130",
+      "transformer_engine": "2.17.0",
+      "batch_size": 4096,
+      "widths": {
+        "2048": {
+          "mxfp8": {"mean_ms": 2.6511008024215696, "median_ms": 2.6619200706481934, "p10_ms": 2.580735921859741, "p90_ms": 2.7125120162963867, "positions_per_second": 1538738.9145018917},
+          "nvfp4": {"mean_ms": 3.66702721118927, "median_ms": 3.656831979751587, "p10_ms": 3.611936092376709, "p90_ms": 3.734015941619873, "positions_per_second": 1120095.2142948187},
+          "nvfp4_speedup": 0.7279306474532147
+        }
+      }
+    },
+    {
+      "modal_run": "ap-9bX5JDyNF0FhBR0WdMzOE0",
+      "device": "NVIDIA B200",
+      "torch": "2.11.0+cu130",
+      "transformer_engine": "2.17.0",
+      "batch_size": 4096,
+      "widths": {
+        "2048": {
+          "mxfp8": {"mean_ms": 2.332984534899394, "median_ms": 2.329311966896057, "p10_ms": 2.2828478813171387, "p90_ms": 2.397631883621216, "positions_per_second": 1758459.1751607049},
+          "nvfp4": {"mean_ms": 2.9983232021331787, "median_ms": 3.0204479694366455, "p10_ms": 2.8394880294799805, "p90_ms": 3.102015972137451, "positions_per_second": 1356090.2360996339},
+          "nvfp4_speedup": 0.7711809607269962
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "modal_run": "ap-P1lc4ZbTrdlek1UeYR1DpF",
+      "device": "NVIDIA B200",
+      "torch": "2.11.0+cu130",
+      "transformer_engine": "2.17.0",
+      "batch_size": 4096,
+      "widths": {
+        "3072": {
+          "mxfp8": {"mean_ms": 4.327958424886067, "median_ms": 4.331007957458496, "p10_ms": 4.286303997039795, "p90_ms": 4.365375995635986, "positions_per_second": 945738.276224179},
+          "nvfp4": {"mean_ms": 3.56429758866628, "median_ms": 3.565951943397522, "p10_ms": 3.5300800800323486, "p90_ms": 3.6107521057128906, "positions_per_second": 1148641.3908588644},
+          "nvfp4_speedup": 1.2145446787294767
+        },
+        "4096": {
+          "mxfp8": {"mean_ms": 7.080516242980957, "median_ms": 7.0220160484313965, "p10_ms": 6.891039848327637, "p90_ms": 7.432544231414795, "positions_per_second": 583308.2652830136},
+          "nvfp4": {"mean_ms": 5.264297596613566, "median_ms": 5.207615852355957, "p10_ms": 5.121856212615967, "p90_ms": 5.551231861114502, "positions_per_second": 786540.3509260279},
+          "nvfp4_speedup": 1.3484128337259351
+        }
+      }
+    },
+    {
+      "modal_run": "ap-vliDnu6149WOSrW0hNTopB",
+      "device": "NVIDIA B200",
+      "torch": "2.11.0+cu130",
+      "transformer_engine": "2.17.0",
+      "batch_size": 4096,
+      "widths": {
+        "3072": {
+          "mxfp8": {"mean_ms": 4.32675306002299, "median_ms": 4.330512046813965, "p10_ms": 4.250751972198486, "p90_ms": 4.420544147491455, "positions_per_second": 945846.5778922149},
+          "nvfp4": {"mean_ms": 3.646443732579549, "median_ms": 3.6504158973693848, "p10_ms": 3.5258240699768066, "p90_ms": 3.716671943664551, "positions_per_second": 1122063.9278257906},
+          "nvfp4_speedup": 1.1863064835803176
+        },
+        "4096": {
+          "mxfp8": {"mean_ms": 6.752930148442586, "median_ms": 6.685999870300293, "p10_ms": 6.542848110198975, "p90_ms": 7.049503803253174, "positions_per_second": 612623.4040468256},
+          "nvfp4": {"mean_ms": 5.067262935638428, "median_ms": 5.052767992019653, "p10_ms": 4.863679885864258, "p90_ms": 5.318431854248047, "positions_per_second": 810644.7805379598},
+          "nvfp4_speedup": 1.32323508240635
+        }
+      }
+    }
+  ]
+}
