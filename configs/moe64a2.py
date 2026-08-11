@@ -67,7 +67,7 @@ def config(
     if not 1 <= history_length <= 8:
         raise ValueError("history_length must be in [1, 8].")
 
-    batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
+    batch_size = _BATCH_PER_WIDTH * d_model
     kernel_backend = _KERNEL_BACKEND_BY_WIDTH[d_model]
     parameter_count = moe64a2_parameter_count(
         d_model=d_model,
@@ -119,11 +119,6 @@ def config(
 def _run_name(d_model: int, training_ratio: float) -> str:
     suffix = "" if training_ratio == 1.0 else f"-r{training_ratio:g}"
     return f"moe64a2-d{d_model}{suffix}"
-
-
-def _round_batch_size(value: float) -> int:
-    ladder = [round(multiplier * 2**power) for power in range(5, 23) for multiplier in (1.0, 1.5)]
-    return min(ladder, key=lambda candidate: abs(math.log(candidate / value)))
 
 
 def _round_significant(value: float, *, digits: int) -> float:

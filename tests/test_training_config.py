@@ -536,7 +536,7 @@ def test_d64_config_builds_expected_model_size() -> None:
         (512, 8, 16_384),
         (768, 8, 24_576),
         (1_024, 8, 32_768),
-        (1_280, 8, 49_152),
+        (1_280, 8, 40_960),
     ],
 )
 def test_dense_family_recipe(
@@ -558,6 +558,13 @@ def test_dense_family_recipe(
     assert config.run.batch_size == batch_size
     assert config.run.steps == round(10 * parameter_count / batch_size)
     assert config.run.steps * batch_size / parameter_count == pytest.approx(10, rel=1e-3)
+
+
+@pytest.mark.parametrize("d_model", [128, 256, 512, 768, 1_024])
+def test_moe64a2_batch_size_scales_exactly_with_width(d_model: int) -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=d_model)
+
+    assert config.run.batch_size == 128 * d_model
 
 
 @pytest.mark.parametrize(

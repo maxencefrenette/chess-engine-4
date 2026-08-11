@@ -61,7 +61,7 @@ def config(
         raise ValueError("history_length must be in [1, 8].")
 
     depth = _DEPTH
-    batch_size = _round_batch_size(_BATCH_PER_WIDTH * d_model)
+    batch_size = _BATCH_PER_WIDTH * d_model
     parameter_count = dense_parameter_count(
         d_model=d_model,
         depth=depth,
@@ -113,11 +113,6 @@ def _run_name(d_model: int, training_ratio: float) -> str:
     if training_ratio == 1.0:
         return f"d{d_model}"
     return f"d{d_model}-r{training_ratio:g}"
-
-
-def _round_batch_size(value: float) -> int:
-    ladder = [round(multiplier * 2**power) for power in range(5, 23) for multiplier in (1.0, 1.5)]
-    return min(ladder, key=lambda candidate: abs(math.log(candidate / value)))
 
 
 def _round_significant(value: float, *, digits: int) -> float:
