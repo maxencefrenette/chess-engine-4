@@ -205,14 +205,13 @@ def test_custom_dense_rejects_incompatible_expansion_ratio() -> None:
         validate_training_hardware(config)
 
 
-def test_custom_dense_rejects_uncompiled_width_before_launch() -> None:
+def test_custom_dense_accepts_d1280_before_launch() -> None:
     config = with_overrides(
-        load_training_config("configs/dense.py", d_model=1536),
+        load_training_config("configs/dense.py", d_model=1280),
         kernel_backend="custom",
     )
 
-    with pytest.raises(ValueError, match="require d_model in"):
-        validate_training_hardware(config)
+    assert resolve_training_kernel(config).variant == "dense-sm100-mxfp8"
 
 
 def test_custom_dense_rejects_nvfp4_before_launch() -> None:
@@ -239,7 +238,14 @@ def test_custom_moe_rejects_incompatible_expansion_ratio() -> None:
 
 @pytest.mark.parametrize(
     ("d_model", "supported"),
-    [(128, False), (256, True), (512, True), (1024, True), (2048, True)],
+    [
+        (128, False),
+        (256, True),
+        (512, True),
+        (768, True),
+        (1024, True),
+        (1280, True),
+    ],
 )
 def test_custom_mxfp8_dense_accepts_mechanically_compatible_widths(
     d_model: int,
@@ -368,6 +374,15 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert config.model.precision == "bf16"
     assert config.infra.gpu == "RTX-PRO-6000"
     assert training_config_from_dict(asdict(config)) == config
+
+
+@pytest.mark.parametrize("d_model", [768])
+def test_moe64a2_new_widths_use_te_mxfp8(d_model: int) -> None:
+    config = load_training_config("configs/moe64a2.py", d_model=d_model)
+
+    assert config.model.kernel_backend == "te"
+    assert config.model.precision == "mxfp8"
+    assert config.infra.gpu == "B200"
 
 
 @pytest.mark.parametrize("d_model", [32, 64, 2048])
@@ -503,8 +518,9 @@ def test_d64_config_builds_expected_model_size() -> None:
         (128, 8, 4_096),
         (256, 8, 8_192),
         (512, 8, 16_384),
+        (768, 8, 24_576),
         (1_024, 8, 32_768),
-        (1_536, 8, 49_152),
+        (1_280, 8, 49_152),
     ],
 )
 def test_dense_family_recipe(
@@ -536,8 +552,9 @@ def test_dense_family_recipe(
         (128, "RTX-PRO-6000"),
         (256, "RTX-PRO-6000"),
         (512, "B200"),
+        (768, "B200"),
         (1024, "B200"),
-        (2048, "B200"),
+        (1280, "B200"),
     ],
 )
 def test_dense_family_selects_cost_efficient_gpu(d_model: int, gpu: str) -> None:

@@ -22,9 +22,9 @@ The CUDA implementation is kept separate from model selection. New kernels must
 first pass their reference checks and beat the retained implementation in a Modal
 benchmark before the canonical model dispatches to them.
 
-The custom dense operator supports d32 through d2048. d32 through d512 use TK's
+The custom dense operator supports the canonical d32 through d1280 ladder. d32 through d512 use TK's
 Blackwell BF16 GEMM because MXFP8 quantization overhead dominates at those
-shapes. d1024 and d2048 use TK's MXFP8 GEMM. RMSNorm and SwiGLU launches are
+shapes. d768 through d1280 use TK's MXFP8 GEMM. RMSNorm and SwiGLU launches are
 specialized for every supported width.
 
 The `sm80` and `sm90` implementations provide portable TK warp-tiled BF16 dense
@@ -40,7 +40,7 @@ can remain slower than Transformer Engine because quantization, weight-gradient
 GEMMs, activation, and normalization are separate launches. Keep the path behind
 `--kernel-backend custom` until each width wins end-to-end.
 
-The kernel has two precision regimes: BF16 through d512 and MXFP8 from d1024.
+The kernel has two precision regimes: BF16 through d512 and MXFP8 from d768.
 All widths use width-specialized BF16-pair SwiGLU kernels. Run
 `uv run benchmark-training-modal --d-model WIDTH --level layer` to compare
 CUDA-graphed forward and backward latency independently against Transformer

@@ -42,6 +42,11 @@ def benchmark_training_modal() -> None:
     widths.add_argument("--widths", type=int, nargs="+", choices=supported_widths)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--gpu", choices=TRAINING_GPUS, default="B200")
+    parser.add_argument(
+        "--quantization-recipe",
+        choices=("bf16", "mxfp8"),
+        default=None,
+    )
     parser.add_argument("--level", choices=("all", *LEVELS), default="all")
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--iterations", type=int, default=50)
@@ -60,7 +65,11 @@ def benchmark_training_modal() -> None:
     configs = []
     for width in selected_widths:
         config = load_training_config(args.config, d_model=width)
-        config = with_overrides(config, gpu=args.gpu, quantization_recipe="bf16")
+        config = with_overrides(
+            config,
+            gpu=args.gpu,
+            quantization_recipe=args.quantization_recipe,
+        )
         if args.batch_size is not None:
             config = with_overrides(config, batch_size=args.batch_size)
         configs.append(asdict(config))

@@ -148,6 +148,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             trace_profiler.start()
         if options.profile is not None:
             if step == options.profile.warmup_steps + 1:
+                torch.cuda.reset_peak_memory_stats(device)
                 profile_measured_wall_start = time.perf_counter()
             fetch_start = time.perf_counter()
         if trace_profiler is not None:

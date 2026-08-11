@@ -28,9 +28,9 @@ _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     128: "pageable",
     256: "overlap",
     512: "overlap",
+    768: "overlap",
     1024: "overlap",
-    1536: "overlap",
-    2048: "overlap",
+    1280: "overlap",
 }
 _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
     32: "RTX-PRO-6000",
@@ -38,9 +38,9 @@ _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
     128: "RTX-PRO-6000",
     256: "RTX-PRO-6000",
     512: "B200",
+    768: "B200",
     1024: "B200",
-    1536: "B200",
-    2048: "B200",
+    1280: "B200",
 }
 
 

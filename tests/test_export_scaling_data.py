@@ -28,7 +28,7 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
     ]
     assert dense["trainingRatio"] == 0.2
     assert all(point["status"] == "current" for point in dense["runs"])
-    assert [point["name"] for point in dense["extrapolated"]] == ["d2048"]
+    assert dense["extrapolated"] == []
 
     assert len(dense["curves"]["samplesPerParam"]) == 61
     assert len(dense["curves"]["lr"]) == 61

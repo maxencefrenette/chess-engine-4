@@ -27,6 +27,8 @@ def test_throughput_result_round_trip(tmp_path: Path) -> None:
         "h2d_copy_gpu": {"mean_ms": 1.0},
         "data_fetch_wall": {"mean_ms": 0.5},
         "gpu_idle_gap_mean_ms": 0.2,
+        "peak_memory_allocated_bytes": 1_000_000,
+        "peak_memory_reserved_bytes": 2_000_000,
         "train_only_mfu": 0.5,
         "end_to_end_mfu": 0.4,
     }

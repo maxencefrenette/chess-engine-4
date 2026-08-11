@@ -82,6 +82,8 @@ def summarize_profile(
         ),
         "gpu_idle_gap_mean_ms": gpu_idle_gap_mean_ms,
         "gpu_idle_fraction_of_step": gpu_idle_gap_mean_ms / measured_wall_ms_per_step,
+        "peak_memory_allocated_bytes": torch.cuda.max_memory_allocated(device),
+        "peak_memory_reserved_bytes": torch.cuda.max_memory_reserved(device),
         "data_fetch_wall": _summarize([record["fetch_wall_ms"] for record in measured]),
         "pin_memory_wall": _summarize([record["pin_wall_ms"] for record in measured]),
         "h2d_enqueue_wall": _summarize(

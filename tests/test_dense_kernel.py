@@ -11,8 +11,8 @@ from chess_engine_4.kernels.dense import (
 )
 
 
-def test_dense_kernel_supports_power_of_two_widths() -> None:
-    assert {32, 64, 128, 256, 512, 1024, 2048} == SUPPORTED_DENSE_WIDTHS
+def test_dense_kernel_supports_canonical_widths() -> None:
+    assert {32, 64, 128, 256, 512, 768, 1024, 1280} == SUPPORTED_DENSE_WIDTHS
 
 
 def test_dense_kernel_rejects_cpu_input() -> None:

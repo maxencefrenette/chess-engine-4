@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import tomllib
@@ -80,11 +81,12 @@ def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]
     target_width = max(result.d_model for result in results) * 2
     target_config = None
     if presentation["extrapolate"]:
-        target_config = load_training_config(
-            metadata.config,
-            d_model=target_width,
-            training_ratio=training_ratio,
-        )
+        with contextlib.suppress(ValueError):
+            target_config = load_training_config(
+                metadata.config,
+                d_model=target_width,
+                training_ratio=training_ratio,
+            )
 
     extrapolated = []
     target_flops = max(result_flops.values())

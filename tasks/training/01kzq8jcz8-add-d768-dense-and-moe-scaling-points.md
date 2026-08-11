@@ -1,7 +1,7 @@
 ---
 id: "01kzq8jcz8"
-title: "Add d768, d1280, and d1536 scaling points"
-status: pending
+title: "Add d768 and dense d1280 scaling points"
+status: in-progress
 priority: high
 effort: large
 dependencies: []
@@ -9,20 +9,20 @@ tags: ["training", "scaling", "dense", "moe", "kernels", "benchmark"]
 created_at: 2026-08-10
 ---
 
-# Add d768, d1280, and d1536 scaling points
+# Add d768 and dense d1280 scaling points
 
 ## Objective
 
-Add d768, d1280, and d1536 to the dense and MoE64A2 ladders, and remove dense
-d2048. Use the cheapest stable GPU, precision, and kernel path for each point.
+Add dense d768/d1280 and MoE64A2 d768; remove dense d1536/d2048. Use the
+cheapest stable recipe per point. MoE d1280 and both d1536 runs were cancelled.
 
 ## Tasks
 
-- [ ] Update both ladders for the three widths and remove dense d2048.
+- [ ] Update the revised ladders and remove dense d1536/d2048.
 - [ ] Extend kernels and strict dispatch; verify numerics and neighboring shapes.
 - [ ] Benchmark viable GPUs and Transformer Engine/custom paths end to end.
 - [ ] Select batch, precision, backend, and GPU by steady-state training cost.
-- [ ] Train dense at 0.2x and MoE64A2 at 0.05x; run `compare-run`.
+- [ ] Train two dense points at 0.2x and MoE d768 at 0.05x; run `compare-run`.
 
 ## Acceptance Criteria
 

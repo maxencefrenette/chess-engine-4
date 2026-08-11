@@ -8,7 +8,7 @@ from chess_engine_4.model.config import KernelBackend, Precision
 
 type ComputeCapability = tuple[int, int]
 
-SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 1024, 2048})
+SUPPORTED_DENSE_WIDTHS = frozenset({32, 64, 128, 256, 512, 768, 1024, 1280})
 SUPPORTED_MOE_WIDTHS = frozenset({128, 256, 512})
 
 _DENSE_OP_PREFIX_BY_CAPABILITY: dict[ComputeCapability, str] = {

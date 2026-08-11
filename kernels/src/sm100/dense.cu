@@ -661,8 +661,9 @@ void rmsnorm_forward(
         case 128: launch_rmsnorm_forward<128, 128>(input, weight, output, eps_float, stream); break;
         case 256: launch_rmsnorm_forward<256, 256>(input, weight, output, eps_float, stream); break;
         case 512: launch_rmsnorm_forward<512, 256>(input, weight, output, eps_float, stream); break;
+        case 768: launch_rmsnorm_forward<768, 256>(input, weight, output, eps_float, stream); break;
         case 1024: launch_rmsnorm_forward<1024, 256>(input, weight, output, eps_float, stream); break;
-        case 2048: launch_rmsnorm_forward<2048, 256>(input, weight, output, eps_float, stream); break;
+        case 1280: launch_rmsnorm_forward<1280, 256>(input, weight, output, eps_float, stream); break;
         default: TORCH_CHECK(false, "unsupported dense width: ", input.size(1));
     }
 }
@@ -683,8 +684,9 @@ void swiglu_forward(const at::Tensor &gate_up, at::Tensor &hidden) {
         case 512: swiglu_forward_kernel<512><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 1024: swiglu_forward_kernel<1024><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 2048: swiglu_forward_kernel<2048><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 3072: swiglu_forward_kernel<3072><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         case 4096: swiglu_forward_kernel<4096><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
-        case 8192: swiglu_forward_kernel<8192><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
+        case 5120: swiglu_forward_kernel<5120><<<blocks, THREADS, 0, stream>>>(gate_up_data, hidden_data, rows); break;
         default: TORCH_CHECK(false, "unsupported SwiGLU hidden width: ", hidden_dim);
     }
 }
@@ -723,8 +725,9 @@ void swiglu_backward(
         case 512: swiglu_backward_kernel<512><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 1024: swiglu_backward_kernel<1024><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 2048: swiglu_backward_kernel<2048><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 3072: swiglu_backward_kernel<3072><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         case 4096: swiglu_backward_kernel<4096><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
-        case 8192: swiglu_backward_kernel<8192><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
+        case 5120: swiglu_backward_kernel<5120><<<blocks, THREADS, 0, stream>>>(grad_hidden_data, gate_up_data, grad_gate_up_data, rows); break;
         default: TORCH_CHECK(false, "unsupported SwiGLU hidden width: ", hidden_dim);
     }
 }
@@ -749,8 +752,9 @@ void rmsnorm_backward(
         case 128: launch_rmsnorm_backward<128, 128>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 256: launch_rmsnorm_backward<256, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 512: launch_rmsnorm_backward<512, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
+        case 768: launch_rmsnorm_backward<768, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 1024: launch_rmsnorm_backward<1024, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
-        case 2048: launch_rmsnorm_backward<2048, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
+        case 1280: launch_rmsnorm_backward<1280, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         default: TORCH_CHECK(false, "unsupported dense width: ", input.size(1));
     }
 }

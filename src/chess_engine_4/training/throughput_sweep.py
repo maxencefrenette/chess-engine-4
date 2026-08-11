@@ -12,7 +12,12 @@ from typing import Any
 
 import tomli_w
 
-from chess_engine_4.hardware import TRAINING_GPUS
+from chess_engine_4.hardware import (
+    CPU_DOLLARS_PER_CORE_SECOND,
+    TRAINING_GPUS,
+    gpu_spec,
+    hardware_dollars_per_second,
+)
 from chess_engine_4.modal_train import (
     DEFAULT_CONFIG_PATH,
     app,
@@ -27,7 +32,7 @@ from chess_engine_4.training.config import (
     with_overrides,
 )
 
-DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 1024, 2048)
+DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 768, 1024, 1280)
 DEFAULT_OUTPUT = Path("experiments/throughput-dense.toml")
 TRAINING_RATIOS = (0.25, 0.5, 1.0)
 
@@ -42,6 +47,13 @@ def throughput_sweep() -> None:
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=500)
     parser.add_argument("--gpu", choices=TRAINING_GPUS, default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument(
+        "--quantization-recipe",
+        choices=("bf16", "mxfp8", "nvfp4"),
+        default=None,
+    )
+    parser.add_argument("--kernel-backend", choices=("te", "custom"), default=None)
     parser.add_argument(
         "--refresh",
         action="store_true",
@@ -54,12 +66,17 @@ def throughput_sweep() -> None:
         parser.error("warmup-steps must be non-negative.")
     if args.profile_steps <= 0:
         parser.error("profile-steps must be positive.")
+    if args.batch_size is not None and args.batch_size <= 0:
+        parser.error("batch-size must be positive.")
 
     cached = load_results(args.output)
     configs = {
         width: with_overrides(
             load_training_config(args.config, d_model=width, training_ratio=1.0),
             gpu=args.gpu,
+            batch_size=args.batch_size,
+            quantization_recipe=args.quantization_recipe,
+            kernel_backend=args.kernel_backend,
         )
         for width in widths
     }
@@ -198,6 +215,9 @@ def make_entry(
     model = config.model
     params = model_parameter_count(model)
     milliseconds = float(profile["measured_wall_ms_per_step"])
+    runtime_sec = config.run.steps * milliseconds / 1000.0
+    gpu_rate = gpu_spec(config.infra.gpu).dollars_per_second
+    cpu_rate = config.infra.cpu_cores * CPU_DOLLARS_PER_CORE_SECOND
     entry: dict[str, Any] = {
         "source_commit": source_commit,
         "d_model": model.d_model,
@@ -226,9 +246,18 @@ def make_entry(
         "h2d_copy_ms_per_step": float(profile["h2d_copy_gpu"]["mean_ms"]),
         "data_fetch_ms_per_step": float(profile["data_fetch_wall"]["mean_ms"]),
         "gpu_idle_gap_ms_per_step": float(profile["gpu_idle_gap_mean_ms"]),
+        "peak_memory_allocated_bytes": int(profile["peak_memory_allocated_bytes"]),
+        "peak_memory_reserved_bytes": int(profile["peak_memory_reserved_bytes"]),
         "train_only_mfu": float(profile["train_only_mfu"]),
         "end_to_end_mfu": float(profile["end_to_end_mfu"]),
-        "estimated_runtime_sec_1x": config.run.steps * milliseconds / 1000.0,
+        "gpu_dollars_per_second": gpu_rate,
+        "cpu_dollars_per_second": cpu_rate,
+        "hardware_dollars_per_second": hardware_dollars_per_second(
+            config.infra.gpu,
+            config.infra.cpu_cores,
+        ),
+        "estimated_runtime_sec_1x": runtime_sec,
+        "estimated_cost_dollars_1x": runtime_sec * (gpu_rate + cpu_rate),
     }
     return entry
 
