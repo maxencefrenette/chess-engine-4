@@ -200,6 +200,7 @@ void Bf16Gemm(const at::Tensor& left, const at::Tensor& right, at::Tensor& outpu
     CheckBf16Cuda(output, "output");
     TORCH_CHECK(left.dim() == 2 && right.dim() == 2 && output.dim() == 2, "GEMM tensors must be matrices");
     TORCH_CHECK(left.size(1) == right.size(1), "GEMM reduction dimensions differ");
+    TORCH_CHECK(left.size(1) >= 64, DENSE_ARCHITECTURE_NAME " dense kernels require reduction width of at least 64");
     TORCH_CHECK(output.size(0) == left.size(0) && output.size(1) == right.size(0), "invalid GEMM output shape");
     TORCH_CHECK(left.size(0) % kGemmTile == 0 && right.size(0) % kGemmTile == 0 && left.size(1) % kGemmTile == 0, DENSE_ARCHITECTURE_NAME " TK GEMM dimensions must be divisible by 16");
     const c10::cuda::CUDAGuard guard(left.device());
@@ -226,6 +227,7 @@ void Bf16Gemm(const at::Tensor& left, const at::Tensor& right, at::Tensor& outpu
 void RmsNormForward(const at::Tensor& input, const at::Tensor& weight, at::Tensor& output, double eps) {
     const c10::cuda::CUDAGuard guard(input.device());
     CheckDeviceCapability(input);
+    TORCH_CHECK(input.size(1) >= 64, DENSE_ARCHITECTURE_NAME " dense kernels require width of at least 64");
     const int threads = std::min<int>(input.size(1), kThreads);
     RmsNormForwardKernel<<<input.size(0), threads, 0, Stream(input)>>>(
         reinterpret_cast<const __nv_bfloat16*>(input.data_ptr()),
@@ -238,6 +240,7 @@ void RmsNormForward(const at::Tensor& input, const at::Tensor& weight, at::Tenso
 void SwiGluForward(const at::Tensor& gate_up, at::Tensor& hidden) {
     const c10::cuda::CUDAGuard guard(gate_up.device());
     CheckDeviceCapability(gate_up);
+    TORCH_CHECK(hidden.size(1) >= 256, DENSE_ARCHITECTURE_NAME " dense kernels require hidden width of at least 256");
     const int elements = hidden.numel();
     SwiGluForwardKernel<<<(elements + kThreads - 1) / kThreads, kThreads, 0, Stream(gate_up)>>>(
         reinterpret_cast<const __nv_bfloat16*>(gate_up.data_ptr()),
@@ -248,6 +251,7 @@ void SwiGluForward(const at::Tensor& gate_up, at::Tensor& hidden) {
 void ResidualAdd(const at::Tensor& residual, at::Tensor& output) {
     const c10::cuda::CUDAGuard guard(residual.device());
     CheckDeviceCapability(residual);
+    TORCH_CHECK(output.size(1) >= 64, DENSE_ARCHITECTURE_NAME " dense kernels require width of at least 64");
     const int elements = output.numel();
     ResidualAddKernel<<<(elements + kThreads - 1) / kThreads, kThreads, 0, Stream(residual)>>>(
         reinterpret_cast<const __nv_bfloat16*>(residual.data_ptr()),
@@ -258,6 +262,7 @@ void ResidualAdd(const at::Tensor& residual, at::Tensor& output) {
 void SwiGluBackward(const at::Tensor& grad_hidden, const at::Tensor& gate_up, at::Tensor& grad_gate_up) {
     const c10::cuda::CUDAGuard guard(grad_hidden.device());
     CheckDeviceCapability(grad_hidden);
+    TORCH_CHECK(grad_hidden.size(1) >= 256, DENSE_ARCHITECTURE_NAME " dense kernels require hidden width of at least 256");
     const int elements = grad_hidden.numel();
     SwiGluBackwardKernel<<<(elements + kThreads - 1) / kThreads, kThreads, 0, Stream(grad_hidden)>>>(
         reinterpret_cast<const __nv_bfloat16*>(grad_hidden.data_ptr()),
@@ -278,6 +283,7 @@ void RmsNormBackward(
 ) {
     const c10::cuda::CUDAGuard guard(input.device());
     CheckDeviceCapability(input);
+    TORCH_CHECK(input.size(1) >= 64, DENSE_ARCHITECTURE_NAME " dense kernels require width of at least 64");
     const int threads = std::min<int>(input.size(1), kThreads);
     RmsNormBackwardKernel<<<input.size(0), threads, 0, Stream(input)>>>(
         reinterpret_cast<const __nv_bfloat16*>(input.data_ptr()),

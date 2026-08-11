@@ -14,7 +14,7 @@ from chess_engine_4.training.config import (
 )
 from chess_engine_4.training.losses import LossWeights
 
-_BASE_WIDTH = 32
+_BASE_WIDTH = 64
 _BF16_MAX_WIDTH = 512
 _DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
@@ -23,7 +23,6 @@ _LR_PARAMETER_COEFFICIENT = 31.75
 _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
 _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
-    32: "pageable",
     64: "pageable",
     128: "pageable",
     256: "overlap",
@@ -33,7 +32,6 @@ _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     1280: "overlap",
 }
 _GPU_BY_WIDTH: dict[int, TrainingGpu] = {
-    32: "RTX-PRO-6000",
     64: "RTX-PRO-6000",
     128: "RTX-PRO-6000",
     256: "RTX-PRO-6000",
@@ -53,7 +51,7 @@ def config(
     """Generate the current dense scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
-        raise ValueError("d_model must be a positive multiple of 32.")
+        raise ValueError("d_model must be a positive multiple of 64.")
     if d_model not in _INPUT_PIPELINE_BY_WIDTH:
         choices = ", ".join(str(width) for width in _INPUT_PIPELINE_BY_WIDTH)
         raise ValueError(f"d_model must be one of: {choices}.")

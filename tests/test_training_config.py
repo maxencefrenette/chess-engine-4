@@ -389,7 +389,7 @@ def test_moe64a2_new_widths_use_te_mxfp8(d_model: int) -> None:
 def test_moe64a2_recipe_rejects_unsupported_widths(
     d_model: int,
 ) -> None:
-    with pytest.raises(ValueError, match="d_model must be one of"):
+    with pytest.raises(ValueError, match="d_model must be"):
         load_training_config("configs/moe64a2.py", d_model=d_model)
 
 
@@ -513,7 +513,6 @@ def test_d64_config_builds_expected_model_size() -> None:
 @pytest.mark.parametrize(
     ("d_model", "depth", "batch_size"),
     [
-        (32, 8, 1_024),
         (64, 8, 2_048),
         (128, 8, 4_096),
         (256, 8, 8_192),
@@ -547,7 +546,6 @@ def test_dense_family_recipe(
 @pytest.mark.parametrize(
     ("d_model", "gpu"),
     [
-        (32, "RTX-PRO-6000"),
         (64, "RTX-PRO-6000"),
         (128, "RTX-PRO-6000"),
         (256, "RTX-PRO-6000"),
@@ -564,8 +562,13 @@ def test_dense_family_selects_cost_efficient_gpu(d_model: int, gpu: str) -> None
 
 
 def test_dense_family_requires_aligned_width() -> None:
-    with pytest.raises(ValueError, match="multiple of 32"):
+    with pytest.raises(ValueError, match="multiple of 64"):
         load_training_config("configs/dense.py", d_model=100)
+
+
+def test_dense_family_rejects_removed_d32_width() -> None:
+    with pytest.raises(ValueError, match="multiple of 64"):
+        load_training_config("configs/dense.py", d_model=32)
 
 
 def test_dense_family_scales_training_horizon() -> None:

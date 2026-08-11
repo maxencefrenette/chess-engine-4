@@ -11,9 +11,8 @@ from chess_engine_4.training.export_model import (
 )
 
 
-def _checkpoint() -> dict:
-    d_model = 32
-    hidden_dim = 128
+def _checkpoint(*, d_model: int = 64) -> dict:
+    hidden_dim = 4 * d_model
     policy_storage_size = 1888
     state = {
         "input.weight": torch.zeros(d_model, 7168, dtype=torch.bfloat16),
@@ -53,7 +52,7 @@ def test_exported_dense_model_uses_stable_names() -> None:
 
     assert metadata["format_version"] == "1"
     assert metadata["architecture"] == "dense"
-    assert metadata["d_model"] == "32"
+    assert metadata["d_model"] == "64"
     assert metadata["source_run"] == "test-run"
     assert "blocks.1.gate_up.weight" in tensors
     assert not any("_extra_state" in name for name in tensors)
@@ -69,12 +68,12 @@ def test_export_checkpoint_writes_safetensors(tmp_path: Path) -> None:
 
     with safe_open(output, framework="pt") as handle:
         assert handle.metadata()["input_normalization"] == "history-select-rule50-div99-v1"
-        assert handle.get_tensor("policy.weight").shape == (1888, 32)
+        assert handle.get_tensor("policy.weight").shape == (1888, 64)
 
 
 def test_export_rejects_non_bf16_weights() -> None:
     checkpoint = _checkpoint()
-    checkpoint["model_state_dict"]["input.weight"] = torch.zeros(32, 7168)
+    checkpoint["model_state_dict"]["input.weight"] = torch.zeros(64, 7168)
 
     with pytest.raises(ValueError, match="must be BF16"):
         exported_dense_model(checkpoint)
@@ -89,9 +88,9 @@ def test_export_rejects_legacy_non_lc0_geometry() -> None:
 
 
 def test_exported_moe_model_flattens_experts() -> None:
-    d_model = 32
-    hidden_dim = 64
-    state = _checkpoint()["model_state_dict"]
+    d_model = 128
+    hidden_dim = 256
+    state = _checkpoint(d_model=d_model)["model_state_dict"]
     for name in list(state):
         if name.startswith("blocks."):
             del state[name]
@@ -103,10 +102,10 @@ def test_exported_moe_model_flattens_experts() -> None:
                 d_model, dtype=torch.bfloat16
             ),
             "blocks.1.layer.fc1_weight": torch.zeros(
-                256, d_model, dtype=torch.bfloat16
+                8 * d_model, d_model, dtype=torch.bfloat16
             ),
             "blocks.1.layer.fc2_weight": torch.zeros(
-                d_model, 128, dtype=torch.bfloat16
+                d_model, 4 * d_model, dtype=torch.bfloat16
             ),
         }
     )
@@ -137,6 +136,6 @@ def test_exported_moe_model_flattens_experts() -> None:
 
     assert metadata["architecture"] == "moe64a2"
     assert metadata["num_experts"] == "64"
-    assert tensors["blocks.0.experts.gate_up.weight"].shape == (64, 128, 32)
-    assert tensors["blocks.0.experts.down.weight"].shape == (64, 32, 64)
-    assert tensors["blocks.1.gate_up.weight"].shape == (256, 32)
+    assert tensors["blocks.0.experts.gate_up.weight"].shape == (64, 512, 128)
+    assert tensors["blocks.0.experts.down.weight"].shape == (64, 128, 256)
+    assert tensors["blocks.1.gate_up.weight"].shape == (1024, 128)

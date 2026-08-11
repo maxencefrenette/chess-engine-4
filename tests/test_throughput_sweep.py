@@ -11,7 +11,7 @@ from chess_engine_4.training.throughput_sweep import (
 
 
 def test_normalize_widths_sorts_and_deduplicates() -> None:
-    assert normalize_widths([128, 32, 128, 64]) == [32, 64, 128]
+    assert normalize_widths([128, 64, 128, 256]) == [64, 128, 256]
 
 
 def test_throughput_result_round_trip(tmp_path: Path) -> None:

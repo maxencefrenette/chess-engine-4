@@ -22,7 +22,7 @@ The CUDA implementation is kept separate from model selection. New kernels must
 first pass their reference checks and beat the retained implementation in a Modal
 benchmark before the canonical model dispatches to them.
 
-The custom dense operator supports the canonical d32 through d1280 ladder. d32 through d512 use TK's
+The custom dense operator supports the canonical d64 through d1280 ladder. d64 through d512 use TK's
 Blackwell BF16 GEMM because MXFP8 quantization overhead dominates at those
 shapes. d768 through d1280 use TK's MXFP8 GEMM. RMSNorm and SwiGLU launches are
 specialized for every supported width.

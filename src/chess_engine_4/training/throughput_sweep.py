@@ -32,7 +32,7 @@ from chess_engine_4.training.config import (
     with_overrides,
 )
 
-DEFAULT_WIDTHS = (32, 64, 128, 256, 512, 768, 1024, 1280)
+DEFAULT_WIDTHS = (64, 128, 256, 512, 768, 1024, 1280)
 DEFAULT_OUTPUT = Path("experiments/throughput-dense.toml")
 TRAINING_RATIOS = (0.25, 0.5, 1.0)
 

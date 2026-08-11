@@ -10,12 +10,6 @@ opening_book = "/artifacts/books/UHO_Lichess_4852_v1.pgn"
 opening_book_sha256 = "a836fa6dc1386b132ea86384afe2bb6e811cdef4fd855bf0fb3f288f2ab20471"
 
 [[engines]]
-name = "dense-d32"
-weights = "/artifacts/models/dense-d32.safetensors"
-backend = "ce4"
-training_flops = 9.629393928192e12
-
-[[engines]]
 name = "dense-d64"
 weights = "/artifacts/models/dense-d64.safetensors"
 backend = "ce4"

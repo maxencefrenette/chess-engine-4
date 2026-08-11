@@ -64,6 +64,8 @@ class Moe64A2ChessNetConfig:
     num_active_experts: ClassVar[int] = ACTIVE_EXPERT_COUNT
 
     def __post_init__(self) -> None:
+        if self.d_model < 64:
+            raise ValueError("d_model must be at least 64")
         if not 1 <= self.history_length <= HISTORY_LENGTH:
             raise ValueError(f"history_length must be in [1, {HISTORY_LENGTH}]")
         if self.d_model % MXFP8_FEATURE_ALIGNMENT != 0:

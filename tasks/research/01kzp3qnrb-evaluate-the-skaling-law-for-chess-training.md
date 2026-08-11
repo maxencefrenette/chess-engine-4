@@ -22,7 +22,7 @@ Determine whether the coupled scaling law and sparse profiling strategy from
 - [x] Fit Skaling and current baselines to canonical dense and MoE runs.
 - [x] Compare held-out interpolation and model/data extrapolation error.
 - [x] Test total versus active parameter count explicitly for MoE.
-- [x] Expand dense coverage and compare full-grid, d32-, and d64-anchored fits.
+- [x] Expand dense coverage and compare full-grid and anchored fits.
 - [x] Integrate the supported dense fit into budget planning.
 
 ## Acceptance Criteria
@@ -39,4 +39,4 @@ Determine whether the coupled scaling law and sparse profiling strategy from
   interpolation MAPE from `0.610%` to `0.256%`.
 - Dense planning uses the curated d64-d1024 surface; MoE, `compare-run`, and the
   website retain their prior laws.
-- D64 remains the fit floor; d32 remains a diagnostic scale.
+- D64 remains the fit floor.

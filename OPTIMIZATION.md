@@ -43,8 +43,8 @@ kernels remain expensive.
 configs reserve eight cores and use eight workers; larger runs can reserve more
 CPU headroom without changing the data-loading topology.
 
-Dense d32 and d64 copy directly from pageable memory because explicit pinning
-costs more than it saves for their smaller batches. Dense d128 and d256 reuse
+Dense d64 copies directly from pageable memory because explicit pinning costs
+more than it saves for its smaller batch. Dense d128 and d256 reuse
 two pinned host staging slots to avoid per-step pinned allocations. Dense d512
 and larger overlap H2D transfer with the previous step on a dedicated CUDA
 stream. These paths are deliberately shape-specific: paired same-container

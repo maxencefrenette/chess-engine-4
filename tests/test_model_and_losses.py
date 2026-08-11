@@ -33,7 +33,7 @@ from chess_engine_4.training.packed_input import PlaneInputExpander
 
 
 def test_dense_chess_net_shapes() -> None:
-    model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=2, expansion_ratio=2.0))
+    model = PortableChessNet(DenseChessNetConfig(d_model=64, depth=2, expansion_ratio=2.0))
     output = model(torch.zeros(3, 112, 8, 8))
 
     assert tuple(output.policy_logits.shape) == (3, 1858)
@@ -43,7 +43,7 @@ def test_dense_chess_net_shapes() -> None:
 
 def test_dense_model_discards_history_beyond_configured_length() -> None:
     config = DenseChessNetConfig(
-        d_model=32,
+        d_model=64,
         depth=1,
         expansion_ratio=2.0,
         history_length=2,
@@ -69,7 +69,7 @@ def test_history_length_reduces_dense_parameter_count() -> None:
 
 
 def test_packed_input_expansion_matches_dense_input() -> None:
-    model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=2, expansion_ratio=2.0))
+    model = PortableChessNet(DenseChessNetConfig(d_model=64, depth=2, expansion_ratio=2.0))
 
     _assert_packed_input_expansion_matches_dense_model(model)
 
@@ -129,7 +129,7 @@ def test_moves_left_loss_uses_root_row_root_m() -> None:
 
 
 def test_lczero_loss_backpropagates() -> None:
-    model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=1, expansion_ratio=2.0))
+    model = PortableChessNet(DenseChessNetConfig(d_model=64, depth=1, expansion_ratio=2.0))
     planes = torch.randn(2, 112, 8, 8)
     policy = _compact_policy(batch_size=2, indices=[0, 1], probs=[0.75, 0.25])
     values = torch.zeros(2, 6, 3)
@@ -144,7 +144,7 @@ def test_lczero_loss_backpropagates() -> None:
 
 
 def test_lczero_loss_adds_router_aux_without_changing_task_loss() -> None:
-    model = PortableChessNet(DenseChessNetConfig(d_model=32, depth=1, expansion_ratio=2.0))
+    model = PortableChessNet(DenseChessNetConfig(d_model=64, depth=1, expansion_ratio=2.0))
     planes = torch.randn(2, 112, 8, 8)
     output = model(planes)
     output = type(output)(
@@ -246,7 +246,7 @@ def _compact_policy(
 def test_portable_model_supports_dense_activations(activation: str) -> None:
     model = PortableChessNet(
         DenseChessNetConfig(
-            d_model=32,
+            d_model=64,
             depth=1,
             expansion_ratio=2.0,
             activation=activation,
@@ -263,6 +263,13 @@ def test_portable_model_supports_dense_activations(activation: str) -> None:
 def test_dense_config_rejects_unknown_activation() -> None:
     with pytest.raises(ValueError, match="unsupported activation"):
         DenseChessNetConfig(activation="mish")
+
+
+def test_model_configs_reject_removed_d32_width() -> None:
+    with pytest.raises(ValueError, match="at least 64"):
+        DenseChessNetConfig(d_model=32)
+    with pytest.raises(ValueError, match="at least 64"):
+        Moe64A2ChessNetConfig(d_model=32)
 
 
 def test_dense_config_rejects_invalid_history_length() -> None:

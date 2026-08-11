@@ -364,7 +364,7 @@ public:
         hidden_dim_ = static_cast<int>(
             info_.d_model * MetadataFloat(file.metadata, "expansion_ratio")
         );
-        if (info_.d_model <= 0 || info_.depth <= 0
+        if (info_.d_model < 64 || info_.depth <= 0
             || info_.history_length <= 0 || info_.history_length > 8
             || info_.policy_size <= 0 || hidden_dim_ <= 0) {
             throw std::runtime_error("Invalid model dimensions");

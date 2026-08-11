@@ -19,7 +19,7 @@ from chess_engine_4.training.config import (
 )
 from chess_engine_4.training.losses import LossWeights
 
-_BASE_WIDTH = 32
+_BASE_WIDTH = 64
 _DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
 _BATCH_PER_WIDTH = 128
@@ -58,7 +58,7 @@ def config(
     """Generate the canonical moe64a2 scaling recipe for one residual width."""
 
     if d_model < _BASE_WIDTH or d_model % _BASE_WIDTH != 0:
-        raise ValueError("d_model must be a positive multiple of 32.")
+        raise ValueError("d_model must be a positive multiple of 64.")
     if d_model not in _KERNEL_BACKEND_BY_WIDTH:
         choices = ", ".join(str(width) for width in _KERNEL_BACKEND_BY_WIDTH)
         raise ValueError(f"d_model must be one of: {choices}.")

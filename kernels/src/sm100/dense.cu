@@ -116,14 +116,12 @@ void dispatch_bf16_reduction(
     cudaStream_t stream
 ) {
     const int reduction = left.size(1);
-    if (reduction == 32) {
-        launch_bf16_gemm<OUTPUT_TILE, 32>(left, right, output, stream);
-    } else if (reduction == 64) {
+    if (reduction == 64) {
         launch_bf16_gemm<OUTPUT_TILE, 64>(left, right, output, stream);
     } else {
         TORCH_CHECK(
             reduction % 128 == 0,
-            "small dense BF16 GEMM reduction must be 32, 64, or divisible by 128"
+            "small dense BF16 GEMM reduction must be 64 or divisible by 128"
         );
         launch_bf16_gemm<OUTPUT_TILE, 128>(left, right, output, stream);
     }
@@ -656,7 +654,6 @@ void rmsnorm_forward(
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const float eps_float = static_cast<float>(eps);
     switch (input.size(1)) {
-        case 32: launch_rmsnorm_forward<32, 32>(input, weight, output, eps_float, stream); break;
         case 64: launch_rmsnorm_forward<64, 64>(input, weight, output, eps_float, stream); break;
         case 128: launch_rmsnorm_forward<128, 128>(input, weight, output, eps_float, stream); break;
         case 256: launch_rmsnorm_forward<256, 256>(input, weight, output, eps_float, stream); break;
@@ -747,7 +744,6 @@ void rmsnorm_backward(
     const auto stream = at::cuda::getCurrentCUDAStream(input.get_device());
     const float eps_float = static_cast<float>(eps);
     switch (input.size(1)) {
-        case 32: launch_rmsnorm_backward<32, 32>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 64: launch_rmsnorm_backward<64, 64>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 128: launch_rmsnorm_backward<128, 128>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;
         case 256: launch_rmsnorm_backward<256, 256>(input, weight, grad_normalized, grad_residual, grad_input, grad_weight_workspace, grad_weight, eps_float, stream); break;

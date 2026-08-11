@@ -84,9 +84,7 @@ void DispatchReduction(
     int reduction,
     cudaStream_t stream
 ) {
-    if (reduction == 32) {
-        Launch<OutputTile, 32>(input, weight, output, rows, columns, reduction, stream);
-    } else if (reduction == 64) {
+    if (reduction == 64) {
         Launch<OutputTile, 64>(input, weight, output, rows, columns, reduction, stream);
     } else {
         Launch<OutputTile, 128>(input, weight, output, rows, columns, reduction, stream);
@@ -99,7 +97,7 @@ bool CustomBf16GemmSupported(int rows, int columns, int reduction) {
     const bool columns_supported =
         columns == 32 || columns == 64 || columns == 128 || columns % 256 == 0;
     const bool reduction_supported =
-        reduction == 32 || reduction == 64 || reduction % 128 == 0;
+        reduction == 64 || reduction % 128 == 0;
     return rows % 256 == 0 && columns_supported && reduction_supported;
 }
 

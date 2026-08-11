@@ -3,7 +3,11 @@ from __future__ import annotations
 import pytest
 import torch
 
-from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS, dense_op_prefix
+from chess_engine_4.kernels.capabilities import (
+    SUPPORTED_DENSE_WIDTHS,
+    dense_op_prefix,
+    require_dense_model_shape,
+)
 from chess_engine_4.kernels.dense import (
     _dense_op,
     dense_block_forward,
@@ -12,7 +16,12 @@ from chess_engine_4.kernels.dense import (
 
 
 def test_dense_kernel_supports_canonical_widths() -> None:
-    assert {32, 64, 128, 256, 512, 768, 1024, 1280} == SUPPORTED_DENSE_WIDTHS
+    assert {64, 128, 256, 512, 768, 1024, 1280} == SUPPORTED_DENSE_WIDTHS
+
+
+def test_dense_kernel_rejects_removed_d32_width() -> None:
+    with pytest.raises(ValueError, match="custom dense kernels require d_model"):
+        require_dense_model_shape(d_model=32, hidden_dim=128, activation="swiglu")
 
 
 def test_dense_kernel_rejects_cpu_input() -> None:
