@@ -15,8 +15,11 @@ EG_flops = fitted FLOPs required for the observed loss / actual training FLOPs
 ```
 
 Values above `1x` beat the fitted frontier. At an existing width, promote a run
-when its `EG_flops` exceeds the incumbent run's value. Runs with detected loss
-spikes remain invalid.
+when its `EG_flops` exceeds the incumbent run's value. Learning-rate tuning may
+select or fit only runs without loss spikes, and the selected learning rate must
+be spike-free. For experiments tuning other parameters, record any loss spikes
+and whether training returned to trend, but do not use the spikes to reject the
+parameter result. Retune learning rate for the selected configuration afterward.
 
 ## Transformer Engine
 

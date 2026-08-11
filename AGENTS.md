@@ -19,9 +19,11 @@ for canonical experiment results.
 - Keep the loss configuration fixed unless the training target is under study.
 - Compare completed candidates with `uv run compare-run WANDB_URL`.
 - Promote a candidate at an existing width only when its `EG_flops` exceeds the
-  incumbent. Treat loss spikes as disqualifying when the variable under study can
-  plausibly increase instability, such as learning rate; otherwise report the
-  spikes and whether training immediately returned to trend.
+  incumbent.
+- Tune learning rate using only runs without loss spikes; a selected learning
+  rate must be spike-free. In experiments tuning other parameters, loss spikes
+  do not disqualify the parameter result: record the spikes and whether training
+  returned to trend, then retune learning rate for the selected configuration.
 - Update `experiments/best-runs-dense.toml` only after promotion.
 - Preserve historical experiment reports. Do not rewrite old terminology or
   delete old results merely because the current methodology changed.

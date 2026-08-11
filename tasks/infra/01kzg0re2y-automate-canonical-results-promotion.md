@@ -21,7 +21,11 @@ that change methodology or optimize a nonstandard objective.
 ## Tasks
 
 - [ ] Produce a structured promotion result from the existing comparison logic.
-- [ ] Reject runs with disqualifying stability failures.
+- [ ] For learning-rate tuning, exclude runs with loss spikes and require the
+      selected learning rate to be spike-free.
+- [ ] For other parameter studies, record loss spikes without rejecting the
+      parameter result and require follow-up learning-rate tuning for the
+      selected configuration.
 - [ ] Update the correct family and width entry atomically after approval.
 - [ ] Validate the resulting TOML and generated website data.
 
