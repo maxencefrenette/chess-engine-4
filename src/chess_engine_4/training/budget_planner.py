@@ -14,10 +14,14 @@ import numpy as np
 from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.training.families import FAMILY_SPECS, FamilySpec
 from chess_engine_4.training.scaling_laws import (
+    SkalingLaw,
     UndertrainingLossLaw,
+    fit_dense_skaling_law,
     fit_loss_power_law,
+    fit_skaling_law,
     fit_undertraining_loss_law,
     read_best_runs,
+    read_dense_scaling_points,
 )
 
 DEFAULT_DATASET = Path("experiments/training-data.toml")
@@ -50,9 +54,11 @@ SUGGESTION_RATIOS = (
 @dataclass(frozen=True, slots=True)
 class FamilyFit:
     spec: FamilySpec
-    law: UndertrainingLossLaw
+    law: UndertrainingLossLaw | SkalingLaw
     observed_ratio_min: float
     observed_ratio_max: float
+    observed_width_min: int
+    observed_width_max: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +66,7 @@ class FamilyEvidence:
     spec: FamilySpec
     anchor_points: tuple[tuple[float, float], ...]
     allocation_points: tuple[tuple[float, float, float], ...]
+    scaling_points: tuple[tuple[int, int, float], ...]
     observed_coordinates: frozenset[tuple[int, float]]
 
 
@@ -287,6 +294,19 @@ def read_family_evidence(specs: tuple[FamilySpec, ...]) -> list[FamilyEvidence]:
 
 
 def read_one_family_evidence(spec: FamilySpec) -> FamilyEvidence:
+    if spec.family == "dense":
+        scaling_points = tuple(read_dense_scaling_points(spec.best_runs))
+        with spec.best_runs.open("rb") as handle:
+            rows = tomllib.load(handle)["scaling_runs"].values()
+        return FamilyEvidence(
+            spec=spec,
+            anchor_points=(),
+            allocation_points=(),
+            scaling_points=scaling_points,
+            observed_coordinates=frozenset(
+                (int(row["d_model"]), float(row["training_ratio"])) for row in rows
+            ),
+        )
     anchor_runs = read_best_runs(spec.best_runs)
     if any(not math.isclose(run.training_ratio, spec.anchor_ratio) for run in anchor_runs):
         raise ValueError(
@@ -310,16 +330,59 @@ def read_one_family_evidence(spec: FamilySpec) -> FamilyEvidence:
             (float(row["flops"]), float(row["training_ratio"]), float(row["loss"]))
             for row in allocation_runs
         ),
+        scaling_points=(),
         observed_coordinates=frozenset(observed_coordinates),
     )
 
 
-def fit_families(evidence: list[FamilyEvidence]) -> list[FamilyFit]:
-    return [fit_family(item) for item in evidence]
+def fit_families(
+    evidence: list[FamilyEvidence],
+    *,
+    initial_fits: list[FamilyFit] | None = None,
+    skaling_restarts: int = 64,
+) -> list[FamilyFit]:
+    initial_by_family = (
+        {} if initial_fits is None else {fit.spec.family: fit for fit in initial_fits}
+    )
+    return [
+        fit_family(
+            item,
+            initial=initial_by_family.get(item.spec.family),
+            skaling_restarts=skaling_restarts,
+        )
+        for item in evidence
+    ]
 
 
-def fit_family(evidence: FamilyEvidence) -> FamilyFit:
+def fit_family(
+    evidence: FamilyEvidence,
+    *,
+    initial: FamilyFit | None = None,
+    skaling_restarts: int = 64,
+) -> FamilyFit:
     spec = evidence.spec
+    if spec.family == "dense":
+        initial_law = initial.law if initial is not None else None
+        if initial_law is not None and not isinstance(initial_law, SkalingLaw):
+            raise TypeError("dense initial fit must use SkalingLaw")
+        law = (
+            _fit_canonical_dense_law(spec.best_runs, skaling_restarts)
+            if initial_law is None
+            else fit_skaling_law(
+                evidence.scaling_points,
+                initial=initial_law,
+                restarts=skaling_restarts,
+            )
+        )
+        ratios = [ratio for _, ratio in evidence.observed_coordinates]
+        return FamilyFit(
+            spec=spec,
+            law=law,
+            observed_ratio_min=min(ratios),
+            observed_ratio_max=max(ratios),
+            observed_width_min=min(width for width, _ in evidence.observed_coordinates),
+            observed_width_max=max(width for width, _ in evidence.observed_coordinates),
+        )
     baseline = fit_loss_power_law(evidence.anchor_points)
     law = fit_undertraining_loss_law(
         baseline,
@@ -339,6 +402,8 @@ def fit_family(evidence: FamilyEvidence) -> FamilyFit:
         law=law,
         observed_ratio_min=min(ratios),
         observed_ratio_max=max(ratios),
+        observed_width_min=min(width for width, _ in evidence.observed_coordinates),
+        observed_width_max=max(width for width, _ in evidence.observed_coordinates),
     )
 
 
@@ -361,7 +426,13 @@ def bootstrap_family_fits(
             for item, fit in zip(evidence, central_fits, strict=True)
         ]
         try:
-            ensembles.append(fit_families(simulated_evidence))
+            ensembles.append(
+                fit_families(
+                    simulated_evidence,
+                    initial_fits=central_fits,
+                    skaling_restarts=4,
+                )
+            )
         except (RuntimeError, ValueError):
             continue
     if len(ensembles) < samples:
@@ -374,6 +445,23 @@ def _simulate_family_evidence(
     fit: FamilyFit,
     generator: np.random.Generator,
 ) -> FamilyEvidence:
+    if isinstance(fit.law, SkalingLaw):
+        sigma = max(fit.law.rmse, 0.005)
+        return FamilyEvidence(
+            spec=evidence.spec,
+            anchor_points=(),
+            allocation_points=(),
+            scaling_points=tuple(
+                (
+                    params,
+                    samples,
+                    fit.law.predict(params, samples)
+                    + float(generator.normal(0.0, sigma)),
+                )
+                for params, samples, _ in evidence.scaling_points
+            ),
+            observed_coordinates=evidence.observed_coordinates,
+        )
     baseline_sigma = max(fit.law.baseline.rmse, 0.005)
     allocation_sigma = max(fit.law.rmse, 0.005)
     anchor_points = tuple(
@@ -399,6 +487,7 @@ def _simulate_family_evidence(
         spec=evidence.spec,
         anchor_points=anchor_points,
         allocation_points=tuple(allocation_points),
+        scaling_points=(),
         observed_coordinates=evidence.observed_coordinates,
     )
 
@@ -511,6 +600,10 @@ def candidates_for_family(
         models = tomllib.load(handle)["models"]
     candidates = []
     for row in models.values():
+        if isinstance(fit.law, SkalingLaw) and not (
+            fit.observed_width_min <= int(row["d_model"]) <= fit.observed_width_max
+        ):
+            continue
         batch_size = int(row["batch_size"])
         milliseconds_per_step = float(row["measured_wall_ms_per_step"])
         rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
@@ -526,15 +619,7 @@ def candidates_for_family(
         prediction_ratio_max = fit.observed_ratio_max * ratio_extrapolation_limit
         if not prediction_ratio_min <= training_ratio <= prediction_ratio_max:
             continue
-        anchor_flops = (
-            float(row["flops_per_sample"])
-            * int(row["samples_1x"])
-            * fit.spec.anchor_ratio
-        )
-        predicted_loss = fit.law.predict(
-            anchor_flops,
-            training_ratio / fit.spec.anchor_ratio,
-        )
+        predicted_loss = _predict_dimensions(row, samples, training_ratio, fit)
         estimated_cost = steps * milliseconds_per_step / 1000.0 * rate
         candidates.append(
             BudgetCandidate(
@@ -737,6 +822,10 @@ def _suggestion_candidates(
         for ratio in (value for value in SUGGESTION_RATIOS if ratio_min <= value <= ratio_max):
             for row in _throughput_models(fit.spec).values():
                 d_model = int(row["d_model"])
+                if isinstance(fit.law, SkalingLaw) and not (
+                    fit.observed_width_min <= d_model <= fit.observed_width_max
+                ):
+                    continue
                 if _is_observed(family_evidence, d_model, ratio):
                     continue
                 candidate = _candidate_at_ratio(
@@ -759,7 +848,7 @@ def _suggestion_candidates(
                     ],
                     dtype=np.float64,
                 )
-                noise = max(fit.law.baseline.rmse, fit.law.rmse, 0.005)
+                noise = _fit_noise(fit)
                 candidates.append((candidate, predictions, noise**2))
     return candidates
 
@@ -801,10 +890,32 @@ def _candidate_at_ratio(
 
 def _predict_candidate(candidate: BudgetCandidate, fit: FamilyFit) -> float:
     row = _throughput_models(fit.spec)[f"d{candidate.d_model}"]
+    return _predict_dimensions(row, candidate.samples, candidate.training_ratio, fit)
+
+
+def _predict_dimensions(
+    row: dict[str, object],
+    samples: int,
+    training_ratio: float,
+    fit: FamilyFit,
+) -> float:
+    if isinstance(fit.law, SkalingLaw):
+        return fit.law.predict(int(row["params"]), samples)
     anchor_flops = (
         float(row["flops_per_sample"]) * int(row["samples_1x"]) * fit.spec.anchor_ratio
     )
-    return fit.law.predict(anchor_flops, candidate.training_ratio / fit.spec.anchor_ratio)
+    return fit.law.predict(anchor_flops, training_ratio / fit.spec.anchor_ratio)
+
+
+def _fit_noise(fit: FamilyFit) -> float:
+    if isinstance(fit.law, SkalingLaw):
+        return max(fit.law.rmse, 0.005)
+    return max(fit.law.baseline.rmse, fit.law.rmse, 0.005)
+
+
+@cache
+def _fit_canonical_dense_law(path: Path, restarts: int) -> SkalingLaw:
+    return fit_dense_skaling_law(path, restarts=restarts)
 
 
 @cache

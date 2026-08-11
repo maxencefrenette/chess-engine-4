@@ -1,0 +1,457 @@
+[runs.d32-r0p1]
+source_commit = "b5bcb851"
+run_name = "skaling-d32-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/tczlxhjv"
+d_model = 32
+training_ratio = 0.1
+params = 392416
+samples_seen = 1961984
+flops = 4.814697e12
+loss = 4.039834568582989
+runtime_sec = 7.784863426
+loss_spike_count = 0
+
+[runs.d32-r0p5]
+source_commit = "b5bcb851"
+run_name = "skaling-d32-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/zd51jflp"
+d_model = 32
+training_ratio = 0.5
+params = 392416
+samples_seen = 9809920
+flops = 2.407348e13
+loss = 3.7347595073838504
+runtime_sec = 27.113958656
+loss_spike_count = 0
+
+[runs.d32-r1]
+source_commit = "b5bcb851"
+run_name = "skaling-d32-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ro0cwjol"
+d_model = 32
+training_ratio = 1.0
+params = 392416
+samples_seen = 19620864
+flops = 4.814948e13
+loss = 3.6854630356659297
+runtime_sec = 53.619880619
+loss_spike_count = 0
+
+[runs.d32-r0p05-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r0.05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/8i0eccdh"
+d_model = 32
+training_ratio = 0.05
+params = 392416
+samples_seen = 980992
+flops = 2.407348e12
+loss = 4.211365466075413
+runtime_sec = 4.523769696
+loss_spike_count = 0
+
+[runs.d32-r0p2-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r0.2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/9adc6za3"
+d_model = 32
+training_ratio = 0.2
+params = 392416
+samples_seen = 3923968
+flops = 9.629394e12
+loss = 3.882991223555175
+runtime_sec = 14.211709495
+loss_spike_count = 0
+
+[runs.d32-r0p3]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/47zux97o"
+d_model = 32
+training_ratio = 0.3
+params = 392416
+samples_seen = 5885952
+flops = 1.444409e13
+loss = 3.82444026751169
+runtime_sec = 29.387340145
+loss_spike_count = 0
+
+[runs.d32-r0p75]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r0.75"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/dtaabvb6"
+d_model = 32
+training_ratio = 0.75
+params = 392416
+samples_seen = 14715904
+flops = 3.611274e13
+loss = 3.7185127996135967
+runtime_sec = 41.811339377
+loss_spike_count = 0
+
+[runs.d32-r1p5]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r1.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/y551incl"
+d_model = 32
+training_ratio = 1.5
+params = 392416
+samples_seen = 29430784
+flops = 7.222297e13
+loss = 3.684484227876994
+runtime_sec = 79.845512944
+loss_spike_count = 0
+
+[runs.d32-r2]
+source_commit = "b5bcb851"
+run_name = "skaling3-d32-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/5fdx1h8x"
+d_model = 32
+training_ratio = 2.0
+params = 392416
+samples_seen = 39241728
+flops = 9.629897e13
+loss = 3.62950848899266
+runtime_sec = 107.969900685
+loss_spike_count = 0
+
+[runs.d64-r0p1]
+source_commit = "b5bcb851"
+run_name = "skaling-d64-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/tg9b2hmj"
+d_model = 64
+training_ratio = 0.1
+params = 979488
+samples_seen = 4896768
+flops = 2.978699e13
+loss = 3.800400281030469
+runtime_sec = 10.006343551
+loss_spike_count = 0
+
+[runs.d64-r0p05-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r0.05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fu5x4ldg"
+d_model = 64
+training_ratio = 0.05
+params = 979488
+samples_seen = 2449408
+flops = 1.489972e13
+loss = 3.978369960971443
+runtime_sec = 9.568168934
+loss_spike_count = 0
+
+[runs.d64-r0p3]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/g2c1jlod"
+d_model = 64
+training_ratio = 0.3
+params = 979488
+samples_seen = 14692352
+flops = 8.937343e13
+loss = 3.5733069928965593
+runtime_sec = 24.450885329
+loss_spike_count = 0
+
+[runs.d64-r0p5]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mf306mun"
+d_model = 64
+training_ratio = 0.5
+params = 979488
+samples_seen = 24487936
+flops = 1.489599e14
+loss = 3.535491963956659
+runtime_sec = 35.800298692
+loss_spike_count = 0
+
+[runs.d64-r0p75]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r0.75"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/9j0sewuw"
+d_model = 64
+training_ratio = 0.75
+params = 979488
+samples_seen = 36730880
+flops = 2.234336e14
+loss = 3.4954902005542547
+runtime_sec = 84.250432837
+loss_spike_count = 0
+
+[runs.d64-r1]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2yi3k8lq"
+d_model = 64
+training_ratio = 1.0
+params = 979488
+samples_seen = 48973824
+flops = 2.979073e14
+loss = 3.47169538474479
+runtime_sec = 70.54134032
+loss_spike_count = 0
+
+[runs.d64-r1p5]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r1.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/3ygng034"
+d_model = 64
+training_ratio = 1.5
+params = 979488
+samples_seen = 73461760
+flops = 4.468672e14
+loss = 3.4588644355549767
+runtime_sec = 105.141192939
+loss_spike_count = 0
+
+[runs.d64-r2]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/2xrkwmir"
+d_model = 64
+training_ratio = 2.0
+params = 979488
+samples_seen = 97949696
+flops = 5.958270e14
+loss = 3.4473413054477997
+runtime_sec = 208.498905874
+loss_spike_count = 0
+
+[runs.d128-r0p05]
+source_commit = "b5bcb851"
+run_name = "skaling2-d128-r0.05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/e3pis6m9"
+d_model = 128
+training_ratio = 0.05
+params = 2743456
+samples_seen = 6856704
+flops = 1.157407e14
+loss = 3.735488907196224
+runtime_sec = 8.415127396
+loss_spike_count = 0
+
+[runs.d128-r0p1-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling4-d128-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/lywanz0i"
+d_model = 128
+training_ratio = 0.1
+params = 2743456
+samples_seen = 13717504
+flops = 2.315505e14
+loss = 3.536921148121582
+runtime_sec = 15.503696173
+loss_spike_count = 0
+
+[runs.d128-r0p3]
+source_commit = "b5bcb851"
+run_name = "skaling2-d128-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/4smpr2se"
+d_model = 128
+training_ratio = 0.3
+params = 2743456
+samples_seen = 41152512
+flops = 6.946514e14
+loss = 3.357092340645167
+runtime_sec = 40.371669832
+loss_spike_count = 0
+
+[runs.d128-r0p75]
+source_commit = "b5bcb851"
+run_name = "skaling2-d128-r0.75"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/0spk3hr4"
+d_model = 128
+training_ratio = 0.75
+params = 2743456
+samples_seen = 102879232
+flops = 1.736594e15
+loss = 3.26741583678992
+runtime_sec = 94.755557014
+loss_spike_count = 0
+
+[runs.d128-r1]
+source_commit = "b5bcb851"
+run_name = "skaling2-d128-r1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/ma5d219p"
+d_model = 128
+training_ratio = 1.0
+params = 2743456
+samples_seen = 137170944
+flops = 2.315435e15
+loss = 3.252725598223235
+runtime_sec = 124.754467411
+loss_spike_count = 0
+
+[runs.d256-r0p05]
+source_commit = "b5bcb851"
+run_name = "skaling2-d256-r0.05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/80pqvvv1"
+d_model = 256
+training_ratio = 0.05
+params = 8630688
+samples_seen = 21577728
+flops = 1.135627e15
+loss = 3.4481186747162473
+runtime_sec = 13.665904468
+loss_spike_count = 0
+
+[runs.d256-r0p1-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling4-d256-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbaqm6d7"
+d_model = 256
+training_ratio = 0.1
+params = 8630688
+samples_seen = 43155456
+flops = 2.271253e15
+loss = 3.2844779592801827
+runtime_sec = 24.684065299
+loss_spike_count = 1
+
+[runs.d256-r0p3]
+source_commit = "b5bcb851"
+run_name = "skaling2-d256-r0.3"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/fbibhzvv"
+d_model = 256
+training_ratio = 0.3
+params = 8630688
+samples_seen = 129458176
+flops = 6.813329e15
+loss = 3.138097543359241
+runtime_sec = 72.152299538
+loss_spike_count = 0
+
+[runs.d512-r0p05]
+source_commit = "b5bcb851"
+run_name = "skaling2-d512-r0.05"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/oy5gf3t8"
+d_model = 512
+training_ratio = 0.05
+params = 29842336
+samples_seen = 74612736
+flops = 1.348640e16
+loss = 3.202034173281755
+runtime_sec = 45.770409483
+loss_spike_count = 0
+
+[runs.d1024-r0p1]
+source_commit = "b5bcb851"
+run_name = "skaling2-d1024-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/zqeck1z3"
+d_model = 1024
+training_ratio = 0.1
+params = 110014368
+samples_seen = 550076416
+flops = 3.649698e17
+loss = 2.9322109324287133
+runtime_sec = 401.076483337
+loss_spike_count = 0
+
+[runs.d64-r0p2-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d64-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/le0zet8j"
+d_model = 64
+training_ratio = 0.2
+params = 979488
+samples_seen = 9795584
+flops = 5.958644e13
+loss = 3.638110563920138
+runtime_sec = 26.501353284
+loss_spike_count = 0
+
+[runs.d128-r0p2-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d128-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/mvf2q9b3"
+d_model = 128
+training_ratio = 0.2
+params = 2743456
+samples_seen = 27435008
+flops = 4.631009e14
+loss = 3.416120267458515
+runtime_sec = 32.895305058
+loss_spike_count = 0
+
+[runs.d256-r0p2-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d256-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/6kufmxzg"
+d_model = 256
+training_ratio = 0.2
+params = 8630688
+samples_seen = 86310912
+flops = 4.542507e15
+loss = 3.1806255764143296
+runtime_sec = 46.691734669
+loss_spike_count = 0
+
+[runs.d512-r0p1-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d512-r0.1-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/13xpo9r5"
+d_model = 512
+training_ratio = 0.1
+params = 29842336
+samples_seen = 149209088
+flops = 2.696984e16
+loss = 3.0847157847463245
+runtime_sec = 60.714314212
+loss_spike_count = 0
+
+[runs.d512-r0p2-refresh]
+source_commit = "b5bcb851"
+run_name = "skaling2-d512-r0.2-refresh"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/irfjpljb"
+d_model = 512
+training_ratio = 0.2
+params = 29842336
+samples_seen = 298418176
+flops = 5.393967e16
+loss = 3.0019486853616155
+runtime_sec = 115.988594178
+loss_spike_count = 0
+
+[moe_runs.d128-r0p1]
+source_commit = "b5bcb851"
+run_name = "skaling-moe-d128-r0.1"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/iwmhsc5m"
+d_model = 128
+training_ratio = 0.1
+params = 27155616
+samples_seen = 135774208
+flops = 2.319181e15
+loss = 3.223307469881726
+runtime_sec = 83.112809915
+loss_spike_count = 0
+router_dead_experts = 0
+
+[moe_runs.d128-r0p2]
+source_commit = "b5bcb851"
+run_name = "skaling-moe-d128-r0.2"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/wlelgwra"
+d_model = 128
+training_ratio = 0.2
+params = 27155616
+samples_seen = 271548416
+flops = 4.638361e15
+loss = 3.1671192165502604
+runtime_sec = 165.53016197
+loss_spike_count = 1
+router_dead_experts = 0
+
+[moe_runs.d128-r0p5]
+source_commit = "b5bcb851"
+run_name = "skaling-moe-d128-r0.5"
+wandb_url = "https://wandb.ai/maxence-frenette/uncategorized/runs/nvvfg979"
+d_model = 128
+training_ratio = 0.5
+params = 27155616
+samples_seen = 678887424
+flops = 1.159618e16
+loss = 3.1055450132910143
+runtime_sec = 406.771461954
+loss_spike_count = 1
+router_dead_experts = 0

@@ -5,6 +5,7 @@ import pytest
 from chess_engine_4.training.budget_planner import (
     FAMILY_SPECS,
     bootstrap_family_fits,
+    candidates_for_family,
     estimate_budget,
     fit_families,
     plan_budget,
@@ -12,6 +13,7 @@ from chess_engine_4.training.budget_planner import (
     read_family_evidence,
     suggest_runs,
 )
+from chess_engine_4.training.scaling_laws import SkalingLaw, UndertrainingLossLaw
 
 
 def planner_inputs():
@@ -42,8 +44,25 @@ def test_planner_compares_dense_and_moe() -> None:
     candidate = plan_budget(5.0, assume_samples=3_949_735_220, fits=fits)
 
     assert candidate is not None
-    assert candidate.family == "moe64a2"
+    assert candidate.family == "dense"
     assert candidate.estimated_cost <= candidate.budget
+
+
+def test_dense_uses_skaling_while_moe_keeps_existing_law() -> None:
+    _, fits = planner_inputs()
+
+    assert isinstance(next(fit.law for fit in fits if fit.spec.family == "dense"), SkalingLaw)
+    assert isinstance(
+        next(fit.law for fit in fits if fit.spec.family == "moe64a2"),
+        UndertrainingLossLaw,
+    )
+    dense = next(fit for fit in fits if fit.spec.family == "dense")
+    candidates = candidates_for_family(
+        100.0,
+        assume_samples=8_020_779_820,
+        fit=dense,
+    )
+    assert max(candidate.d_model for candidate in candidates) == 1024
 
 
 def test_planner_rejects_unbounded_ratio_extrapolation() -> None:

@@ -10,6 +10,7 @@ from chess_engine_4.training.scaling_laws import (
     fit_sigmoid_law,
     fit_undertraining_loss_law,
     read_best_runs,
+    read_dense_scaling_points,
 )
 
 
@@ -24,6 +25,14 @@ def test_read_best_runs() -> None:
         "d1024",
     ]
     assert all(run.training_ratio == 0.2 for run in best_runs)
+
+
+def test_dense_scaling_points_exclude_d32_and_very_short_runs() -> None:
+    points = read_dense_scaling_points(Path("experiments/best-runs-dense.toml"))
+
+    assert len(points) == 19
+    assert min(params for params, _, _ in points) == 979_488
+    assert all(samples / params >= 4.99 for params, samples, _ in points)
 
 
 def test_undertraining_loss_law_penalizes_shorter_runs() -> None:

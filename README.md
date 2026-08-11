@@ -59,6 +59,10 @@ uv run plan-budget 5 10 100
 
 Plans default to the current corpus size recorded in `experiments/training-data.toml`.
 Use `--assume-samples N` to evaluate a hypothetical larger or smaller dataset.
+Dense loss predictions use the curated Skaling `L(N,D)` observations in
+`experiments/best-runs-dense.toml`; MoE retains the existing undertraining law.
+Dense candidates are restricted to measured model widths. `compare-run` and the
+website continue to use the canonical fixed-`0.2x` dense recipe.
 Predicted losses include deterministic 80% bootstrap intervals. Compare cheap preliminary
 runs against spending the same fixed total budget directly on final training with:
 
