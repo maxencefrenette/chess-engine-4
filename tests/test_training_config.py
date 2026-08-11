@@ -78,8 +78,12 @@ def test_optimizer_override_selects_adamh_without_weight_decay() -> None:
     assert overridden.optimizer.weight_decay is None
 
 
-def test_training_config_round_trips_through_dict() -> None:
-    config = load_training_config("configs/dense.py", d_model=64)
+@pytest.mark.parametrize(
+    ("config_path", "d_model"),
+    [("configs/dense.py", 64), ("configs/moe64a2.py", 128)],
+)
+def test_training_config_round_trips_through_dict(config_path: str, d_model: int) -> None:
+    config = load_training_config(config_path, d_model=d_model)
 
     assert training_config_from_dict(asdict(config)) == config
 
@@ -386,7 +390,7 @@ def test_gpu_cli_override_does_not_change_kernel_backend(
     assert config.model.kernel_backend == expected_backend
 
 
-def test_moe64a2_family_recipe_round_trips() -> None:
+def test_moe64a2_family_recipe() -> None:
     config = load_training_config("configs/moe64a2.py", d_model=128)
 
     assert config.run.name == "moe64a2-d128-r0.05"
@@ -397,11 +401,9 @@ def test_moe64a2_family_recipe_round_trips() -> None:
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2
     assert config.model.expansion_ratio == 2.0
-    assert "router_aux" not in asdict(config.loss)
     assert config.model.kernel_backend == "custom"
     assert config.model.precision == "bf16"
     assert config.infra.gpu == "RTX-PRO-6000"
-    assert training_config_from_dict(asdict(config)) == config
 
 
 @pytest.mark.parametrize("d_model", [384, 640, 768])

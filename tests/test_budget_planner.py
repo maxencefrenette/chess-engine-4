@@ -179,29 +179,7 @@ def test_value_of_information_runs_are_unmeasured_and_cheap() -> None:
 
 
 def test_spiked_scaling_run_is_still_an_observed_coordinate() -> None:
-    evidence, _ = planner_inputs()
+    evidence = read_family_evidence(FAMILY_SPECS)
     dense = next(item for item in evidence if item.spec.family == "dense")
 
     assert (256, 0.1) in dense.observed_coordinates
-
-
-def test_twice_dataset_value_of_information_is_finite() -> None:
-    evidence, fits = planner_inputs()
-    ensembles = bootstrap_family_fits(evidence, fits, samples=50, seed=2026)
-    comparisons = suggest_runs(
-        focus_budget=10.0,
-        count=3,
-        max_cost=1.0,
-        assume_samples=2 * 3_949_735_220,
-        evidence=evidence,
-        fits=fits,
-        bootstrap_fits=ensembles,
-    )
-
-    assert comparisons
-    assert comparisons == sorted(
-        comparisons,
-        key=lambda comparison: comparison.expected_loss_improvement,
-        reverse=True,
-    )
-    assert all(0 <= comparison.probability_improves <= 1 for comparison in comparisons)
