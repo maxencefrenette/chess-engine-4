@@ -3,7 +3,11 @@ from pathlib import Path
 import pytest
 
 from chess_engine_4.training.budget_planner import (
-    FAMILY_SPECS,
+    DEFAULT_ASSUMED_SAMPLES,
+    DEFAULT_FAMILIES,
+    DEFAULT_MAX_D_MODEL,
+    _planning_models,
+    _planning_profiles,
     bootstrap_family_fits,
     candidates_for_family,
     estimate_budget,
@@ -14,6 +18,7 @@ from chess_engine_4.training.budget_planner import (
     suggest_runs,
 )
 from chess_engine_4.training.config import load_training_config
+from chess_engine_4.training.families import FAMILIES, FAMILY_SPECS
 from chess_engine_4.training.scaling_laws import SkalingLaw
 
 
@@ -24,6 +29,12 @@ def planner_inputs():
 
 def test_read_current_dataset_samples() -> None:
     assert read_dataset_samples(Path("experiments/training-data.toml")) == 8_020_779_820
+
+
+def test_planner_defaults_to_dense_with_25b_positions_and_d2560_ceiling() -> None:
+    assert DEFAULT_FAMILIES == ("dense",)
+    assert DEFAULT_ASSUMED_SAMPLES == 25_000_000_000
+    assert DEFAULT_MAX_D_MODEL == 2560
 
 
 def test_planner_rejects_sample_cap_below_recipe_minimum_steps() -> None:
@@ -74,15 +85,43 @@ def test_both_families_use_skaling_and_share_floor() -> None:
         assume_samples=8_020_779_820,
         fit=dense,
     )
-    assert max(candidate.d_model for candidate in candidates) == 1024
+    widest = max(candidates, key=lambda candidate: candidate.d_model)
+    assert widest.d_model == 2560
+    assert widest.width_extrapolated
+    assert "--d-model 2560" in widest.command
 
 
-def test_planner_rejects_unbounded_ratio_extrapolation() -> None:
+def test_planner_uses_family_wide_horizon_with_two_x_extrapolation() -> None:
     _, fits = planner_inputs()
-    candidate = plan_budget(100.0, assume_samples=3_949_735_220, fits=fits)
+    dense = next(fit for fit in fits if fit.spec.family == "dense")
+    candidates = candidates_for_family(
+        1_000_000.0,
+        assume_samples=1_000_000_000_000,
+        fit=dense,
+        max_d_model=1280,
+    )
 
-    assert candidate is not None
-    assert candidate.training_ratio <= {"dense": 1.0, "moe64a2": 0.1}[candidate.family]
+    assert dense.observed_ratio_max == 2.0
+    assert max(candidate.training_ratio for candidate in candidates) == pytest.approx(4.0)
+    d1280_ratios = [
+        candidate.training_ratio for candidate in candidates if candidate.d_model == 1280
+    ]
+    assert max(d1280_ratios) == pytest.approx(4.0)
+
+
+def test_extrapolated_width_cost_assumes_largest_width_mfu() -> None:
+    spec = FAMILIES["dense"]
+    models = _planning_models(spec, max_d_model=2560)
+    profiles = _planning_profiles(spec, max_d_model=2560)
+    anchor = profiles[(1280, 49_152)]
+    extrapolated = profiles[(2560, 32 * 2560)]
+    expected_ratio = (
+        int(models["d2560"]["flops_per_sample"]) * int(extrapolated["batch_size"])
+    ) / (int(anchor["flops_per_sample"]) * int(anchor["batch_size"]))
+
+    assert float(extrapolated["measured_wall_ms_per_step"]) / float(
+        anchor["measured_wall_ms_per_step"]
+    ) == pytest.approx(expected_ratio)
 
 
 @pytest.mark.parametrize("budget, samples", [(0.0, 100), (1.0, 0)])

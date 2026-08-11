@@ -12,8 +12,10 @@ from pathlib import Path
 import numpy as np
 
 from chess_engine_4.hardware import hardware_dollars_per_second
-from chess_engine_4.training.config import load_training_config
-from chess_engine_4.training.families import FAMILY_SPECS, FamilySpec
+from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
+from chess_engine_4.training.config import TrainingConfig, load_training_config
+from chess_engine_4.training.families import FAMILIES, FamilySpec
+from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
     SkalingLaw,
     fit_skaling_law,
@@ -21,12 +23,19 @@ from chess_engine_4.training.scaling_laws import (
 )
 
 DEFAULT_DATASET = Path("experiments/training-data.toml")
+DEFAULT_ASSUMED_SAMPLES = 25_000_000_000
+DEFAULT_FAMILIES = ("dense",)
 DEFAULT_RATIO_EXTRAPOLATION_LIMIT = 2.0
+DEFAULT_MAX_D_MODEL = 2560
 DEFAULT_BOOTSTRAP_SAMPLES = 200
 DEFAULT_FOCUS_BUDGET = 10.0
 MIN_SUGGESTION_STEPS = 1_000
 MAX_SUGGESTION_LOSS_GAP = 0.35
 UNCERTAINTY_QUANTILES = (0.1, 0.9)
+DENSE_EXTRAPOLATION_STEP = 256
+DENSE_SAMPLES_PER_PARAMETER = 50.0
+DENSE_MINIMUM_STEPS_COEFFICIENT = 62.7575303963433
+DENSE_MINIMUM_STEPS_WIDTH_EXPONENT = 0.8073049254601639
 SUGGESTION_RATIOS = (
     0.005,
     0.0075,
@@ -69,6 +78,7 @@ class BudgetCandidate:
     budget: float
     family: str
     d_model: int
+    params: int
     gpu: str
     batch_size: int
     steps: int
@@ -78,6 +88,7 @@ class BudgetCandidate:
     estimated_cost: float
     sample_limited: bool
     extrapolated: bool
+    width_extrapolated: bool
     config: Path
 
     @property
@@ -112,6 +123,7 @@ class RunSuggestion:
     pilot_policy_expected_loss: float
     expected_loss_improvement: float
     probability_improves: float
+    width_extrapolated: bool
     config: Path
 
     @property
@@ -122,26 +134,55 @@ class RunSuggestion:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PlanningRun:
+    steps: int
+    batch_size: int
+    training_ratio: float
+
+
+@dataclass(frozen=True, slots=True)
+class PlanningConfig:
+    run: PlanningRun
+
+
 def budget_planner() -> None:
     parser = argparse.ArgumentParser(
-        description="Select the predicted lowest-validation-loss trainable model by budget."
+        description="Estimate the predicted lowest-validation-loss model by budget."
     )
     parser.add_argument("budgets", type=float, nargs="+", help="Dollar budgets to plan.")
+    parser.add_argument(
+        "--families",
+        nargs="+",
+        choices=tuple(FAMILIES),
+        default=list(DEFAULT_FAMILIES),
+        help="Model families to consider; defaults to dense only.",
+    )
     parser.add_argument(
         "--assume-samples",
         type=int,
         default=None,
         help=(
-            "Available unique training samples. Defaults to the current corpus count in "
-            f"{DEFAULT_DATASET}."
+            f"Available unique training samples. Defaults to {DEFAULT_ASSUMED_SAMPLES:,}."
         ),
     )
-    parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=None,
+        help=f"Read the sample budget from a dataset TOML, such as {DEFAULT_DATASET}.",
+    )
     parser.add_argument(
         "--ratio-extrapolation-limit",
         type=float,
         default=DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
         help="Maximum multiplicative extrapolation beyond observed training ratios.",
+    )
+    parser.add_argument(
+        "--max-d-model",
+        type=int,
+        default=DEFAULT_MAX_D_MODEL,
+        help="Maximum residual width to consider, including extrapolated dense widths.",
     )
     parser.add_argument(
         "--bootstrap-samples",
@@ -171,13 +212,20 @@ def budget_planner() -> None:
 
     if any(budget <= 0 for budget in args.budgets):
         parser.error("budgets must be positive")
-    assume_samples = (
-        read_dataset_samples(args.dataset) if args.assume_samples is None else args.assume_samples
-    )
+    if "moe64a2" in args.families and "dense" not in args.families:
+        parser.error("moe64a2 planning requires dense so the families share a loss floor")
+    if args.assume_samples is not None:
+        assume_samples = args.assume_samples
+    elif args.dataset is not None:
+        assume_samples = read_dataset_samples(args.dataset)
+    else:
+        assume_samples = DEFAULT_ASSUMED_SAMPLES
     if assume_samples <= 0:
         parser.error("--assume-samples must be positive")
     if args.ratio_extrapolation_limit < 1:
         parser.error("--ratio-extrapolation-limit must be at least 1")
+    if args.max_d_model <= 0:
+        parser.error("--max-d-model must be positive")
     if args.bootstrap_samples < 20:
         parser.error("--bootstrap-samples must be at least 20")
     if args.suggest_runs < 0:
@@ -192,7 +240,8 @@ def budget_planner() -> None:
     if max_suggestion_cost <= 0:
         parser.error("--max-suggestion-cost must be positive")
 
-    evidence = read_family_evidence(FAMILY_SPECS)
+    specs = tuple(FAMILIES[family] for family in args.families)
+    evidence = read_family_evidence(specs)
     fits = fit_families(evidence)
     bootstrap_fits = bootstrap_family_fits(
         evidence,
@@ -202,6 +251,10 @@ def budget_planner() -> None:
     )
     print(f"assumed_samples: {assume_samples:,}")
     print("cost_basis: measured steady-state GPU and CPU time; startup excluded")
+    print(
+        "width_extrapolation_basis: largest measured dense-width MFU; "
+        "wall time scales with FLOPs per step"
+    )
     print(
         f"uncertainty_basis: {len(bootstrap_fits)} parametric bootstrap fits; "
         "80% interval"
@@ -214,9 +267,10 @@ def budget_planner() -> None:
             fits=fits,
             bootstrap_fits=bootstrap_fits,
             ratio_extrapolation_limit=args.ratio_extrapolation_limit,
+            max_d_model=args.max_d_model,
         )
         if estimate is None:
-            print(f"${budget:g}: no trainable configuration")
+            print(f"${budget:g}: no eligible configuration")
             continue
         candidate = estimate.candidate
         status = []
@@ -224,6 +278,8 @@ def budget_planner() -> None:
             status.append("sample-limited")
         if candidate.extrapolated:
             status.append("ratio-extrapolation")
+        if candidate.width_extrapolated:
+            status.append("width-extrapolation")
         suffix = f" ({', '.join(status)})" if status else ""
         print(
             f"${budget:g}: {candidate.family} d{candidate.d_model} on {candidate.gpu}, "
@@ -246,6 +302,7 @@ def budget_planner() -> None:
             fits=fits,
             bootstrap_fits=bootstrap_fits,
             ratio_extrapolation_limit=args.ratio_extrapolation_limit,
+            max_d_model=args.max_d_model,
         )
         print("")
         print(
@@ -423,12 +480,14 @@ def estimate_budget(
     fits: list[FamilyFit],
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
+    max_d_model: int = DEFAULT_MAX_D_MODEL,
 ) -> BudgetEstimate | None:
     candidate = plan_budget(
         budget,
         assume_samples=assume_samples,
         fits=fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
     )
     if candidate is None:
         return None
@@ -440,6 +499,7 @@ def estimate_budget(
             assume_samples=assume_samples,
             fits=ensemble,
             ratio_extrapolation_limit=ratio_extrapolation_limit,
+            max_d_model=max_d_model,
         )
         winner = min(
             ensemble_candidates,
@@ -450,7 +510,8 @@ def estimate_budget(
             (
                 item
                 for item in ensemble_candidates
-                if (item.family, item.d_model) == (candidate.family, candidate.d_model)
+                if (item.family, item.d_model, item.batch_size)
+                == (candidate.family, candidate.d_model, candidate.batch_size)
             ),
             None,
         )
@@ -478,6 +539,7 @@ def plan_budget(
     assume_samples: int,
     fits: list[FamilyFit],
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
+    max_d_model: int = DEFAULT_MAX_D_MODEL,
 ) -> BudgetCandidate | None:
     if budget <= 0:
         raise ValueError("budget must be positive")
@@ -485,11 +547,14 @@ def plan_budget(
         raise ValueError("assume_samples must be positive")
     if ratio_extrapolation_limit < 1:
         raise ValueError("ratio_extrapolation_limit must be at least 1")
+    if max_d_model <= 0:
+        raise ValueError("max_d_model must be positive")
     candidates = _all_budget_candidates(
         budget,
         assume_samples=assume_samples,
         fits=fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
     )
     return min(candidates, key=lambda candidate: candidate.predicted_loss, default=None)
 
@@ -500,6 +565,7 @@ def _all_budget_candidates(
     assume_samples: int,
     fits: list[FamilyFit],
     ratio_extrapolation_limit: float,
+    max_d_model: int,
 ) -> list[BudgetCandidate]:
     return [
         candidate
@@ -509,6 +575,7 @@ def _all_budget_candidates(
             assume_samples=assume_samples,
             fit=fit,
             ratio_extrapolation_limit=ratio_extrapolation_limit,
+            max_d_model=max_d_model,
         )
     ]
 
@@ -519,16 +586,17 @@ def candidates_for_family(
     assume_samples: int,
     fit: FamilyFit,
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
+    max_d_model: int = DEFAULT_MAX_D_MODEL,
 ) -> list[BudgetCandidate]:
-    models = _throughput_models(fit.spec)
+    models = _planning_models(fit.spec, max_d_model=max_d_model)
     candidates = []
-    for (d_model, _), profile in _throughput_profiles(fit.spec).items():
+    for (d_model, _), profile in _planning_profiles(
+        fit.spec, max_d_model=max_d_model
+    ).items():
         row = models.get(f"d{d_model}")
         if row is None:
             continue
-        if not (
-            fit.observed_width_min <= d_model <= fit.observed_width_max
-        ):
+        if d_model < fit.observed_width_min or d_model > max_d_model:
             continue
         prediction_ratio_min = fit.observed_ratio_min / ratio_extrapolation_limit
         prediction_ratio_max = fit.observed_ratio_max * ratio_extrapolation_limit
@@ -588,6 +656,7 @@ def _candidate_for_profile_budget(
         budget=budget,
         family=fit.spec.family,
         d_model=int(row["d_model"]),
+        params=int(row["params"]),
         gpu=str(profile["gpu"]),
         batch_size=batch_size,
         steps=steps,
@@ -599,6 +668,7 @@ def _candidate_for_profile_budget(
         extrapolated=not (
             fit.observed_ratio_min <= training_ratio <= fit.observed_ratio_max
         ),
+        width_extrapolated=int(row["d_model"]) > fit.observed_width_max,
         config=fit.spec.config,
     )
 
@@ -615,9 +685,12 @@ def _highest_matching_recipe_config(
     # the highest valid region; bisection then recovers its upper edge.
     previous_ratio = ratio_max
     for ratio in np.geomspace(ratio_max, ratio_min, num=129):
-        try:
-            config = load_training_config(spec.config, d_model=d_model, training_ratio=float(ratio))
-        except ValueError:
+        config = _planning_config(
+            spec,
+            d_model=d_model,
+            training_ratio=float(ratio),
+        )
+        if config is None:
             previous_ratio = float(ratio)
             continue
         if config.run.batch_size != batch_size:
@@ -627,11 +700,12 @@ def _highest_matching_recipe_config(
         upper = previous_ratio
         for _ in range(32):
             midpoint = (lower + upper) / 2.0
-            try:
-                candidate = load_training_config(
-                    spec.config, d_model=d_model, training_ratio=midpoint
-                )
-            except ValueError:
+            candidate = _planning_config(
+                spec,
+                d_model=d_model,
+                training_ratio=midpoint,
+            )
+            if candidate is None:
                 upper = midpoint
                 continue
             if candidate.run.batch_size == batch_size:
@@ -653,6 +727,7 @@ def suggest_runs(
     fits: list[FamilyFit],
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
+    max_d_model: int = DEFAULT_MAX_D_MODEL,
     allowed_coordinates: frozenset[tuple[int, float]] | None = None,
 ) -> list[RunSuggestion]:
     if count <= 0:
@@ -664,6 +739,7 @@ def suggest_runs(
         assume_samples=assume_samples,
         fits=fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
     )
     if central_target is None:
         return []
@@ -674,6 +750,7 @@ def suggest_runs(
         fits=fits,
         bootstrap_fits=bootstrap_fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
         max_predicted_loss=central_target.predicted_loss + MAX_SUGGESTION_LOSS_GAP,
         allowed_coordinates=allowed_coordinates,
     )
@@ -683,6 +760,7 @@ def suggest_runs(
         fits=fits,
         bootstrap_fits=bootstrap_fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
     )
     direct_action = int(np.argmin(np.mean(direct_predictions, axis=0)))
     direct_losses = direct_predictions[:, direct_action]
@@ -698,6 +776,7 @@ def suggest_runs(
             fits=fits,
             bootstrap_fits=bootstrap_fits,
             ratio_extrapolation_limit=ratio_extrapolation_limit,
+            max_d_model=max_d_model,
         )
         pilot_policy_loss, probability_improves = _expected_pilot_policy_loss(
             pilot_predictions=predictions,
@@ -722,6 +801,7 @@ def suggest_runs(
                 pilot_policy_expected_loss=pilot_policy_loss,
                 expected_loss_improvement=direct_expected_loss - pilot_policy_loss,
                 probability_improves=probability_improves,
+                width_extrapolated=candidate.width_extrapolated,
                 config=candidate.config,
             )
         )
@@ -739,12 +819,14 @@ def _budget_action_matrix(
     fits: list[FamilyFit],
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float,
+    max_d_model: int,
 ) -> tuple[list[BudgetCandidate], np.ndarray]:
     candidates = _all_budget_candidates(
         budget,
         assume_samples=assume_samples,
         fits=fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
+        max_d_model=max_d_model,
     )
     if not candidates:
         raise RuntimeError(f"no final candidates for ${budget:g} budget")
@@ -810,6 +892,7 @@ def _suggestion_candidates(
     fits: list[FamilyFit],
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float,
+    max_d_model: int,
     max_predicted_loss: float,
     allowed_coordinates: frozenset[tuple[int, float]] | None = None,
 ) -> list[tuple[BudgetCandidate, np.ndarray, float]]:
@@ -828,15 +911,13 @@ def _suggestion_candidates(
             else tuple(sorted({ratio for _, ratio in allowed_coordinates}))
         )
         for ratio in (value for value in ratios if ratio_min <= value <= ratio_max):
-            for row in _throughput_models(fit.spec).values():
+            for row in _planning_models(fit.spec, max_d_model=max_d_model).values():
                 d_model = int(row["d_model"])
                 if allowed_coordinates is not None and not _is_coordinate_allowed(
                     allowed_coordinates, d_model, ratio
                 ):
                     continue
-                if not (
-                    fit.observed_width_min <= d_model <= fit.observed_width_max
-                ):
+                if d_model < fit.observed_width_min or d_model > max_d_model:
                     continue
                 if _is_observed(family_evidence, d_model, ratio):
                     continue
@@ -845,6 +926,7 @@ def _suggestion_candidates(
                     assume_samples=assume_samples,
                     fit=fit,
                     row=row,
+                    max_d_model=max_d_model,
                 )
                 if (
                     candidate is None
@@ -871,20 +953,22 @@ def _candidate_at_ratio(
     assume_samples: int,
     fit: FamilyFit,
     row: dict[str, object],
+    max_d_model: int,
 ) -> BudgetCandidate | None:
-    try:
-        config = load_training_config(
-            fit.spec.config,
-            d_model=int(row["d_model"]),
-            training_ratio=training_ratio,
-        )
-    except ValueError:
+    config = _planning_config(
+        fit.spec,
+        d_model=int(row["d_model"]),
+        training_ratio=training_ratio,
+    )
+    if config is None:
         return None
     steps = config.run.steps
     batch_size = config.run.batch_size
     if steps <= 0 or steps * batch_size > assume_samples:
         return None
-    profile = _throughput_profile(fit.spec, int(row["d_model"]), batch_size)
+    profile = _planning_profiles(fit.spec, max_d_model=max_d_model).get(
+        (int(row["d_model"]), batch_size)
+    )
     if profile is None:
         return None
     milliseconds_per_step = float(profile["measured_wall_ms_per_step"])
@@ -895,6 +979,7 @@ def _candidate_at_ratio(
         budget=cost,
         family=fit.spec.family,
         d_model=int(row["d_model"]),
+        params=int(row["params"]),
         gpu=str(profile["gpu"]),
         batch_size=batch_size,
         steps=steps,
@@ -906,14 +991,14 @@ def _candidate_at_ratio(
         extrapolated=not (
             fit.observed_ratio_min <= training_ratio <= fit.observed_ratio_max
         ),
+        width_extrapolated=int(row["d_model"]) > fit.observed_width_max,
         config=fit.spec.config,
     )
     return replace(candidate, predicted_loss=_predict_candidate(candidate, fit))
 
 
 def _predict_candidate(candidate: BudgetCandidate, fit: FamilyFit) -> float:
-    row = _throughput_models(fit.spec)[f"d{candidate.d_model}"]
-    return _predict_dimensions(row, candidate.samples, candidate.training_ratio, fit)
+    return fit.law.predict(candidate.params, candidate.samples)
 
 
 def _predict_dimensions(
@@ -936,6 +1021,37 @@ def _throughput_models(spec: FamilySpec) -> dict[str, dict[str, object]]:
 
 
 @cache
+def _planning_models(
+    spec: FamilySpec, *, max_d_model: int
+) -> dict[str, dict[str, object]]:
+    models = {name: dict(row) for name, row in _throughput_models(spec).items()}
+    if spec.family != "dense":
+        return models
+    largest_measured = max(int(row["d_model"]) for row in models.values())
+    first_extrapolated = (
+        (largest_measured // DENSE_EXTRAPOLATION_STEP) + 1
+    ) * DENSE_EXTRAPOLATION_STEP
+    for d_model in range(
+        first_extrapolated,
+        max_d_model + 1,
+        DENSE_EXTRAPOLATION_STEP,
+    ):
+        params = dense_parameter_count(
+            d_model=d_model,
+            depth=8,
+            history_length=8,
+            expansion_ratio=4.0,
+            activation="swiglu",
+        )
+        models[f"d{d_model}"] = {
+            "d_model": d_model,
+            "params": params,
+            "flops_per_sample": _dense_flops_per_sample(d_model),
+        }
+    return models
+
+
+@cache
 def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, object]]:
     profiles = {}
     for path in (spec.throughput, *spec.throughput_variants):
@@ -946,6 +1062,115 @@ def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, ob
         for row in rows:
             profiles[(int(row["d_model"]), int(row["batch_size"]))] = row
     return profiles
+
+
+@cache
+def _planning_profiles(
+    spec: FamilySpec, *, max_d_model: int
+) -> dict[tuple[int, int], dict[str, object]]:
+    profiles = {key: dict(row) for key, row in _throughput_profiles(spec).items()}
+    if spec.family != "dense":
+        return profiles
+    models = _planning_models(spec, max_d_model=max_d_model)
+    largest_measured_width = max(width for width, _ in profiles)
+    target_widths = sorted(
+        int(row["d_model"])
+        for row in models.values()
+        if int(row["d_model"]) >= largest_measured_width
+    )
+    for batch_factor in (16, 32):
+        anchors = [
+            row
+            for (width, _), row in profiles.items()
+            if width == largest_measured_width
+        ]
+        anchor = min(
+            anchors,
+            key=lambda row: abs(int(row["batch_size"]) / largest_measured_width - batch_factor),
+        )
+        anchor_flops_per_step = int(anchor["flops_per_sample"]) * int(
+            anchor["batch_size"]
+        )
+        for d_model in target_widths:
+            row = models[f"d{d_model}"]
+            batch_size = batch_factor * d_model
+            if (d_model, batch_size) in profiles:
+                continue
+            flops_per_step = int(row["flops_per_sample"]) * batch_size
+            steps_1x = round(
+                DENSE_SAMPLES_PER_PARAMETER * int(row["params"]) / batch_size
+            )
+            profiles[(d_model, batch_size)] = {
+                "d_model": d_model,
+                "batch_size": batch_size,
+                "steps_1x": steps_1x,
+                "samples_1x": steps_1x * batch_size,
+                "flops_per_sample": int(row["flops_per_sample"]),
+                "measured_wall_ms_per_step": float(anchor["measured_wall_ms_per_step"])
+                * flops_per_step
+                / anchor_flops_per_step,
+                "gpu": anchor["gpu"],
+                "cpu_cores": anchor["cpu_cores"],
+            }
+    return profiles
+
+
+@cache
+def _dense_flops_per_sample(d_model: int) -> int:
+    return measure_training_flops_per_sample(
+        DenseChessNetConfig(
+            d_model=d_model,
+            depth=8,
+            history_length=8,
+            expansion_ratio=4.0,
+            activation="swiglu",
+            precision="mxfp8",
+            input_pipeline="overlap",
+        ),
+        batch_size=1,
+    )
+
+
+def _planning_config(
+    spec: FamilySpec,
+    *,
+    d_model: int,
+    training_ratio: float,
+) -> TrainingConfig | PlanningConfig | None:
+    try:
+        return load_training_config(
+            spec.config,
+            d_model=d_model,
+            training_ratio=training_ratio,
+        )
+    except ValueError:
+        if spec.family != "dense" or f"d{d_model}" in _throughput_models(spec):
+            return None
+    params = dense_parameter_count(
+        d_model=d_model,
+        depth=8,
+        history_length=8,
+        expansion_ratio=4.0,
+        activation="swiglu",
+    )
+    batch_size = 32 * d_model
+    steps = round(training_ratio * DENSE_SAMPLES_PER_PARAMETER * params / batch_size)
+    minimum_steps = (
+        DENSE_MINIMUM_STEPS_COEFFICIENT
+        * d_model**DENSE_MINIMUM_STEPS_WIDTH_EXPONENT
+    )
+    if steps < minimum_steps:
+        batch_size //= 2
+        steps *= 2
+    if steps < minimum_steps:
+        return None
+    return PlanningConfig(
+        run=PlanningRun(
+            steps=steps,
+            batch_size=batch_size,
+            training_ratio=training_ratio,
+        )
+    )
 
 
 def _throughput_profile(
