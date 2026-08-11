@@ -23,14 +23,9 @@ baseline was Transformer Engine FusedAdam at upstream commit
 
 ## Kernel benchmark
 
-Reproduce with:
-
-```sh
-uv run python experiments/2026-08-11.03-muon-kernels/benchmark.py
-```
-
-The benchmark performs one parity step and then times 100 optimizer steps after
-10 warmup iterations.
+The temporary Muon implementation and benchmark code were removed after the
+experiment. The benchmark performed one parity step and then timed 100 optimizer
+steps after 10 warmup iterations.
 
 | Width | GPU | Matrices | PyTorch Muon | Batched Muon | Speedup | Max BF16 parameter difference |
 | ---: | --- | ---: | ---: | ---: | ---: | ---: |

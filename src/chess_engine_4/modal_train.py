@@ -264,8 +264,6 @@ def print_launch_summary(
         f"steps={run_steps:,} "
         f"samples={samples:,} "
         f"flops={flops_per_sample * samples:.3e} "
-        f"optimizer={config.optimizer.algorithm} "
-        f"optimizer_impl={'batched' if config.optimizer.algorithm == 'muon' else 'fused'} "
         f"lr={config.optimizer.lr:g} "
         f"precision={config.model.precision} "
         f"gpu={config.infra.gpu} "

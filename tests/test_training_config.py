@@ -111,8 +111,6 @@ def test_launch_summary_records_sampling_rate(capsys) -> None:
     print_launch_summary(config)
 
     summary = capsys.readouterr().out
-    assert "optimizer=adamw" in summary
-    assert "optimizer_impl=fused" in summary
     assert "sampling_rate=1" in summary
 
 

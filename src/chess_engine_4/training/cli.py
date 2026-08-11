@@ -26,7 +26,6 @@ from chess_engine_4.training.config import (
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.input_pipeline import TrainingBatchPipeline
 from chess_engine_4.training.losses import lczero_loss
-from chess_engine_4.training.muon import BatchedMuon
 from chess_engine_4.training.packed_input import (
     PackedPlaneInput,
     build_training_model,
@@ -554,98 +553,13 @@ def _build_optimizer(
     model: torch.nn.Module,
     *,
     config: TrainingConfig,
-) -> Any:
-    if config.optimizer.algorithm == "adamw":
-        return _build_fused_adamw(
-            _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
-            lr=config.optimizer.lr,
-        )
-    if config.optimizer.algorithm != "muon":
-        raise ValueError(f"Unsupported optimizer: {config.optimizer.algorithm!r}")
-
-    muon_parameters, adamw_parameters = _muon_parameter_split(model)
-    if not muon_parameters:
-        raise ValueError("Muon selected but the model has no eligible hidden matrix parameters")
-
-    return _CompositeOptimizer(
-        BatchedMuon(
-            muon_parameters,
-            lr=config.optimizer.lr,
-            weight_decay=config.optimizer.weight_decay,
-        ),
-        _build_fused_adamw(
-            _adamw_parameter_groups_from_parameters(
-                adamw_parameters,
-                weight_decay=config.optimizer.weight_decay,
-            ),
-            lr=config.optimizer.lr,
-        ),
-    )
-
-
-def _muon_parameter_split(
-    model: torch.nn.Module,
-) -> tuple[list[torch.nn.Parameter], list[torch.nn.Parameter]]:
-    muon_parameters: list[torch.nn.Parameter] = []
-    adamw_parameters: list[torch.nn.Parameter] = []
-    for name, parameter in model.named_parameters():
-        if not parameter.requires_grad:
-            continue
-        if name.startswith("blocks.") and parameter.ndim == 2:
-            muon_parameters.append(parameter)
-        else:
-            adamw_parameters.append(parameter)
-    return muon_parameters, adamw_parameters
-
-
-def _build_fused_adamw(
-    parameter_groups: list[dict[str, object]],
-    *,
-    lr: float,
 ) -> torch.optim.Optimizer:
     return te().optimizers.FusedAdam(
-        parameter_groups,
-        lr=lr,
+        _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
+        lr=config.optimizer.lr,
         master_weights=True,
         master_weight_dtype=torch.float32,
     )
-
-
-def _adamw_parameter_groups_from_parameters(
-    parameters: Any,
-    *,
-    weight_decay: float,
-) -> list[dict[str, object]]:
-    decay: list[torch.nn.Parameter] = []
-    no_decay: list[torch.nn.Parameter] = []
-    for parameter in parameters:
-        if parameter.ndim < 2:
-            no_decay.append(parameter)
-        else:
-            decay.append(parameter)
-    return [
-        {"params": decay, "weight_decay": weight_decay},
-        {"params": no_decay, "weight_decay": 0.0},
-    ]
-
-
-class _CompositeOptimizer:
-    def __init__(self, *optimizers: torch.optim.Optimizer) -> None:
-        self.optimizers = optimizers
-        self.param_groups = [
-            group for optimizer in self.optimizers for group in optimizer.param_groups
-        ]
-
-    def zero_grad(self, *, set_to_none: bool = True) -> None:
-        for optimizer in self.optimizers:
-            optimizer.zero_grad(set_to_none=set_to_none)
-
-    def step(self) -> None:
-        for optimizer in self.optimizers:
-            optimizer.step()
-
-    def state_dict(self) -> dict[str, object]:
-        return {"optimizers": [optimizer.state_dict() for optimizer in self.optimizers]}
 
 
 def _theoretical_tflops(
@@ -766,14 +680,12 @@ def _init_wandb(
         "history_length": config.model.history_length,
         "activation": config.model.activation,
         "rms_norm_eps": config.model.rms_norm_eps,
-        "optimizer": config.optimizer.algorithm,
-        "optimizer_impl": "batched" if config.optimizer.algorithm == "muon" else "fused",
         "lr": config.optimizer.lr,
         "weight_decay": config.optimizer.weight_decay,
         "max_grad_norm": config.optimizer.max_grad_norm,
         "lr_warmup_steps": config.optimizer.lr_warmup_steps,
         "lr_cooldown_frac": config.optimizer.lr_cooldown_frac,
-        "fused_adamw": config.optimizer.algorithm == "adamw",
+        "fused_adamw": True,
         "policy_loss_weight": config.loss.policy,
         "value_loss_weight": config.loss.value,
         "moves_left_loss_weight": config.loss.moves_left,

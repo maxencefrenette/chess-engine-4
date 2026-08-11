@@ -16,14 +16,8 @@ matched to the completed dense `0.055x` width ladder.
 The runs were based on commit `8cc8fd49bddfe7538f1fe50f3baedafb53b99d7f`
 with the Muon implementation and this experiment present in the worktree.
 
-## Commands
-
-```sh
-uv run python experiments/2026-08-11.02-muon/launch.py
-uv run python experiments/2026-08-11.02-muon/launch.py --launch
-uv run python experiments/2026-08-11.02-muon/launch.py --widths
-uv run python experiments/2026-08-11.02-muon/launch.py --widths --launch
-```
+The temporary Muon implementation and launch code were removed after the
+experiment. The results and W&B run links are retained below.
 
 ## Cheap LR screen
 

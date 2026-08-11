@@ -11,17 +11,8 @@ samples, batch, loss, schedule, and hardware within a width. `EG_flops` values
 were recomputed against one current canonical fit. Learning-rate selection
 excludes any run with a recorded loss spike.
 
-## Commands
-
-```sh
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --launch
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --retry-interrupted --launch
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --adam-lower --launch
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --muon-upper --launch
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --muon-one --launch
-uv run python experiments/2026-08-11.04-muon-d768-adam-retune/launch.py --muon-midpoint --launch
-```
+The temporary Muon implementation and launch code were removed after the
+experiment. The results and W&B run links are retained below.
 
 ## D256 AdamW retune
 
