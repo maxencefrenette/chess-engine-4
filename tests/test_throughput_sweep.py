@@ -2,6 +2,8 @@ from pathlib import Path
 
 from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.throughput_sweep import (
+    _benchmark_config,
+    _results_gpu,
     entry_matches,
     load_results,
     make_entry,
@@ -12,6 +14,31 @@ from chess_engine_4.training.throughput_sweep import (
 
 def test_normalize_widths_sorts_and_deduplicates() -> None:
     assert normalize_widths([128, 64, 128, 256]) == [64, 128, 256]
+
+
+def test_half_batch_benchmark_preserves_recipe_samples() -> None:
+    original = load_training_config(Path("configs/dense.py"), d_model=512, training_ratio=1.0)
+
+    half_batch = _benchmark_config(
+        original,
+        gpu=None,
+        batch_size=None,
+        batch_divisor=2,
+        quantization_recipe=None,
+        kernel_backend=None,
+    )
+
+    assert half_batch.run.batch_size == original.run.batch_size // 2
+    assert half_batch.run.steps == original.run.steps * 2
+    assert half_batch.run.batch_size * half_batch.run.steps == (
+        original.run.batch_size * original.run.steps
+    )
+
+
+def test_cached_sweep_gpu_metadata_uses_all_rows() -> None:
+    assert _results_gpu({"d64": {"gpu": "RTX-PRO-6000"}, "d512": {"gpu": "B200"}}) == (
+        "mixed"
+    )
 
 
 def test_throughput_result_round_trip(tmp_path: Path) -> None:

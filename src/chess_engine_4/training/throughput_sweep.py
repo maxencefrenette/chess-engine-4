@@ -49,6 +49,15 @@ def throughput_sweep() -> None:
     parser.add_argument("--gpu", choices=TRAINING_GPUS, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument(
+        "--batch-divisor",
+        type=int,
+        default=1,
+        help=(
+            "Divide the recipe batch size and multiply its steps by this value, "
+            "preserving the 1x sample count."
+        ),
+    )
+    parser.add_argument(
         "--quantization-recipe",
         choices=("bf16", "mxfp8", "nvfp4"),
         default=None,
@@ -68,13 +77,18 @@ def throughput_sweep() -> None:
         parser.error("profile-steps must be positive.")
     if args.batch_size is not None and args.batch_size <= 0:
         parser.error("batch-size must be positive.")
+    if args.batch_divisor <= 0:
+        parser.error("batch-divisor must be positive.")
+    if args.batch_size is not None and args.batch_divisor != 1:
+        parser.error("batch-size and batch-divisor are mutually exclusive.")
 
     cached = load_results(args.output)
     configs = {
-        width: with_overrides(
+        width: _benchmark_config(
             load_training_config(args.config, d_model=width, training_ratio=1.0),
             gpu=args.gpu,
             batch_size=args.batch_size,
+            batch_divisor=args.batch_divisor,
             quantization_recipe=args.quantization_recipe,
             kernel_backend=args.kernel_backend,
         )
@@ -123,7 +137,7 @@ def throughput_sweep() -> None:
             cached,
             config_path=args.config,
             model_family=_model_family(configs),
-            gpu=_gpu(configs),
+            gpu=_results_gpu(cached),
         )
         print(f"wrote {args.output}")
     elif not args.output.exists():
@@ -132,12 +146,43 @@ def throughput_sweep() -> None:
             cached,
             config_path=args.config,
             model_family=_model_family(configs),
-            gpu=_gpu(configs),
+            gpu=_results_gpu(cached),
         )
 
     print_report(widths, cached)
     if errors:
         raise SystemExit("\n".join(errors))
+
+
+def _benchmark_config(
+    config: TrainingConfig,
+    *,
+    gpu: str | None,
+    batch_size: int | None,
+    batch_divisor: int,
+    quantization_recipe: str | None,
+    kernel_backend: str | None,
+) -> TrainingConfig:
+    if batch_divisor <= 0:
+        raise ValueError("batch_divisor must be positive")
+    if config.run.batch_size % batch_divisor:
+        raise ValueError(
+            f"batch size {config.run.batch_size} is not divisible by {batch_divisor}"
+        )
+    if batch_size is not None:
+        selected_batch = batch_size
+        selected_steps = config.run.steps
+    else:
+        selected_batch = config.run.batch_size // batch_divisor
+        selected_steps = config.run.steps * batch_divisor
+    return with_overrides(
+        config,
+        gpu=gpu,
+        batch_size=selected_batch,
+        steps=selected_steps,
+        quantization_recipe=quantization_recipe,
+        kernel_backend=kernel_backend,
+    )
 
 
 def normalize_widths(widths: list[int]) -> list[int]:
@@ -329,8 +374,8 @@ def _model_family(configs: dict[int, TrainingConfig]) -> str:
     return families.pop()
 
 
-def _gpu(configs: dict[int, TrainingConfig]) -> str:
-    gpus = {config.infra.gpu for config in configs.values()}
+def _results_gpu(models: dict[str, dict[str, Any]]) -> str:
+    gpus = {str(row["gpu"]) for row in models.values()}
     return gpus.pop() if len(gpus) == 1 else "mixed"
 
 

@@ -74,6 +74,16 @@ Use `--focus-budget` and `--max-suggestion-cost` to change the targeted breakpoi
 per-run cost ceiling. Preliminary-run cost is deducted from the fixed focus budget, and
 the preliminary checkpoint is treated as sunk rather than reusable final training.
 
+Scaling-law acquisition uses the declared L-shaped dense grid. Complete its d64
+data arm and `0.055x` width arm before ranking cheap, unobserved interior cells:
+
+```sh
+uv run plan-ladder --focus-budget 10 --count 3
+```
+
+Recorded cells count toward scaffold coverage even when they contain a loss spike;
+the spike remains available separately for fit and promotion decisions.
+
 ## Data
 
 Build the local Rust loader and inspect the configured Parquet dataset:
@@ -109,6 +119,7 @@ automatically.
 | `uv run profile-training` | Profile the production training loop |
 | `uv run throughput-sweep` | Refresh cached throughput measurements |
 | `uv run plan-budget 10 100` | Select the lowest-loss trainable recipe for dollar budgets |
+| `uv run plan-ladder` | Complete the scaling scaffold, then rank cheap in-grid observations |
 | `uv run benchmark-training-modal` | Compare Transformer Engine and custom kernels |
 | `uv run export-model` | Export a BF16 dense checkpoint as Safetensors |
 | `uv run build-lc0` | Build the vendored lc0 fork and custom backend |

@@ -1,0 +1,10 @@
+run_name,width,training_ratio,batch_size,steps,lr,params,samples_seen,loss,policy_top1,loss_spike_count,eg_flops,runtime_sec,cost_dollars,wandb_url
+dense-half-width-d64-r0p055,64,0.055,1024,2630,0.006205,979488,2693120,3.889359081,0.248618224,0,1.794,10.064,0.009529,https://wandb.ai/maxence-frenette/chess-engine-4/runs/adt7rfr5
+dense-half-width-d128-r0p055,128,0.055,2048,3684,0.00289,2743456,7544832,3.668101425,0.301570161,0,0.926,13.767,0.013035,https://wandb.ai/maxence-frenette/chess-engine-4/runs/6avq3le8
+dense-half-width-d256-r0p055,256,0.055,4096,5794,0.001275,8630688,23732224,3.409629203,0.352335428,0,0.695,23.842,0.022574,https://wandb.ai/maxence-frenette/chess-engine-4/runs/ufjguuuy
+dense-half-width-d512-r0p055,512,0.055,8192,10018,0.00058,29842336,82067456,3.173031943,0.415437655,1,0.637,56.434,0.103883,https://wandb.ai/maxence-frenette/chess-engine-4/runs/t2yqwy91
+dense-half-width-d768-r0p055,768,0.055,12288,14242,0.0003795,63636896,175005696,3.030407718,0.456293095,1,0.913,110.252,0.202953,https://wandb.ai/maxence-frenette/chess-engine-4/runs/h568jgua
+dense-half-width-d1024-r0p055,1024,0.055,16384,18466,0.000286,110014368,302546944,2.938254567,0.480712795,1,1.354,238.665,0.439334,https://wandb.ai/maxence-frenette/chess-engine-4/runs/1vrolagz
+dense-half-width-d512-r0p055-lr085,512,0.055,8192,10018,0.000493,29842336,82067456,3.168127590,0.417543796,0,0.675,46.731,0.086022,https://wandb.ai/maxence-frenette/chess-engine-4/runs/u4c69pip
+dense-half-width-d768-r0p055-lr100,768,0.055,12288,14242,0.00033,63636896,175005696,3.033530889,0.457199902,0,0.872,147.713,0.271910,https://wandb.ai/maxence-frenette/chess-engine-4/runs/gk7to9xk
+dense-half-width-d1024-r0p055-lr115,1024,0.055,16384,18466,0.000253,110014368,302546944,2.941947915,0.482122231,0,1.268,233.233,0.429335,https://wandb.ai/maxence-frenette/chess-engine-4/runs/eaghg0z2

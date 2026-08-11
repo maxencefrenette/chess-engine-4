@@ -13,6 +13,7 @@ from chess_engine_4.training.budget_planner import (
     read_family_evidence,
     suggest_runs,
 )
+from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.scaling_laws import SkalingLaw
 
 
@@ -25,7 +26,7 @@ def test_read_current_dataset_samples() -> None:
     assert read_dataset_samples(Path("experiments/training-data.toml")) == 8_020_779_820
 
 
-def test_assumed_samples_hard_caps_plan() -> None:
+def test_planner_rejects_sample_cap_below_recipe_minimum_steps() -> None:
     _, fits = planner_inputs()
     candidate = plan_budget(
         100.0,
@@ -34,17 +35,29 @@ def test_assumed_samples_hard_caps_plan() -> None:
         ratio_extrapolation_limit=100,
     )
 
+    assert candidate is None
+
+
+def test_assumed_samples_hard_caps_trainable_plan() -> None:
+    _, fits = planner_inputs()
+    candidate = plan_budget(
+        100.0,
+        assume_samples=20_000_000,
+        fits=fits,
+        ratio_extrapolation_limit=100,
+    )
+
     assert candidate is not None
-    assert candidate.samples <= 1_000_000
+    assert candidate.samples <= 20_000_000
     assert candidate.sample_limited
 
 
-def test_planner_uses_quantile_moe_skaling_evidence() -> None:
+def test_planner_uses_adaptive_dense_throughput() -> None:
     _, fits = planner_inputs()
     candidate = plan_budget(5.0, assume_samples=3_949_735_220, fits=fits)
 
     assert candidate is not None
-    assert candidate.family == "moe64a2"
+    assert candidate.family == "dense"
     assert candidate.estimated_cost <= candidate.budget
 
 
@@ -116,6 +129,21 @@ def test_value_of_information_runs_are_unmeasured_and_cheap() -> None:
             width == suggestion.d_model and ratio == pytest.approx(suggestion.training_ratio)
             for width, ratio in family_evidence.observed_coordinates
         )
+        config = load_training_config(
+            suggestion.config,
+            d_model=suggestion.d_model,
+            training_ratio=suggestion.training_ratio,
+        )
+        assert config.run.steps == suggestion.steps
+        assert config.run.batch_size * config.run.steps == suggestion.samples
+        assert "--steps" not in suggestion.command
+
+
+def test_spiked_scaling_run_is_still_an_observed_coordinate() -> None:
+    evidence, _ = planner_inputs()
+    dense = next(item for item in evidence if item.spec.family == "dense")
+
+    assert (256, 0.1) in dense.observed_coordinates
 
 
 def test_twice_dataset_value_of_information_is_finite() -> None:

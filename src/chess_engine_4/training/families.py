@@ -13,6 +13,7 @@ class FamilySpec:
     best_runs: Path
     throughput: Path
     anchor_ratio: float
+    throughput_variants: tuple[Path, ...] = ()
 
 
 FAMILY_SPECS = (
@@ -21,6 +22,7 @@ FAMILY_SPECS = (
         config=Path("configs/dense.py"),
         best_runs=Path("experiments/best-runs-dense.toml"),
         throughput=Path("experiments/throughput-dense.toml"),
+        throughput_variants=(Path("experiments/throughput-dense-16d.toml"),),
         anchor_ratio=0.2,
     ),
     FamilySpec(

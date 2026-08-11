@@ -1,0 +1,194 @@
+{
+  "canonical_holdout": [
+    "d128-r0p2",
+    "d128-r0p3",
+    "d128-r0p75",
+    "d128-r1",
+    "d256-r0p2",
+    "d256-r0p3",
+    "d512-r0p2"
+  ],
+  "fits": {
+    "old_0.1x_arm": {
+      "training_rows": [
+        "d64-r0p1",
+        "d64-r0p2",
+        "d64-r0p3",
+        "d64-r0p5",
+        "d64-r0p75",
+        "d64-r1",
+        "d64-r1p5",
+        "d64-r2",
+        "d128-r0p1",
+        "d256-r0p1",
+        "d512-r0p1",
+        "d1024-r0p1"
+      ],
+      "heldout_mape": 1.221155333976562,
+      "model_exponent": 0.7376674257575992,
+      "coupling": 0.15939967659235801,
+      "effective_model_exponent": 0.11758394909847858,
+      "law": "L(N,D) = (4.377 * N^-0.7377 + 0.4189 * D^-1.2367)^0.1594 + 2.1640"
+    },
+    "short_0.055x_matched_arm": {
+      "training_rows": [
+        "d64-r0p1",
+        "d64-r0p2",
+        "d64-r0p3",
+        "d64-r0p5",
+        "d64-r0p75",
+        "d64-r1",
+        "d64-r1p5",
+        "d64-r2",
+        "dense-half-width-d128-r0p055",
+        "dense-half-width-d256-r0p055",
+        "dense-half-width-d512-r0p055-lr085",
+        "dense-half-width-d1024-r0p055-lr115"
+      ],
+      "heldout_mape": 0.7359843681020519,
+      "model_exponent": 1.1027338587368427,
+      "coupling": 0.08241256906706813,
+      "effective_model_exponent": 0.0908791302957446,
+      "law": "L(N,D) = (2263 * N^-1.1027 + 225.8 * D^-1.4173)^0.0824 + 1.5429"
+    },
+    "short_0.055x_with_d768": {
+      "training_rows": [
+        "d64-r0p1",
+        "d64-r0p2",
+        "d64-r0p3",
+        "d64-r0p5",
+        "d64-r0p75",
+        "d64-r1",
+        "d64-r1p5",
+        "d64-r2",
+        "dense-half-width-d128-r0p055",
+        "dense-half-width-d256-r0p055",
+        "dense-half-width-d512-r0p055-lr085",
+        "dense-half-width-d768-r0p055-lr100",
+        "dense-half-width-d1024-r0p055-lr115"
+      ],
+      "heldout_mape": 0.724500612506498,
+      "model_exponent": 1.1100148180373626,
+      "coupling": 0.08270089486748552,
+      "effective_model_exponent": 0.091799218767859,
+      "law": "L(N,D) = (2063 * N^-1.1100 + 206.4 * D^-1.4175)^0.0827 + 1.5532"
+    },
+    "short_0.055x_stable_only": {
+      "training_rows": [
+        "d64-r0p1",
+        "d64-r0p2",
+        "d64-r0p3",
+        "d64-r0p5",
+        "d64-r0p75",
+        "d64-r1",
+        "d64-r1p5",
+        "d64-r2",
+        "dense-half-width-d128-r0p055",
+        "dense-half-width-d256-r0p055",
+        "dense-half-width-d512-r0p055-lr085",
+        "dense-half-width-d768-r0p055-lr100",
+        "dense-half-width-d1024-r0p055-lr115"
+      ],
+      "heldout_mape": 0.724500612506498,
+      "model_exponent": 1.1100148180373626,
+      "coupling": 0.08270089486748552,
+      "effective_model_exponent": 0.091799218767859,
+      "law": "L(N,D) = (2063 * N^-1.1100 + 206.4 * D^-1.4175)^0.0827 + 1.5532"
+    }
+  },
+  "canonical_fit_prediction_mape_on_short_arm": 0.8350368045682931,
+  "short_arm_leave_one_width_out": [
+    {
+      "heldout_width": 128,
+      "heldout_ape": 0.13366208180105074,
+      "model_exponent": 1.0953969290444225,
+      "coupling": 0.08018810092472102,
+      "effective_model_exponent": 0.08783779949884363
+    },
+    {
+      "heldout_width": 256,
+      "heldout_ape": 0.00016576272057072805,
+      "model_exponent": 1.1100115292214274,
+      "coupling": 0.08270778145558828,
+      "effective_model_exponent": 0.09180659097202917
+    },
+    {
+      "heldout_width": 512,
+      "heldout_ape": 0.17664911647624326,
+      "model_exponent": 1.051214296276627,
+      "coupling": 0.08570040857020371,
+      "effective_model_exponent": 0.09008949468574612
+    },
+    {
+      "heldout_width": 768,
+      "heldout_ape": 0.050327348931711084,
+      "model_exponent": 1.1027331630642938,
+      "coupling": 0.08241198996265905,
+      "effective_model_exponent": 0.09087843436594585
+    },
+    {
+      "heldout_width": 1024,
+      "heldout_ape": 0.28023527347116534,
+      "model_exponent": 1.0212072743543048,
+      "coupling": 0.08898148578946824,
+      "effective_model_exponent": 0.09086854057105917
+    }
+  ],
+  "short_runs": [
+    {
+      "name": "dense-half-width-d64-r0p055",
+      "width": 64,
+      "ratio": 0.055,
+      "params": 979488,
+      "samples": 2693120,
+      "loss": 3.889359081,
+      "spikes": 0
+    },
+    {
+      "name": "dense-half-width-d128-r0p055",
+      "width": 128,
+      "ratio": 0.055,
+      "params": 2743456,
+      "samples": 7544832,
+      "loss": 3.668101425,
+      "spikes": 0
+    },
+    {
+      "name": "dense-half-width-d256-r0p055",
+      "width": 256,
+      "ratio": 0.055,
+      "params": 8630688,
+      "samples": 23732224,
+      "loss": 3.409629203,
+      "spikes": 0
+    },
+    {
+      "name": "dense-half-width-d512-r0p055-lr085",
+      "width": 512,
+      "ratio": 0.055,
+      "params": 29842336,
+      "samples": 82067456,
+      "loss": 3.16812759,
+      "spikes": 0
+    },
+    {
+      "name": "dense-half-width-d768-r0p055-lr100",
+      "width": 768,
+      "ratio": 0.055,
+      "params": 63636896,
+      "samples": 175005696,
+      "loss": 3.033530889,
+      "spikes": 0
+    },
+    {
+      "name": "dense-half-width-d1024-r0p055-lr115",
+      "width": 1024,
+      "ratio": 0.055,
+      "params": 110014368,
+      "samples": 302546944,
+      "loss": 2.941947915,
+      "spikes": 0
+    }
+  ],
+  "protocol_valid": true
+}

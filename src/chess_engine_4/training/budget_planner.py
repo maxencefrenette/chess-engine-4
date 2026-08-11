@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from chess_engine_4.hardware import hardware_dollars_per_second
+from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.families import FAMILY_SPECS, FamilySpec
 from chess_engine_4.training.scaling_laws import (
     SkalingLaw,
@@ -83,7 +84,7 @@ class BudgetCandidate:
     def command(self) -> str:
         return (
             f"uv run train-modal --config {self.config} --d-model {self.d_model} "
-            f"--training-ratio {self.training_ratio:.8g} --steps {self.steps}"
+            f"--training-ratio {self.training_ratio:.8g}"
         )
 
 
@@ -117,7 +118,7 @@ class RunSuggestion:
     def command(self) -> str:
         return (
             f"uv run train-modal --config {self.config} --d-model {self.d_model} "
-            f"--training-ratio {self.training_ratio:.8g} --steps {self.steps}"
+            f"--training-ratio {self.training_ratio:.8g}"
         )
 
 
@@ -519,51 +520,127 @@ def candidates_for_family(
     fit: FamilyFit,
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
 ) -> list[BudgetCandidate]:
-    with fit.spec.throughput.open("rb") as handle:
-        models = tomllib.load(handle)["models"]
+    models = _throughput_models(fit.spec)
     candidates = []
-    for row in models.values():
+    for (d_model, _), profile in _throughput_profiles(fit.spec).items():
+        row = models.get(f"d{d_model}")
+        if row is None:
+            continue
         if not (
-            fit.observed_width_min <= int(row["d_model"]) <= fit.observed_width_max
+            fit.observed_width_min <= d_model <= fit.observed_width_max
         ):
             continue
-        batch_size = int(row["batch_size"])
-        milliseconds_per_step = float(row["measured_wall_ms_per_step"])
-        rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
-        budget_steps = math.floor(budget / rate * 1000.0 / milliseconds_per_step)
-        sample_steps = assume_samples // batch_size
-        steps = min(budget_steps, sample_steps)
-        if steps <= 0:
-            continue
-        samples = steps * batch_size
-        steps_1x = int(row["steps_1x"])
-        training_ratio = steps / steps_1x
         prediction_ratio_min = fit.observed_ratio_min / ratio_extrapolation_limit
         prediction_ratio_max = fit.observed_ratio_max * ratio_extrapolation_limit
-        if not prediction_ratio_min <= training_ratio <= prediction_ratio_max:
-            continue
-        predicted_loss = _predict_dimensions(row, samples, training_ratio, fit)
-        estimated_cost = steps * milliseconds_per_step / 1000.0 * rate
-        candidates.append(
-            BudgetCandidate(
-                budget=budget,
-                family=fit.spec.family,
-                d_model=int(row["d_model"]),
-                gpu=str(row["gpu"]),
-                batch_size=batch_size,
-                steps=steps,
-                samples=samples,
-                training_ratio=training_ratio,
-                predicted_loss=predicted_loss,
-                estimated_cost=estimated_cost,
-                sample_limited=sample_steps <= budget_steps,
-                extrapolated=not (
-                    fit.observed_ratio_min <= training_ratio <= fit.observed_ratio_max
-                ),
-                config=fit.spec.config,
-            )
+        candidate = _candidate_for_profile_budget(
+            budget,
+            assume_samples=assume_samples,
+            fit=fit,
+            row=row,
+            profile=profile,
+            ratio_min=prediction_ratio_min,
+            ratio_max=prediction_ratio_max,
         )
+        if candidate is not None:
+            candidates.append(candidate)
     return candidates
+
+
+def _candidate_for_profile_budget(
+    budget: float,
+    *,
+    assume_samples: int,
+    fit: FamilyFit,
+    row: dict[str, object],
+    profile: dict[str, object],
+    ratio_min: float,
+    ratio_max: float,
+) -> BudgetCandidate | None:
+    batch_size = int(profile["batch_size"])
+    milliseconds_per_step = float(profile["measured_wall_ms_per_step"])
+    rate = hardware_dollars_per_second(str(profile["gpu"]), int(profile["cpu_cores"]))
+    steps_1x = int(profile["steps_1x"])
+    samples_1x = int(profile["samples_1x"])
+    ratio_cap = min(
+        ratio_max,
+        assume_samples / samples_1x,
+        budget / (steps_1x * milliseconds_per_step / 1000.0 * rate),
+    )
+    if ratio_cap < ratio_min:
+        return None
+
+    config = _highest_matching_recipe_config(
+        fit.spec,
+        d_model=int(row["d_model"]),
+        batch_size=batch_size,
+        ratio_min=ratio_min,
+        ratio_max=ratio_cap,
+    )
+    if config is None:
+        return None
+    steps = config.run.steps
+    samples = steps * batch_size
+    estimated_cost = steps * milliseconds_per_step / 1000.0 * rate
+    if estimated_cost > budget * (1.0 + 1e-12) or samples > assume_samples:
+        return None
+    training_ratio = config.run.training_ratio
+    return BudgetCandidate(
+        budget=budget,
+        family=fit.spec.family,
+        d_model=int(row["d_model"]),
+        gpu=str(profile["gpu"]),
+        batch_size=batch_size,
+        steps=steps,
+        samples=samples,
+        training_ratio=training_ratio,
+        predicted_loss=_predict_dimensions(row, samples, training_ratio, fit),
+        estimated_cost=estimated_cost,
+        sample_limited=math.isclose(ratio_cap, assume_samples / samples_1x),
+        extrapolated=not (
+            fit.observed_ratio_min <= training_ratio <= fit.observed_ratio_max
+        ),
+        config=fit.spec.config,
+    )
+
+
+def _highest_matching_recipe_config(
+    spec: FamilySpec,
+    *,
+    d_model: int,
+    batch_size: int,
+    ratio_min: float,
+    ratio_max: float,
+):
+    # Batch-selection regions are contiguous. A short descending grid locates
+    # the highest valid region; bisection then recovers its upper edge.
+    previous_ratio = ratio_max
+    for ratio in np.geomspace(ratio_max, ratio_min, num=129):
+        try:
+            config = load_training_config(spec.config, d_model=d_model, training_ratio=float(ratio))
+        except ValueError:
+            previous_ratio = float(ratio)
+            continue
+        if config.run.batch_size != batch_size:
+            previous_ratio = float(ratio)
+            continue
+        lower = float(ratio)
+        upper = previous_ratio
+        for _ in range(32):
+            midpoint = (lower + upper) / 2.0
+            try:
+                candidate = load_training_config(
+                    spec.config, d_model=d_model, training_ratio=midpoint
+                )
+            except ValueError:
+                upper = midpoint
+                continue
+            if candidate.run.batch_size == batch_size:
+                lower = midpoint
+                config = candidate
+            else:
+                upper = midpoint
+        return config
+    return None
 
 
 def suggest_runs(
@@ -576,6 +653,7 @@ def suggest_runs(
     fits: list[FamilyFit],
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float = DEFAULT_RATIO_EXTRAPOLATION_LIMIT,
+    allowed_coordinates: frozenset[tuple[int, float]] | None = None,
 ) -> list[RunSuggestion]:
     if count <= 0:
         return []
@@ -597,6 +675,7 @@ def suggest_runs(
         bootstrap_fits=bootstrap_fits,
         ratio_extrapolation_limit=ratio_extrapolation_limit,
         max_predicted_loss=central_target.predicted_loss + MAX_SUGGESTION_LOSS_GAP,
+        allowed_coordinates=allowed_coordinates,
     )
     _, direct_predictions = _budget_action_matrix(
         focus_budget,
@@ -732,6 +811,7 @@ def _suggestion_candidates(
     bootstrap_fits: list[list[FamilyFit]],
     ratio_extrapolation_limit: float,
     max_predicted_loss: float,
+    allowed_coordinates: frozenset[tuple[int, float]] | None = None,
 ) -> list[tuple[BudgetCandidate, np.ndarray, float]]:
     evidence_by_family = {item.spec.family: item for item in evidence}
     ensemble_by_family = [
@@ -742,9 +822,18 @@ def _suggestion_candidates(
         family_evidence = evidence_by_family[fit.spec.family]
         ratio_min = fit.observed_ratio_min / ratio_extrapolation_limit
         ratio_max = fit.observed_ratio_max * ratio_extrapolation_limit
-        for ratio in (value for value in SUGGESTION_RATIOS if ratio_min <= value <= ratio_max):
+        ratios = (
+            SUGGESTION_RATIOS
+            if allowed_coordinates is None
+            else tuple(sorted({ratio for _, ratio in allowed_coordinates}))
+        )
+        for ratio in (value for value in ratios if ratio_min <= value <= ratio_max):
             for row in _throughput_models(fit.spec).values():
                 d_model = int(row["d_model"])
+                if allowed_coordinates is not None and not _is_coordinate_allowed(
+                    allowed_coordinates, d_model, ratio
+                ):
+                    continue
                 if not (
                     fit.observed_width_min <= d_model <= fit.observed_width_max
                 ):
@@ -783,19 +872,30 @@ def _candidate_at_ratio(
     fit: FamilyFit,
     row: dict[str, object],
 ) -> BudgetCandidate | None:
-    steps = round(training_ratio * int(row["steps_1x"]))
-    batch_size = int(row["batch_size"])
+    try:
+        config = load_training_config(
+            fit.spec.config,
+            d_model=int(row["d_model"]),
+            training_ratio=training_ratio,
+        )
+    except ValueError:
+        return None
+    steps = config.run.steps
+    batch_size = config.run.batch_size
     if steps <= 0 or steps * batch_size > assume_samples:
         return None
-    milliseconds_per_step = float(row["measured_wall_ms_per_step"])
-    rate = hardware_dollars_per_second(str(row["gpu"]), int(row["cpu_cores"]))
+    profile = _throughput_profile(fit.spec, int(row["d_model"]), batch_size)
+    if profile is None:
+        return None
+    milliseconds_per_step = float(profile["measured_wall_ms_per_step"])
+    rate = hardware_dollars_per_second(str(profile["gpu"]), int(profile["cpu_cores"]))
     cost = steps * milliseconds_per_step / 1000.0 * rate
     samples = steps * batch_size
     candidate = BudgetCandidate(
         budget=cost,
         family=fit.spec.family,
         d_model=int(row["d_model"]),
-        gpu=str(row["gpu"]),
+        gpu=str(profile["gpu"]),
         batch_size=batch_size,
         steps=steps,
         samples=samples,
@@ -835,10 +935,38 @@ def _throughput_models(spec: FamilySpec) -> dict[str, dict[str, object]]:
         return tomllib.load(handle)["models"]
 
 
+@cache
+def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, object]]:
+    profiles = {}
+    for path in (spec.throughput, *spec.throughput_variants):
+        if not path.exists():
+            continue
+        with path.open("rb") as handle:
+            rows = tomllib.load(handle)["models"].values()
+        for row in rows:
+            profiles[(int(row["d_model"]), int(row["batch_size"]))] = row
+    return profiles
+
+
+def _throughput_profile(
+    spec: FamilySpec, d_model: int, batch_size: int
+) -> dict[str, object] | None:
+    return _throughput_profiles(spec).get((d_model, batch_size))
+
+
 def _is_observed(evidence: FamilyEvidence, d_model: int, ratio: float) -> bool:
     return any(
         width == d_model and math.isclose(observed_ratio, ratio, rel_tol=0.01)
         for width, observed_ratio in evidence.observed_coordinates
+    )
+
+
+def _is_coordinate_allowed(
+    allowed: frozenset[tuple[int, float]], d_model: int, ratio: float
+) -> bool:
+    return any(
+        width == d_model and math.isclose(allowed_ratio, ratio, rel_tol=0.01)
+        for width, allowed_ratio in allowed
     )
 
 

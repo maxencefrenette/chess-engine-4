@@ -30,12 +30,12 @@ def test_read_best_runs() -> None:
     assert all(run.training_ratio == 0.2 for run in best_runs)
 
 
-def test_dense_scaling_points_exclude_d32_and_very_short_runs() -> None:
+def test_dense_scaling_points_include_minimum_safe_width_arm() -> None:
     points = read_dense_scaling_points(Path("experiments/best-runs-dense.toml"))
 
-    assert len(points) == 19
+    assert len(points) == 25
     assert min(params for params, _, _ in points) == 979_488
-    assert all(samples / params >= 4.99 for params, samples, _ in points)
+    assert all(samples / params >= 2.74 for params, samples, _ in points)
 
 
 def test_skaling_inverse_recovers_samples_at_fixed_model_size() -> None:

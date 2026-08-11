@@ -267,6 +267,78 @@ loss_spike_count = 0
 # Current-recipe observations used for the dense Skaling L(N, D) fit. These are
 # intentionally separate from [runs], which remains the canonical 0.2x recipe
 # consumed by compare-run and generate-website-data.
+[scaling_runs.d64-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d64-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/adt7rfr5"
+d_model = 64
+params = 979488
+samples_seen = 2693120
+loss = 3.889359081
+loss_spike_count = 0
+
+[scaling_runs.d128-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d128-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/6avq3le8"
+d_model = 128
+params = 2743456
+samples_seen = 7544832
+loss = 3.668101425
+loss_spike_count = 0
+
+[scaling_runs.d256-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d256-r0p055"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/ufjguuuy"
+d_model = 256
+params = 8630688
+samples_seen = 23732224
+loss = 3.409629203
+loss_spike_count = 0
+
+[scaling_runs.d512-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d512-r0p055-lr085"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/u4c69pip"
+d_model = 512
+params = 29842336
+samples_seen = 82067456
+loss = 3.168127590
+loss_spike_count = 0
+
+[scaling_runs.d768-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d768-r0p055-lr100"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/gk7to9xk"
+d_model = 768
+params = 63636896
+samples_seen = 175005696
+loss = 3.033530889
+loss_spike_count = 0
+
+[scaling_runs.d1024-r0p055]
+training_ratio = 0.055
+source_experiment = "experiments/2026-08-11.01-dense-half-horizon-width-scaling"
+model_kind = "dense"
+run_name = "dense-half-width-d1024-r0p055-lr115"
+wandb_url = "https://wandb.ai/maxence-frenette/chess-engine-4/runs/eaghg0z2"
+d_model = 1024
+params = 110014368
+samples_seen = 302546944
+loss = 2.941947915
+loss_spike_count = 0
+
 [scaling_runs.d64-r0p1]
 training_ratio = 0.1
 source_experiment = "experiments/2026-08-10.01-skaling-law"

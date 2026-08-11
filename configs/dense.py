@@ -18,7 +18,18 @@ _BASE_WIDTH = 64
 _BF16_MAX_WIDTH = 512
 _DEPTH = 8
 _SAMPLES_PER_PARAMETER = 50.0
-_BATCH_PER_WIDTH = 32
+_BATCH32_PER_WIDTH = 32
+_MINIMUM_STEPS_COEFFICIENT = 62.7575303963433
+_MINIMUM_STEPS_WIDTH_EXPONENT = 0.8073049254601639
+_BATCH16_LR_MULTIPLIER_BY_WIDTH = {
+    64: 0.85,
+    128: 0.85,
+    256: 0.85,
+    512: 0.85,
+    768: 1.00,
+    1024: 1.15,
+    1280: 1.30,
+}
 _LR_PARAMETER_COEFFICIENT = 31.75
 _LR_PARAMETER_EXPONENT = -0.74
 _LR_TRAINING_RATIO_EXPONENT = -0.63
@@ -61,7 +72,6 @@ def config(
         raise ValueError("history_length must be in [1, 8].")
 
     depth = _DEPTH
-    batch_size = _BATCH_PER_WIDTH * d_model
     parameter_count = dense_parameter_count(
         d_model=d_model,
         depth=depth,
@@ -69,11 +79,36 @@ def config(
         expansion_ratio=4.0,
         activation="swiglu",
     )
+    batch32 = _BATCH32_PER_WIDTH * d_model
+    steps32 = round(
+        training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch32
+    )
+    minimum_steps = _minimum_steps(d_model)
+    if steps32 >= minimum_steps:
+        batch_size = batch32
+        steps = steps32
+        lr_multiplier = 1.0
+    else:
+        batch_size = batch32 // 2
+        steps = steps32 * 2
+        if steps < minimum_steps:
+            raise ValueError(
+                f"training_ratio={training_ratio:g} gives only {steps:,} optimizer "
+                f"steps at the minimum dense batch for d_model={d_model}; "
+                f"the fitted minimum is {minimum_steps:,.1f}."
+            )
+        lr_multiplier = _BATCH16_LR_MULTIPLIER_BY_WIDTH[d_model]
+    base_lr = _round_significant(
+        _LR_PARAMETER_COEFFICIENT
+        * parameter_count**_LR_PARAMETER_EXPONENT
+        * training_ratio**_LR_TRAINING_RATIO_EXPONENT,
+        digits=2,
+    )
     return TrainingConfig(
         run=RunConfig(
             name=_run_name(d_model, training_ratio),
             seed=1,
-            steps=round(training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch_size),
+            steps=steps,
             batch_size=batch_size,
             training_ratio=training_ratio,
         ),
@@ -94,12 +129,7 @@ def config(
             input_pipeline=_INPUT_PIPELINE_BY_WIDTH[d_model],
         ),
         optimizer=OptimizerConfig(
-            lr=_round_significant(
-                _LR_PARAMETER_COEFFICIENT
-                * parameter_count**_LR_PARAMETER_EXPONENT
-                * training_ratio**_LR_TRAINING_RATIO_EXPONENT,
-                digits=2,
-            ),
+            lr=base_lr * lr_multiplier,
             weight_decay=0.01,
             max_grad_norm=1.0,
             lr_warmup_steps=0,
@@ -113,6 +143,10 @@ def _run_name(d_model: int, training_ratio: float) -> str:
     if training_ratio == 1.0:
         return f"d{d_model}"
     return f"d{d_model}-r{training_ratio:g}"
+
+
+def _minimum_steps(d_model: int) -> float:
+    return _MINIMUM_STEPS_COEFFICIENT * d_model**_MINIMUM_STEPS_WIDTH_EXPONENT
 
 
 def _round_significant(value: float, *, digits: int) -> float:

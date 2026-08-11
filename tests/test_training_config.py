@@ -613,6 +613,101 @@ def test_dense_family_scales_training_horizon() -> None:
     assert undertrained.optimizer.lr == 0.0013
 
 
+def test_dense_family_uses_batch16_below_fitted_step_cutoff() -> None:
+    parameter_count = dense_parameter_count(
+        d_model=1024,
+        depth=8,
+        expansion_ratio=4.0,
+        activation="swiglu",
+    )
+    batch32 = 32_768
+    steps32 = 12_000
+    training_ratio = steps32 * batch32 / (50 * parameter_count)
+
+    config = load_training_config(
+        "configs/dense.py",
+        d_model=1024,
+        training_ratio=training_ratio,
+    )
+
+    assert config.run.batch_size == batch32 // 2
+    assert config.run.steps == steps32 * 2
+    assert config.run.batch_size * config.run.steps == batch32 * steps32
+    assert config.optimizer.lr == pytest.approx(0.00019 * 1.15)
+
+
+def test_dense_family_keeps_batch32_above_fitted_step_cutoff() -> None:
+    parameter_count = dense_parameter_count(
+        d_model=1024,
+        depth=8,
+        expansion_ratio=4.0,
+        activation="swiglu",
+    )
+    batch32 = 32_768
+    steps32 = 17_000
+    training_ratio = steps32 * batch32 / (50 * parameter_count)
+
+    config = load_training_config(
+        "configs/dense.py",
+        d_model=1024,
+        training_ratio=training_ratio,
+    )
+
+    assert config.run.batch_size == batch32
+    assert config.run.steps == steps32
+    assert config.run.batch_size * config.run.steps == batch32 * steps32
+
+
+def test_dense_family_rejects_horizon_below_fitted_step_cutoff() -> None:
+    parameter_count = dense_parameter_count(
+        d_model=1024,
+        depth=8,
+        expansion_ratio=4.0,
+        activation="swiglu",
+    )
+    steps32 = 8_000
+    training_ratio = steps32 * 32_768 / (50 * parameter_count)
+
+    with pytest.raises(ValueError, match="fitted minimum"):
+        load_training_config(
+            "configs/dense.py",
+            d_model=1024,
+            training_ratio=training_ratio,
+        )
+
+
+def test_dense_family_uses_tuned_d1280_batch16_lr_multiplier() -> None:
+    batch32 = 32 * 1280
+    training_ratio = 0.0698120891268
+
+    config = load_training_config(
+        "configs/dense.py",
+        d_model=1280,
+        training_ratio=training_ratio,
+    )
+
+    assert config.run.batch_size == batch32 // 2
+    assert config.run.steps == 28_800
+    assert config.optimizer.lr == pytest.approx(0.00014 * 1.30)
+
+
+@pytest.mark.parametrize(
+    ("d_model", "expected_lr"),
+    [(512, 0.000493), (768, 0.00033), (1024, 0.000253)],
+)
+def test_dense_family_uses_stable_short_horizon_batch16_lr(
+    d_model: int, expected_lr: float
+) -> None:
+    config = load_training_config(
+        "configs/dense.py",
+        d_model=d_model,
+        training_ratio=0.055,
+    )
+
+    assert config.run.batch_size < 32 * d_model
+    assert config.optimizer.lr == pytest.approx(expected_lr)
+
+
 def test_dense_family_recomputes_recipe_for_history_length() -> None:
     full = load_training_config("configs/dense.py", d_model=128, history_length=8)
     shortened = load_training_config("configs/dense.py", d_model=128, history_length=2)
