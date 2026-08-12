@@ -107,5 +107,8 @@ allowed-unresolved-imports = [
     "transformer_engine.**",
 ]
 
+[tool.ty.rules]
+unsound-return-statement = "error"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -80,9 +80,12 @@ def hyperball_radius(parameter: torch.Tensor) -> torch.Tensor:
 
     value = parameter.detach().float()
     if value.ndim == 2:
-        return torch.linalg.vector_norm(value)
+        return cast(torch.Tensor, torch.linalg.vector_norm(value))
     if value.ndim == 3:
-        return torch.linalg.vector_norm(value, dim=(-2, -1), keepdim=True)
+        return cast(
+            torch.Tensor,
+            torch.linalg.vector_norm(value, dim=(-2, -1), keepdim=True),
+        )
     raise ValueError("Hyperball parameters must be 2-D matrices or stacked 3-D matrices.")
 
 
@@ -326,4 +329,4 @@ def optimizer_metrics(optimizer: torch.optim.Optimizer) -> dict[str, float | int
     """Return optional optimizer diagnostics without coupling the training loop to AdamH."""
 
     metrics = getattr(optimizer, "metrics", None)
-    return metrics() if callable(metrics) else {}
+    return cast(dict[str, float | int], metrics()) if callable(metrics) else {}

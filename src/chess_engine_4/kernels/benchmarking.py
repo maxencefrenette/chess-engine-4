@@ -72,7 +72,7 @@ def cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
         for _ in range(warmup):
             function()
         torch.cuda.synchronize()
-        samples = []
+        samples: list[float] = []
         for _ in range(iterations):
             start = torch.cuda.Event(enable_timing=True)
             end = torch.cuda.Event(enable_timing=True)
@@ -81,7 +81,7 @@ def cuda_time(function: Any, *, warmup: int, iterations: int) -> float:
             end.record()
             end.synchronize()
             samples.append(start.elapsed_time(end))
-    return statistics.median(samples)
+    return float(statistics.median(samples))
 
 
 def cuda_time_backward(
@@ -99,7 +99,7 @@ def cuda_time_backward(
     for _ in range(warmup):
         torch.autograd.grad(build_output(), inputs, gradient)
     torch.cuda.synchronize()
-    samples = []
+    samples: list[float] = []
     for _ in range(iterations):
         output = build_output()
         start = torch.cuda.Event(enable_timing=True)
@@ -109,4 +109,4 @@ def cuda_time_backward(
         end.record()
         end.synchronize()
         samples.append(start.elapsed_time(end))
-    return statistics.median(samples)
+    return float(statistics.median(samples))

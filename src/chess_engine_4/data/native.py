@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from pathlib import Path
+from typing import Any, cast
 
 import torch
 
 
-def _load_native_module():
+def _load_native_module() -> Any:
     try:
         import chess_engine_4_native
     except ImportError as error:
@@ -45,7 +46,10 @@ def iter_native_packed_batches(
             torch.from_numpy(value),
         )
 
-    return map(as_torch_batch, native_iter)
+    return cast(
+        Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]],
+        map(as_torch_batch, native_iter),
+    )
 
 
 def iter_native_parquet_batches(
@@ -68,21 +72,30 @@ def iter_native_parquet_batches(
     def as_torch_batch(batch):
         return tuple(torch.from_numpy(array) for array in batch)
 
-    return map(as_torch_batch, native_iter)
+    return cast(
+        Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]],
+        map(as_torch_batch, native_iter),
+    )
 
 
 def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tuple[int, int, int]:
     native = _load_native_module()
-    return native.convert_lc0_tar_to_parquet(str(input_path), str(output_path))
+    return cast(
+        tuple[int, int, int],
+        native.convert_lc0_tar_to_parquet(str(input_path), str(output_path)),
+    )
 
 
 def native_parquet_row_counts(paths: Sequence[Path]) -> list[tuple[str, int]]:
     native = _load_native_module()
-    return native.parquet_row_counts([str(path) for path in paths])
+    return cast(list[tuple[str, int]], native.parquet_row_counts([str(path) for path in paths]))
 
 
 def inspect_native_lc0_tars(
     paths: Sequence[Path],
 ) -> tuple[list[tuple[str, int, int]], int]:
     native = _load_native_module()
-    return native.inspect_lc0_tars([str(path) for path in paths])
+    return cast(
+        tuple[list[tuple[str, int, int]], int],
+        native.inspect_lc0_tars([str(path) for path in paths]),
+    )

@@ -119,7 +119,8 @@ class DenseBlock(nn.Module):
                 precision=self.precision,
                 eps=self.rms_norm_eps,
             )
-        return x + self.layer(x)
+        output = self.layer(x)
+        return x + cast(torch.Tensor, output)
 
     def enable_custom_kernels(self) -> None:
         from chess_engine_4.kernels.capabilities import require_dense_model_shape

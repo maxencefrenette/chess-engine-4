@@ -34,6 +34,8 @@ REMOTE_CHECKPOINT_PATH = Path(REMOTE_ARTIFACT_PATH) / "checkpoints"
 DEFAULT_CONFIG_PATH = Path("configs/dense.py")
 CHECKPOINT_EVERY_STEPS = 50_000
 
+type TrainingResultValue = float | int | str | None | list[list[int]] | dict[str, float]
+
 app = modal.App(APP_NAME)
 data_volume = modal.Volume.from_name(DATA_VOLUME_NAME, create_if_missing=True)
 artifact_volume = modal.Volume.from_name(ARTIFACT_VOLUME_NAME, create_if_missing=True)
@@ -132,7 +134,7 @@ def train_modal() -> None:
     )
 
 
-def _run_training_remote(payload: dict[str, Any]) -> dict[str, float | int | str]:
+def _run_training_remote(payload: dict[str, Any]) -> dict[str, TrainingResultValue]:
     import os
 
     from chess_engine_4.training.cli import TrainOptions, run_training

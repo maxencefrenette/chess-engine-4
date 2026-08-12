@@ -143,4 +143,4 @@ def _run_name(d_model: int, training_ratio: float) -> str:
 
 
 def _minimum_steps(d_model: int) -> float:
-    return _MINIMUM_STEPS_COEFFICIENT * d_model**_MINIMUM_STEPS_WIDTH_EXPONENT
+    return float(_MINIMUM_STEPS_COEFFICIENT * d_model**_MINIMUM_STEPS_WIDTH_EXPONENT)

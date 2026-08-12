@@ -53,7 +53,8 @@ class _DenseBlock(nn.Module):
             hidden = F.relu(projected).square()
         else:
             raise ValueError(f"unsupported activation: {self.activation}")
-        return x + self.down(hidden)
+        output = self.down(hidden)
+        return x + cast(torch.Tensor, output)
 
 
 class PortableChessNet(nn.Module):
@@ -132,7 +133,8 @@ class _PortableMoeFlopsBlock(nn.Module):
                 expert.down(_activate(expert.gate_up(normalized), expert.activation))
             )
         expert_outputs = torch.stack(expert_output_list, dim=1)
-        return x + (expert_outputs * route_probs.unsqueeze(-1)).sum(dim=1)
+        output = x + (expert_outputs * route_probs.unsqueeze(-1)).sum(dim=1)
+        return cast(torch.Tensor, output)
 
 
 def _activate(projected: torch.Tensor, activation: str) -> torch.Tensor:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 import torch
 from torch import nn
@@ -221,7 +221,7 @@ class MoeBlock(nn.Module):
             restore_shape=x.shape,
             pad_offsets=pad_offsets,
         )
-        return routed, tokens_per_expert
+        return cast(torch.Tensor, routed), tokens_per_expert
 
     def _run_experts_static(
         self,
@@ -284,7 +284,7 @@ class MoeBlock(nn.Module):
             ACTIVE_EXPERT_COUNT,
             self.d_model,
         )
-        return routed.sum(dim=1), tokens_per_expert
+        return cast(torch.Tensor, routed.sum(dim=1)), tokens_per_expert
 
     def enable_custom_kernels(self) -> None:
         from chess_engine_4.kernels.capabilities import require_moe_model_shape

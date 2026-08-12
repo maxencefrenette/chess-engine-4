@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -171,7 +171,7 @@ def dense_block_trainable(
 ) -> torch.Tensor:
     """Run the custom forward and explicit low-precision backward."""
 
-    return _DenseBlockFunction.apply(
+    output = _DenseBlockFunction.apply(
         x,
         norm_weight,
         gate_up_weight,
@@ -179,6 +179,7 @@ def dense_block_trainable(
         eps,
         precision,
     )
+    return cast(torch.Tensor, output)
 
 
 class _DenseBlockFunction(torch.autograd.Function):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -55,13 +55,14 @@ def moe_trainable(
 ) -> torch.Tensor:
     """Evaluate a supported expert MLP with its specialized BF16 backward."""
 
-    return _MoeFunction.apply(
+    output = _MoeFunction.apply(
         x,
         gate_up_weight,
         down_weight,
         route_probs,
         expert_offsets,
     )
+    return cast(torch.Tensor, output)
 
 
 class _MoeFunction(torch.autograd.Function):

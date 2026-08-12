@@ -41,7 +41,7 @@ class PowerLaw:
     slope: float
 
     def predict(self, x: float) -> float:
-        return 10 ** (self.intercept + self.slope * math.log10(x))
+        return float(10 ** (self.intercept + self.slope * math.log10(x)))
 
     def format(self, variable: str, input_variable: str = "C") -> str:
         return f"{variable} = {10**self.intercept:.4g} * {input_variable}^{self.slope:.4f}"
@@ -84,7 +84,7 @@ class SkalingLaw:
             self.model_coefficient * model_size ** (-self.model_exponent)
             + self.data_coefficient * data ** (-self.data_exponent)
         )
-        return inner**self.coupling + self.floor
+        return float(inner**self.coupling + self.floor)
 
     def format(self) -> str:
         return (
@@ -105,7 +105,7 @@ class SkalingLaw:
         data_term = reducible - self.model_coefficient * model_size ** (-self.model_exponent)
         if data_term <= 0:
             return math.inf
-        return 1e8 * (self.data_coefficient / data_term) ** (1.0 / self.data_exponent)
+        return float(1e8 * (self.data_coefficient / data_term) ** (1.0 / self.data_exponent))
 
 
 def read_scaling_points(

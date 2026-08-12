@@ -394,7 +394,7 @@ def _run_selfplay_eval_remote(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
     command = [
-        payload["lc0_path"],
+        str(payload["lc0_path"]),
         "selfplay",
         f"--games={payload['games']}",
         f"--openings-pgn={payload.get('opening_book', OPENING_BOOK_PATH)}",
@@ -424,7 +424,7 @@ def _selfplay_command(payload: dict[str, Any], results_path: Path) -> list[str]:
             ]
         )
         for player_name in ("player1", "player2"):
-            backend = payload[player_name]["backend"]
+            backend = str(payload[player_name]["backend"])
             command.extend(
                 [
                     f"--{player_name}.backend=multiplexing",

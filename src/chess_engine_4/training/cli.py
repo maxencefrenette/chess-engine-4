@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -42,6 +42,9 @@ _POLICY_TOP1_EMA_DECAY = 0.9
 _LOSS_TASK_EMA_KEY = "loss/task[ema=0.99]"
 _POLICY_TOP1_EMA_KEY = "metrics/policy_top1[ema=0.9]"
 
+type TrainingResultValue = float | int | str | None | list[list[int]] | dict[str, float]
+type TrainingResult = dict[str, TrainingResultValue]
+
 
 @dataclass(frozen=True, slots=True)
 class TrainOptions:
@@ -57,7 +60,7 @@ class TrainOptions:
     trace_path: Path | None = None
 
 
-def run_training(options: TrainOptions) -> dict[str, Any]:
+def run_training(options: TrainOptions) -> TrainingResult:
     config = options.config
     validate_training_hardware(config)
     if options.trace_path is not None and options.profile is None:
@@ -420,7 +423,7 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
                 theoretical_tflops=theoretical_tflops,
             )
         )
-    return result
+    return cast(TrainingResult, result)
 
 
 def _enable_custom_kernels(model: torch.nn.Module) -> None:
@@ -566,12 +569,13 @@ def _build_optimizer(
         return AdamHyperball(model, lr=config.optimizer.lr)
     if config.optimizer.weight_decay is None:
         raise ValueError("AdamW requires weight_decay.")
-    return te().optimizers.FusedAdam(
+    optimizer = te().optimizers.FusedAdam(
         _adamw_parameter_groups(model, weight_decay=config.optimizer.weight_decay),
         lr=config.optimizer.lr,
         master_weights=True,
         master_weight_dtype=torch.float32,
     )
+    return cast(torch.optim.Optimizer, optimizer)
 
 
 def _theoretical_tflops(
@@ -733,7 +737,8 @@ def _gradient_norm_tensor(model: torch.nn.Module) -> torch.Tensor:
     ]
     if not norms:
         return torch.tensor(0.0)
-    return torch.linalg.vector_norm(torch.stack(norms), 2)
+    norm = torch.linalg.vector_norm(torch.stack(norms), 2)
+    return cast(torch.Tensor, norm)
 
 
 def _training_metrics(
@@ -767,7 +772,7 @@ def _training_metrics(
     q_mse = torch.square(q_pred - q_target).mean()
     moves_left_mae = torch.abs(output.moves_left - root[:, 2]).mean()
     samples_per_sec = samples_seen / elapsed if elapsed > 0 else 0.0
-    metrics = {
+    metrics: dict[str, float | int] = {
         "loss": loss.task.item(),
         "loss/task": loss.task.item(),
         "loss/task/policy": loss.policy.item(),

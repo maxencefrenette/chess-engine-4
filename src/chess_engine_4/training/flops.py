@@ -51,7 +51,7 @@ def measure_training_flops_per_sample(config: ModelConfig, *, batch_size: int) -
         ).task
         loss.backward()
 
-    flops = sum(event.flops or 0 for event in profiler.key_averages())
+    flops = sum(int(event.flops or 0) for event in profiler.key_averages())
     if flops <= 0:
         raise RuntimeError("PyTorch profiler did not report FLOPs for the training step.")
     return math.ceil(flops / profile_batch_size)
