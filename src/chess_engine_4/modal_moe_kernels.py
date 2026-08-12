@@ -88,8 +88,12 @@ def _benchmark_custom(
     correctness_tensors = tuple(
         tensor.detach().clone().requires_grad_(True) for tensor in correctness[:4]
     )
+    x, gate_up_weight, down_weight, route_probs = correctness_tensors
     custom_output = moe_trainable(
-        *correctness_tensors,
+        x,
+        gate_up_weight,
+        down_weight,
+        route_probs,
         correctness[4],
     )
     reference_tensors = tuple(

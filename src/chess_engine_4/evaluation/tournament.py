@@ -9,7 +9,7 @@ import re
 import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -336,7 +336,7 @@ def _pentanomial(pair_scores: tuple[int, ...]) -> tuple[int, int, int, int, int]
     counts = [0, 0, 0, 0, 0]
     for score in pair_scores:
         counts[score] += 1
-    return tuple(counts)  # type: ignore[return-value]
+    return cast(tuple[int, int, int, int, int], tuple(counts))
 
 
 def _cluster_robust_covariance(
@@ -620,34 +620,33 @@ def _load_completed_matches(
         raise ValueError("Existing tournament output does not match the tournament config.")
     if payload["engines"] != [asdict(engine) for engine in engines]:
         raise ValueError("Existing tournament output does not match the configured engines.")
-    return [
-        MatchResult(
-            **{
-                **match,
-                "pentanomial": (
-                    tuple(match["pentanomial"])
-                    if match.get("pentanomial") is not None
-                    else None
-                ),
-                "pair_scores": (
-                    tuple(match["pair_scores"])
-                    if match.get("pair_scores") is not None
-                    else None
-                ),
-                "opening_ids": (
-                    tuple(match["opening_ids"])
-                    if match.get("opening_ids") is not None
-                    else None
-                ),
-                "ce4_batch_stats": (
-                    tuple(match["ce4_batch_stats"])
-                    if match.get("ce4_batch_stats") is not None
-                    else None
-                ),
-            }
-        )
-        for match in payload["matches"]
-    ]
+    completed = []
+    for match in payload["matches"]:
+        values: dict[str, Any] = {
+            **match,
+            "pentanomial": (
+                tuple(match["pentanomial"])
+                if match.get("pentanomial") is not None
+                else None
+            ),
+            "pair_scores": (
+                tuple(match["pair_scores"])
+                if match.get("pair_scores") is not None
+                else None
+            ),
+            "opening_ids": (
+                tuple(match["opening_ids"])
+                if match.get("opening_ids") is not None
+                else None
+            ),
+            "ce4_batch_stats": (
+                tuple(match["ce4_batch_stats"])
+                if match.get("ce4_batch_stats") is not None
+                else None
+            ),
+        }
+        completed.append(MatchResult(**values))
+    return completed
 
 
 def _write_report(output: Path, report: dict[str, Any]) -> None:

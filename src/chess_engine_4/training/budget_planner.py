@@ -8,6 +8,7 @@ import tomllib
 from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -556,7 +557,7 @@ def plan_budget(
         ratio_extrapolation_limit=ratio_extrapolation_limit,
         max_d_model=max_d_model,
     )
-    return min(candidates, key=lambda candidate: candidate.predicted_loss, default=None)
+    return min(candidates, key=lambda candidate: candidate.predicted_loss) if candidates else None
 
 
 def _all_budget_candidates(
@@ -619,8 +620,8 @@ def _candidate_for_profile_budget(
     *,
     assume_samples: int,
     fit: FamilyFit,
-    row: dict[str, object],
-    profile: dict[str, object],
+    row: dict[str, Any],
+    profile: dict[str, Any],
     ratio_min: float,
     ratio_max: float,
 ) -> BudgetCandidate | None:
@@ -952,7 +953,7 @@ def _candidate_at_ratio(
     *,
     assume_samples: int,
     fit: FamilyFit,
-    row: dict[str, object],
+    row: dict[str, Any],
     max_d_model: int,
 ) -> BudgetCandidate | None:
     config = _planning_config(
@@ -1006,7 +1007,7 @@ def _fit_noise(fit: FamilyFit) -> float:
 
 
 @cache
-def _throughput_models(spec: FamilySpec) -> dict[str, dict[str, object]]:
+def _throughput_models(spec: FamilySpec) -> dict[str, dict[str, Any]]:
     with spec.throughput.open("rb") as handle:
         return tomllib.load(handle)["models"]
 
@@ -1014,7 +1015,7 @@ def _throughput_models(spec: FamilySpec) -> dict[str, dict[str, object]]:
 @cache
 def _planning_models(
     spec: FamilySpec, *, max_d_model: int
-) -> dict[str, dict[str, object]]:
+) -> dict[str, dict[str, Any]]:
     models = {name: dict(row) for name, row in _throughput_models(spec).items()}
     if spec.family != "dense":
         return models
@@ -1043,7 +1044,7 @@ def _planning_models(
 
 
 @cache
-def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, object]]:
+def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, Any]]:
     profiles = {}
     for path in (spec.throughput, *spec.throughput_variants):
         if not path.exists():
@@ -1058,7 +1059,7 @@ def _throughput_profiles(spec: FamilySpec) -> dict[tuple[int, int], dict[str, ob
 @cache
 def _planning_profiles(
     spec: FamilySpec, *, max_d_model: int
-) -> dict[tuple[int, int], dict[str, object]]:
+) -> dict[tuple[int, int], dict[str, Any]]:
     profiles = {key: dict(row) for key, row in _throughput_profiles(spec).items()}
     if spec.family != "dense":
         return profiles

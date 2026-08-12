@@ -236,7 +236,10 @@ class AdamHyperball(torch.optim.Optimizer):
         eligible_grads = [parameter.grad for parameter in self._eligible]
         if any(grad is None for grad in eligible_grads):
             raise RuntimeError("AdamH eligible matrix is missing its gradient.")
-        torch._foreach_copy_(self._grad_views, eligible_grads)  # type: ignore[arg-type]
+        torch._foreach_copy_(
+            self._grad_views,
+            [grad for grad in eligible_grads if grad is not None],
+        )
 
         self._step += 1
         beta2 = self._betas[1]

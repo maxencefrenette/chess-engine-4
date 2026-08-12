@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import fields
-from typing import Any
+from typing import Any, cast
 
 from chess_engine_4.data.leela import BOARD_SIZE, INPUT_PLANE_COUNT, POLICY_SIZE
 from chess_engine_4.model.dense import DenseChessNet, DenseChessNetConfig, dense_parameter_count
@@ -69,7 +69,7 @@ def _build_model_section[ConfigT](
     *,
     section_name: str,
 ) -> ConfigT:
-    field_names = {field.name for field in fields(section_type)}
+    field_names = {field.name for field in fields(cast(Any, section_type))}
     unknown = sorted(set(values) - field_names)
     if unknown:
         unknown_names = ", ".join(unknown)

@@ -11,3 +11,7 @@ run = "uv run pytest"
 [tasks.lint]
 description = "Run lint checks."
 run = "uv run ruff check ."
+
+[tasks.typecheck]
+description = "Run Python type checks."
+run = "uv run ty check"

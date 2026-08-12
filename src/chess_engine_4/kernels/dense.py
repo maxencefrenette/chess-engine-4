@@ -217,8 +217,9 @@ class _DenseBlockFunction(torch.autograd.Function):
     @staticmethod
     def backward(
         ctx: Any,
-        grad_output: torch.Tensor,
+        *grad_outputs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None, None]:
+        (grad_output,) = grad_outputs
         (
             x,
             norm_weight,

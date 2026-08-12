@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -123,13 +125,13 @@ class _PortableMoeFlopsBlock(nn.Module):
         route_probs = self.router(normalized)[:, :EXPERT_COUNT].softmax(dim=-1)
         route_probs = route_probs[:, :ACTIVE_EXPERT_COUNT]
         route_probs = route_probs / route_probs.sum(dim=-1, keepdim=True)
-        expert_outputs = torch.stack(
-            [
+        expert_output_list = []
+        for module in self.experts:
+            expert = cast(_DenseBlock, module)
+            expert_output_list.append(
                 expert.down(_activate(expert.gate_up(normalized), expert.activation))
-                for expert in self.experts
-            ],
-            dim=1,
-        )
+            )
+        expert_outputs = torch.stack(expert_output_list, dim=1)
         return x + (expert_outputs * route_probs.unsqueeze(-1)).sum(dim=1)
 
 

@@ -59,6 +59,7 @@ dev = [
     "maturin>=1.13.3",
     "pytest>=8.3",
     "ruff>=0.9",
+    "ty>=0.0.70",
 ]
 
 [build-system]
@@ -87,6 +88,23 @@ select = [
     "C4",
     "PIE",
     "PERF",
+]
+
+[tool.ty.src]
+include = [
+    "configs",
+    "reference",
+    "scripts",
+    "src",
+    "tests",
+    "*.py",
+]
+
+[tool.ty.analysis]
+allowed-unresolved-imports = [
+    "chess_engine_4_native",
+    "pybind11",
+    "transformer_engine.**",
 ]
 
 [tool.pytest.ini_options]

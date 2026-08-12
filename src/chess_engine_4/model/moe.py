@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import torch
 from torch import nn
@@ -122,23 +122,24 @@ class MoeBlock(nn.Module):
         self.hidden_dim = hidden_dim
         self.cuda_graph_compatible = config.cuda_graph_compatible
         self._custom_kernels_enabled = False
-        self.norm = transformer_engine.RMSNorm(
+        self.norm: Any = transformer_engine.RMSNorm(
             config.d_model,
             eps=config.rms_norm_eps,
             params_dtype=torch.bfloat16,
         )
-        self.router = transformer_engine.Linear(
+        self.router: Any = transformer_engine.Linear(
             config.d_model,
             # TE requires this projection's output dimension to be MXFP8-aligned.
             ROUTER_OUTPUT_SIZE,
             bias=False,
             params_dtype=torch.bfloat16,
         )
+        self.router_qb_beta: torch.Tensor
         self.register_buffer(
             "router_qb_beta",
             torch.zeros(EXPERT_COUNT, dtype=torch.float32),
         )
-        self.experts = transformer_engine.ops.Sequential(
+        self.experts: Any = transformer_engine.ops.Sequential(
             transformer_engine.ops.GroupedLinear(
                 EXPERT_COUNT,
                 config.d_model,

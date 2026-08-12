@@ -54,6 +54,7 @@ change, run:
 ```sh
 uv run pytest -q
 uv run ruff check .
+uv run ty check
 pnpm --dir website lint
 pnpm --dir website build
 git diff --check

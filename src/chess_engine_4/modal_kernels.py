@@ -10,6 +10,7 @@ from chess_engine_4.kernels.benchmarking import (
     cuda_time_backward,
     tensor_metrics,
 )
+from chess_engine_4.model.config import Precision
 
 KERNEL_NAME = "dense-custom"
 MIN_COSINE_SIMILARITY = 0.999
@@ -21,7 +22,7 @@ def benchmark_dense_layer(
     *,
     d_model: int,
     batch_size: int,
-    precision: str,
+    precision: Precision,
     warmup: int,
     iterations: int,
 ) -> dict[str, Any]:

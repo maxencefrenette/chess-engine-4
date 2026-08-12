@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 type TrainingGpu = Literal["A100", "H100", "H200", "B200", "RTX-PRO-6000"]
 
@@ -45,7 +45,7 @@ CPU_DOLLARS_PER_CORE_SECOND = 0.0000131
 
 def gpu_spec(gpu: str) -> GpuSpec:
     try:
-        return GPU_SPECS[gpu]  # type: ignore[index]
+        return GPU_SPECS[cast(TrainingGpu, gpu)]
     except KeyError as error:
         raise ValueError(f"Unsupported training GPU {gpu!r}.") from error
 

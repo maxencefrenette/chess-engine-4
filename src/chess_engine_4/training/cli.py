@@ -16,7 +16,7 @@ from chess_engine_4.data.leela import (
     LeelaParquetDataset,
 )
 from chess_engine_4.hardware import gpu_spec
-from chess_engine_4.model import build_model
+from chess_engine_4.model import Moe64A2ChessNetConfig, build_model
 from chess_engine_4.model.transformer_engine import autocast_context, te
 from chess_engine_4.training.config import (
     TrainingConfig,
@@ -349,11 +349,13 @@ def run_training(options: TrainOptions) -> dict[str, Any]:
             trace_profiler.step()
             if step == steps:
                 trace_profiler.stop()
+                assert options.trace_path is not None
                 options.trace_path.parent.mkdir(parents=True, exist_ok=True)
                 trace_profiler.export_chrome_trace(str(options.trace_path))
                 trace_profiler = None
     if trace_profiler is not None:
         trace_profiler.stop()
+        assert options.trace_path is not None
         options.trace_path.parent.mkdir(parents=True, exist_ok=True)
         trace_profiler.export_chrome_trace(str(options.trace_path))
     if options.checkpoint_dir is not None and completed_steps > 0 and not final_checkpoint_saved:
@@ -702,7 +704,7 @@ def _init_wandb(
         "moves_left_loss_weight": config.loss.moves_left,
         "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
     }
-    if config.model.kind == "moe64a2":
+    if isinstance(config.model, Moe64A2ChessNetConfig):
         wandb_config["num_experts"] = config.model.num_experts
         wandb_config["num_active_experts"] = config.model.num_active_experts
     return wandb.init(

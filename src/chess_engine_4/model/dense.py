@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import torch
 from torch import nn
@@ -196,7 +197,7 @@ class DenseChessNet(nn.Module):
 
     def enable_custom_kernels(self) -> None:
         for block in self.blocks:
-            block.enable_custom_kernels()
+            cast(DenseBlock, block).enable_custom_kernels()
 
 
 def dense_parameter_count(

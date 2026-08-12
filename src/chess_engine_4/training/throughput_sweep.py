@@ -15,6 +15,7 @@ import tomli_w
 from chess_engine_4.hardware import (
     CPU_DOLLARS_PER_CORE_SECOND,
     TRAINING_GPUS,
+    TrainingGpu,
     gpu_spec,
     hardware_dollars_per_second,
 )
@@ -25,6 +26,7 @@ from chess_engine_4.modal_train import (
     training_function,
 )
 from chess_engine_4.model import model_parameter_count
+from chess_engine_4.model.config import KernelBackend, Precision
 from chess_engine_4.training.config import (
     TrainingConfig,
     load_training_config,
@@ -157,11 +159,11 @@ def throughput_sweep() -> None:
 def _benchmark_config(
     config: TrainingConfig,
     *,
-    gpu: str | None,
+    gpu: TrainingGpu | None,
     batch_size: int | None,
     batch_divisor: int,
-    quantization_recipe: str | None,
-    kernel_backend: str | None,
+    quantization_recipe: Precision | None,
+    kernel_backend: KernelBackend | None,
 ) -> TrainingConfig:
     if batch_divisor <= 0:
         raise ValueError("batch_divisor must be positive")

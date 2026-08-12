@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 
 from chess_engine_4.kernels.capabilities import (
@@ -65,7 +67,7 @@ def moe_trainable(
 class _MoeFunction(torch.autograd.Function):
     @staticmethod
     def forward(
-        ctx: object,
+        ctx: Any,
         x: torch.Tensor,
         gate_up_weight: torch.Tensor,
         down_weight: torch.Tensor,
@@ -101,9 +103,10 @@ class _MoeFunction(torch.autograd.Function):
 
     @staticmethod
     def backward(
-        ctx: object,
-        grad_output: torch.Tensor,
+        ctx: Any,
+        *grad_outputs: Any,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, None]:
+        (grad_output,) = grad_outputs
         (
             x,
             gate_up_weight,

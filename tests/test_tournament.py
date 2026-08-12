@@ -2,6 +2,7 @@ import json
 import math
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -54,7 +55,7 @@ def test_adaptive_wave_pairs_each_engine_once() -> None:
 
 
 def test_parse_match_result_combines_both_colors() -> None:
-    payload = {
+    payload: dict[str, Any] = {
         "wave": 0,
         "games": 8,
         "player1": {"name": "alpha", "weights": "/alpha.pb.gz"},
@@ -206,7 +207,7 @@ def test_resume_loads_legacy_and_paired_match_evidence(tmp_path: Path) -> None:
         Engine("beta", "/beta.safetensors", "ce4"),
     ]
     output = tmp_path / "results.json"
-    match = {
+    match: dict[str, Any] = {
         "wave": 0,
         "player1": "alpha",
         "player2": "beta",
@@ -215,7 +216,7 @@ def test_resume_loads_legacy_and_paired_match_evidence(tmp_path: Path) -> None:
         "draws": 2,
         "runtime_sec": 1.0,
     }
-    payload = {
+    payload: dict[str, Any] = {
         "tournament": asdict(tournament),
         "engines": [asdict(engine) for engine in engines],
         "matches": [match],

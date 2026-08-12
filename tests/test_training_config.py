@@ -6,12 +6,14 @@ from pathlib import Path
 
 import pytest
 
+from chess_engine_4.hardware import TrainingGpu
 from chess_engine_4.modal_train import (
     add_training_config_arguments,
     print_launch_summary,
     resolve_training_config,
 )
-from chess_engine_4.model import dense_parameter_count
+from chess_engine_4.model import Moe64A2ChessNetConfig, dense_parameter_count
+from chess_engine_4.model.config import Precision
 from chess_engine_4.training.config import (
     load_training_config,
     resolve_training_kernel,
@@ -195,7 +197,7 @@ def test_custom_dense_accepts_sm120_bf16() -> None:
 
 
 @pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
-def test_custom_dense_rejects_sm120_low_precision(precision: str) -> None:
+def test_custom_dense_rejects_sm120_low_precision(precision: Precision) -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=128),
         gpu="RTX-PRO-6000",
@@ -290,7 +292,7 @@ def test_custom_mxfp8_dense_accepts_mechanically_compatible_widths(
     ],
 )
 def test_custom_dense_validates_architecture_row_alignment(
-    gpu: str,
+    gpu: TrainingGpu,
     batch_size: int,
     supported: bool,
     alignment: int,
@@ -313,7 +315,7 @@ def test_custom_dense_validates_architecture_row_alignment(
 @pytest.mark.parametrize("gpu", ["H100", "H200"])
 @pytest.mark.parametrize("config_path", ["configs/dense.py", "configs/moe64a2.py"])
 def test_hopper_accepts_explicit_custom_bf16_training(
-    gpu: str,
+    gpu: TrainingGpu,
     config_path: str,
 ) -> None:
     config = with_overrides(
@@ -333,8 +335,8 @@ def test_hopper_accepts_explicit_custom_bf16_training(
 @pytest.mark.parametrize("gpu", ["H100", "H200"])
 @pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
 def test_hopper_rejects_blackwell_only_precision_before_launch(
-    gpu: str,
-    precision: str,
+    gpu: TrainingGpu,
+    precision: Precision,
 ) -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=256),
@@ -380,6 +382,7 @@ def test_moe64a2_family_recipe() -> None:
     assert config.run.training_ratio == 0.05
     assert config.run.batch_size == 16_384
     assert config.optimizer.lr == 2.8e-3
+    assert isinstance(config.model, Moe64A2ChessNetConfig)
     assert config.model.kind == "moe64a2"
     assert config.model.num_experts == 64
     assert config.model.num_active_experts == 2

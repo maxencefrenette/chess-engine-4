@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import modal
 
@@ -450,7 +450,7 @@ def _pentanomial_from_pair_scores(
     counts = [0, 0, 0, 0, 0]
     for score in pair_scores:
         counts[score] += 1
-    return tuple(counts)  # type: ignore[return-value]
+    return cast(tuple[int, int, int, int, int], tuple(counts))
 
 
 def _parse_fastchess_pair_scores(pgn: str, player: str) -> tuple[int, ...]:

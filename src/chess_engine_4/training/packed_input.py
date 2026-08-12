@@ -26,6 +26,7 @@ class PlaneInputExpander(nn.Module):
 
     def __init__(self) -> None:
         super().__init__()
+        self._packed_byte_bit_masks: torch.Tensor
         self.register_buffer(
             "_packed_byte_bit_masks",
             torch.tensor([128, 64, 32, 16, 8, 4, 2, 1], dtype=torch.uint8),
@@ -33,7 +34,9 @@ class PlaneInputExpander(nn.Module):
         )
 
     def forward(self, packed_planes: torch.Tensor, plane_scalars: torch.Tensor) -> torch.Tensor:
-        bits = packed_planes.unsqueeze(-1).bitwise_and(self._packed_byte_bit_masks).ne(0)
+        bits = torch.bitwise_and(
+            packed_planes.unsqueeze(-1), self._packed_byte_bit_masks
+        ).ne(0)
         history = bits.reshape(
             packed_planes.shape[0],
             HISTORY_PLANE_COUNT,

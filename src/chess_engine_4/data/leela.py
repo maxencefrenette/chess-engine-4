@@ -52,7 +52,11 @@ class LeelaParquetDataset:
         self.threads = threads
         self.sampling_rate = sampling_rate
 
-    def __iter__(self) -> Iterator[tuple[torch.Tensor, ...]]:
+    def __iter__(
+        self,
+    ) -> Iterator[
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ]:
         return iter_native_parquet_batches(
             self.paths,
             batch_size=self.batch_size,
