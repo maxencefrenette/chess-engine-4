@@ -54,11 +54,46 @@ export type ScalingFamily = {
   };
 };
 
-type ScalingData = {
-  families: ScalingFamily[];
+export type PolicyEloPoint = {
+  family: "dense";
+  name: string;
+  cost: number;
+  elo: number;
+  elo95Ci: number;
 };
 
-export const modelFamilies = readScalingData().families;
+export type PolicyEloData = {
+  protocol: string;
+  points: PolicyEloPoint[];
+  trend: {
+    eloPerCostDecade: number;
+    intercept: number;
+    estimatedTargetCost: number;
+    points: { cost: number; elo: number }[];
+  };
+  target: {
+    name: string;
+    elo: number;
+    elo95Ci: number;
+  };
+  sourceExperiment: string;
+};
+
+type ScalingData = {
+  families: ScalingFamily[];
+  policyElo: PolicyEloData;
+  dataset: {
+    format: string;
+    samples: number;
+    shards: number;
+  };
+};
+
+const data = readScalingData();
+
+export const modelFamilies = data.families;
+export const policyElo = data.policyElo;
+export const trainingDataset = data.dataset;
 
 export function getFamily(id: string): ScalingFamily | undefined {
   return modelFamilies.find((family) => family.id === id);

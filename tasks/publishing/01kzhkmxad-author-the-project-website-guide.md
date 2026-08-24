@@ -1,7 +1,7 @@
 ---
 id: "01kzhkmxad"
 title: "Author the project website guide"
-status: pending
+status: in-progress
 priority: high
 effort: large
 parent: "01kzg0rdfm"

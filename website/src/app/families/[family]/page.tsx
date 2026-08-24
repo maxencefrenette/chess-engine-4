@@ -42,46 +42,46 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
   const latest = latestRun(runs);
 
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-[1500px] px-8 py-6">
-        <header className="flex items-end justify-between gap-8 border-b border-zinc-200 pb-5">
+    <main>
+      <div className="site-shell py-10 sm:py-14">
+        <header className="flex flex-col gap-8 border-b border-rule pb-7 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <nav className="flex gap-5 text-sm font-medium text-blue-700">
-              <Link href="/" className="hover:text-blue-900">
-                Families
+            <nav className="flex gap-5 text-sm font-medium text-cobalt">
+              <Link href="/experiments" className="hover:text-ink">
+                Experiments
               </Link>
-              <Link href="/compare" className="hover:text-blue-900">
+              <Link href="/compare" className="hover:text-ink">
                 Compare
               </Link>
             </nav>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-ink">
               {family.name}
             </h1>
-            <p className="mt-2 text-sm text-zinc-600">{family.description}</p>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-2 text-sm text-body">{family.description}</p>
+            <p className="mt-1 text-sm text-muted">
               All runs use {family.trainingRatio}x Chinchilla to reduce experiment cost.
             </p>
             <p className="mt-1 text-sm text-zinc-500">
               Loss projections use the coupled Skaling law over model parameters and training samples.
             </p>
             {family.id === "dense" ? (
-              <p className="mt-1 text-sm font-medium text-emerald-700">
+              <p className="mt-1 text-sm font-medium text-cobalt">
                 RTX PRO 6000 reduces estimated cost by 37-48% through d256; d512 and larger remain on B200.
               </p>
             ) : null}
           </div>
           {latest ? (
             <div className="text-right">
-              <div className="text-xs font-medium uppercase text-zinc-500">
+              <div className="text-xs font-medium uppercase text-muted">
                 Current curve
               </div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">{latest.name}</div>
+              <div className="mt-1 text-xl font-semibold text-ink">{latest.name}</div>
             </div>
           ) : null}
         </header>
 
         {latest ? (
-          <section className="mt-5 grid grid-cols-4 gap-4">
+          <section className="mt-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <MetricCard
               label="Training FLOPs"
               value={`${latest.physicalFlops.toExponential(0).replace("e+", "e")} FLOPs`}
@@ -97,9 +97,9 @@ export default async function FamilyPage({ params }: FamilyPageProps) {
 
         <FamilyDashboard family={family} />
 
-        <section className="mt-5 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
-          <div className="border-b border-zinc-200 px-5 py-4">
-            <h2 className="text-lg font-semibold text-zinc-950">
+        <section className="editorial-card mt-5 overflow-hidden">
+          <div className="border-b border-rule px-5 py-4">
+            <h2 className="text-lg font-semibold text-ink">
               Selected runs
             </h2>
           </div>

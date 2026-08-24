@@ -26,7 +26,7 @@ export function FamilyDashboard({ family }: { family: ScalingFamily }) {
         </div>
       </section>
 
-      <section className="mt-5 grid grid-cols-2 gap-5">
+      <section className="mt-5 grid gap-5 xl:grid-cols-2">
         <ChartCard
           title="Loss"
           yLabel="Loss"
@@ -167,8 +167,8 @@ function ChartCard({
   yScale?: "linear" | "log";
 }) {
   return (
-    <div className={`rounded-lg border border-zinc-200 bg-white p-5 shadow-sm ${className}`}>
-      <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
+    <div className={`editorial-card p-5 ${className}`}>
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
       <div className="mt-4">
         <LineChart
           extrapolatedPoints={extrapolated}

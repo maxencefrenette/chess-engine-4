@@ -16,7 +16,18 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
     write_website_data(output)
     payload = json.loads(output.read_text(encoding="utf-8"))
 
-    assert [family["id"] for family in payload["families"]] == ["dense", "moe64a2"]
+    assert [family["id"] for family in payload["families"]] == ["dense"]
+    assert all(point["family"] == "dense" for point in payload["policyElo"]["points"])
+    assert payload["policyElo"]["target"]["name"] == "BT4"
+    assert payload["policyElo"]["target"]["elo"] == 0.0
+    assert payload["policyElo"]["trend"]["estimatedTargetCost"] > 1_000
+    assert payload["policyElo"]["trend"]["estimatedTargetCost"] < 100_000
+    assert "planned" not in payload["policyElo"]
+    assert payload["dataset"] == {
+        "format": "parquet",
+        "samples": 8_020_779_820,
+        "shards": 1203,
+    }
     dense = payload["families"][0]
     assert [point["name"] for point in dense["runs"]] == [
         "d32",
@@ -65,21 +76,6 @@ def test_generate_website_data_includes_family_relative_targets(tmp_path: Path) 
             "stale",
         )
     )
-
-    moe = payload["families"][1]
-    assert [point["name"] for point in moe["runs"] if point["status"] == "current"] == [
-        "d256",
-        "d512",
-    ]
-    assert moe["trainingRatio"] == 0.05
-    assert moe["extrapolated"] == []
-    assert len(moe["curves"]["loss"]) == 61
-    assert moe["curves"]["policyTop1"] == []
-    assert all(
-        len(moe["curves"][name]) == 61
-        for name in ("params", "samples", "samplesPerParam", "lr", "steps", "batchSize")
-    )
-
 
 def test_generate_website_data_uses_one_stale_status(tmp_path: Path) -> None:
     source = Path("experiments/best-runs-dense.toml").read_text(encoding="utf-8")

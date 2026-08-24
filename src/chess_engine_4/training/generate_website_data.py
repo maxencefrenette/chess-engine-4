@@ -11,6 +11,9 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
+from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.families import FAMILIES, FamilySpec
@@ -23,7 +26,10 @@ from chess_engine_4.training.scaling_laws import (
 )
 
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
+POLICY_ELO_RESULTS = Path("experiments/2026-08-07.01-dense-moe-policy-elo/results.json")
+TRAINING_DATA = Path("experiments/training-data.toml")
 CURVE_POINT_COUNT = 61
+WEBSITE_FAMILY_IDS = ("dense",)
 FAMILY_PRESENTATION = {
     "dense": {
         "name": "Dense",
@@ -47,16 +53,84 @@ def generate_website_data() -> None:
 
 
 def write_website_data(output: Path) -> None:
+    families = [
+        build_family_payload(family_id, FAMILIES[family_id])
+        for family_id in WEBSITE_FAMILY_IDS
+    ]
     payload = {
-        "families": [
-            build_family_payload(family_id, metadata)
-            for family_id, metadata in FAMILIES.items()
-        ],
+        "families": families,
+        "policyElo": build_policy_elo_payload(families),
+        "dataset": build_dataset_payload(),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary_output = output.with_suffix(f"{output.suffix}.tmp")
     temporary_output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     temporary_output.replace(output)
+
+
+def build_dataset_payload() -> dict[str, Any]:
+    with TRAINING_DATA.open("rb") as handle:
+        dataset = tomllib.load(handle)["dataset"]
+    return {
+        "format": dataset["format"],
+        "samples": dataset["samples"],
+        "shards": dataset["shards"],
+    }
+
+
+def build_policy_elo_payload(families: list[dict[str, Any]]) -> dict[str, Any]:
+    report = json.loads(POLICY_ELO_RESULTS.read_text(encoding="utf-8"))
+    ratings = {rating["name"]: rating for rating in report["ratings"]}
+    target = ratings["BT4-1740"]
+    target_elo = target["elo"]
+    points = []
+    for family in families:
+        rating_prefix = "dense" if family["id"] == "dense" else "moe64a2"
+        for run in family["runs"]:
+            if run["status"] != "current":
+                continue
+            rating = ratings.get(f"{rating_prefix}-{run['name']}")
+            if rating is None:
+                # New scaling widths do not acquire a policy rating until they
+                # participate in the retained common-field tournament.
+                continue
+            cost = run["runtimeSec"] * hardware_dollars_per_second(run["gpu"], 8)
+            points.append(
+                {
+                    "family": family["id"],
+                    "name": run["name"],
+                    "cost": cost,
+                    "elo": rating["elo"] - target_elo,
+                    "elo95Ci": rating["elo_95ci"],
+                }
+            )
+
+    log_costs = np.log10([point["cost"] for point in points])
+    elos = np.asarray([point["elo"] for point in points])
+    slope, intercept = np.polyfit(log_costs, elos, 1)
+    estimated_target_cost = 10 ** (-intercept / slope)
+    max_cost = max(100_000.0, estimated_target_cost)
+    min_cost = min(point["cost"] for point in points)
+    trend_costs = np.logspace(math.log10(min_cost), math.log10(max_cost), 81)
+    return {
+        "protocol": "Policy-only play at effective batch 256; no tree search.",
+        "points": points,
+        "trend": {
+            "eloPerCostDecade": float(slope),
+            "intercept": float(intercept),
+            "estimatedTargetCost": float(estimated_target_cost),
+            "points": [
+                {"cost": float(cost), "elo": float(intercept + slope * math.log10(cost))}
+                for cost in trend_costs
+            ],
+        },
+        "target": {
+            "name": "BT4",
+            "elo": 0.0,
+            "elo95Ci": target["elo_95ci"],
+        },
+        "sourceExperiment": "experiments/2026-08-07.01-dense-moe-policy-elo",
+    }
 
 
 def build_family_payload(family_id: str, metadata: FamilySpec) -> dict[str, Any]:

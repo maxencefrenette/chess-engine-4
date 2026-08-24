@@ -1,129 +1,142 @@
 import Link from "next/link";
-import { Sparkline } from "@/components/sparkline";
-import {
-  formatCompactNumber,
-  formatDecimal,
-  formatPercent,
-} from "@/data/format";
-import {
-  latestRun,
-  modelFamilies,
-  currentRuns,
-} from "@/data/best-runs";
+import { PolicyEloChart } from "@/components/policy-elo-chart";
+import { policyElo, trainingDataset } from "@/data/best-runs";
+
+const pathways = [
+  {
+    number: "01",
+    title: "How it works",
+    body: "Follow one LCZero record through conversion, training, export, and evaluation inside lc0.",
+    href: "/how-it-works",
+  },
+  {
+    number: "02",
+    title: "Architecture",
+    body: "See how a chess position becomes one learned state inside the final dense network.",
+    href: "/architecture",
+  },
+  {
+    number: "03",
+    title: "Experiments",
+    body: "Read the findings first, then inspect every canonical run and scaling fit.",
+    href: "/experiments",
+  },
+];
 
 export default function Home() {
-  const families = modelFamilies.map((family) => {
-    const runs = currentRuns(family);
-    return { family, runs, latest: latestRun(runs) };
-  });
-
-  const bestLatestLoss = Math.min(
-    ...families
-      .map(({ latest }) => latest?.loss)
-      .filter((loss): loss is number => loss !== undefined),
-  );
-  const largestRun = families
-    .flatMap(({ runs }) => runs)
-    .reduce((largest, run) =>
-      run.physicalFlops > largest.physicalFlops ? run : largest,
-    ).name;
+  const estimatedTarget = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(policyElo.trend.estimatedTargetCost);
+  const largestMeasuredCost = Math.max(...policyElo.points.map((point) => point.cost));
 
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <section className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-[1500px] items-end justify-between gap-8 px-8 py-6">
+    <main>
+      <section className="border-b border-rule py-10 sm:py-16 lg:py-20">
+        <div className="site-shell grid items-end gap-10 lg:grid-cols-[0.78fr_1.22fr]">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-blue-700">
-              Chess Engine 4
+            <p className="eyebrow">Neural chess, end to end</p>
+            <h1 className="display-title mt-5">A cost-efficient chess neural network that works in lc0.</h1>
+            <p className="lead mt-7">
+              Chess Engine 4 is a ground-up training system for LCZero-compatible networks:
+              billions of supervised positions, measured scaling laws, dense models, custom
+              kernels, and a native inference path.
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-              Scaling laws
-            </h1>
-            <Link
-              className="mt-3 inline-block text-sm font-medium text-blue-700 hover:text-blue-900"
-              href="/compare"
-            >
-              Compare model families
-            </Link>
-          </div>
-          <div className="flex gap-8 text-right tabular-nums">
-            <div>
-              <div className="text-xs font-medium uppercase text-zinc-500">Families</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">{families.length}</div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link className="bg-ink px-5 py-3 text-sm font-semibold text-paper hover:bg-cobalt" href="/how-it-works">
+                Follow the system
+              </Link>
+              <a
+                className="border border-ink px-5 py-3 text-sm font-semibold text-ink hover:border-cobalt hover:text-cobalt"
+                href="https://github.com/maxencefrenette/chess-engine-4"
+                rel="noreferrer"
+                target="_blank"
+              >
+                View source ↗
+              </a>
             </div>
-            <div>
-              <div className="text-xs font-medium uppercase text-zinc-500">Best current loss</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">
-                {formatDecimal(bestLatestLoss)}
+          </div>
+
+          <div className="editorial-card p-4 sm:p-6">
+            <div className="flex flex-col gap-2 border-b border-rule pb-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="eyebrow">The current frontier</p>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight">Policy strength per training dollar</h2>
               </div>
             </div>
-            <div>
-              <div className="text-xs font-medium uppercase text-zinc-500">Largest run</div>
-              <div className="mt-1 text-xl font-semibold text-zinc-950">{largestRun}</div>
+            <div className="pt-5">
+              <PolicyEloChart compact data={policyElo} />
+            </div>
+            <div className="grid gap-4 border-t border-rule pt-4 text-sm sm:grid-cols-[1fr_auto] sm:items-start">
+              <p className="leading-6 text-body">
+                The fitted trend reaches BT4 near <strong className="text-ink">{estimatedTarget}</strong>.
+                That is a long extrapolation, not a forecast—the gap is the point.
+              </p>
+              <Link className="text-link whitespace-nowrap font-semibold" href="/experiments/policy-elo">
+                Read the method →
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-5 px-8 py-6">
-        {families.map(({ family, runs, latest }) => (
-          <Link
-            key={family.id}
-            href={`/families/${family.id}`}
-            className="grid gap-5 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md xl:grid-cols-[1.05fr_1fr]"
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-semibold text-zinc-950">{family.name}</h2>
-                {latest ? (
-                  <span className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-medium text-zinc-700">
-                    latest {latest.name}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
-                {family.description}
-              </p>
-              {latest ? (
-                <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <dt className="text-zinc-500">Model</dt>
-                    <dd className="mt-1 font-semibold text-zinc-950">{latest.name}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-zinc-500">Params</dt>
-                    <dd className="mt-1 font-semibold text-zinc-950">
-                      {formatCompactNumber(latest.params)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-zinc-500">Loss</dt>
-                    <dd className="mt-1 font-semibold text-zinc-950">
-                      {formatDecimal(latest.loss)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-zinc-500">Policy top-1</dt>
-                    <dd className="mt-1 font-semibold text-zinc-950">
-                      {formatPercent(latest.policyTop1)}
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
-            </div>
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
-              <div className="mb-2 text-sm font-medium text-zinc-500">Loss by training FLOPs</div>
-              <Sparkline
-                label={`${family.name} loss trend`}
-                points={runs.map((run) => ({
-                  x: run.physicalFlops,
-                  y: run.loss,
-                }))}
-              />
-            </div>
-          </Link>
-        ))}
+      <section className="site-shell py-16 sm:py-24">
+        <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr]">
+          <div>
+            <p className="eyebrow">The project</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              One path from data to a playing network.
+            </h2>
+          </div>
+          <p className="lead">
+            The repository keeps the model, loader, training recipes, experiment evidence,
+            export, and lc0 backend together. The site follows the same structure: start with
+            the result, then open every layer of the system.
+          </p>
+        </div>
+        <div className="mt-12 grid border-l border-t border-rule md:grid-cols-3">
+          {pathways.map((pathway) => (
+            <Link
+              className="group border-b border-r border-rule p-6 transition-colors hover:bg-paper-deep sm:p-8"
+              href={pathway.href}
+              key={pathway.href}
+            >
+              <span className="section-number">{pathway.number}</span>
+              <h3 className="mt-8 text-2xl font-semibold tracking-tight group-hover:text-cobalt">{pathway.title}</h3>
+              <p className="mt-3 leading-7 text-body">{pathway.body}</p>
+              <span className="mt-8 inline-block font-mono text-xs uppercase tracking-wider text-cobalt">Open →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-y border-rule bg-paper-deep/55 py-16 sm:py-24">
+        <div className="site-shell">
+          <p className="eyebrow">What the ladder says today</p>
+          <div className="mt-8 grid gap-px border border-rule bg-rule md:grid-cols-3">
+            <Finding value={policyElo.trend.eloPerCostDecade.toFixed(0)} unit="policy Elo / cost decade">
+              A descriptive fit across the retained dense checkpoints.
+            </Finding>
+            <Finding value={`$${largestMeasuredCost.toFixed(2)}`} unit="largest measured run">
+              The largest rated dense checkpoint, estimated from measured steady-state throughput.
+            </Finding>
+            <Finding value={`${(trainingDataset.samples / 1e9).toFixed(2)}B`} unit="training records">
+              The current one-epoch Parquet corpus available to the final run.
+            </Finding>
+          </div>
+        </div>
       </section>
     </main>
+  );
+}
+
+function Finding({ children, unit, value }: { children: React.ReactNode; unit: string; value: string }) {
+  return (
+    <div className="bg-paper p-7 sm:p-9">
+      <div className="text-4xl font-semibold tracking-[-0.04em] text-ink">{value}</div>
+      <div className="mt-1 font-mono text-xs uppercase tracking-wider text-cobalt">{unit}</div>
+      <p className="mt-6 text-sm leading-6 text-body">{children}</p>
+    </div>
   );
 }

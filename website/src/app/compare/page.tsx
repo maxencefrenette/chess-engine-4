@@ -9,7 +9,7 @@ import { trainingCost } from "@/data/format";
 const FAMILY_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c"];
 
 export const metadata = {
-  title: "Model family comparison",
+  title: "Dense scaling curves",
 };
 
 export default function ComparePage() {
@@ -41,22 +41,22 @@ export default function ComparePage() {
   }));
 
   return (
-    <main className="min-h-screen bg-zinc-50">
-      <div className="mx-auto max-w-[1500px] px-8 py-6">
-        <header className="border-b border-zinc-200 pb-5">
-          <Link href="/" className="text-sm font-medium text-blue-700 hover:text-blue-900">
-            Families
+    <main>
+      <div className="site-shell py-10 sm:py-14">
+        <header className="border-b border-rule pb-7">
+          <Link href="/experiments" className="text-link text-sm font-medium">
+            Experiments
           </Link>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950">
-            Family comparison
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-ink">
+            Dense scaling curves
           </h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            Final loss for canonical runs across model families. Dollar cost uses each
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-body">
+            Final loss for canonical dense runs. Dollar cost uses the
             recipe&apos;s selected GPU, measured steady-state throughput, and eight Modal CPU cores.
           </p>
         </header>
 
-        <section className="mt-5 grid grid-cols-2 gap-5">
+        <section className="mt-7 grid gap-5 xl:grid-cols-2">
           <ChartCard title="Loss by training FLOPs">
             <FamilyComparisonChart
               label="Loss by training FLOPs"
@@ -81,8 +81,8 @@ export default function ComparePage() {
 
 function ChartCard({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
+    <div className="editorial-card p-5">
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
       <div className="mt-4">{children}</div>
     </div>
   );
