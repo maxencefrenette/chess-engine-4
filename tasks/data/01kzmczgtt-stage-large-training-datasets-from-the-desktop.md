@@ -1,7 +1,7 @@
 ---
 id: "01kzmczgtt"
 title: "Stage large training datasets from the desktop"
-status: blocked
+status: in-progress
 priority: low
 effort: medium
 dependencies: []
@@ -27,6 +27,15 @@ large training runs.
 - Every uploaded Parquet shard maps directly to one source tar.
 - Training starts only after every uploaded shard verifies successfully.
 
-## Blocker
+## Progress
 
-Wait for the desktop PC to be set up again.
+- 2026-08-24: Desktop storage is available at `/data/chess` with 14.4 TiB free.
+- Froze the complete upstream t80 listing at 9,958 archives and
+  8,992,666,368,000 advertised bytes.
+- Started the resumable serial source download under `/data/chess/t80/source`
+  with an advertised-size check, atomic completion, retry backoff, a 64 MiB/s
+  rate ceiling, and 512 GiB free-space reserve.
+- Migrated the desktop downloader from shell to `scripts/download_t80.py` while
+  preserving its frozen inventory and on-disk resume state.
+- Parquet conversion and Modal upload remain deferred until their methodology is
+  revisited.
