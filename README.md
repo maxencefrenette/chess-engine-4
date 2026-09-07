@@ -26,6 +26,10 @@ mise install
 uv sync --dev
 ```
 
+The default environment supports local analysis, planning, and CPU tests. CUDA
+training dependencies are installed explicitly in Modal images; developers with
+a compatible local CUDA toolchain can install them with `uv sync --dev --extra cuda`.
+
 Configure W&B and data paths in `.env`; see `.env.example` for the supported
 variables.
 

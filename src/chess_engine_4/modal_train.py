@@ -49,7 +49,7 @@ base_image = (
         "PATH=/root/.cargo/bin:$PATH rustc --version",
     )
     .uv_sync(
-        extra_options="--no-build-isolation-package transformer-engine-torch",
+        extra_options="--extra cuda --no-build-isolation-package transformer-engine-torch",
         env={
             "NVTE_BUILD_USE_NVIDIA_WHEELS": "1",
             "NVTE_FRAMEWORK": "pytorch",

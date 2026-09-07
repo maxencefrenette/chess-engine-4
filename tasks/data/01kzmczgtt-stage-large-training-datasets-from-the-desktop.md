@@ -37,5 +37,7 @@ large training runs.
   rate ceiling, and 512 GiB free-space reserve.
 - Migrated the desktop downloader from shell to `scripts/download_t80.py` while
   preserving its frozen inventory and on-disk resume state.
+- 2026-09-06: Resumed the desktop download after an interrupted run at 2,084 of
+  9,958 archives (2,558,588,221,440 bytes complete).
 - Parquet conversion and Modal upload remain deferred until their methodology is
   revisited.
