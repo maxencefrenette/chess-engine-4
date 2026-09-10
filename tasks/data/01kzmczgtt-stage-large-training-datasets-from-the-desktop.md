@@ -39,5 +39,9 @@ large training runs.
   preserving its frozen inventory and on-disk resume state.
 - 2026-09-06: Resumed the desktop download after an interrupted run at 2,084 of
   9,958 archives (2,558,588,221,440 bytes complete).
+- 2026-09-08: Resumed after a host reboot at 3,384 of 9,958 archives; verified
+  archive 3,385 completed and the downloader continued to archive 3,386.
+- 2026-09-09: Resumed at 3,398 of 9,958 archives in a detached session; verified
+  archive 3,399 completed and the downloader continued to archive 3,400.
 - Parquet conversion and Modal upload remain deferred until their methodology is
   revisited.
