@@ -1,6 +1,6 @@
 # Chess Engine 4
 
-Chess Engine 4 trains LCZero-compatible neural networks on Modal. The goal is
+Chess Engine 4 trains LCZero-compatible neural networks locally or on Modal. The goal is
 to create strong nets that run directly inside lc0 through project-owned CUDA
 kernels.
 
@@ -27,15 +27,35 @@ uv sync --dev
 ```
 
 The default environment supports local analysis, planning, and CPU tests. CUDA
-training dependencies are installed explicitly in Modal images; developers with
-a compatible local CUDA toolchain can install them with `uv sync --dev --extra cuda`.
+training dependencies are installed explicitly in Modal images. On a compatible
+local NVIDIA GPU, install Transformer Engine and rebuild the native loader with:
+
+```sh
+mise run setup-cuda
+```
 
 Configure W&B and data paths in `.env`; see `.env.example` for the supported
 variables.
 
 ## Training
 
-Run the canonical dense recipe on Modal:
+Run the canonical dense recipe on the local CUDA GPU:
+
+```sh
+uv run train-local --d-model 128 --data /path/to/parquet
+```
+
+Local runs save periodic and final checkpoints under `checkpoints/` by default.
+Override this with `--checkpoint-dir`, and use `--no-wandb` for smoke tests.
+The local launcher detects the physical GPU and rejects configurations meant for
+a different architecture. For example, a minimal data-path smoke test is:
+
+```sh
+uv run train-local --d-model 64 --steps 1 --batch-size 128 \
+  --data /path/to/parquet --no-wandb
+```
+
+Run the same recipe on Modal:
 
 ```sh
 uv run train-modal --d-model 128
@@ -120,7 +140,8 @@ automatically.
 
 | Command | Purpose |
 | --- | --- |
-| `uv run train-modal` | Train a model on Modal |
+| `uv run train-local` | Train a model on the local CUDA GPU |
+| `uv run train-modal` | Train the same model runtime on Modal |
 | `uv run profile-training` | Profile the production training loop |
 | `uv run throughput-sweep` | Refresh cached throughput measurements |
 | `uv run plan-budget 10 100` | Estimate the lowest-loss configuration for dollar budgets |

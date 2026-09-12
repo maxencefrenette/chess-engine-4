@@ -20,9 +20,7 @@ from chess_engine_4.hardware import (
     hardware_dollars_per_second,
 )
 from chess_engine_4.modal_train import (
-    DEFAULT_CONFIG_PATH,
     app,
-    print_launch_summary,
     training_function,
 )
 from chess_engine_4.model import model_parameter_count
@@ -33,6 +31,7 @@ from chess_engine_4.training.config import (
     validate_training_hardware,
     with_overrides,
 )
+from chess_engine_4.training.launch import DEFAULT_CONFIG_PATH, print_launch_summary
 
 DEFAULT_WIDTHS = (64, 128, 256, 512, 768, 1024, 1280)
 DEFAULT_OUTPUT = Path("experiments/throughput-dense.toml")

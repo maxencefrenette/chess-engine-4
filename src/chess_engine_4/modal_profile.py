@@ -11,23 +11,26 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from chess_engine_4.hardware import TRAINING_GPUS
 from chess_engine_4.modal_train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
-    add_training_config_arguments,
     app,
-    print_launch_summary,
-    resolve_training_config,
     training_function,
 )
 from chess_engine_4.model import KernelBackend
+from chess_engine_4.training.launch import (
+    add_training_config_arguments,
+    print_launch_summary,
+    resolve_training_config,
+)
 
 REMOTE_TRACE_PATH = Path(REMOTE_ARTIFACT_PATH) / "profiles" / "traces"
 
 
 def profile_training() -> None:
     parser = argparse.ArgumentParser(description="Profile a training loop on Modal.")
-    add_training_config_arguments(parser, include_steps=False)
+    add_training_config_arguments(parser, include_steps=False, gpu_choices=TRAINING_GPUS)
     parser.add_argument("--warmup-steps", type=int, default=50)
     parser.add_argument("--profile-steps", type=int, default=200)
     parser.add_argument(

@@ -29,6 +29,7 @@ cuda = [
 ]
 
 [project.scripts]
+train-local = "chess_engine_4.training.launch:train_local"
 train-modal = "chess_engine_4.modal_train:train_modal"
 profile-training = "chess_engine_4.modal_profile:profile_training"
 build-kernels = "chess_engine_4.kernels.build:build_kernels"

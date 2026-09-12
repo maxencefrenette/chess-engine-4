@@ -19,13 +19,13 @@ from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS
 from chess_engine_4.kernels.modal import with_cuda_kernels
 from chess_engine_4.modal_kernels import benchmark_dense_layer
 from chess_engine_4.modal_train import (
-    DEFAULT_CONFIG_PATH,
     REMOTE_DATA_PATH,
     app,
     base_image,
     data_volume,
 )
 from chess_engine_4.training.config import load_training_config, with_overrides
+from chess_engine_4.training.launch import DEFAULT_CONFIG_PATH
 
 LEVELS = ("layer", "step", "production")
 benchmark_image = with_cuda_kernels(base_image)

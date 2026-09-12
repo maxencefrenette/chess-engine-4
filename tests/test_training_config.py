@@ -7,11 +7,6 @@ from pathlib import Path
 import pytest
 
 from chess_engine_4.hardware import TrainingGpu
-from chess_engine_4.modal_train import (
-    add_training_config_arguments,
-    print_launch_summary,
-    resolve_training_config,
-)
 from chess_engine_4.model import Moe64A2ChessNetConfig, dense_parameter_count
 from chess_engine_4.model.config import Precision
 from chess_engine_4.training.config import (
@@ -20,6 +15,11 @@ from chess_engine_4.training.config import (
     training_config_from_dict,
     validate_training_hardware,
     with_overrides,
+)
+from chess_engine_4.training.launch import (
+    add_training_config_arguments,
+    print_launch_summary,
+    resolve_training_config,
 )
 
 
@@ -364,7 +364,7 @@ def test_gpu_cli_override_does_not_change_kernel_backend(
     expected_backend: str,
 ) -> None:
     parser = argparse.ArgumentParser()
-    add_training_config_arguments(parser, include_steps=True)
+    add_training_config_arguments(parser, include_steps=True, gpu_choices=("H100", "H200"))
     args = parser.parse_args(
         ["--config", config_path, "--d-model", "128", "--gpu", gpu, *extra_args]
     )
@@ -373,6 +373,27 @@ def test_gpu_cli_override_does_not_change_kernel_backend(
 
     assert config.infra.gpu == gpu
     assert config.model.kernel_backend == expected_backend
+
+
+def test_local_gpu_becomes_default_without_overriding_explicit_gpu() -> None:
+    parser = argparse.ArgumentParser()
+    add_training_config_arguments(
+        parser,
+        include_steps=True,
+        gpu_choices=("H100", "RTX-5070"),
+    )
+
+    detected = resolve_training_config(
+        parser.parse_args(["--d-model", "64"]),
+        default_gpu="RTX-5070",
+    )
+    explicit = resolve_training_config(
+        parser.parse_args(["--d-model", "64", "--gpu", "H100"]),
+        default_gpu="RTX-5070",
+    )
+
+    assert detected.infra.gpu == "RTX-5070"
+    assert explicit.infra.gpu == "H100"
 
 
 def test_moe64a2_family_recipe() -> None:

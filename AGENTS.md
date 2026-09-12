@@ -6,7 +6,8 @@ for canonical experiment results.
 
 ## Training
 
-- Use `uv run train-modal`; local training is not supported.
+- Use `uv run train-local` for workstation training and `uv run train-modal`
+  when the requested hardware or dataset is only available on Modal.
 - The canonical dense recipe is `configs/dense.py`.
 - Routine experiments default to `0.2x` Chinchilla. Specify another training
   ratio only when data allocation is the variable under study or for a planned

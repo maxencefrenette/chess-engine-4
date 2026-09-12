@@ -594,7 +594,7 @@ def _require_training_gpu(device: torch.device, *, configured_gpu: str) -> None:
     name = torch.cuda.get_device_name(device)
     if capability != spec.capability or spec.device_name not in name:
         raise RuntimeError(
-            f"configured gpu={configured_gpu!r}, but Modal provided "
+            f"configured gpu={configured_gpu!r}, but the runtime provided "
             f"{name} SM{capability[0]}{capability[1]}."
         )
 

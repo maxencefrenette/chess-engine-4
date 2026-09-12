@@ -5,14 +5,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, cast
 
-type TrainingGpu = Literal["A100", "H100", "H200", "B200", "RTX-PRO-6000"]
+type TrainingGpu = Literal[
+    "A100",
+    "H100",
+    "H200",
+    "B200",
+    "RTX-PRO-6000",
+    "RTX-5070",
+]
 
 
 @dataclass(frozen=True, slots=True)
 class GpuSpec:
     capability: tuple[int, int]
     device_name: str
-    modal_gpu: str
+    modal_gpu: str | None
     theoretical_tflops: dict[str, float]
     dollars_per_second: float
 
@@ -37,9 +44,18 @@ GPU_SPECS: dict[TrainingGpu, GpuSpec] = {
         {"bf16": 503.8},
         0.000842,
     ),
+    "RTX-5070": GpuSpec(
+        (12, 0),
+        "GeForce RTX 5070",
+        None,
+        {},
+        0.0,
+    ),
 }
 
-TRAINING_GPUS: tuple[TrainingGpu, ...] = tuple(GPU_SPECS)
+TRAINING_GPUS: tuple[TrainingGpu, ...] = tuple(
+    gpu for gpu, spec in GPU_SPECS.items() if spec.modal_gpu is not None
+)
 CPU_DOLLARS_PER_CORE_SECOND = 0.0000131
 
 
@@ -59,4 +75,23 @@ def hardware_dollars_per_second(gpu: str, cpu_cores: int) -> float:
 def modal_gpu_identifier(gpu: str) -> str:
     """Return the allocation request preserving the configured device identity."""
 
-    return gpu_spec(gpu).modal_gpu
+    identifier = gpu_spec(gpu).modal_gpu
+    if identifier is None:
+        raise ValueError(f"Training GPU {gpu!r} is not available on Modal.")
+    return identifier
+
+
+def identify_training_gpu(
+    *,
+    device_name: str,
+    capability: tuple[int, int],
+) -> TrainingGpu:
+    """Resolve a physical CUDA device to its configured training identity."""
+
+    for gpu, spec in GPU_SPECS.items():
+        if capability == spec.capability and spec.device_name in device_name:
+            return gpu
+    raise ValueError(
+        f"Unsupported local training GPU {device_name!r} "
+        f"with SM{capability[0]}{capability[1]}."
+    )
