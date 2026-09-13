@@ -86,6 +86,17 @@ def convert_native_lc0_tar_to_parquet(input_path: Path, output_path: Path) -> tu
     )
 
 
+def convert_native_lc0_tar_to_iceberg_parquet(
+    input_path: Path,
+    output_dir: Path,
+) -> tuple[int, int, int, list[tuple[str, int, int]]]:
+    native = _load_native_module()
+    return cast(
+        tuple[int, int, int, list[tuple[str, int, int]]],
+        native.convert_lc0_tar_to_iceberg_parquet(str(input_path), str(output_dir)),
+    )
+
+
 def native_parquet_row_counts(paths: Sequence[Path]) -> list[tuple[str, int]]:
     native = _load_native_module()
     return cast(list[tuple[str, int]], native.parquet_row_counts([str(path) for path in paths]))

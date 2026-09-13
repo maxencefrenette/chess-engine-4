@@ -18,13 +18,13 @@ large training runs.
 
 ## Tasks
 
-- [ ] Convert each LCZero tar into exactly one corresponding Parquet shard.
+- [ ] Ingest each LCZero tar as one resumable unit into the partitioned Iceberg table.
 - [ ] Build resumable upload and verification commands for large runs.
 
 ## Acceptance Criteria
 
 - Interrupted transfers resume without corruption or duplicate shards.
-- Every uploaded Parquet shard maps directly to one source tar.
+- Every Iceberg row records its source tar, and each source tar is committed atomically.
 - Training starts only after every uploaded shard verifies successfully.
 
 ## Progress
@@ -45,3 +45,15 @@ large training runs.
   archive 3,399 completed and the downloader continued to archive 3,400.
 - Parquet conversion and Modal upload remain deferred until their methodology is
   revisited.
+- 2026-09-12: Selected an Iceberg schema with normalized packed inputs, compact
+  policy data, root/best/outcome targets, piece count, and source-archive
+  provenance. The table uses `truncate[4](num_pieces)` partitioning; one source
+  archive may therefore produce files in several partitions.
+- 2026-09-13: Ingested the first 10 archives into the local `training.t80`
+  Iceberg table. The test contains 82,490,581 positions in 90 data files across
+  nine piece-count partitions and occupies 7,983,095,732 data bytes. Conversion
+  sustained about 93,000 positions/s per worker and produced 96.78 compressed
+  bytes/position, or 47.1% of source-tar size. On a matched archive, the previous
+  schema used 86.77 bytes/position, so the selected columns and partitioning add
+  11.5%. An interrupted run resumed by skipping six already committed archives;
+  the completed table has no leftover partial files.

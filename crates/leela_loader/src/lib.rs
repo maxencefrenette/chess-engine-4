@@ -457,6 +457,14 @@ fn convert_lc0_tar_to_parquet(input: PathBuf, output: PathBuf) -> PyResult<(usiz
 }
 
 #[pyfunction]
+fn convert_lc0_tar_to_iceberg_parquet(
+    input: PathBuf,
+    output_dir: PathBuf,
+) -> PyResult<(usize, u64, u64, Vec<(String, usize, u64)>)> {
+    converter::convert_lc0_tar_to_iceberg_parquet(input, output_dir)
+}
+
+#[pyfunction]
 fn parquet_row_counts(paths: Vec<PathBuf>) -> PyResult<Vec<(String, usize)>> {
     parquet_loader::parquet_row_counts(paths)
 }
@@ -517,6 +525,10 @@ fn chess_engine_4_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(iter_prefetched_packed_batches, module)?)?;
     module.add_function(wrap_pyfunction!(iter_prefetched_parquet_batches, module)?)?;
     module.add_function(wrap_pyfunction!(convert_lc0_tar_to_parquet, module)?)?;
+    module.add_function(wrap_pyfunction!(
+        convert_lc0_tar_to_iceberg_parquet,
+        module
+    )?)?;
     module.add_function(wrap_pyfunction!(parquet_row_counts, module)?)?;
     module.add_function(wrap_pyfunction!(inspect_lc0_tars, module)?)?;
     module.add("POLICY_SIZE", POLICY_SIZE)?;

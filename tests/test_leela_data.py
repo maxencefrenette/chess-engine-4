@@ -7,9 +7,11 @@ import struct
 import tarfile
 from pathlib import Path
 
+import pyarrow.parquet as pq
 import pytest
 import torch
 
+from chess_engine_4.data.iceberg import _load_or_create_table
 from chess_engine_4.data.leela import (
     COMPACT_POLICY_SIZE,
     HISTORY_PLANE_COUNT,
@@ -19,6 +21,7 @@ from chess_engine_4.data.leela import (
     resolve_data_paths,
 )
 from chess_engine_4.data.native import (
+    convert_native_lc0_tar_to_iceberg_parquet,
     convert_native_lc0_tar_to_parquet,
     inspect_native_lc0_tars,
     iter_native_packed_batches,
@@ -129,6 +132,56 @@ def test_parquet_conversion_preserves_training_inputs_and_root_targets(tmp_path:
     torch.testing.assert_close(tar_batch[4][:, 4], parquet_batch[4][:, 4], rtol=0, atol=0)
 
 
+def test_iceberg_conversion_preserves_selected_targets_and_provenance(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    output_dir = tmp_path / "data"
+    _write_tar(tar_path, gzip.compress(_records(4)))
+
+    records, input_bytes, output_bytes, files = convert_native_lc0_tar_to_iceberg_parquet(
+        tar_path, output_dir
+    )
+
+    assert records == 4
+    assert input_bytes == tar_path.stat().st_size
+    assert output_bytes == sum(file_bytes for _, _, file_bytes in files)
+    assert len(files) == 1
+    path, file_records, _ = files[0]
+    assert file_records == 4
+    assert Path(path).parent.name == "num_pieces_trunc=0"
+
+    frame = pq.ParquetFile(path).read()
+    assert frame.schema.names == [
+        "planes",
+        "castling",
+        "side_to_move",
+        "rule50",
+        "policy_indices",
+        "policy_probs_f16",
+        "root_q",
+        "root_d",
+        "root_m",
+        "best_q",
+        "best_d",
+        "best_m",
+        "result_q",
+        "result_d",
+        "plies_left",
+        "num_pieces",
+        "source_archive",
+    ]
+    assert frame.column("source_archive").to_pylist() == ["training.tar"] * 4
+    assert frame.column("num_pieces").to_pylist() == [1, 2, 2, 3]
+    assert frame.column("best_q").to_pylist() == [0.5] * 4
+    assert frame.column("plies_left").to_pylist() == [42.0] * 4
+    assert frame.column("policy_indices")[0].as_py() == b"\x00\x00\x02\x00"
+
+    table = _load_or_create_table(tmp_path / "warehouse", "training.test")
+    table.add_files([str(Path(path).resolve())])
+    files_table = table.inspect.files()
+    assert files_table.num_rows == 1
+    assert files_table.column("record_count").to_pylist() == [4]
+
+
 def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
     tar_path = tmp_path / "training.tar"
     parquet_path = tmp_path / "stable-shard.parquet"
@@ -165,12 +218,8 @@ def test_parquet_dataset_accepts_arbitrary_sampling_rate(tmp_path: Path) -> None
     _write_tar(tar_path, gzip.compress(_records(1_024)))
     convert_native_lc0_tar_to_parquet(tar_path, parquet_path)
 
-    first = list(
-        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
-    )
-    second = list(
-        LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3)
-    )
+    first = list(LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3))
+    second = list(LeelaParquetDataset(parquet_path, batch_size=8, threads=1, sampling_rate=0.3))
 
     assert first
     assert second
