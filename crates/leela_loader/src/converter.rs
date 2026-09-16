@@ -441,7 +441,7 @@ pub(crate) fn convert_lc0_tar_to_iceberg_parquet(
         }
     }
     if records == 0 {
-        return Err(PyValueError::new_err("input had no training records"));
+        return Ok((0, input_bytes, 0, Vec::new()));
     }
 
     let mut files = partitions

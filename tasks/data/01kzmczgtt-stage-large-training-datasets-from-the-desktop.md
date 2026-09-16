@@ -57,3 +57,7 @@ large training runs.
   schema used 86.77 bytes/position, so the selected columns and partitioning add
   11.5%. An interrupted run resumed by skipping six already committed archives;
   the completed table has no leftover partial files.
+- 2026-09-13: Started the full 9,958-archive conversion as a detached local job
+  with four workers, 16 source archives per atomic Iceberg commit, an exclusive
+  process lock, persistent status/log files, and a 512 GiB free-space reserve.
+  The first 10 archives are reused from the pilot; 9,948 remain at launch.

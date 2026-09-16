@@ -11,7 +11,12 @@ import pyarrow.parquet as pq
 import pytest
 import torch
 
-from chess_engine_4.data.iceberg import _load_or_create_table
+from chess_engine_4.data.iceberg import (
+    _load_or_create_table,
+    _read_archive_ledger,
+    _recover_completed_output,
+    _register_results,
+)
 from chess_engine_4.data.leela import (
     COMPACT_POLICY_SIZE,
     HISTORY_PLANE_COUNT,
@@ -174,12 +179,40 @@ def test_iceberg_conversion_preserves_selected_targets_and_provenance(tmp_path: 
     assert frame.column("best_q").to_pylist() == [0.5] * 4
     assert frame.column("plies_left").to_pylist() == [42.0] * 4
     assert frame.column("policy_indices")[0].as_py() == b"\x00\x00\x02\x00"
+    assert _recover_completed_output(tar_path, output_dir) is None
 
     table = _load_or_create_table(tmp_path / "warehouse", "training.test")
     table.add_files([str(Path(path).resolve())])
     files_table = table.inspect.files()
     assert files_table.num_rows == 1
     assert files_table.column("record_count").to_pylist() == [4]
+
+
+def test_iceberg_ingestion_records_empty_source_archive(tmp_path: Path) -> None:
+    tar_path = tmp_path / "empty.tar"
+    with tarfile.open(tar_path, "w") as tar:
+        license_info = tarfile.TarInfo("LICENSE")
+        license_info.size = 0
+        tar.addfile(license_info, io.BytesIO())
+
+    result = convert_native_lc0_tar_to_iceberg_parquet(tar_path, tmp_path / "data")
+
+    assert result == (0, tar_path.stat().st_size, 0, [])
+    table = _load_or_create_table(tmp_path / "warehouse", "training.test")
+    totals = {"archives": 0, "records": 0, "input_bytes": 0, "output_bytes": 0}
+    ledger_path = tmp_path / "warehouse" / "ingested-archives.txt"
+    _register_results(
+        table,
+        [("empty.tar", 0, tar_path.stat().st_size, 0, [], 0.1)],
+        totals,
+        1,
+        tmp_path / "status",
+        ledger_path,
+    )
+
+    assert table.current_snapshot() is None
+    assert totals["archives"] == 1
+    assert _read_archive_ledger(ledger_path) == {"empty.tar"}
 
 
 def test_parquet_sampling_is_random_per_iterator(tmp_path: Path) -> None:
