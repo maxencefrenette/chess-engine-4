@@ -316,6 +316,21 @@ impl SimpleTarReader {
     }
 
     fn next_regular_entry(&mut self) -> PyResult<Option<(String, Vec<u8>)>> {
+        self.next_regular_entry_with_gzip_recovery(false)
+    }
+
+    pub(crate) fn next_regular_payload_skipping_corrupt_gzip(
+        &mut self,
+    ) -> PyResult<Option<Vec<u8>>> {
+        Ok(self
+            .next_regular_entry_with_gzip_recovery(true)?
+            .map(|(_, payload)| payload))
+    }
+
+    fn next_regular_entry_with_gzip_recovery(
+        &mut self,
+        skip_corrupt_gzip: bool,
+    ) -> PyResult<Option<(String, Vec<u8>)>> {
         loop {
             let mut header = [0_u8; 512];
             if !read_exact_or_eof(&mut self.file, &mut header).map_err(|error| {
@@ -353,7 +368,17 @@ impl SimpleTarReader {
                 if name.rsplit('/').next() == Some("LICENSE") {
                     continue;
                 }
-                return Ok(decompress_if_gzip(payload)?.map(|payload| (name, payload)));
+                match decompress_if_gzip(payload) {
+                    Ok(payload) => return Ok(payload.map(|payload| (name, payload))),
+                    Err(error) if skip_corrupt_gzip => {
+                        eprintln!(
+                            "skipped_corrupt_gzip archive={} member={name} error={error}",
+                            self.path.display()
+                        );
+                        continue;
+                    }
+                    Err(error) => return Err(error),
+                }
             }
 
             self.file

@@ -171,7 +171,12 @@ def _run_ingestion(
                 executor.submit(_convert_archive, archive, data_dir): archive for archive in pending
             }
             for future in concurrent.futures.as_completed(futures):
-                batch.append(future.result())
+                archive = futures[future]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    raise RuntimeError(f"failed to convert {archive}") from exc
+                batch.append(result)
                 if len(batch) == commit_batch_size:
                     _register_results(table, batch, totals, len(archives), status_path, ledger_path)
                     batch = []

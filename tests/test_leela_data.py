@@ -188,6 +188,27 @@ def test_iceberg_conversion_preserves_selected_targets_and_provenance(tmp_path: 
     assert files_table.column("record_count").to_pylist() == [4]
 
 
+def test_iceberg_conversion_skips_corrupt_gzip_members(tmp_path: Path) -> None:
+    tar_path = tmp_path / "training.tar"
+    corrupt = bytearray(gzip.compress(_records(2)))
+    corrupt[-8] ^= 0xFF
+    with tarfile.open(tar_path, "w") as tar:
+        for name, payload in (
+            ("training.corrupt.gz", bytes(corrupt)),
+            ("training.valid.gz", gzip.compress(_records(3))),
+        ):
+            info = tarfile.TarInfo(name)
+            info.size = len(payload)
+            tar.addfile(info, io.BytesIO(payload))
+
+    records, _, _, files = convert_native_lc0_tar_to_iceberg_parquet(
+        tar_path, tmp_path / "data"
+    )
+
+    assert records == 3
+    assert sum(file_records for _, file_records, _ in files) == 3
+
+
 def test_iceberg_ingestion_records_empty_source_archive(tmp_path: Path) -> None:
     tar_path = tmp_path / "empty.tar"
     with tarfile.open(tar_path, "w") as tar:

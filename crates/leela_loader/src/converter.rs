@@ -413,7 +413,7 @@ pub(crate) fn convert_lc0_tar_to_iceberg_parquet(
     let mut partitions: HashMap<i32, PartitionWriter> = HashMap::new();
     let mut records = 0;
 
-    while let Some(payload) = reader.next_regular_payload()? {
+    while let Some(payload) = reader.next_regular_payload_skipping_corrupt_gzip()? {
         if payload.len() % RECORD_SIZE != 0 {
             return Err(PyValueError::new_err(format!(
                 "LCZero chunk has {} bytes, not a multiple of {RECORD_SIZE}",
