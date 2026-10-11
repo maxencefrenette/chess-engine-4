@@ -16,6 +16,14 @@ run = "uv run ruff check ."
 description = "Run Python type checks."
 run = "uv run ty check"
 
+[tasks.check-fast]
+description = "Run Python lint, type, and diff checks without tests or builds."
+run = ["uv run ruff check .", "uv run ty check", "git diff --check"]
+
+[tasks.setup-native]
+description = "Build the Rust data loader for CPU data tests and local data commands."
+run = "uv run maturin develop --manifest-path crates/leela_loader/Cargo.toml --release"
+
 [tasks.setup-cuda]
 description = "Install local CUDA training dependencies and build the native data loader."
 run = '''
@@ -24,5 +32,5 @@ NVTE_FRAMEWORK=pytorch \
 NVTE_WITH_NCCL_EP=0 \
 PATH="$PWD/.venv/lib/python3.14/site-packages/nvidia/cu13/bin:$PATH" \
 uv sync --dev --extra cuda --no-build-isolation-package transformer-engine-torch
-uv run maturin develop --manifest-path crates/leela_loader/Cargo.toml --release
+mise run setup-native
 '''

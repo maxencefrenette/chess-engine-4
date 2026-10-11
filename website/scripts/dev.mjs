@@ -13,6 +13,7 @@ const watchedPaths = [
   path.join(rootDir, "configs"),
   path.join(rootDir, "src/chess_engine_4/model"),
   path.join(rootDir, "src/chess_engine_4/training/generate_website_data.py"),
+  path.join(rootDir, "src/chess_engine_4/training/dense_schedule.py"),
   path.join(rootDir, "src/chess_engine_4/training/flops.py"),
   path.join(rootDir, "src/chess_engine_4/training/scaling_laws.py"),
 ];
@@ -44,6 +45,7 @@ function isScalingInput(changedPath) {
     /^configs\/[^/]+\.py$/.test(relativePath) ||
     /^src\/chess_engine_4\/model\/.*\.py$/.test(relativePath) ||
     relativePath === "src/chess_engine_4/training/generate_website_data.py" ||
+    relativePath === "src/chess_engine_4/training/dense_schedule.py" ||
     relativePath === "src/chess_engine_4/training/flops.py" ||
     relativePath === "src/chess_engine_4/training/scaling_laws.py"
   );

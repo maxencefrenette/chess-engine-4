@@ -1,0 +1,13 @@
+# Local corpus capacity; the current training reader and Modal path do not yet
+# support this Iceberg schema. Keep the existing Modal corpus metadata separate.
+[dataset]
+format = "iceberg"
+samples = 43802607232
+shards = 82629
+source_archives = 9958
+data_bytes = 4235088583781
+table = "training.t80"
+warehouse = "/data/chess/t80/iceberg"
+partition = "truncate[4](num_pieces)"
+source_task = "01kzmczgtt"
+completed_at = "2026-09-17T02:10:32Z"

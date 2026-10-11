@@ -18,7 +18,9 @@ large training runs.
 
 ## Tasks
 
-- [ ] Ingest each LCZero tar as one resumable unit into the partitioned Iceberg table.
+- [x] Ingest each LCZero tar as one resumable unit into the partitioned Iceberg table.
+- [ ] Integrate the Iceberg schema with the training reader and reproducible
+      filtering/shuffling.
 - [ ] Build resumable upload and verification commands for large runs.
 
 ## Acceptance Criteria
@@ -43,8 +45,8 @@ large training runs.
   archive 3,385 completed and the downloader continued to archive 3,386.
 - 2026-09-09: Resumed at 3,398 of 9,958 archives in a detached session; verified
   archive 3,399 completed and the downloader continued to archive 3,400.
-- Parquet conversion and Modal upload remain deferred until their methodology is
-  revisited.
+- At that point, Parquet conversion and Modal upload were deferred until their
+  methodology was revisited.
 - 2026-09-12: Selected an Iceberg schema with normalized packed inputs, compact
   policy data, root/best/outcome targets, piece count, and source-archive
   provenance. The table uses `truncate[4](num_pieces)` partitioning; one source
@@ -61,3 +63,9 @@ large training runs.
   with four workers, 16 source archives per atomic Iceberg commit, an exclusive
   process lock, persistent status/log files, and a 512 GiB free-space reserve.
   The first 10 archives are reused from the pilot; 9,948 remain at launch.
+- 2026-09-17: Full ingestion and the completion audit finished, followed by source
+  archive cleanup. See the completed
+  [ingestion report](../../experiments/2026-09-17.01-t80-iceberg-ingestion/README.md).
+- 2026-10-11: Reconciled this task with the persisted completion status. Reader
+  integration and verified Modal staging remain open; the older Modal corpus
+  metadata is still separate from the local Iceberg corpus.

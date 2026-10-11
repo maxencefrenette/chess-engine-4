@@ -15,6 +15,10 @@ import numpy as np
 from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.training.config import TrainingConfig, load_training_config
+from chess_engine_4.training.dense_schedule import (
+    DENSE_SAMPLES_PER_PARAMETER,
+    dense_training_schedule,
+)
 from chess_engine_4.training.families import FAMILIES, FamilySpec
 from chess_engine_4.training.flops import measure_training_flops_per_sample
 from chess_engine_4.training.scaling_laws import (
@@ -34,9 +38,6 @@ MIN_SUGGESTION_STEPS = 1_000
 MAX_SUGGESTION_LOSS_GAP = 0.35
 UNCERTAINTY_QUANTILES = (0.1, 0.9)
 DENSE_EXTRAPOLATION_STEP = 256
-DENSE_SAMPLES_PER_PARAMETER = 50.0
-DENSE_MINIMUM_STEPS_COEFFICIENT = 62.7575303963433
-DENSE_MINIMUM_STEPS_WIDTH_EXPONENT = 0.8073049254601639
 SUGGESTION_RATIOS = (
     0.005,
     0.0075,
@@ -1145,16 +1146,11 @@ def _planning_config(
         expansion_ratio=4.0,
         activation="swiglu",
     )
-    batch_size = 32 * d_model
-    steps = round(training_ratio * DENSE_SAMPLES_PER_PARAMETER * params / batch_size)
-    minimum_steps = (
-        DENSE_MINIMUM_STEPS_COEFFICIENT
-        * d_model**DENSE_MINIMUM_STEPS_WIDTH_EXPONENT
-    )
-    if steps < minimum_steps:
-        batch_size //= 2
-        steps *= 2
-    if steps < minimum_steps:
+    try:
+        batch_size, steps = dense_training_schedule(
+            d_model=d_model, parameter_count=params, training_ratio=training_ratio
+        )
+    except ValueError:
         return None
     return PlanningConfig(
         run=PlanningRun(

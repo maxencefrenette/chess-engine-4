@@ -26,8 +26,19 @@ mise install
 uv sync --dev
 ```
 
-The default environment supports local analysis, planning, and CPU tests. CUDA
-training dependencies are installed explicitly in Modal images. On a compatible
+The default environment supports local analysis and planning. The CPU test suite
+also exercises the Rust data loader, which must be built separately:
+
+```sh
+mise run setup-native
+```
+
+Rebuild it after changing the Rust loader or the Python interpreter. This is a
+native compilation step and can use substantial CPU; on a shared workstation,
+use `CARGO_BUILD_JOBS=1 mise run setup-native` and schedule it around higher-priority
+work. It does not require CUDA or Transformer Engine.
+
+CUDA training dependencies are installed explicitly in Modal images. On a compatible
 local NVIDIA GPU, install Transformer Engine and rebuild the native loader with:
 
 ```sh
@@ -124,13 +135,50 @@ Convert a local LCZero archive with:
 uv run lc0-to-parquet training.tar training.parquet
 ```
 
+There are currently two distinct corpus formats:
+
+| Corpus | Metadata | Status |
+| --- | --- | --- |
+| Existing Modal Parquet corpus | `experiments/training-data.toml` | 8,020,779,820 positions; supported by the current training reader |
+| Local T80 Iceberg table | `experiments/training-data-iceberg.toml` | 43,802,607,232 positions; ingestion complete, training integration pending |
+
+The local Iceberg warehouse is `/data/chess/t80/iceberg`, with table `training.t80`
+and a SQLite catalog at `catalog.db`. It is partitioned by
+`truncate[4](num_pieces)` and retains source-archive provenance and root, best,
+outcome, and moves-left targets. The original LCZero archives were deleted after
+the completion audit. See the [ingestion report](experiments/2026-09-17.01-t80-iceberg-ingestion/README.md)
+for counts, compression, and omitted corrupt members.
+
+The Iceberg files use different column types from the older Parquet format.
+Pointing `train-local --data` at them is not yet supported. Remaining work includes
+the reader, reproducible filtering/shuffling, and verified transfer to Modal.
+The Iceberg metadata can already supply a planning capacity with
+`--dataset experiments/training-data-iceberg.toml`; this does not stage the data
+or make a proposed run launchable against Iceberg.
+
 ## Website
+
+Install the separate website dependencies using Node.js and the pnpm version
+declared in `website/package.json`. For example, with a mise-managed Node 24:
+
+```sh
+cd website
+mise exec node@24 -- corepack pnpm install --frozen-lockfile
+mise exec node@24 -- corepack pnpm dev
+```
+
+The website commands also require the root Python environment for generating
+dashboard data. They do not require CUDA or the Rust data loader.
 
 Launch the dashboard and its scaling-data watcher together:
 
 ```sh
 uv run website
 ```
+
+This convenience launcher requires `pnpm` on `PATH`; the direct Corepack command
+above works without that shim. Run root-level commands below from the repository
+root.
 
 Open [http://localhost:3000](http://localhost:3000). Changes to recipes,
 best-run registries, throughput measurements, and scaling code update the site
@@ -164,9 +212,30 @@ The lc0 fork is maintained as a git subtree in `third_party/lc0`. Update it with
 
 ## Verification
 
+For quick Python checks without tests, native compilation, or a website build:
+
+```sh
+mise run check-fast
+```
+
+After `uv sync --dev` and `mise run setup-native`, run the CPU test suite with
+`mise run test`. No training or benchmark is launched by these tests. CUDA kernel,
+training-throughput, and LCZero inference validation are separate, explicit jobs.
+
+Before committing a broad change, run the full gate from the repository root:
+
 ```sh
 uv run pytest -q
 uv run ruff check .
+uv run ty check
 pnpm --dir website lint
 pnpm --dir website build
+git diff --check
 ```
+
+If `pnpm` is not on `PATH`, run the website checks from `website/` with
+`mise exec node@24 -- corepack pnpm lint` and
+`mise exec node@24 -- corepack pnpm build` instead. The build regenerates the
+dashboard's Python-derived data and is heavier than lint/type checks. On a busy
+workstation, run checks sequentially at low priority and limit CPU affinity and
+BLAS/OpenMP threads; avoid native rebuilds until CPU time is available.

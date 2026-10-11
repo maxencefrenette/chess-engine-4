@@ -2,10 +2,12 @@ from pathlib import Path
 
 import pytest
 
+from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.budget_planner import (
     DEFAULT_ASSUMED_SAMPLES,
     DEFAULT_FAMILIES,
     DEFAULT_MAX_D_MODEL,
+    _planning_config,
     _planning_models,
     _planning_profiles,
     bootstrap_family_fits,
@@ -35,6 +37,29 @@ def test_planner_defaults_to_dense_with_25b_positions_and_d2560_ceiling() -> Non
     assert DEFAULT_FAMILIES == ("dense",)
     assert DEFAULT_ASSUMED_SAMPLES == 25_000_000_000
     assert DEFAULT_MAX_D_MODEL == 2560
+
+
+@pytest.mark.parametrize(
+    ("steps32", "expected_batch", "expected_steps"),
+    [(40_000, 81_920, 40_000), (20_000, 40_960, 40_000), (10_000, None, None)],
+)
+def test_extrapolated_dense_schedule_preserves_budget_and_minimum_steps(
+    steps32: int, expected_batch: int | None, expected_steps: int | None
+) -> None:
+    params = dense_parameter_count(
+        d_model=2560, depth=8, history_length=8, expansion_ratio=4.0, activation="swiglu"
+    )
+    config = _planning_config(
+        FAMILIES["dense"], d_model=2560, training_ratio=steps32 * 81_920 / (50 * params)
+    )
+
+    if expected_batch is None:
+        assert config is None
+    else:
+        assert config is not None
+        assert config.run.batch_size == expected_batch
+        assert config.run.steps == expected_steps
+        assert config.run.batch_size * config.run.steps == steps32 * 81_920
 
 
 def test_planner_rejects_sample_cap_below_recipe_minimum_steps() -> None:

@@ -10,15 +10,12 @@ from chess_engine_4.training.config import (
     RunConfig,
     TrainingConfig,
 )
+from chess_engine_4.training.dense_schedule import DENSE_BATCH_PER_WIDTH, dense_training_schedule
 from chess_engine_4.training.losses import LossWeights
 
 _BASE_WIDTH = 64
 _BF16_MAX_WIDTH = 512
 _DEPTH = 8
-_SAMPLES_PER_PARAMETER = 50.0
-_BATCH32_PER_WIDTH = 32
-_MINIMUM_STEPS_COEFFICIENT = 62.7575303963433
-_MINIMUM_STEPS_WIDTH_EXPONENT = 0.8073049254601639
 _ADAMH_LR_32D_BY_WIDTH = {
     64: 0.0071,
     128: 0.005,
@@ -83,22 +80,12 @@ def config(
         expansion_ratio=4.0,
         activation="swiglu",
     )
-    batch32 = _BATCH32_PER_WIDTH * d_model
-    steps32 = round(training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch32)
-    minimum_steps = _minimum_steps(d_model)
-    if steps32 >= minimum_steps:
-        batch_size = batch32
-        steps = steps32
+    batch_size, steps = dense_training_schedule(
+        d_model=d_model, parameter_count=parameter_count, training_ratio=training_ratio
+    )
+    if batch_size == DENSE_BATCH_PER_WIDTH * d_model:
         lr = _ADAMH_LR_32D_BY_WIDTH[d_model]
     else:
-        batch_size = batch32 // 2
-        steps = steps32 * 2
-        if steps < minimum_steps:
-            raise ValueError(
-                f"training_ratio={training_ratio:g} gives only {steps:,} optimizer "
-                f"steps at the minimum dense batch for d_model={d_model}; "
-                f"the fitted minimum is {minimum_steps:,.1f}."
-            )
         lr = _ADAMH_LR_16D_BY_WIDTH[d_model]
     return TrainingConfig(
         run=RunConfig(
@@ -140,7 +127,3 @@ def _run_name(d_model: int, training_ratio: float) -> str:
     if training_ratio == 1.0:
         return f"d{d_model}"
     return f"d{d_model}-r{training_ratio:g}"
-
-
-def _minimum_steps(d_model: int) -> float:
-    return float(_MINIMUM_STEPS_COEFFICIENT * d_model**_MINIMUM_STEPS_WIDTH_EXPONENT)

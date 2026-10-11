@@ -1,7 +1,7 @@
 ---
 id: "01kzj8kfvz"
 title: "Refresh the training and kernel toolchain"
-status: blocked
+status: pending
 priority: medium
 effort: large
 dependencies: ["01kzhp5w47"]
@@ -28,6 +28,15 @@ reproducibility, or performance.
 - Clean checkouts remain reproducible and the full repository gate passes.
 - No numerical or material performance regression is retained.
 
-## Blocker
+## Progress
 
-Wait for the remaining SM90 kernel work to merge.
+- 2026-10-11: Removed the obsolete SM90 blocker; dependency `01kzhp5w47` is
+  completed. The website dependency refresh is tracked in `01m4p21n3g`.
+- Training/kernel upgrades remain pending until native builds, numerical checks,
+  and performance verification can run without competing with Urban-rivals-ai.
+  Keep uv on `latest`, as requested; do not change the Porygon Docker image.
+- Website follow-up: the 2026-10-11 full pnpm audit still reports
+  [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+  in the development-only ESLint → fast-glob → micromatch → braces chain, with
+  no patched version reported. Recheck upstream before the next website refresh;
+  the production-only audit is clean. No forced override was added.
