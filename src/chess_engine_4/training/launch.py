@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -100,7 +100,7 @@ def add_training_config_arguments(
     parser.add_argument("--history-length", type=int, choices=range(1, 9), default=None)
     parser.add_argument(
         "--activation",
-        choices=("geglu", "gelu", "silu", "srelu", "swiglu"),
+        choices=("swiglu",),
         default=None,
     )
     parser.add_argument("--lr", type=float, default=None)
@@ -112,7 +112,7 @@ def add_training_config_arguments(
         parser.add_argument("--lr-cooldown-frac", type=float, default=None)
     parser.add_argument(
         "--quantization-recipe",
-        choices=("bf16", "mxfp8", "nvfp4"),
+        choices=("bf16", "mxfp8"),
         default=None,
     )
     parser.add_argument("--dataloader-threads", type=int, default=None)
@@ -125,6 +125,7 @@ def resolve_training_config(
     args: argparse.Namespace,
     *,
     default_gpu: TrainingGpu | None = None,
+    deployment: Callable[[TrainingConfig], TrainingConfig] | None = None,
 ) -> TrainingConfig:
     config = with_overrides(
         load_training_config(
@@ -146,11 +147,14 @@ def resolve_training_config(
         lr_warmup_steps=getattr(args, "lr_warmup_steps", None),
         lr_cooldown_frac=getattr(args, "lr_cooldown_frac", None),
         gpu=args.gpu if args.gpu is not None else default_gpu,
+        cpu_cores=getattr(args, "cpu_cores", None),
         quantization_recipe=args.quantization_recipe,
         dataloader_threads=args.dataloader_threads,
         dataloader_prefetch_per_thread=args.dataloader_prefetch_per_thread,
         kernel_backend=args.kernel_backend,
     )
+    if deployment is not None:
+        config = deployment(config)
     validate_training_hardware(config)
     return config
 
@@ -186,7 +190,7 @@ def print_launch_summary(
         f"lr={config.optimizer.lr:g} "
         f"weight_decay={config.optimizer.weight_decay} "
         f"precision={config.model.precision} "
-        f"gpu={config.infra.gpu} "
+        f"gpu={config.infra.require_gpu()} "
         f"kernel_backend={config.model.kernel_backend} "
         f"kernel_variant={kernel_selection.variant} "
         f"input_pipeline={config.model.input_pipeline} "

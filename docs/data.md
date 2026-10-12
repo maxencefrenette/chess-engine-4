@@ -30,9 +30,8 @@ for counts, compression, and omitted corrupt members.
 The Iceberg files use different column types from the older Parquet format.
 Pointing `train-local --data` at them is not yet supported. Remaining work includes
 the reader, reproducible filtering/shuffling, and verified transfer to Modal.
-The Iceberg metadata can already supply a planning capacity with
-`--dataset experiments/training-data-iceberg.toml`; this does not stage the data
-or make a proposed run launchable against Iceberg.
+`experiments/training-data-iceberg.toml` records its capacity and provenance;
+it does not stage the data or make a run launchable against Iceberg.
 The original acquisition/conversion commands remain maintenance tools; completed
 conversion does not imply Iceberg training support. Cloud data commands are in
 [cloud.md](cloud.md#data-maintenance).

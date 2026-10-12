@@ -56,7 +56,7 @@ def throughput_sweep() -> None:
     )
     parser.add_argument(
         "--quantization-recipe",
-        choices=("bf16", "mxfp8", "nvfp4"),
+        choices=("bf16", "mxfp8"),
         default=None,
     )
     parser.add_argument("--kernel-backend", choices=("te", "custom"), default=None)
@@ -79,6 +79,8 @@ def throughput_sweep() -> None:
     if args.batch_size is not None and args.batch_divisor != 1:
         parser.error("batch-size and batch-divisor are mutually exclusive.")
 
+    from chess_engine_4.backends.modal.deployment import apply_modal_defaults
+
     cached = load_results(args.output)
     configs = {
         width: _benchmark_config(
@@ -91,6 +93,7 @@ def throughput_sweep() -> None:
         )
         for width in widths
     }
+    configs = {width: apply_modal_defaults(config) for width, config in configs.items()}
     for config in configs.values():
         validate_training_hardware(config)
     pending = [
@@ -220,7 +223,7 @@ def run_modal_profiles(
     function_keys = {
         (
             configs[width].infra.cpu_cores,
-            configs[width].infra.gpu,
+            configs[width].infra.require_gpu(),
             configs[width].model.kernel_backend,
         )
         for width in widths
@@ -233,7 +236,7 @@ def run_modal_profiles(
     with app.run():
         for width in widths:
             cpu_cores = configs[width].infra.cpu_cores
-            gpu = configs[width].infra.gpu
+            gpu = configs[width].infra.require_gpu()
             function_key = (cpu_cores, gpu, configs[width].model.kernel_backend)
             function = functions[function_key]
             try:
@@ -259,7 +262,7 @@ def make_entry(
     params = model_parameter_count(model)
     milliseconds = float(profile["measured_wall_ms_per_step"])
     runtime_sec = config.run.steps * milliseconds / 1000.0
-    gpu_rate = gpu_spec(config.infra.gpu).dollars_per_second
+    gpu_rate = gpu_spec(config.infra.require_gpu()).dollars_per_second
     cpu_rate = config.infra.cpu_cores * CPU_DOLLARS_PER_CORE_SECOND
     entry: dict[str, Any] = {
         "source_commit": source_commit,
@@ -274,7 +277,7 @@ def make_entry(
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
-        "gpu": config.infra.gpu,
+        "gpu": config.infra.require_gpu(),
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,
@@ -296,7 +299,7 @@ def make_entry(
         "gpu_dollars_per_second": gpu_rate,
         "cpu_dollars_per_second": cpu_rate,
         "hardware_dollars_per_second": hardware_dollars_per_second(
-            config.infra.gpu,
+            config.infra.require_gpu(),
             config.infra.cpu_cores,
         ),
         "estimated_runtime_sec_1x": runtime_sec,
@@ -323,7 +326,7 @@ def entry_matches(
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "input_pipeline": config.model.input_pipeline,
-        "gpu": config.infra.gpu,
+        "gpu": config.infra.require_gpu(),
         "cpu_cores": config.infra.cpu_cores,
         "dataloader_threads": config.infra.dataloader_threads,
         "dataloader_prefetch_per_thread": config.infra.dataloader_prefetch_per_thread,

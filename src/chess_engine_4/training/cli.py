@@ -75,7 +75,7 @@ def run_training(options: TrainOptions) -> TrainingResult:
     steps = options.profile.total_steps if options.profile is not None else config.run.steps
 
     device = torch.device("cuda")
-    _require_training_gpu(device, configured_gpu=config.infra.gpu)
+    _require_training_gpu(device, configured_gpu=config.infra.require_gpu())
     capability = torch.cuda.get_device_capability(device)
     kernel_selection = resolve_training_kernel(config, capability=capability)
     dataset = LeelaParquetDataset(
@@ -97,7 +97,7 @@ def run_training(options: TrainOptions) -> TrainingResult:
     )
     theoretical_tflops = _theoretical_tflops(
         device,
-        configured_gpu=config.infra.gpu,
+        configured_gpu=config.infra.require_gpu(),
         precision=config.model.precision,
     )
     wandb_run = (
@@ -679,7 +679,7 @@ def _init_wandb(
         "training_ratio": config.run.training_ratio,
         "device": "cuda",
         "device_name": torch.cuda.get_device_name(device),
-        "gpu": config.infra.gpu,
+        "gpu": config.infra.require_gpu(),
         "precision": config.model.precision,
         "kernel_backend": config.model.kernel_backend,
         "kernel_variant": kernel_variant,

@@ -30,22 +30,11 @@ def mxfp8_recipe() -> Any:
     return MXFP8BlockScaling()
 
 
-@cache
-def nvfp4_recipe() -> Any:
-    """Return the Blackwell NVFP4 training recipe."""
-
-    from transformer_engine.common.recipe import NVFP4BlockScaling
-
-    return NVFP4BlockScaling()
-
-
 def quantization_recipe(name: str) -> Any | None:
     if name == "bf16":
         return None
     if name == "mxfp8":
         return mxfp8_recipe()
-    if name == "nvfp4":
-        return nvfp4_recipe()
     raise ValueError(f"unknown quantization recipe: {name}")
 
 

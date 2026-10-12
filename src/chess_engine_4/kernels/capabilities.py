@@ -208,8 +208,6 @@ def _require_te_precision(capability: ComputeCapability, precision: Precision) -
         return
     if precision == "mxfp8" and capability == (10, 0):
         return
-    if precision == "nvfp4" and capability in {(10, 0), (12, 0)}:
-        return
     raise ValueError(
         f"Transformer Engine precision={precision!r} is not supported on "
         f"{_format_sm(capability)}"

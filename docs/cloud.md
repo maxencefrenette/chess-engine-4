@@ -14,8 +14,17 @@ the workstation does not need the local `cuda` extra to submit a cloud job.
 
 ## Commands
 
-All existing command names remain available. Their execution adapters live in
+The cloud command names remain available. Their execution adapters live in
 `src/chess_engine_4/backends/modal/`.
+
+Cloud GPU placement is selected in `backends/modal/deployment.py`, not in model
+recipes. The historical per-width placements are unchanged. `--gpu` overrides
+placement; `train-modal` and `profile-training` accept `--cpu-cores` to override
+the default allocation of eight. Data loader threads/prefetch are separate
+execution settings; a CPU allocation does not change model, optimizer, or batch.
+
+Production training supports only SwiGLU with BF16 or MXFP8. NVFP4 and alternate
+activation training are retired; existing inference results are preserved.
 
 | Command (prefix with `uv run --extra modal`) | Purpose |
 | --- | --- |

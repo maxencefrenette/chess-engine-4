@@ -1,3 +1,5 @@
+# Revision-bound historical artifact; see docs/history.md and
+# experiments/historical-scripts.toml. Run the recorded historical checkout.
 from __future__ import annotations
 
 import csv

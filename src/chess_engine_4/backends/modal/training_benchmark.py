@@ -14,6 +14,7 @@ from typing import Any
 
 import modal
 
+from chess_engine_4.backends.modal.deployment import apply_modal_defaults
 from chess_engine_4.backends.modal.kernel_image import with_cuda_kernels
 from chess_engine_4.backends.modal.train import (
     REMOTE_DATA_PATH,
@@ -72,7 +73,7 @@ def benchmark_training_modal() -> None:
         )
         if args.batch_size is not None:
             config = with_overrides(config, batch_size=args.batch_size)
-        configs.append(asdict(config))
+        configs.append(asdict(apply_modal_defaults(config)))
 
     levels = list(LEVELS) if args.level == "all" else [args.level]
     benchmark_function = training_benchmark_function(args.gpu)
@@ -103,7 +104,7 @@ def _benchmark_training(
 
     torch.set_float32_matmul_precision("high")
     config = training_config_from_dict(config_values)
-    _require_training_gpu(torch.device("cuda"), configured_gpu=config.infra.gpu)
+    _require_training_gpu(torch.device("cuda"), configured_gpu=config.infra.require_gpu())
     result: dict[str, Any] = {
         "d_model": config.model.d_model,
         "batch_size": config.run.batch_size,

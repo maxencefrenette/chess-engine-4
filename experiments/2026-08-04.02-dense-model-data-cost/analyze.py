@@ -1,4 +1,4 @@
-"""Reproduce the dense model/data and dollar-allocation analysis."""
+"""Historical analysis; run the revision recorded in experiments/historical-scripts.toml."""
 
 from __future__ import annotations
 

@@ -34,11 +34,21 @@ uv run train-local --d-model 128 --data /path/to/parquet
 training settings from width and training ratio; routine experiments default
 to `0.2x` Chinchilla. `--config configs/moe64a2.py` selects the MoE family.
 
+New training supports SwiGLU with BF16 or MXFP8, matching the custom-engine
+release path. NVFP4 training and alternative activation choices are retired.
+Historical reference models remain available for analysis.
+
 The launcher detects the local GPU, checks architecture compatibility, and
 prints the launch summary. Add `--dry-run` to inspect the resolved configuration
 without training. The canonical batches came from cloud experiments: architecture
 compatibility does **not** guarantee a recipe fits local VRAM. Review the batch
 size and training budget before launching; local throughput tuning is separate work.
+
+Recipes leave device selection unresolved. The local launcher supplies the
+detected GPU; Modal applies its separate placement profile. Execution/loader
+defaults live in `training/execution.py`, not in the recipes. The persisted
+`infra` checkpoint fields are retained for compatibility. Locally, loader thread
+limits are configurable; `cpu_cores` is only a Modal allocation, not a local cap.
 
 Periodic and final checkpoints are written under `checkpoints/`. Use
 `--checkpoint-dir` and `--checkpoint-every` to change that, and `--no-wandb`
@@ -112,10 +122,11 @@ organization change, not a recipe or architecture change.
 
 - [Development and verification](docs/development.md)
 - [Optional cloud execution](docs/cloud.md)
-- [Research analysis and planning](docs/research.md)
+- [Research analysis](docs/research.md)
+- [Historical scripts and retired features](docs/history.md)
 - [Training optimization notes](OPTIMIZATION.md)
 - [Website development](website/README.md)
 
-Existing CLI names remain available; use `uv run COMMAND --help`. Python module
-paths have moved with the package layout, and repository scripts use the new
-imports. The only intentional CLI behavior change is explicit remote export.
+Use `uv run COMMAND --help` for supported commands. `plan-budget` and
+`plan-ladder` have been removed; scaling fits, run comparison, and dashboard
+generation remain. Remote export explicitly requires `--remote`.

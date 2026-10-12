@@ -42,8 +42,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
         depth=2,
         expansion_ratio=2.0,
         history_length=4,
-        activation="silu",
-        quantization_recipe="nvfp4",
+        activation="swiglu",
+        quantization_recipe="mxfp8",
         lr=0.001,
         max_grad_norm=3.0,
         lr_warmup_steps=25,
@@ -58,8 +58,8 @@ def test_with_overrides_keeps_config_as_source_of_truth() -> None:
     assert overridden.model.depth == 2
     assert overridden.model.expansion_ratio == 2.0
     assert overridden.model.history_length == 4
-    assert overridden.model.activation == "silu"
-    assert overridden.model.precision == "nvfp4"
+    assert overridden.model.activation == "swiglu"
+    assert overridden.model.precision == "mxfp8"
     assert overridden.optimizer.lr == 0.001
     assert overridden.optimizer.kind == "adamh"
     assert overridden.optimizer.max_grad_norm == 3.0
@@ -116,7 +116,7 @@ def test_legacy_non_lc0_geometry_is_rejected(name: str, value: int) -> None:
 def test_launch_summary_records_sampling_rate(capsys) -> None:
     config = load_training_config("configs/dense.py", d_model=64)
 
-    print_launch_summary(config)
+    print_launch_summary(with_overrides(config, gpu="RTX-5070"))
 
     summary = capsys.readouterr().out
     assert "sampling_rate=1" in summary
@@ -136,7 +136,9 @@ def test_rtx_pro_6000_rejects_unsupported_low_precision_recipe() -> None:
 def test_custom_moe_kernel_requires_supported_bf16_width_on_rtx_pro_6000(
     d_model: int,
 ) -> None:
-    config = load_training_config("configs/moe64a2.py", d_model=d_model)
+    config = with_overrides(
+        load_training_config("configs/moe64a2.py", d_model=d_model), gpu="RTX-PRO-6000"
+    )
     if d_model == 512:
         config = with_overrides(
             config,
@@ -173,17 +175,6 @@ def test_a100_rejects_low_precision_recipe() -> None:
         validate_training_hardware(config)
 
 
-def test_rtx_pro_6000_accepts_te_nvfp4() -> None:
-    config = with_overrides(
-        load_training_config("configs/dense.py", d_model=128),
-        gpu="RTX-PRO-6000",
-        quantization_recipe="nvfp4",
-        kernel_backend="te",
-    )
-
-    assert resolve_training_kernel(config).variant == "te-nvfp4"
-
-
 def test_custom_dense_accepts_sm120_bf16() -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=128),
@@ -196,7 +187,7 @@ def test_custom_dense_accepts_sm120_bf16() -> None:
     assert resolve_training_kernel(config).variant == "dense-sm120-bf16"
 
 
-@pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
+@pytest.mark.parametrize("precision", ["mxfp8"])
 def test_custom_dense_rejects_sm120_low_precision(precision: Precision) -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=128),
@@ -225,27 +216,17 @@ def test_custom_dense_rejects_incompatible_expansion_ratio() -> None:
 def test_custom_dense_accepts_d1280_before_launch() -> None:
     config = with_overrides(
         load_training_config("configs/dense.py", d_model=1280),
+        gpu="B200",
         kernel_backend="custom",
     )
 
     assert resolve_training_kernel(config).variant == "dense-sm100-mxfp8"
 
 
-def test_custom_dense_rejects_nvfp4_before_launch() -> None:
-    config = with_overrides(
-        load_training_config("configs/dense.py", d_model=256),
-        gpu="B200",
-        quantization_recipe="nvfp4",
-        kernel_backend="custom",
-    )
-
-    with pytest.raises(ValueError, match="require precision='bf16' or 'mxfp8'"):
-        validate_training_hardware(config)
-
-
 def test_custom_moe_rejects_incompatible_expansion_ratio() -> None:
     config = with_overrides(
         load_training_config("configs/moe64a2.py", d_model=128),
+        gpu="RTX-PRO-6000",
         expansion_ratio=4.0,
     )
 
@@ -333,7 +314,7 @@ def test_hopper_accepts_explicit_custom_bf16_training(
 
 
 @pytest.mark.parametrize("gpu", ["H100", "H200"])
-@pytest.mark.parametrize("precision", ["mxfp8", "nvfp4"])
+@pytest.mark.parametrize("precision", ["mxfp8"])
 def test_hopper_rejects_blackwell_only_precision_before_launch(
     gpu: TrainingGpu,
     precision: Precision,
@@ -410,7 +391,7 @@ def test_moe64a2_family_recipe() -> None:
     assert config.model.expansion_ratio == 2.0
     assert config.model.kernel_backend == "custom"
     assert config.model.precision == "bf16"
-    assert config.infra.gpu == "RTX-PRO-6000"
+    assert config.infra.gpu is None
 
 
 @pytest.mark.parametrize("d_model", [384, 640, 768])
@@ -419,7 +400,7 @@ def test_moe64a2_new_widths_use_te_mxfp8(d_model: int) -> None:
 
     assert config.model.kernel_backend == "te"
     assert config.model.precision == "mxfp8"
-    assert config.infra.gpu == "B200"
+    assert config.infra.gpu is None
 
 
 @pytest.mark.parametrize("d_model", [32, 64, 2048])
@@ -585,24 +566,6 @@ def test_moe64a2_batch_size_scales_exactly_with_width(d_model: int) -> None:
     config = load_training_config("configs/moe64a2.py", d_model=d_model)
 
     assert config.run.batch_size == 128 * d_model
-
-
-@pytest.mark.parametrize(
-    ("d_model", "gpu"),
-    [
-        (64, "RTX-PRO-6000"),
-        (128, "RTX-PRO-6000"),
-        (256, "RTX-PRO-6000"),
-        (512, "B200"),
-        (768, "B200"),
-        (1024, "B200"),
-        (1280, "B200"),
-    ],
-)
-def test_dense_family_selects_cost_efficient_gpu(d_model: int, gpu: str) -> None:
-    config = load_training_config("configs/dense.py", d_model=d_model)
-
-    assert config.infra.gpu == gpu
 
 
 def test_dense_family_requires_aligned_width() -> None:

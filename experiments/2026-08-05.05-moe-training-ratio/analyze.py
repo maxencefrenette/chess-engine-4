@@ -1,4 +1,4 @@
-"""Reproduce the MoE training-ratio allocation charts and fit."""
+"""Historical analysis; run the revision recorded in experiments/historical-scripts.toml."""
 
 from __future__ import annotations
 

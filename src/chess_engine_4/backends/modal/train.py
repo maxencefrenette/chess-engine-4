@@ -11,6 +11,7 @@ from typing import Any
 import modal
 from dotenv import load_dotenv
 
+from chess_engine_4.backends.modal.deployment import apply_modal_defaults
 from chess_engine_4.hardware import TRAINING_GPUS, TrainingGpu, modal_gpu_identifier
 from chess_engine_4.model import KernelBackend
 from chess_engine_4.training.config import training_config_from_dict
@@ -97,10 +98,11 @@ def train_modal() -> None:
         type=float,
         default=1.0,
     )
+    parser.add_argument("--cpu-cores", type=int, default=None, help="Modal CPU allocation.")
     args = parser.parse_args()
     if not 0.0 < args.sampling_rate <= 1.0:
         parser.error("--sampling-rate must be greater than 0 and at most 1")
-    config = resolve_training_config(args)
+    config = resolve_training_config(args, deployment=apply_modal_defaults)
     print_launch_summary(config, sampling_rate=args.sampling_rate)
     if args.dry_run:
         return
@@ -119,7 +121,7 @@ def train_modal() -> None:
 
     train_function = training_function(
         config.infra.cpu_cores,
-        gpu=config.infra.gpu,
+        gpu=config.infra.require_gpu(),
         kernel_backend=config.model.kernel_backend,
     )
     with app.run():

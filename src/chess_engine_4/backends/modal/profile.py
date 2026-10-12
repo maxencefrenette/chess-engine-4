@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from chess_engine_4.backends.modal.deployment import apply_modal_defaults
 from chess_engine_4.backends.modal.train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
@@ -40,6 +41,7 @@ def profile_training() -> None:
         help="Capture a PyTorch CPU/CUDA trace and download it to this JSON path.",
     )
     parser.add_argument("--json", action="store_true", help="Print only the JSON result.")
+    parser.add_argument("--cpu-cores", type=int, default=None, help="Modal CPU allocation.")
     args = parser.parse_args()
 
     if args.warmup_steps < 0:
@@ -48,7 +50,7 @@ def profile_training() -> None:
         parser.error("profile-steps must be positive.")
     if args.trace_output is not None and args.trace_output.suffix != ".json":
         parser.error("trace-output must end in .json")
-    config = resolve_training_config(args)
+    config = resolve_training_config(args, deployment=apply_modal_defaults)
     if not args.json:
         print_launch_summary(
             config,
@@ -73,7 +75,7 @@ def profile_training() -> None:
 
     profile_function = training_function(
         config.infra.cpu_cores,
-        gpu=config.infra.gpu,
+        gpu=config.infra.require_gpu(),
         kernel_backend=config.model.kernel_backend,
     )
     with app.run():

@@ -10,6 +10,7 @@ from typing import Any, Literal
 from chess_engine_4.hardware import TrainingGpu, gpu_spec
 from chess_engine_4.kernels.capabilities import KernelSelection, resolve_kernel_backend
 from chess_engine_4.model import KernelBackend, ModelConfig, Precision, model_config_from_dict
+from chess_engine_4.training.execution import InfraConfig
 from chess_engine_4.training.losses import LossWeights
 
 
@@ -28,18 +29,6 @@ class RunConfig:
             raise ValueError("batch_size must be positive.")
         if self.training_ratio <= 0:
             raise ValueError("training_ratio must be positive.")
-
-
-@dataclass(frozen=True, slots=True)
-class InfraConfig:
-    gpu: TrainingGpu = "B200"
-    cpu_cores: int = 8
-    dataloader_threads: int = 4
-    dataloader_prefetch_per_thread: int = 2
-
-    def __post_init__(self) -> None:
-        if self.cpu_cores <= 0:
-            raise ValueError("cpu_cores must be positive.")
 
 
 type OptimizerKind = Literal["adamw", "adamh"]
@@ -70,7 +59,7 @@ class OptimizerConfig:
 @dataclass(frozen=True, slots=True)
 class TrainingConfig:
     run: RunConfig = RunConfig()
-    infra: InfraConfig = InfraConfig()
+    infra: InfraConfig = field(default_factory=InfraConfig)
     model: ModelConfig = field(default_factory=lambda: model_config_from_dict({}))
     optimizer: OptimizerConfig = OptimizerConfig()
     loss: LossWeights = field(default_factory=LossWeights)
@@ -126,10 +115,16 @@ def resolve_training_kernel(
     capability: tuple[int, int] | None = None,
 ) -> KernelSelection:
     model = config.model
+    if model.activation != "swiglu":
+        raise ValueError("Production training supports only activation='swiglu'.")
+    if model.precision not in {"bf16", "mxfp8"}:
+        raise ValueError("Production training supports only bf16 and mxfp8 precision.")
     return resolve_kernel_backend(
         backend=model.kernel_backend,
         kind=model.kind,
-        capability=(gpu_spec(config.infra.gpu).capability if capability is None else capability),
+        capability=(
+            gpu_spec(config.infra.require_gpu()).capability if capability is None else capability
+        ),
         precision=model.precision,
         d_model=model.d_model,
         hidden_dim=int(model.d_model * model.expansion_ratio),
@@ -161,6 +156,7 @@ def with_overrides(
     lr_warmup_steps: int | None = None,
     lr_cooldown_frac: float | None = None,
     gpu: TrainingGpu | None = None,
+    cpu_cores: int | None = None,
     dataloader_threads: int | None = None,
     dataloader_prefetch_per_thread: int | None = None,
     quantization_recipe: Precision | None = None,
@@ -213,6 +209,8 @@ def with_overrides(
         )
     if gpu is not None:
         config = replace(config, infra=replace(config.infra, gpu=gpu))
+    if cpu_cores is not None:
+        config = replace(config, infra=replace(config.infra, cpu_cores=cpu_cores))
     if dataloader_threads is not None:
         config = replace(
             config,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-from chess_engine_4.hardware import TrainingGpu
 from chess_engine_4.model import (
     InputPipeline,
     KernelBackend,
@@ -12,7 +11,6 @@ from chess_engine_4.model import (
     moe64a2_parameter_count,
 )
 from chess_engine_4.training.config import (
-    InfraConfig,
     OptimizerConfig,
     RunConfig,
     TrainingConfig,
@@ -34,15 +32,6 @@ _KERNEL_BACKEND_BY_WIDTH: dict[int, KernelBackend] = {
     640: "te",
     768: "te",
     1024: "te",
-}
-_GPU_BY_WIDTH: dict[int, TrainingGpu] = {
-    128: "RTX-PRO-6000",
-    256: "A100",
-    384: "B200",
-    512: "B200",
-    640: "B200",
-    768: "B200",
-    1024: "B200",
 }
 _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     128: "overlap",
@@ -88,12 +77,6 @@ def config(
             steps=round(training_ratio * _SAMPLES_PER_PARAMETER * parameter_count / batch_size),
             batch_size=batch_size,
             training_ratio=training_ratio,
-        ),
-        infra=InfraConfig(
-            gpu=_GPU_BY_WIDTH[d_model],
-            cpu_cores=8,
-            dataloader_threads=8,
-            dataloader_prefetch_per_thread=2,
         ),
         model=Moe64A2ChessNetConfig(
             d_model=d_model,

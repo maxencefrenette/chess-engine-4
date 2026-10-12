@@ -12,6 +12,14 @@ def test_modal_is_an_optional_dependency() -> None:
     assert project["optional-dependencies"]["modal"] == ["modal>=1.4.2"]
 
 
+def test_retired_planners_are_not_published_commands() -> None:
+    scripts = tomllib.loads(Path("pyproject.toml").read_text())["project"]["scripts"]
+    assert "plan-budget" not in scripts
+    assert "plan-ladder" not in scripts
+    assert not Path("src/chess_engine_4/analysis/budget_planner.py").exists()
+    assert not Path("src/chess_engine_4/analysis/ladder_planner.py").exists()
+
+
 def test_local_imports_and_help_without_modal() -> None:
     # A fresh interpreter prevents previously imported cloud modules from masking
     # accidental dependencies. No GPU initialization or cloud calls are allowed.
@@ -39,7 +47,7 @@ for module in (
 scripts = tomllib.loads(Path("pyproject.toml").read_text())["project"]["scripts"]
 for command in (
     "train-local", "export-model", "inspect-data", "build-lc0", "build-kernels",
-    "plan-budget", "plan-ladder", "throughput-sweep", "generate-website-data",
+    "throughput-sweep", "generate-website-data",
     "compare-run", "wandb-metrics", "ingest-iceberg", "lc0-to-parquet",
 ):
     module, function = scripts[command].split(":")

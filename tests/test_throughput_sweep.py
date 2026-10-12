@@ -9,7 +9,7 @@ from chess_engine_4.analysis.throughput_sweep import (
     normalize_widths,
     write_results,
 )
-from chess_engine_4.training.config import load_training_config
+from chess_engine_4.training.config import load_training_config, with_overrides
 
 
 def test_normalize_widths_sorts_and_deduplicates() -> None:
@@ -42,7 +42,9 @@ def test_cached_sweep_gpu_metadata_uses_all_rows() -> None:
 
 
 def test_throughput_result_round_trip(tmp_path: Path) -> None:
-    config = load_training_config(Path("configs/dense.py"), d_model=64)
+    config = with_overrides(
+        load_training_config(Path("configs/dense.py"), d_model=64), gpu="RTX-PRO-6000"
+    )
     profile = {
         "warmup_steps": 50,
         "profile_steps": 500,

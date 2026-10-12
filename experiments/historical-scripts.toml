@@ -1,0 +1,21 @@
+# API-compatible historical snapshot, not a claim about the original run's commit.
+# Verified: these scripts, their inputs, and their retired fitting helpers exist
+# at this revision. Chart regeneration has not been rerun during maintenance.
+
+[[script]]
+path = "experiments/2026-07-12.08-geglu-canonical-cutover/plot.py"
+reference_revision = "5c83fe26fd1ce2721e1c6165d1766d436094e582"
+command = "uv run python experiments/2026-07-12.08-geglu-canonical-cutover/plot.py"
+reason = "Requires the retired fit_loss_power_law API."
+
+[[script]]
+path = "experiments/2026-08-04.02-dense-model-data-cost/analyze.py"
+reference_revision = "5c83fe26fd1ce2721e1c6165d1766d436094e582"
+command = "uv run python experiments/2026-08-04.02-dense-model-data-cost/analyze.py"
+reason = "Requires retired LossPowerLaw / UndertrainingLossLaw fitting APIs."
+
+[[script]]
+path = "experiments/2026-08-05.05-moe-training-ratio/analyze.py"
+reference_revision = "5c83fe26fd1ce2721e1c6165d1766d436094e582"
+command = "uv run python experiments/2026-08-05.05-moe-training-ratio/analyze.py"
+reason = "Requires retired LossPowerLaw / UndertrainingLossLaw fitting APIs."

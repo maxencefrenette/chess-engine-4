@@ -1,7 +1,7 @@
 ---
 id: "01kzrr2xyj"
 title: "Add L-shaped scaling ladder planner and 16d throughput"
-status: pending
+status: cancelled
 priority: high
 effort: medium
 dependencies: []
@@ -10,6 +10,14 @@ created_at: 2026-08-11
 ---
 
 # Add L-shaped scaling ladder planner and 16d throughput
+
+## Retirement — 2026-10-11
+
+The user retired the cloud-dollar budget and ladder planners in favor of the
+local train-to-release workflow (`01m4psb1f6`). The commands and their dedicated
+tests were removed. The remaining d1280 planner-profile work is cancelled, not
+claimed completed. Historical grids, measurements, and the implementation record
+below are preserved. The final planner source is available at commit `fd16498`.
 
 ## Objective
 

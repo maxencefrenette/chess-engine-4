@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from chess_engine_4.hardware import TrainingGpu
 from chess_engine_4.model import DenseChessNetConfig, InputPipeline, dense_parameter_count
 from chess_engine_4.training.config import (
-    InfraConfig,
     OptimizerConfig,
     RunConfig,
     TrainingConfig,
@@ -42,15 +40,6 @@ _INPUT_PIPELINE_BY_WIDTH: dict[int, InputPipeline] = {
     768: "overlap",
     1024: "overlap",
     1280: "overlap",
-}
-_GPU_BY_WIDTH: dict[int, TrainingGpu] = {
-    64: "RTX-PRO-6000",
-    128: "RTX-PRO-6000",
-    256: "RTX-PRO-6000",
-    512: "B200",
-    768: "B200",
-    1024: "B200",
-    1280: "B200",
 }
 
 
@@ -94,12 +83,6 @@ def config(
             steps=steps,
             batch_size=batch_size,
             training_ratio=training_ratio,
-        ),
-        infra=InfraConfig(
-            gpu=_GPU_BY_WIDTH[d_model],
-            cpu_cores=8,
-            dataloader_threads=8,
-            dataloader_prefetch_per_thread=2,
         ),
         model=DenseChessNetConfig(
             d_model=d_model,

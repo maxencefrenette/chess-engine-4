@@ -19,6 +19,8 @@ from chess_engine_4.model.config import InputPipeline, KernelBackend, Precision
 from chess_engine_4.model.output import ChessNetOutput
 from chess_engine_4.model.transformer_engine import te
 
+# Retained for decoding historical configs and portable reference/FLOP analysis.
+# New production training is restricted to SwiGLU by resolve_training_kernel.
 SUPPORTED_ACTIVATIONS = frozenset({"geglu", "gelu", "silu", "srelu", "swiglu"})
 GATED_ACTIVATIONS = frozenset({"geglu", "swiglu"})
 HISTORY_LENGTH = 8

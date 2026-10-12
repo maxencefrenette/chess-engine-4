@@ -11,15 +11,20 @@ Modal is an optional execution backend, not a dependency of local workflows.
 - `release/` exports weights for our custom lc0 engine; stock-lc0 compatibility
   is not a release target.
 - `evaluation/` holds reusable evaluation helpers; `backends/modal/` owns cloud jobs.
-- `analysis/` holds research planners, scaling fits, and dashboard generation.
+- `analysis/` holds research analysis, scaling fits, and dashboard generation.
 - Keep optional backend imports out of local import paths. Preserve historical
-  reports and command names when reorganizing code.
+  reports. Keep command names stable during reorganization unless their feature
+  is explicitly retired.
 
 ## Training
 
 - Use `uv run train-local` for workstation training and `uv run train-modal`
   when the requested hardware or dataset is only available on Modal.
 - The canonical dense recipe is `configs/dense.py`.
+- Production training supports SwiGLU with BF16 or MXFP8. Historical activation
+  reference models are for analysis, not supported new training recipes.
+- Recipes do not choose cloud GPUs. Execution defaults live in
+  `training/execution.py`; Modal placement lives in `backends/modal/deployment.py`.
 - Routine experiments default to `0.2x` Chinchilla. Specify another training
   ratio only when data allocation is the variable under study or for a planned
   final run.
@@ -40,6 +45,8 @@ Modal is an optional execution backend, not a dependency of local workflows.
 - Preserve historical experiment reports. Do not rewrite old terminology or
   delete old results merely because the current methodology changed.
 - Follow `experiments/AGENTS.md` when adding a report.
+- Rerun revision-bound scripts with their recorded historical code, not by
+  restoring retired APIs in the production package. See `docs/history.md`.
 
 ## Tasks
 
