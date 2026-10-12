@@ -12,10 +12,10 @@ const watchedPaths = [
   path.join(rootDir, "experiments"),
   path.join(rootDir, "configs"),
   path.join(rootDir, "src/chess_engine_4/model"),
-  path.join(rootDir, "src/chess_engine_4/training/generate_website_data.py"),
+  path.join(rootDir, "src/chess_engine_4/analysis/generate_website_data.py"),
   path.join(rootDir, "src/chess_engine_4/training/dense_schedule.py"),
   path.join(rootDir, "src/chess_engine_4/training/flops.py"),
-  path.join(rootDir, "src/chess_engine_4/training/scaling_laws.py"),
+  path.join(rootDir, "src/chess_engine_4/analysis/scaling_laws.py"),
 ];
 
 const next = spawn("pnpm", ["exec", "next", "dev", ...process.argv.slice(2)], {
@@ -44,10 +44,10 @@ function isScalingInput(changedPath) {
     /^experiments\/throughput-[^/]+\.toml$/.test(relativePath) ||
     /^configs\/[^/]+\.py$/.test(relativePath) ||
     /^src\/chess_engine_4\/model\/.*\.py$/.test(relativePath) ||
-    relativePath === "src/chess_engine_4/training/generate_website_data.py" ||
+    relativePath === "src/chess_engine_4/analysis/generate_website_data.py" ||
     relativePath === "src/chess_engine_4/training/dense_schedule.py" ||
     relativePath === "src/chess_engine_4/training/flops.py" ||
-    relativePath === "src/chess_engine_4/training/scaling_laws.py"
+    relativePath === "src/chess_engine_4/analysis/scaling_laws.py"
   );
 }
 

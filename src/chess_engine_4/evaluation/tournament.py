@@ -1,8 +1,7 @@
-"""Adaptive Modal tournament orchestration and Elo fitting."""
+"""Tournament configuration, pairing, result parsing, and Elo fitting."""
 
 from __future__ import annotations
 
-import argparse
 import json
 import math
 import re
@@ -13,12 +12,7 @@ from typing import Any, cast
 
 import numpy as np
 
-from chess_engine_4.modal_eval import (
-    OPENING_BOOK_PATH,
-    app,
-    lc0_path_for_gpu,
-    selfplay_eval_function,
-)
+from chess_engine_4.evaluation.defaults import OPENING_BOOK_PATH
 
 _RESULT_BLOCK = re.compile(
     r'\[White "(?P<white>[^"]+)"\]\s*'
@@ -80,42 +74,6 @@ class MatchResult:
     ce4_batch_stats: tuple[dict[str, Any], ...] | None = None
 
 
-def eval_tournament_modal() -> None:
-    parser = argparse.ArgumentParser(description="Run an adaptive lc0 tournament on Modal.")
-    parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    tournament, engines = load_tournament_config(args.config)
-    matches = _load_completed_matches(args.output, tournament, engines)
-    completed_waves = max((match.wave for match in matches), default=-1) + 1
-    if completed_waves < tournament.waves:
-        function = selfplay_eval_function(
-            tournament.gpu,
-            max_containers=tournament.max_concurrency,
-        )
-        with app.run():
-            for wave in range(completed_waves, tournament.waves):
-                pairings = select_pairings(
-                    engines, matches, wave, tournament.games_per_matchup
-                )
-                payloads = build_match_payloads(tournament, pairings, wave)
-                raw_results = list(function.map(payloads))
-                matches.extend(
-                    parse_match_result(payload, result)
-                    for payload, result in zip(payloads, raw_results, strict=True)
-                )
-                report = build_report(tournament, engines, matches)
-                _write_report(args.output, report)
-                print(
-                    f"completed wave {wave + 1}/{tournament.waves}: "
-                    + ", ".join(f"{left.name} vs {right.name}" for left, right in pairings)
-                )
-
-    report = build_report(tournament, engines, matches)
-    _write_report(args.output, report)
-    print(json.dumps(report, indent=2))
-
-
 def load_tournament_config(path: Path) -> tuple[Tournament, list[Engine]]:
     with path.open("rb") as config_file:
         config = tomllib.load(config_file)
@@ -170,6 +128,8 @@ def build_match_payloads(
     tournament: Tournament,
     pairings: list[tuple[Engine, Engine]],
     wave: int,
+    *,
+    lc0_path: str,
 ) -> list[dict[str, Any]]:
     return [
         {
@@ -186,7 +146,7 @@ def build_match_payloads(
             "gpu": tournament.gpu,
             "player1": asdict(player1),
             "player2": asdict(player2),
-            "lc0_path": str(lc0_path_for_gpu(tournament.gpu)),
+            "lc0_path": lc0_path,
         }
         for player1, player2 in pairings
     ]

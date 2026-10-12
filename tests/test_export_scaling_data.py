@@ -4,7 +4,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from chess_engine_4.training.generate_website_data import (
+from chess_engine_4.analysis.generate_website_data import (
     FAMILIES,
     build_family_payload,
     write_website_data,

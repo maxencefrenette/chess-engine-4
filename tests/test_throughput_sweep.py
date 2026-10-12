@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from chess_engine_4.training.config import load_training_config
-from chess_engine_4.training.throughput_sweep import (
+from chess_engine_4.analysis.throughput_sweep import (
     _benchmark_config,
     _results_gpu,
     entry_matches,
@@ -10,6 +9,7 @@ from chess_engine_4.training.throughput_sweep import (
     normalize_widths,
     write_results,
 )
+from chess_engine_4.training.config import load_training_config
 
 
 def test_normalize_widths_sorts_and_deduplicates() -> None:

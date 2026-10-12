@@ -14,16 +14,16 @@ from typing import Any
 
 import modal
 
-from chess_engine_4.hardware import TRAINING_GPUS, modal_gpu_identifier
-from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS
-from chess_engine_4.kernels.modal import with_cuda_kernels
-from chess_engine_4.modal_kernels import benchmark_dense_layer
-from chess_engine_4.modal_train import (
+from chess_engine_4.backends.modal.kernel_image import with_cuda_kernels
+from chess_engine_4.backends.modal.train import (
     REMOTE_DATA_PATH,
     app,
     base_image,
     data_volume,
 )
+from chess_engine_4.hardware import TRAINING_GPUS, modal_gpu_identifier
+from chess_engine_4.kernels.capabilities import SUPPORTED_DENSE_WIDTHS
+from chess_engine_4.kernels.dense_benchmark import benchmark_dense_layer
 from chess_engine_4.training.config import load_training_config, with_overrides
 from chess_engine_4.training.launch import DEFAULT_CONFIG_PATH
 

@@ -45,7 +45,9 @@ base_image = (
         "PATH=/root/.cargo/bin:$PATH rustc --version",
     )
     .uv_sync(
-        extra_options="--extra cuda --no-build-isolation-package transformer-engine-torch",
+        extra_options=(
+            "--extra cuda --extra modal --no-build-isolation-package transformer-engine-torch"
+        ),
         env={
             "NVTE_BUILD_USE_NVIDIA_WHEELS": "1",
             "NVTE_FRAMEWORK": "pytorch",
@@ -171,7 +173,7 @@ def training_function(
     selected_image = image
     function_name = f"train_{gpu.lower().replace('-', '_')}_cpu_{cpu_cores}"
     if kernel_backend == "custom":
-        from chess_engine_4.kernels.modal import with_cuda_kernels
+        from chess_engine_4.backends.modal.kernel_image import with_cuda_kernels
 
         selected_image = with_cuda_kernels(base_image)
         function_name += "_custom_kernels"

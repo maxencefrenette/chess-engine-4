@@ -10,7 +10,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from chess_engine_4.training.scaling_laws import (
+from chess_engine_4.analysis.scaling_laws import (
     UndertrainingLossLaw,
     fit_loss_power_law,
     fit_undertraining_loss_law,

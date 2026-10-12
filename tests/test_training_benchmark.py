@@ -1,4 +1,8 @@
-from chess_engine_4.modal_training_benchmark import _summarize
+import pytest
+
+pytest.importorskip("modal", reason="Install the modal extra to test cloud adapters")
+
+from chess_engine_4.backends.modal.training_benchmark import _summarize
 
 
 def test_summarize_reports_distribution() -> None:

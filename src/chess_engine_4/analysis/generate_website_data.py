@@ -13,17 +13,17 @@ from typing import Any
 
 import numpy as np
 
-from chess_engine_4.hardware import hardware_dollars_per_second
-from chess_engine_4.model import model_parameter_count
-from chess_engine_4.training.config import load_training_config
-from chess_engine_4.training.families import FAMILIES, FamilySpec
-from chess_engine_4.training.flops import measure_training_flops_per_sample
-from chess_engine_4.training.scaling_laws import (
+from chess_engine_4.analysis.scaling_laws import (
     fit_family_skaling_law,
     fit_power_law,
     fit_sigmoid_law,
     read_best_runs,
 )
+from chess_engine_4.hardware import hardware_dollars_per_second
+from chess_engine_4.model import model_parameter_count
+from chess_engine_4.training.config import load_training_config
+from chess_engine_4.training.families import FAMILIES, FamilySpec
+from chess_engine_4.training.flops import measure_training_flops_per_sample
 
 DEFAULT_OUTPUT = Path("website/src/generated/scaling-laws.json")
 POLICY_ELO_RESULTS = Path("experiments/2026-08-07.01-dense-moe-policy-elo/results.json")

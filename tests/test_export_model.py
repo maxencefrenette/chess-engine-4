@@ -1,14 +1,62 @@
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import torch
 from safetensors import safe_open
 
-from chess_engine_4.training.export_model import (
+from chess_engine_4.release.export import (
     export_checkpoint,
+    export_model,
     exported_dense_model,
     exported_moe_model,
 )
+
+
+def test_export_missing_local_checkpoint_does_not_import_modal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(sys.modules, "chess_engine_4.backends.modal.export", None)
+    monkeypatch.setattr(sys, "argv", ["export-model", str(tmp_path / "missing.pt")])
+    with pytest.raises(SystemExit) as error:
+        export_model()
+    assert error.value.code == 2
+    assert "Local checkpoint not found" in capsys.readouterr().err
+
+
+def test_export_remote_only_requires_explicit_remote(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["export-model", "checkpoint.pt", "--remote-only"])
+    with pytest.raises(SystemExit) as error:
+        export_model()
+    assert error.value.code == 2
+    assert "--remote-only requires --remote" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("remote_only", [False, True])
+def test_export_explicit_remote_delegates_even_if_local_file_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, remote_only: bool
+) -> None:
+    checkpoint = tmp_path / "checkpoint.pt"
+    checkpoint.touch()
+    output = tmp_path / "model.safetensors"
+    calls = []
+
+    def fake_export(checkpoint: Path, output: Path, *, remote_only: bool) -> Path:
+        calls.append((checkpoint, output, remote_only))
+        return output
+
+    adapter = ModuleType("chess_engine_4.backends.modal.export")
+    monkeypatch.setattr(adapter, "export_remote_checkpoint", fake_export, raising=False)
+    monkeypatch.setitem(sys.modules, adapter.__name__, adapter)
+    args = ["export-model", str(checkpoint), "--remote", "--output", str(output)]
+    if remote_only:
+        args.append("--remote-only")
+    monkeypatch.setattr(sys, "argv", args)
+    export_model()
+    assert calls == [(checkpoint, output, remote_only)]
 
 
 def _checkpoint(*, d_model: int = 64) -> dict:

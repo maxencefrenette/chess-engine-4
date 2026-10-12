@@ -210,7 +210,6 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "chess" },
-    { name = "modal" },
     { name = "numpy" },
     { name = "pyiceberg", extra = ["pyarrow", "sql-sqlite"] },
     { name = "python-dotenv" },
@@ -231,6 +230,9 @@ cuda = [
     { name = "pybind11", marker = "sys_platform == 'linux'" },
     { name = "transformer-engine", extra = ["core-cu13", "pytorch"], marker = "sys_platform == 'linux'" },
 ]
+modal = [
+    { name = "modal" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -244,7 +246,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "chess", specifier = ">=1.11" },
-    { name = "modal", specifier = ">=1.4.2" },
+    { name = "modal", marker = "extra == 'modal'", specifier = ">=1.4.2" },
     { name = "ninja", marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = ">=1.13" },
     { name = "numpy", specifier = ">=2.2" },
     { name = "nvidia-cuda-cccl", marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = ">=13.0" },
@@ -261,7 +263,7 @@ requires-dist = [
     { name = "transformer-engine", extras = ["core-cu13", "pytorch"], marker = "sys_platform == 'linux' and extra == 'cuda'", specifier = "==2.17.0" },
     { name = "wandb", specifier = ">=0.26.1" },
 ]
-provides-extras = ["cuda"]
+provides-extras = ["modal", "cuda"]
 
 [package.metadata.requires-dev]
 dev = [

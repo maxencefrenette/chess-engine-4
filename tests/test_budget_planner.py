@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.model import dense_parameter_count
-from chess_engine_4.training.budget_planner import (
+from chess_engine_4.analysis.budget_planner import (
     DEFAULT_ASSUMED_SAMPLES,
     DEFAULT_FAMILIES,
     DEFAULT_MAX_D_MODEL,
@@ -19,9 +18,10 @@ from chess_engine_4.training.budget_planner import (
     read_family_evidence,
     suggest_runs,
 )
+from chess_engine_4.analysis.scaling_laws import SkalingLaw
+from chess_engine_4.model import dense_parameter_count
 from chess_engine_4.training.config import load_training_config
 from chess_engine_4.training.families import FAMILIES, FAMILY_SPECS
-from chess_engine_4.training.scaling_laws import SkalingLaw
 
 
 def planner_inputs():

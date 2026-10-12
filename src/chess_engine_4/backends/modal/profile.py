@@ -11,13 +11,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from chess_engine_4.hardware import TRAINING_GPUS
-from chess_engine_4.modal_train import (
+from chess_engine_4.backends.modal.train import (
     ARTIFACT_VOLUME_NAME,
     REMOTE_ARTIFACT_PATH,
     app,
     training_function,
 )
+from chess_engine_4.hardware import TRAINING_GPUS
 from chess_engine_4.model import KernelBackend
 from chess_engine_4.training.launch import (
     add_training_config_arguments,

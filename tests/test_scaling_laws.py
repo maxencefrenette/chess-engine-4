@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from chess_engine_4.training.scaling_laws import (
+from chess_engine_4.analysis.scaling_laws import (
     SkalingLaw,
     fit_sigmoid_law,
     fit_skaling_law,

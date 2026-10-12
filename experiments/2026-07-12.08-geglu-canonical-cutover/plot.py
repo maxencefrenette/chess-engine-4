@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from chess_engine_4.training.scaling_laws import fit_loss_power_law
+from chess_engine_4.analysis.scaling_laws import fit_loss_power_law
 
 HERE = Path(__file__).parent
 COLORS = {"swiglu": "#2563eb", "geglu": "#dc2626"}

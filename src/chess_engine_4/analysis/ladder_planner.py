@@ -7,7 +7,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from chess_engine_4.training.budget_planner import (
+from chess_engine_4.analysis.budget_planner import (
     DEFAULT_BOOTSTRAP_SAMPLES,
     DEFAULT_DATASET,
     DEFAULT_FOCUS_BUDGET,

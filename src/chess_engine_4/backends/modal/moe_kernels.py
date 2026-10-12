@@ -8,6 +8,8 @@ from typing import Any
 
 import modal
 
+from chess_engine_4.backends.modal.kernel_image import with_cuda_kernels
+from chess_engine_4.backends.modal.train import app, base_image
 from chess_engine_4.hardware import (
     gpu_spec,
     hardware_dollars_per_second,
@@ -19,8 +21,6 @@ from chess_engine_4.kernels.benchmarking import (
     named_tensor_metrics,
     tensor_metrics,
 )
-from chess_engine_4.kernels.modal import with_cuda_kernels
-from chess_engine_4.modal_train import app, base_image
 
 ACTIVE_EXPERTS = 2
 EXPERT_COUNT = 64

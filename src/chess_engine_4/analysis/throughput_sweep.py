@@ -19,10 +19,6 @@ from chess_engine_4.hardware import (
     gpu_spec,
     hardware_dollars_per_second,
 )
-from chess_engine_4.modal_train import (
-    app,
-    training_function,
-)
 from chess_engine_4.model import model_parameter_count
 from chess_engine_4.model.config import KernelBackend, Precision
 from chess_engine_4.training.config import (
@@ -219,6 +215,8 @@ def run_modal_profiles(
     warmup_steps: int,
     profile_steps: int,
 ) -> tuple[dict[int, dict[str, Any]], list[str]]:
+    from chess_engine_4.backends.modal.train import app, training_function
+
     function_keys = {
         (
             configs[width].infra.cpu_cores,

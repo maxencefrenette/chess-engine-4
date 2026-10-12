@@ -24,11 +24,12 @@ def test_policy_config_builds_connected_opening_waves() -> None:
 
     first = select_pairings(engines, [], 0, tournament.games_per_matchup)
     second = select_pairings(engines, [], 1, tournament.games_per_matchup)
-    payloads = build_match_payloads(tournament, first, 0)
+    payloads = build_match_payloads(tournament, first, 0, lc0_path="/local/lc0")
 
     assert len(engines) == 13
     assert len(first) == len(second) == 6
     assert all(payload["visits"] is None for payload in payloads)
+    assert all(payload["lc0_path"] == "/local/lc0" for payload in payloads)
     assert all(payload["policy_mode_size"] == 256 for payload in payloads)
     assert all(
         payload["opening_book"].endswith("UHO_Lichess_4852_v1.pgn")

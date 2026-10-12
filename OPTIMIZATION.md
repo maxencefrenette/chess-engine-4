@@ -1,25 +1,16 @@
 # Optimization Notes
 
-## Experiment Rules
-
-Keep the loss configuration fixed unless the training target itself is under
-study. Model-quality experiments may change the model, run, and optimizer.
+Experiment and promotion rules are maintained in [AGENTS.md](AGENTS.md#experiments).
 Infrastructure settings should only reduce cost or wall-clock time for an
-otherwise identical run.
+otherwise identical run. Research CLI usage is in [docs/research.md](docs/research.md).
 
-Compare completed runs with `uv run compare-run WANDB_URL`. The command fits loss
-against actual training FLOPs from the current best runs and reports `EG_flops`:
+These implementation choices were established by the recorded cloud experiments.
+They remain unchanged by the local-first package reorganization; they are not
+new throughput measurements or VRAM-fit guarantees for the local GPU.
 
-```text
-EG_flops = fitted FLOPs required for the observed loss / actual training FLOPs
-```
-
-Values above `1x` beat the fitted frontier. At an existing width, promote a run
-when its `EG_flops` exceeds the incumbent run's value. Learning-rate tuning may
-select or fit only runs without loss spikes, and the selected learning rate must
-be spike-free. For experiments tuning other parameters, record any loss spikes
-and whether training returned to trend, but do not use the spikes to reject the
-parameter result. Retune learning rate for the selected configuration afterward.
+`compare-run` reports `EG_flops`: fitted training FLOPs required to reach the
+observed loss divided by the run's actual FLOPs. Values above `1x` beat the
+fitted frontier.
 
 ## Transformer Engine
 

@@ -1,13 +1,17 @@
 from pathlib import Path
 
-from chess_engine_4.modal_eval import (
-    LC0_SM90_REMOTE_PATH,
+import pytest
+
+pytest.importorskip("modal", reason="Install the modal extra to test cloud adapters")
+
+from chess_engine_4.backends.modal.eval import (
     OPENING_BOOK_PATH,
     _fastchess_command,
     _parse_fastchess_pair_scores,
     _selfplay_command,
     lc0_path_for_gpu,
 )
+from chess_engine_4.backends.modal.paths import LC0_SM90_REMOTE_PATH
 
 
 def test_fastchess_command_uses_sequential_paired_openings() -> None:

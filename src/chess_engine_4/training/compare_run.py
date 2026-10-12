@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from chess_engine_4.training.scaling_laws import (
+from chess_engine_4.analysis.scaling_laws import (
     DEFAULT_BEST_RUNS,
     fit_family_skaling_law,
     read_best_runs,

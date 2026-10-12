@@ -12,6 +12,11 @@ from typing import Any
 
 import numpy as np
 
+from chess_engine_4.analysis.scaling_laws import (
+    SkalingLaw,
+    fit_skaling_law,
+    read_scaling_points,
+)
 from chess_engine_4.hardware import hardware_dollars_per_second
 from chess_engine_4.model import DenseChessNetConfig, dense_parameter_count
 from chess_engine_4.training.config import TrainingConfig, load_training_config
@@ -21,11 +26,6 @@ from chess_engine_4.training.dense_schedule import (
 )
 from chess_engine_4.training.families import FAMILIES, FamilySpec
 from chess_engine_4.training.flops import measure_training_flops_per_sample
-from chess_engine_4.training.scaling_laws import (
-    SkalingLaw,
-    fit_skaling_law,
-    read_scaling_points,
-)
 
 DEFAULT_DATASET = Path("experiments/training-data.toml")
 DEFAULT_ASSUMED_SAMPLES = 25_000_000_000

@@ -1,4 +1,4 @@
-"""Portable dense model used for meta-device profiling and CPU tests."""
+"""Portable reference models for CPU tests and meta-device FLOP measurement."""
 
 from __future__ import annotations
 

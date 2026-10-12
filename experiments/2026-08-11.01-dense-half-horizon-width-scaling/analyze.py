@@ -8,7 +8,7 @@ import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from chess_engine_4.training.scaling_laws import SkalingLaw, fit_skaling_law
+from chess_engine_4.analysis.scaling_laws import SkalingLaw, fit_skaling_law
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).parent

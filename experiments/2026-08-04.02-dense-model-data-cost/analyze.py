@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import brentq, least_squares
 
-from chess_engine_4.training.scaling_laws import (
+from chess_engine_4.analysis.scaling_laws import (
     UndertrainingLossLaw,
     fit_loss_power_law,
     fit_undertraining_loss_law,

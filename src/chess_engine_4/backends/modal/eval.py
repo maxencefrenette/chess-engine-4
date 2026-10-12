@@ -15,6 +15,10 @@ from typing import Any, cast
 
 import modal
 
+from chess_engine_4.backends.modal.paths import (
+    lc0_path_for_gpu,
+)
+from chess_engine_4.evaluation.defaults import OPENING_BOOK_PATH
 from chess_engine_4.hardware import modal_gpu_identifier
 
 APP_NAME = "chess-engine-4-eval"
@@ -22,7 +26,6 @@ ARTIFACT_VOLUME_NAME = "chess-engine-4-artifacts"
 REMOTE_ARTIFACT_PATH = "/artifacts"
 REMOTE_LEELA_PATH = Path(REMOTE_ARTIFACT_PATH) / "leela"
 REMOTE_EVAL_PATH = Path(REMOTE_ARTIFACT_PATH) / "evals"
-OPENING_BOOK_PATH = Path(REMOTE_ARTIFACT_PATH) / "books" / "UHO_Lichess_4852_v1.pgn"
 BT4_URL = "https://storage.lczero.org/files/networks-contrib/big-transformers/BT4-1740.pb.gz"
 BT4_REMOTE_PATH = REMOTE_LEELA_PATH / "BT4-1740.pb.gz"
 
@@ -31,9 +34,6 @@ FASTCHESS_URL = (
     f"https://github.com/Disservin/fastchess/releases/download/v{FASTCHESS_VERSION}/"
     "fastchess-linux-x86-64.tar"
 )
-LC0_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm120"
-LC0_SM80_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm80"
-LC0_SM90_REMOTE_PATH = Path(REMOTE_ARTIFACT_PATH) / "bin" / "lc0-sm90"
 EVALUATION_GPUS = ("A100", "H100", "H200", "RTX-PRO-6000")
 RUNTIME_LIBRARY_PATH = "/usr/local/cuda/lib64"
 
@@ -588,16 +588,6 @@ def backendbench_function(gpu: str, *, max_containers: int) -> modal.Function:
         max_containers=max_containers,
         name=f"backendbench_{gpu.lower()}",
     )(_run_backendbench_remote)
-
-
-def lc0_path_for_gpu(gpu: str) -> Path:
-    if gpu == "A100":
-        return LC0_SM80_REMOTE_PATH
-    if gpu in {"H100", "H200"}:
-        return LC0_SM90_REMOTE_PATH
-    if gpu == "RTX-PRO-6000":
-        return LC0_REMOTE_PATH
-    raise ValueError(f"Unsupported evaluation GPU {gpu!r}.")
 
 
 def _fastchess_command(payload: dict[str, Any], pgn_path: Path) -> list[str]:

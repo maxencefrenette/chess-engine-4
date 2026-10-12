@@ -2,7 +2,8 @@ This is the public scaling-laws website for `chess-engine-4`.
 
 The Python package remains at the repository root. This top-level `website/`
 folder is a separate Next.js app. Python derives a gitignored JSON payload from
-the canonical experiment summaries and model-family recipes.
+the canonical experiment summaries and model-family recipes. The generator and
+scaling fits live in `src/chess_engine_4/analysis/`; no Modal SDK is needed.
 
 Generate that disposable build artifact directly with:
 

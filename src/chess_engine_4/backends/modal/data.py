@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from chess_engine_4.modal_train import (
+from chess_engine_4.backends.modal.train import (
     REMOTE_DATA_PATH,
     REMOTE_PARQUET_DATA_PATH,
     app,

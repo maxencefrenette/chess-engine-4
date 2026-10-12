@@ -1,8 +1,19 @@
 # Chess Engine 4
 
-This repository trains LCZero-compatible networks on Modal. The Python package
-at the repository root is the primary project; `website/` is a static dashboard
-for canonical experiment results.
+This repository trains models locally and publishes them for the project's
+custom lc0 engine (`ce4` backend). The Python package at the repository root is
+the primary project; `website/` presents canonical experiments and releases.
+Modal is an optional execution backend, not a dependency of local workflows.
+
+## Layout
+
+- `training/`, `model/`, and `data/` hold the local training runtime.
+- `release/` exports weights for our custom lc0 engine; stock-lc0 compatibility
+  is not a release target.
+- `evaluation/` holds reusable evaluation helpers; `backends/modal/` owns cloud jobs.
+- `analysis/` holds research planners, scaling fits, and dashboard generation.
+- Keep optional backend imports out of local import paths. Preserve historical
+  reports and command names when reorganizing code.
 
 ## Training
 
@@ -54,9 +65,14 @@ change, run:
 
 ```sh
 uv run pytest -q
+uv run --extra modal pytest -q
 uv run ruff check .
 uv run ty check
 pnpm --dir website lint
 pnpm --dir website build
 git diff --check
 ```
+
+The base suite skips tests that require the optional Modal SDK. Include the
+Modal-extra run when changing cloud adapters or package boundaries; it tests
+local helpers without launching cloud jobs. See `docs/development.md` for setup.

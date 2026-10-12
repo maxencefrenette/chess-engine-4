@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from chess_engine_4.training.ladder_planner import read_ladder
+from chess_engine_4.analysis.ladder_planner import read_ladder
 
 
 def test_dense_ladder_is_the_declared_l_shape() -> None:

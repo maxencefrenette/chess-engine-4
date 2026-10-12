@@ -19,8 +19,8 @@ from chess_engine_4.model import (
     moe64a2_parameter_count,
 )
 from chess_engine_4.model.dense import normalize_lc0_planes
-from chess_engine_4.model.export import PortableChessNet
 from chess_engine_4.model.moe import _quantile_balancing_update, _route_slots
+from chess_engine_4.model.reference import PortableChessNet
 from chess_engine_4.training.losses import (
     LossWeights,
     lczero_loss,

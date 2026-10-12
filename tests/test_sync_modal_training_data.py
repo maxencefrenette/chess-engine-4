@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("modal", reason="Install the modal extra to test cloud adapters")
+
 SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "sync_modal_training_data.py"
 SPEC = importlib.util.spec_from_file_location("sync_modal_training_data", SCRIPT_PATH)
 assert SPEC is not None

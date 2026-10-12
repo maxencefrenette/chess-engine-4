@@ -8,7 +8,7 @@ import torch
 
 from chess_engine_4.data.leela import COMPACT_POLICY_SIZE
 from chess_engine_4.model import ModelConfig, Moe64A2ChessNetConfig
-from chess_engine_4.model.export import PortableChessNet, PortableMoeFlopsNet
+from chess_engine_4.model.reference import PortableChessNet, PortableMoeFlopsNet
 from chess_engine_4.training.losses import lczero_loss
 
 
